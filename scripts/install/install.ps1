@@ -29,11 +29,27 @@ function Say  { param($m) Write-Host "install: $m" }
 function Warn { param($m) Write-Host "install: WARNING: $m" -ForegroundColor Yellow }
 function Fail { param($m) Write-Host "install: ERROR: $m" -ForegroundColor Red; exit 1 }
 
-# Runs $Block with a rotating spinner next to $Message while it's in a
-# background job — for steps with no byte total to show (npm install), the
-# PowerShell counterpart to install.sh's spin(). Falls back to a plain
-# "$Message..." line with no live redraw when output isn't a real console
-# (piped install, CI) since \r redraws would just spam a log with junk.
+# Builds a $Width-column bar with a $Block-wide highlighted segment that
+# slides back and forth (ping-pong) as $I increases — the indeterminate-
+# progress analog of Format-DownloadBar below, for steps with no byte
+# total to measure against (npm install). Not a percentage — there's
+# nothing to measure it against — but visually one system with the
+# byte-tracked download bar instead of a bare spinner character.
+function Format-IndeterminateBar {
+  param([int]$I, [int]$Width, [int]$Block)
+  $range = $Width - $Block
+  $period = $range * 2
+  $pos = $I % $period
+  if ($pos -gt $range) { $pos = $period - $pos }
+  return ("." * $pos) + ("=" * $Block) + ("." * ($Width - $pos - $Block))
+}
+
+# Runs $Block with an indeterminate sliding bar next to $Message while
+# it's in a background job — for steps with no byte total to show (npm
+# install), the PowerShell counterpart to install.sh's spin(). Falls back
+# to a plain "$Message..." line with no live redraw when output isn't a
+# real console (piped install, CI) since \r redraws would just spam a log
+# with junk.
 function Spin {
   param([string]$Message, [scriptblock]$Block)
   if ([Console]::IsOutputRedirected) {
@@ -42,16 +58,16 @@ function Spin {
     return
   }
   $job = Start-Job -ScriptBlock $Block
-  $frames = '|', '/', '-', '\'
+  $width = 20; $block = 6
   $i = 0
   while ($job.State -eq "Running") {
-    Write-Host -NoNewline ("`r{0} {1}" -f $Message, $frames[$i % 4])
+    Write-Host -NoNewline ("`r{0} [{1}]" -f $Message, (Format-IndeterminateBar -I $i -Width $width -Block $block))
     $i++
     Start-Sleep -Milliseconds 100
   }
   Receive-Job -Job $job -Wait -AutoRemoveJob | Out-Null
   $ok = $job.State -eq "Completed"
-  Write-Host -NoNewline ("`r{0}`r" -f (" " * ($Message.Length + 2)))
+  Write-Host -NoNewline ("`r{0}`r" -f (" " * ($Message.Length + $width + 4)))
   if (-not $ok) { throw "$Message failed" }
 }
 
@@ -254,7 +270,18 @@ if ($missingPython -or $missingPypdf) {
 }
 
 if (-not $py) { Fail "Python 3 is required. Install from https://www.python.org/ (check 'Add to PATH')." }
-function Py { param([string[]]$a) & $py[0] @($py[1..($py.Length-1)] + $a) }
+# Named Invoke-Python, not the shorter "Py" the call sites below originally
+# used: PowerShell command-name resolution is case-insensitive and prefers
+# functions over external executables, so a function literally named `Py`
+# self-invoked instead of the real py.exe launcher whenever Find-Python
+# picked the `py` launcher (`$py[0]` -eq "py", "-3") — the standard outcome
+# for anyone who installed Python from python.org or via winget, i.e. most
+# Windows users. `& $py[0] ...` resolved to this very function instead of
+# the launcher, recursing until PowerShell's call-depth limit tripped
+# ("CallDepthOverflow"), hanging every fresh Windows install right at the
+# first call site (agent-definition generation, step 6). A verb-noun name
+# can never collide with a real Windows command.
+function Invoke-Python { param([string[]]$a) & $py[0] @($py[1..($py.Length-1)] + $a) }
 
 # --- 2. Live configs from examples -------------------------------------------
 if (Test-Path "config\targets.json") {
@@ -386,10 +413,10 @@ if ((Get-Command claude -ErrorAction SilentlyContinue) -and -not (Test-Path ".cl
 }
 
 # --- 6. Agent definitions ----------------------------------------------------
-Py @("scripts\validate\generate_agent_definitions.py")
+Invoke-Python @("scripts\validate\generate_agent_definitions.py")
 
 # --- 7. Validate -------------------------------------------------------------
-Py @("scripts\validate\validate_local_config.py")
+Invoke-Python @("scripts\validate\validate_local_config.py")
 if ($LASTEXITCODE -eq 0) {
   Say "config valid."
 } else {

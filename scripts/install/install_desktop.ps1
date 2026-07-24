@@ -27,11 +27,26 @@ function Say  { param($m) Write-Host "install-desktop: $m" }
 function Warn { param($m) Write-Host "install-desktop: WARNING: $m" -ForegroundColor Yellow }
 function Fail { param($m) Write-Host "install-desktop: ERROR: $m" -ForegroundColor Red; exit 1 }
 
-# Runs $Block with a rotating spinner next to $Message while it's in a
-# background job — for steps with no byte total to show (npm install,
-# cargo build), unlike the prebuilt-bundle download below which uses
-# Get-FileWithProgress instead. Falls back to a plain "$Message..." line
-# with no live redraw when output isn't a real console.
+# Builds a $Width-column bar with a $Block-wide highlighted segment that
+# slides back and forth (ping-pong) as $I increases — the indeterminate-
+# progress analog of Format-DownloadBar below, for steps with no byte
+# total to measure against (npm install, cargo build). Not a percentage —
+# there's nothing to measure it against — but visually one system with
+# the byte-tracked download bar instead of a bare spinner character.
+function Format-IndeterminateBar {
+  param([int]$I, [int]$Width, [int]$Block)
+  $range = $Width - $Block
+  $period = $range * 2
+  $pos = $I % $period
+  if ($pos -gt $range) { $pos = $period - $pos }
+  return ("." * $pos) + ("=" * $Block) + ("." * ($Width - $pos - $Block))
+}
+
+# Runs $Block with an indeterminate sliding bar next to $Message while
+# it's in a background job — for steps with no byte total to show (npm
+# install, cargo build), unlike the prebuilt-bundle download below which
+# uses Get-FileWithProgress instead. Falls back to a plain "$Message..."
+# line with no live redraw when output isn't a real console.
 function Spin {
   param([string]$Message, [scriptblock]$Block)
   if ([Console]::IsOutputRedirected) {
@@ -40,16 +55,16 @@ function Spin {
     return
   }
   $job = Start-Job -ScriptBlock $Block
-  $frames = '|', '/', '-', '\'
+  $width = 20; $block = 6
   $i = 0
   while ($job.State -eq "Running") {
-    Write-Host -NoNewline ("`r{0} {1}" -f $Message, $frames[$i % 4])
+    Write-Host -NoNewline ("`r{0} [{1}]" -f $Message, (Format-IndeterminateBar -I $i -Width $width -Block $block))
     $i++
     Start-Sleep -Milliseconds 100
   }
   Receive-Job -Job $job -Wait -AutoRemoveJob | Out-Null
   $ok = $job.State -eq "Completed"
-  Write-Host -NoNewline ("`r{0}`r" -f (" " * ($Message.Length + 2)))
+  Write-Host -NoNewline ("`r{0}`r" -f (" " * ($Message.Length + $width + 4)))
   if (-not $ok) { throw "$Message failed" }
 }
 

@@ -27,13 +27,32 @@ say()  { echo "install: $*"; }
 warn() { echo "install: WARNING: $*" >&2; }
 fail() { echo "install: ERROR: $*" >&2; exit 1; }
 
-# Runs "$@" with a rotating spinner next to $1 (the message) while it's in
-# the background — for steps with no byte total to show (npm install, a
-# package manager resolving deps), unlike the tarball download below
-# which uses download_with_progress instead. Falls back to a plain
-# "$msg..." line with no live redraw when stdout isn't a TTY (piped
-# install, CI, a log file) — \r redraws would just spam a log with junk
-# rather than animate.
+# Builds a $2-column bar with a $3-wide highlighted segment that slides
+# back and forth (ping-pong) as $1 increases — the indeterminate-progress
+# analog of _draw_download_bar below, for steps with no byte total to
+# measure against (npm install, a tsc build). Not a percentage — there's
+# nothing to measure it against — but visually one system with the
+# byte-tracked download bar instead of a bare spinner character.
+_indeterminate_bar() {
+  local i="$1" width="$2" block="$3"
+  local range=$(( width - block ))
+  local period=$(( range * 2 ))
+  local pos=$(( i % period ))
+  [ "$pos" -gt "$range" ] && pos=$(( period - pos ))
+  local bar
+  bar="$(printf '%*s' "$pos" '' | tr ' ' '.')"
+  bar="${bar}$(printf '%*s' "$block" '' | tr ' ' '=')"
+  bar="${bar}$(printf '%*s' "$((width - pos - block))" '' | tr ' ' '.')"
+  printf '%s' "$bar"
+}
+
+# Runs "$@" with an indeterminate sliding bar next to $1 (the message)
+# while it's in the background — for steps with no byte total to show
+# (npm install, a package manager resolving deps), unlike the tarball
+# download below which uses download_with_progress instead. Falls back to
+# a plain "$msg..." line with no live redraw when stdout isn't a TTY
+# (piped install, CI, a log file) — \r redraws would just spam a log with
+# junk rather than animate.
 spin() {
   local msg="$1"; shift
   if [ ! -t 1 ]; then
@@ -43,16 +62,16 @@ spin() {
   fi
   "$@" &
   local pid=$!
-  local frames='|/-\'
+  local width=20 block=6
   local i=0
   while kill -0 "$pid" 2>/dev/null; do
-    printf '\r%s %s' "$msg" "${frames:$((i % 4)):1}"
+    printf '\r%s [%s]' "$msg" "$(_indeterminate_bar "$i" "$width" "$block")"
     i=$((i + 1))
     sleep 0.1
   done
   wait "$pid"
   local rc=$?
-  printf '\r%*s\r' "$((${#msg} + 2))" ""
+  printf '\r%*s\r' "$((${#msg} + width + 4))" ""
   return $rc
 }
 

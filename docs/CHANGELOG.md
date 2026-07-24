@@ -7,6 +7,33 @@ but trimmed to fit a small in-repo doc.
 > Per-`docs/RELEASE.md` is the canonical, deep-dive release
 > document for each tagged build. This file is the index.
 
+## [0.9.88a] — 2026-07-24
+
+npm package: `@keshm/aplyx` version `0.9.88-alpha.0`. Full notes:
+[`RELEASE.md`](./RELEASE.md).
+
+### Fixed
+
+- **Windows install completely hung** at the agent-definitions step
+  (right after the resumes-folder message), every time, via both the
+  `irm | iex` one-liner and the npm-installed `aplyx` bootstrap (both
+  ultimately run `install.ps1`) — reported stuck with no way past it.
+  Root cause: a helper function named `Py` called the real Python
+  launcher via `& $py[0] ...`, and when `Find-Python` picked the `py`
+  launcher (`$py[0]` -eq `"py"` — the standard outcome for anyone who
+  installed Python from python.org or via winget, i.e. most Windows
+  users), PowerShell's case-insensitive command resolution preferred
+  the function over the external `py.exe`, so `Py` called itself
+  instead of Python — recursing until the interpreter's call-depth
+  limit tripped (`CallDepthOverflow`). Renamed to `Invoke-Python`, a
+  verb-noun name that can't collide with a real Windows command.
+- `install.sh`/`install_desktop.sh` and their PowerShell equivalents'
+  npm-install/build steps (which have no byte total to track) now show
+  an indeterminate sliding bar — `[..===..........]`, bouncing back and
+  forth — instead of a bare rotating `|/-\` spinner character, so every
+  long-running installer step reads as one consistent bar-based system
+  rather than two different progress idioms.
+
 ## [0.9.87a] — 2026-07-24
 
 npm package: `@keshm/aplyx` version `0.9.87-alpha.0`. Full notes:
