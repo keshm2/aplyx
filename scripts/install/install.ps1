@@ -29,6 +29,96 @@ function Say  { param($m) Write-Host "install: $m" }
 function Warn { param($m) Write-Host "install: WARNING: $m" -ForegroundColor Yellow }
 function Fail { param($m) Write-Host "install: ERROR: $m" -ForegroundColor Red; exit 1 }
 
+# Runs $Block with a rotating spinner next to $Message while it's in a
+# background job — for steps with no byte total to show (npm install), the
+# PowerShell counterpart to install.sh's spin(). Falls back to a plain
+# "$Message..." line with no live redraw when output isn't a real console
+# (piped install, CI) since \r redraws would just spam a log with junk.
+function Spin {
+  param([string]$Message, [scriptblock]$Block)
+  if ([Console]::IsOutputRedirected) {
+    Write-Host "$Message..."
+    & $Block
+    return
+  }
+  $job = Start-Job -ScriptBlock $Block
+  $frames = '|', '/', '-', '\'
+  $i = 0
+  while ($job.State -eq "Running") {
+    Write-Host -NoNewline ("`r{0} {1}" -f $Message, $frames[$i % 4])
+    $i++
+    Start-Sleep -Milliseconds 100
+  }
+  Receive-Job -Job $job -Wait -AutoRemoveJob | Out-Null
+  $ok = $job.State -eq "Completed"
+  Write-Host -NoNewline ("`r{0}`r" -f (" " * ($Message.Length + 2)))
+  if (-not $ok) { throw "$Message failed" }
+}
+
+function Get-ContentLength {
+  param([string]$Url)
+  try {
+    $resp = Invoke-WebRequest -Uri $Url -Method Head -UseBasicParsing -ErrorAction Stop
+    $len = $resp.Headers['Content-Length']
+    if ($len) { return [int64]$len }
+  } catch {}
+  return 0
+}
+
+# Renders a fixed-width [====>.....] bar plus "current/total" in MB
+# (decimal) for $Current/$Total bytes into $Width columns. $Total <= 0
+# (Content-Length wasn't available) degrades to a bytes-downloaded
+# counter with no bar/percentage.
+function Format-DownloadBar {
+  param([int64]$Current, [int64]$Total, [int]$Width)
+  $filled = 0
+  if ($Total -gt 0) {
+    $filled = [Math]::Min($Width, [Math]::Floor($Current * $Width / $Total))
+  }
+  $bar = ""
+  if ($filled -gt 0) { $bar = ("=" * ($filled - 1)) + ">" }
+  $bar += "." * ($Width - $filled)
+  $curMb = [Math]::Floor($Current / 1000000)
+  if ($Total -gt 0) {
+    $totMb = [Math]::Floor($Total / 1000000)
+    return "[$bar] ${curMb}MB/${totMb}MB "
+  }
+  return "[$bar] ${curMb}MB downloaded "
+}
+
+# Downloads $Url to $OutFile with a live byte-tracked bar — a HEAD request
+# gets the total size, a background job does the real download, and this
+# polls the growing file's size to redraw the bar. Falls back to a single
+# "downloading..." line with no live redraw when output isn't a real
+# console, same reasoning as Spin.
+function Get-FileWithProgress {
+  param([string]$Url, [string]$OutFile)
+  $total = Get-ContentLength -Url $Url
+  if ([Console]::IsOutputRedirected) {
+    Write-Host "downloading $(Split-Path -Leaf $OutFile)..."
+    Invoke-WebRequest -Uri $Url -OutFile $OutFile -UseBasicParsing
+    return
+  }
+  $job = Start-Job -ScriptBlock {
+    param($u, $o)
+    $ProgressPreference = "SilentlyContinue"
+    Invoke-WebRequest -Uri $u -OutFile $o -UseBasicParsing
+  } -ArgumentList $Url, $OutFile
+  $width = 30
+  while ($job.State -eq "Running") {
+    $current = 0
+    if (Test-Path $OutFile) { $current = (Get-Item $OutFile).Length }
+    Write-Host -NoNewline ("`r" + (Format-DownloadBar -Current $current -Total $total -Width $width))
+    Start-Sleep -Milliseconds 200
+  }
+  Receive-Job -Job $job -Wait -AutoRemoveJob | Out-Null
+  $ok = $job.State -eq "Completed"
+  $current = 0
+  if (Test-Path $OutFile) { $current = (Get-Item $OutFile).Length }
+  Write-Host ("`r" + (Format-DownloadBar -Current $current -Total $total -Width $width))
+  if (-not $ok) { throw "download failed: $Url" }
+}
+
 function Find-Python {
   foreach ($c in @(@("py","-3"), @("python"), @("python3"))) {
     $exe = $c[0]
@@ -63,7 +153,7 @@ if (-not $projectRoot) {
   # Gitignored local state (config\*.json, data\, logs\, docs\PLAN.md)
   # isn't in the tarball, so it's left untouched.
   $tgz = Join-Path $env:TEMP ("aplyx-" + [System.Guid]::NewGuid().ToString() + ".tar.gz")
-  Invoke-WebRequest -UseBasicParsing -Uri "https://codeload.github.com/keshm2/aplyx/tar.gz/refs/heads/main" -OutFile $tgz
+  Get-FileWithProgress -Url "https://codeload.github.com/keshm2/aplyx/tar.gz/refs/heads/main" -OutFile $tgz
   # tar.exe ships with Windows 10+; --strip-components drops the top dir.
   & tar.exe -xzf $tgz --strip-components=1 -C $target
   if ($LASTEXITCODE -ne 0) { Fail "failed to unpack the source tarball (needs Windows 10+ tar.exe)" }
@@ -314,13 +404,18 @@ function Build-NodeSurface {
     Say "$Label already installed."
     return
   }
-  Say "building $Label ($Dir/) ..."
-  Push-Location $Dir
-  & npm install --silent
-  if ($LASTEXITCODE -eq 0) { & npm run build --silent }
-  $ok = ($LASTEXITCODE -eq 0)
-  Pop-Location
-  if ($ok) { Say "$Label ready." } else { Warn "$Label build failed - see docs/SETUP.md." }
+  try {
+    Spin -Message "building $Label ($Dir/)" -Block {
+      Push-Location $using:Dir
+      & npm install --silent
+      if ($LASTEXITCODE -ne 0) { throw "npm install failed" }
+      & npm run build --silent
+      if ($LASTEXITCODE -ne 0) { throw "npm run build failed" }
+    }
+    Say "$Label ready."
+  } catch {
+    Warn "$Label build failed - see docs/SETUP.md."
+  }
 }
 
 if (Get-Command npm -ErrorAction SilentlyContinue) {
@@ -332,8 +427,10 @@ if (Get-Command npm -ErrorAction SilentlyContinue) {
   # Stop gotcha noted by the Python check above; this step must only warn,
   # never abort the rest of the installer.
   try {
-    npm run build:core --silent
-    if ($LASTEXITCODE -ne 0) { Warn "core build failed - the TUI build below will likely fail too. See docs/SETUP.md." }
+    Spin -Message "building the shared core" -Block {
+      npm run build:core --silent
+      if ($LASTEXITCODE -ne 0) { throw "core build failed" }
+    }
   } catch {
     Warn "core build failed - the TUI build below will likely fail too. See docs/SETUP.md."
   }

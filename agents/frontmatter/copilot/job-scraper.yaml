@@ -1,0 +1,7 @@
+name: job-scraper
+description: >
+  Orchestrates automated job application runs. Scrapes job boards,
+  deduplicates against history, delegates tailoring to @resume-tailor,
+  submits applications via Playwright, and delegates reporting to
+  @discord-reporter. Use this agent for any job search automation task.
+user-invocable: true

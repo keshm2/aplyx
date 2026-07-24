@@ -247,8 +247,8 @@ the helpers or prompts.
 
 | Capability | opencode | Claude Code | Codex CLI | Copilot CLI |
 | --- | --- | --- | --- | --- |
-| Subagent registry (`@resume-tailor`, `@discord-reporter`, `@interest-letter`) | yes (`.opencode/agents/`) | yes (`.claude/agents/`) | no → inline fallback | no → inline fallback |
-| Interest-letter drafting (pure text, no browser) | yes | yes | yes (inline) | yes (inline) |
+| Subagent registry (`@resume-tailor`, `@discord-reporter`, `@interest-letter`) | yes (`.opencode/agents/`) | yes (`.claude/agents/`) | no → inline fallback (`.codex/agents/*.toml` generated for forward-compat, but `codex exec` cannot spawn a named subagent from it — [openai/codex#15250](https://github.com/openai/codex/issues/15250)) | conditional (`.github/agents/`, `copilot --agent <name>`) — probed at runtime (`_copilot_has_agent_flag`); an older CLI without `--agent` falls back to inline the same as Codex |
+| Interest-letter drafting (pure text, no browser) | yes | yes | yes (inline) | yes (registry or inline, per the probe above) |
 | Browser automation (Playwright MCP) | yes (`opencode.jsonc`) | yes (`.mcp.json`) | no by default → API-boards path | no by default → API-boards path |
 | Shell / helper execution | yes | yes | yes (user's sandbox/approval config) | yes (`--allow-all-tools`) |
 | File read/write | yes | yes | yes | yes |
@@ -260,6 +260,20 @@ the helpers or prompts.
 agent works on all four harnesses by construction rather than by remembering
 four call sites. Do not add a harness branch anywhere else.
 
+**On the subagent-registry gap (2026-07-24 update):** Codex CLI and
+Copilot CLI both gained real custom-agent/subagent support after this
+matrix was first written, and `scripts/validate/generate_agent_definitions.py`
+now generates `.codex/agents/*.toml` and `.github/agents/*.md` alongside
+the existing `.opencode/agents/`/`.claude/agents/` output — same sources
+(`agents/bodies/`, `agents/frontmatter/<harness>/`), same drift-check
+discipline. Copilot's registry is actually wired into `agent_command`
+(behind the `--agent`-support probe above); Codex's is generated but
+deliberately **not** wired in, because `codex exec` — the non-interactive
+mode this project actually uses — has no working way to invoke a named
+subagent from `.codex/agents/` yet. Revisit `_HAS_REGISTRY` /
+`agent_command`'s codex branch once that ships upstream; don't assume it
+has just because the TOML files exist.
+
 **Degraded paths (mandatory when the capability is missing):**
 
 - **No subagent registry** — when the workflow delegates to
@@ -267,7 +281,8 @@ four call sites. Do not add a harness branch anywhere else.
   `agents/bodies/<name>.md` and perform that role inline, following
   it exactly. Helper calls, routing rules, and state writes are
   unchanged. `harness_adapter.agent_command` builds this preamble
-  automatically for codex/copilot.
+  automatically for Codex, and for Copilot when the `--agent`
+  probe fails.
 - **No browser automation** — fetch and process **API-fed boards
   only** (Ashby, Lever, SimplifyJobs, Workday CXS). Any job whose
   application would require a browser is routed to `needs_review`
@@ -276,7 +291,16 @@ four call sites. Do not add a harness branch anywhere else.
   applied_jobs/review-queue/record-event/Discord flow as every
   other needs_review outcome. **Never** silently skip such a job,
   never attempt a browser apply without browser tools, and never
-  fork the business logic to compensate.
+  fork the business logic to compensate. Deliberately not attempted
+  for Codex/Copilot even though both can now reach external MCP
+  servers in principle: Codex's non-interactive MCP tool calls are
+  auto-cancelled unless launched with
+  `--dangerously-bypass-approvals-and-sandbox` (a flag whose name is
+  reason enough to not use it for a tool that submits real
+  applications), and Copilot CLI has an open bug where a custom/sub
+  agent invoked headlessly doesn't receive its configured MCP tool
+  connections at all — the API-boards degraded path is the actually
+  safer and more reliable choice today, not a shortcut.
 - A degraded harness must not degrade the core: if a capability gap
   cannot be routed to `needs_review`, stop and report rather than
   improvising a weaker flow.

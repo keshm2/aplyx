@@ -112,7 +112,7 @@ export function HistoryScreen({
             return (
               <Text key={`${job.job_id}-${idx}`} wrap="truncate-end">
                 {`${marker} `}
-                <Text color={statusColor[job.status] ?? "white"}>{`${glyph} ${job.status.padEnd(13)}`}</Text>
+                <Text color={statusColor(job.status) ?? "white"}>{`${glyph} ${job.status.padEnd(13)}`}</Text>
                 <Text dimColor>{` ${job.date_applied}  `}</Text>
                 {`${job.company} — ${job.title}`}
                 {atsTail ? <Text dimColor>{atsTail}</Text> : null}
@@ -131,7 +131,7 @@ export function HistoryScreen({
                 <PaneRow
                   label="status"
                   value={`${statusGlyph[selected.status] ?? "•"} ${selected.status}`}
-                  color={statusColor[selected.status]}
+                  color={statusColor(selected.status)}
                 />
                 <PaneRow label="date" value={selected.date_applied} />
                 {typeof selected.ats_score === "number" ? (

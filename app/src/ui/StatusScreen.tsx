@@ -64,7 +64,7 @@ export function StatusScreen({
         ) : (
           recent.map((job, i) => (
             <Text key={`${job.job_id}-${i}`} wrap="truncate-end">
-              <Text color={statusColor[job.status] ?? "white"}>
+              <Text color={statusColor(job.status) ?? "white"}>
                 {statusGlyph[job.status] ?? "•"}{" "}
               </Text>
               <Text dimColor>{job.date_applied}  </Text>

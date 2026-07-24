@@ -27,6 +27,96 @@ function Say  { param($m) Write-Host "install-desktop: $m" }
 function Warn { param($m) Write-Host "install-desktop: WARNING: $m" -ForegroundColor Yellow }
 function Fail { param($m) Write-Host "install-desktop: ERROR: $m" -ForegroundColor Red; exit 1 }
 
+# Runs $Block with a rotating spinner next to $Message while it's in a
+# background job — for steps with no byte total to show (npm install,
+# cargo build), unlike the prebuilt-bundle download below which uses
+# Get-FileWithProgress instead. Falls back to a plain "$Message..." line
+# with no live redraw when output isn't a real console.
+function Spin {
+  param([string]$Message, [scriptblock]$Block)
+  if ([Console]::IsOutputRedirected) {
+    Write-Host "$Message..."
+    & $Block
+    return
+  }
+  $job = Start-Job -ScriptBlock $Block
+  $frames = '|', '/', '-', '\'
+  $i = 0
+  while ($job.State -eq "Running") {
+    Write-Host -NoNewline ("`r{0} {1}" -f $Message, $frames[$i % 4])
+    $i++
+    Start-Sleep -Milliseconds 100
+  }
+  Receive-Job -Job $job -Wait -AutoRemoveJob | Out-Null
+  $ok = $job.State -eq "Completed"
+  Write-Host -NoNewline ("`r{0}`r" -f (" " * ($Message.Length + 2)))
+  if (-not $ok) { throw "$Message failed" }
+}
+
+function Get-ContentLength {
+  param([string]$Url)
+  try {
+    $resp = Invoke-WebRequest -Uri $Url -Method Head -UseBasicParsing -ErrorAction Stop
+    $len = $resp.Headers['Content-Length']
+    if ($len) { return [int64]$len }
+  } catch {}
+  return 0
+}
+
+# Renders a fixed-width [====>.....] bar plus "current/total" in MB
+# (decimal) for $Current/$Total bytes into $Width columns. $Total <= 0
+# (Content-Length wasn't available) degrades to a bytes-downloaded
+# counter with no bar/percentage.
+function Format-DownloadBar {
+  param([int64]$Current, [int64]$Total, [int]$Width)
+  $filled = 0
+  if ($Total -gt 0) {
+    $filled = [Math]::Min($Width, [Math]::Floor($Current * $Width / $Total))
+  }
+  $bar = ""
+  if ($filled -gt 0) { $bar = ("=" * ($filled - 1)) + ">" }
+  $bar += "." * ($Width - $filled)
+  $curMb = [Math]::Floor($Current / 1000000)
+  if ($Total -gt 0) {
+    $totMb = [Math]::Floor($Total / 1000000)
+    return "[$bar] ${curMb}MB/${totMb}MB "
+  }
+  return "[$bar] ${curMb}MB downloaded "
+}
+
+# Downloads $Url to $OutFile with a live byte-tracked bar — a HEAD request
+# gets the total size, a background job does the real download, and this
+# polls the growing file's size to redraw the bar. Falls back to a single
+# "downloading..." line with no live redraw when output isn't a real
+# console.
+function Get-FileWithProgress {
+  param([string]$Url, [string]$OutFile)
+  $total = Get-ContentLength -Url $Url
+  if ([Console]::IsOutputRedirected) {
+    Write-Host "downloading $(Split-Path -Leaf $OutFile)..."
+    Invoke-WebRequest -Uri $Url -OutFile $OutFile -UseBasicParsing
+    return
+  }
+  $job = Start-Job -ScriptBlock {
+    param($u, $o)
+    $ProgressPreference = "SilentlyContinue"
+    Invoke-WebRequest -Uri $u -OutFile $o -UseBasicParsing
+  } -ArgumentList $Url, $OutFile
+  $width = 30
+  while ($job.State -eq "Running") {
+    $current = 0
+    if (Test-Path $OutFile) { $current = (Get-Item $OutFile).Length }
+    Write-Host -NoNewline ("`r" + (Format-DownloadBar -Current $current -Total $total -Width $width))
+    Start-Sleep -Milliseconds 200
+  }
+  Receive-Job -Job $job -Wait -AutoRemoveJob | Out-Null
+  $ok = $job.State -eq "Completed"
+  $current = 0
+  if (Test-Path $OutFile) { $current = (Get-Item $OutFile).Length }
+  Write-Host ("`r" + (Format-DownloadBar -Current $current -Total $total -Width $width))
+  if (-not $ok) { throw "download failed: $Url" }
+}
+
 $scriptDir = Split-Path -Parent $PSCommandPath
 $projectRoot = Split-Path -Parent (Split-Path -Parent $scriptDir)
 Set-Location $projectRoot
@@ -113,9 +203,8 @@ function Try-PrebuiltInstall {
   New-Item -ItemType Directory -Force -Path $workDir | Out-Null
   try {
     $downloadPath = Join-Path $workDir $asset.name
-    Say "downloading the prebuilt desktop app..."
     try {
-      Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $downloadPath -UseBasicParsing
+      Get-FileWithProgress -Url $asset.browser_download_url -OutFile $downloadPath
     } catch {
       Warn "download failed - will build from source instead."
       return $false
@@ -256,25 +345,26 @@ if (-not $hasLinker) {
 
 # packages/core has no install/prepare hook that builds it automatically -
 # both the TUI and the desktop app need its dist/ built explicitly first.
-Say "building the shared core..."
 $coreOk = $true
 try {
-  npm run build:core --silent
-  if ($LASTEXITCODE -ne 0) { $coreOk = $false }
+  Spin -Message "building the shared core" -Block {
+    npm run build:core --silent
+    if ($LASTEXITCODE -ne 0) { throw "core build failed" }
+  }
 } catch { $coreOk = $false }
 if (-not $coreOk) { Fail "core build failed." }
 
-Say "building the desktop frontend..."
 $feOk = $true
-Push-Location desktop
 try {
-  npm install --silent
-  if ($LASTEXITCODE -eq 0) { npm run build --silent }
-  if ($LASTEXITCODE -ne 0) { $feOk = $false }
+  Spin -Message "building the desktop frontend" -Block {
+    Push-Location desktop
+    npm install --silent
+    if ($LASTEXITCODE -ne 0) { throw "npm install failed" }
+    npm run build --silent
+    if ($LASTEXITCODE -ne 0) { throw "npm run build failed" }
+  }
 } catch {
   $feOk = $false
-} finally {
-  Pop-Location
 }
 if (-not $feOk) { Fail "desktop frontend build failed." }
 

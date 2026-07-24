@@ -31,6 +31,91 @@ say()  { echo "install-desktop: $*"; }
 warn() { echo "install-desktop: WARNING: $*" >&2; }
 fail() { echo "install-desktop: ERROR: $*" >&2; exit 1; }
 
+# Runs "$@" with a rotating spinner next to $1 while it's in the
+# background — for steps with no byte total to show (npm install, cargo
+# build), unlike the prebuilt-bundle downloads below which use
+# download_with_progress instead. Falls back to a plain "$msg..." line
+# with no live redraw when stdout isn't a TTY.
+spin() {
+  local msg="$1"; shift
+  if [ ! -t 1 ]; then
+    printf '%s...\n' "$msg"
+    "$@"
+    return $?
+  fi
+  "$@" &
+  local pid=$!
+  local frames='|/-\'
+  local i=0
+  while kill -0 "$pid" 2>/dev/null; do
+    printf '\r%s %s' "$msg" "${frames:$((i % 4)):1}"
+    i=$((i + 1))
+    sleep 0.1
+  done
+  wait "$pid"
+  local rc=$?
+  printf '\r%*s\r' "$((${#msg} + 2))" ""
+  return $rc
+}
+
+# Renders a fixed-width [====>.....] bar plus "current/total" in MB
+# (decimal) for $current/$total bytes into $width columns. $total <= 0
+# (Content-Length wasn't available) degrades to a bytes-downloaded
+# counter with no bar/percentage.
+_draw_download_bar() {
+  local current="$1" total="$2" width="$3"
+  local filled=0
+  if [ "$total" -gt 0 ] 2>/dev/null; then
+    filled=$(( current * width / total ))
+    [ "$filled" -gt "$width" ] && filled="$width"
+  fi
+  local bar=""
+  [ "$filled" -gt 0 ] && bar="$(printf '%*s' "$((filled - 1))" '' | tr ' ' '=')>"
+  bar="${bar}$(printf '%*s' "$((width - filled))" '' | tr ' ' '.')"
+  local cur_mb=$(( current / 1000000 ))
+  if [ "$total" -gt 0 ] 2>/dev/null; then
+    printf '\r[%s] %sMB/%sMB ' "$bar" "$cur_mb" "$(( total / 1000000 ))"
+  else
+    printf '\r[%s] %sMB downloaded ' "$bar" "$cur_mb"
+  fi
+}
+
+# Downloads $2 (url) to $1 (outfile) with a live byte-tracked bar — a HEAD
+# request gets the total size, a background curl does the real download,
+# and this polls the growing file's size to redraw the bar. Falls back to
+# a single "downloading..." line with no live redraw when stdout isn't a
+# TTY.
+download_with_progress() {
+  local outfile="$1" url="$2"
+  local total
+  total="$(curl -fsIL "$url" 2>/dev/null | tr -d '\r' | grep -i '^content-length:' | tail -1 | awk '{print $2}')"
+  [ -z "$total" ] && total=0
+
+  if [ ! -t 1 ]; then
+    say "downloading $(basename "$outfile")…"
+    curl -fL -o "$outfile" "$url"
+    return $?
+  fi
+
+  curl -fsL -o "$outfile" "$url" &
+  local pid=$!
+  local width=30 current
+  while kill -0 "$pid" 2>/dev/null; do
+    current=0
+    [ -f "$outfile" ] && current="$(wc -c < "$outfile" 2>/dev/null | tr -d ' ')"
+    [ -z "$current" ] && current=0
+    _draw_download_bar "$current" "$total" "$width"
+    sleep 0.2
+  done
+  wait "$pid"
+  local rc=$?
+  current=0
+  [ -f "$outfile" ] && current="$(wc -c < "$outfile" 2>/dev/null | tr -d ' ')"
+  _draw_download_bar "${current:-0}" "$total" "$width"
+  echo
+  return $rc
+}
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$PROJECT_ROOT"
@@ -147,7 +232,7 @@ try_prebuilt_install() {
     [ -n "$asset_url" ] || { say "no prebuilt macOS ($arch) bundle in $tag — will build from source instead."; return 1; }
 
     say "downloading the prebuilt desktop app…"
-    curl -fsSL -o "$work_dir/aplyx.dmg" "$asset_url" \
+    download_with_progress "$work_dir/aplyx.dmg" "$asset_url" \
       || { warn "download failed — will build from source instead."; return 1; }
     local mount_dir="$work_dir/mnt"
     mkdir -p "$mount_dir"
@@ -180,7 +265,8 @@ try_prebuilt_install() {
     while IFS= read -r url; do
       [ -n "$url" ] || continue
       name="$(basename "$url")"
-      curl -fsSL -o "$work_dir/$name" "$url" || warn "failed to download $name — skipping it."
+      say "  $name"
+      download_with_progress "$work_dir/$name" "$url" || warn "failed to download $name — skipping it."
     done <<< "$asset_urls"
 
     install_linux_bundle "$work_dir" || { warn "no compatible package manager for the downloaded bundle(s) — will build from source instead."; return 1; }
@@ -297,11 +383,10 @@ fi
 # --- 3. Build ------------------------------------------------------------------
 # packages/core has no install/prepare hook that builds it automatically —
 # both the TUI and the desktop app need its dist/ built explicitly first.
-say "building the shared core…"
-npm run build:core --silent || fail "core build failed."
+spin "building the shared core" npm run build:core --silent || fail "core build failed."
 
-say "building the desktop frontend…"
-(cd desktop && npm install --silent && npm run build --silent) \
+_desktop_frontend_build() { (cd desktop && npm install --silent && npm run build --silent); }
+spin "building the desktop frontend" _desktop_frontend_build \
   || fail "desktop frontend build failed."
 
 say "compiling the desktop app (first run downloads + compiles Tauri's Rust dependencies — this can take several minutes)…"

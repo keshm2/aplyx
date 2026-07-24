@@ -1,0 +1,8 @@
+name: resume-tailor
+description: >
+  Tailors resume bullet points and writes a cover letter for a specific
+  job description. Selects among five base resumes depending on job
+  category, then rewrites and reorders content to match the JD. Returns
+  tailored_bullets, cover_letter, and ats_score. Invoked by job-scraper
+  for each individual job.
+user-invocable: true

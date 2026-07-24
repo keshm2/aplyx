@@ -1,3 +1,5 @@
+import { effectiveEnv } from "@aplyx/core/settings.js";
+
 /**
  * Color roles — defined once, referenced everywhere. The terminal's own
  * foreground/background is the ground; outcome colors (good/warn/danger)
@@ -6,20 +8,99 @@
  * meaning never rides on color alone — the glyph map below pairs a
  * symbol with every semantic color so the 16-color / NO_COLOR runs stay
  * legible.
+ *
+ * `theme` is a mutable object (properties reassigned by applyThemeMode,
+ * never the exported binding itself) rather than the frozen `as const` it
+ * used to be — the Settings "Theme" field (dark/light, see
+ * SettingsScreen.tsx's Environment section) needs every one of the ~25
+ * files that already read `theme.accent` etc. to pick up a mode change
+ * without themselves becoming aware root-scoped settings even exist.
+ * Mutating the same object every consumer already holds a reference to
+ * does that with zero call-site changes, at the cost of `theme` no longer
+ * being provably immutable — deliberate trade, not an oversight.
  */
-export const theme = {
+export type ThemeMode = "dark" | "light";
+
+interface Palette {
+  accent: string;
+  rule: string;
+  good: string;
+  warn: string;
+  danger: string;
+}
+
+const DARK_PALETTE: Palette = {
   accent: "#8B5CF6", // violet — active tab, selection, titles
   rule: "#6D28D9", // dim violet — header/footer rules only
   good: "green",
   warn: "yellow",
   danger: "red",
-} as const;
-
-export const statusColor: Record<string, string> = {
-  applied: theme.good,
-  needs_review: theme.warn,
-  failed: theme.danger,
 };
+
+// Named ANSI "yellow" in particular is close to unreadable on a white
+// background — these are explicit darker hexes tuned for a light
+// terminal instead of the dark-terminal-friendly named colors above.
+const LIGHT_PALETTE: Palette = {
+  accent: "#6D28D9",
+  rule: "#C4B5FD",
+  good: "#15803D",
+  warn: "#A16207",
+  danger: "#B91C1C",
+};
+
+export const theme: Palette = { ...DARK_PALETTE };
+
+/** Repoints every `theme.*` property at the given mode's palette in
+ *  place — called once at launch and again whenever Settings' Theme
+ *  field might have changed (App.tsx's refresh(), which already runs on
+ *  every tab switch). */
+export function applyThemeMode(mode: ThemeMode): void {
+  Object.assign(theme, mode === "light" ? LIGHT_PALETTE : DARK_PALETTE);
+}
+
+/** Reads the Settings "Theme" field (APLYX_TUI_THEME) the same way
+ *  jobs.ts's resolveResultsPerPage reads its own env field — real env
+ *  var, then config/env.json, then the default. */
+export function resolveThemeMode(root: string): ThemeMode {
+  return effectiveEnv(root, ["APLYX_TUI_THEME"], "dark").value === "light" ? "light" : "dark";
+}
+
+let reducedMotion = false;
+
+/** Whether the Settings "Reduced motion" field is on — checked by
+ *  KeyHints.tsx's AutoSparkleText, the one animation this actually wires
+ *  into (see that file for why the rest of the app's animations weren't
+ *  all converted too). */
+export function isReducedMotion(): boolean {
+  return reducedMotion;
+}
+
+export function applyReducedMotion(value: boolean): void {
+  reducedMotion = value;
+}
+
+export function resolveReducedMotion(root: string): boolean {
+  return effectiveEnv(root, ["APLYX_REDUCED_MOTION"], "0").value === "1";
+}
+
+/** Whether the sidebar clock (SidePanel.tsx's TopStatusBar) shows 24-hour
+ *  time instead of the 12-hour default. */
+export function resolveHour24Clock(root: string): boolean {
+  return effectiveEnv(root, ["APLYX_24_HOUR_CLOCK"], "0").value === "1";
+}
+
+/** A function, not a frozen `Record` — same reasoning as sparkleGradient:
+ *  `theme.good`/`warn`/`danger` are mutated in place by applyThemeMode, so
+ *  a plain object built once at module load would keep StatusScreen/
+ *  HistoryScreen's outcome colors pinned to the dark palette (defeating
+ *  the whole point of Light mode's tuned warn/danger hexes) even after
+ *  switching modes. */
+export function statusColor(status: string): string | undefined {
+  if (status === "applied") return theme.good;
+  if (status === "needs_review") return theme.warn;
+  if (status === "failed") return theme.danger;
+  return undefined;
+}
 
 /** Status glyphs — paired with statusColor so meaning survives NO_COLOR. */
 export const statusGlyph: Record<string, string> = {
@@ -130,15 +211,24 @@ export const BANNER_GRADIENT = [
   "#800020", // maroon
 ] as const;
 
-/** Purple → white — the same two-color blend UpdateBox's traveling
+/** Accent → white — the same two-color blend UpdateBox's traveling
  *  border ring uses (see blend() there), reused here so every "AUTO"
  *  sparkle (AutoSparkleText, GradientProgressBar) reads as one visual
  *  language across the app. gradientColor's ping-pong bounces cleanly
  *  between the two, so this never touches the banner's plum/maroon end
  *  (which read as "too much red" when it was in the sparkle mix). The
  *  static banner keeps its own full BANNER_GRADIENT — this is scoped to
- *  animations only. */
-export const SPARKLE_GRADIENT = [theme.accent, "#FFFFFF"] as const;
+ *  animations only.
+ *
+ *  A function, not a frozen array: `theme.accent` is mutated in place by
+ *  applyThemeMode (Settings' Theme field), so a plain `[theme.accent,
+ *  "#FFFFFF"] as const` evaluated once at module load would freeze in
+ *  the dark palette's violet forever and silently stop matching Light
+ *  mode. Called fresh from each consumer's default-param position on
+ *  every render instead. */
+export function sparkleGradient(): readonly string[] {
+  return [theme.accent, "#FFFFFF"];
+}
 
 /** Which coding-agent CLI a run uses — mirrors the four harnesses
  *  scripts/runtime/run_job_agent.py can invoke (config/harness.json /

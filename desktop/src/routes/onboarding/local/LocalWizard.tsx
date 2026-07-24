@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { WizardShell } from "../../../components/WizardShell";
 import { findRoot, ensureTargetsFile, writeOnboardingCompleted, writeHarness, setLocalRoot } from "../../../lib/bridge";
-import { WelcomeStep } from "./WelcomeStep";
+import { IntroSplash } from "./IntroSplash";
+import { PreferencesStep } from "./PreferencesStep";
 import { EnvironmentStep } from "./EnvironmentStep";
 import { CodingAgentStep } from "./CodingAgentStep";
 import { ProfileStep } from "./ProfileStep";
@@ -12,11 +13,44 @@ import { NotificationsStep } from "./NotificationsStep";
 import { ExtensionStep } from "./ExtensionStep";
 import { ReviewStep } from "./ReviewStep";
 
-const STEPS = ["welcome", "environment", "agent", "profile", "resumes", "notifications", "extension", "review"] as const;
+// Three narrative beats (auto-advancing, no chrome — see IntroSplash) are
+// interleaved with the real, interactive steps: a welcome, then a preamble
+// into appearance preferences, then a preamble into the profile questions.
+// Splashes don't count toward the progress dots and Back skips over them
+// (REAL_STEPS / isSplash below) — they're pacing, not steps to track.
+const REAL_STEPS = [
+  "preferences",
+  "environment",
+  "agent",
+  "profile",
+  "resumes",
+  "notifications",
+  "extension",
+  "review",
+] as const;
+type RealStep = (typeof REAL_STEPS)[number];
+
+const STEPS = [
+  "intro-welcome",
+  "intro-preferences",
+  "preferences",
+  "environment",
+  "agent",
+  "intro-profile",
+  "profile",
+  "resumes",
+  "notifications",
+  "extension",
+  "review",
+] as const;
 type Step = (typeof STEPS)[number];
 
-const TITLES: Record<Step, string> = {
-  welcome: "Welcome to aplyx",
+function isSplash(step: Step): boolean {
+  return step === "intro-welcome" || step === "intro-preferences" || step === "intro-profile";
+}
+
+const TITLES: Record<RealStep, string> = {
+  preferences: "Appearance",
   environment: "Environment check",
   agent: "Coding agent",
   profile: "Your profile",
@@ -24,6 +58,10 @@ const TITLES: Record<Step, string> = {
   notifications: "Notifications",
   extension: "Browser extension",
   review: "Review & finish",
+};
+
+const SUBTITLES: Partial<Record<RealStep, string>> = {
+  preferences: "Pick a look and feel — you can always change this later in Settings.",
 };
 
 export function LocalWizard() {
@@ -110,15 +148,45 @@ export function LocalWizard() {
   }
 
   function goBack() {
-    if (stepIndex > 0) setStepIndex((i) => i - 1);
-    else navigate("/");
+    let i = stepIndex - 1;
+    while (i >= 0 && isSplash(STEPS[i])) i--;
+    if (i < 0) navigate("/");
+    else setStepIndex(i);
   }
+
+  if (step === "intro-welcome") {
+    return <IntroSplash key={step} heading="Welcome to Aplyx." delayMs={1800} onAdvance={goNext} />;
+  }
+  if (step === "intro-preferences") {
+    return (
+      <IntroSplash
+        key={step}
+        heading="Let's set up your preferences for your app."
+        caption="Don't worry, these can be changed later."
+        delayMs={2200}
+        onAdvance={goNext}
+      />
+    );
+  }
+  if (step === "intro-profile") {
+    return (
+      <IntroSplash
+        key={step}
+        heading="Now, let's get to know more about you."
+        caption="Every step saves as you go — it's safe to close and come back anytime."
+        delayMs={2200}
+        onAdvance={goNext}
+      />
+    );
+  }
+
+  const realIndex = REAL_STEPS.indexOf(step as RealStep);
 
   // ProfileStep manages its own internal 8-page navigation and calls
   // onComplete() when done, so it renders without the shared footer.
   if (step === "profile") {
     return (
-      <WizardShell stepIndex={stepIndex} stepCount={STEPS.length} title={TITLES.profile} hideBack>
+      <WizardShell stepIndex={realIndex} stepCount={REAL_STEPS.length} title={TITLES.profile} hideBack>
         <ProfileStep root={root} onComplete={goNext} />
       </WizardShell>
     );
@@ -126,14 +194,15 @@ export function LocalWizard() {
 
   return (
     <WizardShell
-      stepIndex={stepIndex}
-      stepCount={STEPS.length}
-      title={TITLES[step]}
+      stepIndex={realIndex}
+      stepCount={REAL_STEPS.length}
+      title={TITLES[step as RealStep]}
+      subtitle={SUBTITLES[step as RealStep]}
       onBack={goBack}
       onNext={goNext}
       nextLabel={step === "review" ? "Finish" : "Continue"}
     >
-      {step === "welcome" && <WelcomeStep />}
+      {step === "preferences" && <PreferencesStep />}
       {step === "environment" && <EnvironmentStep root={root} />}
       {step === "agent" && <CodingAgentStep selected={harness} onSelect={setHarness} />}
       {step === "resumes" && <ResumesStep root={root} />}

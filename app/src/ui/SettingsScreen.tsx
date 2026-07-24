@@ -253,6 +253,39 @@ const SECTIONS: Section[] = [
           { label: "Copilot", value: "copilot", harness: "copilot" },
         ],
       },
+      {
+        kind: "env",
+        key: "APLYX_TUI_THEME",
+        label: "Theme",
+        explain: "Dark keeps the default palette; Light swaps in darker accent/status colors tuned for a light terminal background — named ANSI yellow in particular is hard to read on white. Takes effect immediately, no restart needed.",
+        fallback: "dark",
+        options: [
+          { label: "Dark", value: "dark" },
+          { label: "Light", value: "light" },
+        ],
+      },
+      {
+        kind: "env",
+        key: "APLYX_24_HOUR_CLOCK",
+        label: "24-hour clock",
+        explain: "Switches the sidebar clock from 12-hour (2:30 PM) to 24-hour (14:30) time.",
+        fallback: "0",
+        options: [
+          { label: "No (12-hour)", value: "0" },
+          { label: "Yes (24-hour)", value: "1" },
+        ],
+      },
+      {
+        kind: "env",
+        key: "APLYX_REDUCED_MOTION",
+        label: "Reduced motion",
+        explain: "Turns off the AUTO-badge sparkle and other cycling color animations, leaving a plain static color instead. The spinner glyph itself still shows during a live run either way — only the color cycling stops.",
+        fallback: "0",
+        options: [
+          { label: "No", value: "0" },
+          { label: "Yes", value: "1" },
+        ],
+      },
     ],
   },
 ];

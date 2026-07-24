@@ -1,6 +1,6 @@
 import React from "react";
 import { Box, Text } from "ink";
-import { BANNER_ROWS, BANNER_GRADIENT, BANNER_WIDTH, theme } from "../theme.js";
+import { BANNER_ROWS, BANNER_GRADIENT, BANNER_WIDTH } from "../theme.js";
 
 /** Terminals shorter than this get the one-line wordmark even when wide —
  *  six rows of art plus the shell chrome (7) leaves too little room for
@@ -24,12 +24,30 @@ export function bannerHeight(columns: number, rows: number): number {
  * to the current terminal width; collapses to a centered one-line
  * wordmark when the terminal is too narrow or too short for the art
  * (never corrupts layout).
+ *
+ * `accent` is an explicit prop (not read from `theme` directly inside),
+ * despite the component already importing `theme` for other purposes —
+ * this component is React.memo'd on props, and `theme.accent` is a
+ * mutated-in-place value (see theme.ts's applyThemeMode), not a new
+ * object reference the memo comparison would ever see change. Passing it
+ * as a plain string prop from App lets the default shallow-prop-equality
+ * check actually notice a Settings Theme-field switch and re-render the
+ * wordmark variant's title in the new color, instead of memo silently
+ * freezing it at whatever accent was live at the banner's last resize.
  */
-export const Banner = React.memo(function Banner({ columns, rows }: { columns: number; rows: number }) {
+export const Banner = React.memo(function Banner({
+  columns,
+  rows,
+  accent,
+}: {
+  columns: number;
+  rows: number;
+  accent: string;
+}) {
   if (bannerVariant(columns, rows) === "wordmark") {
     return (
       <Box paddingX={1} justifyContent="center">
-        <Text bold color={theme.accent}>
+        <Text bold color={accent}>
           APLYX
         </Text>
         <Text dimColor> — job application agent</Text>

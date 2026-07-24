@@ -35,7 +35,7 @@
 .wizard-body {
   flex: 1;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
   padding: var(--space-7) var(--space-5);
   overflow-y: auto;
@@ -47,6 +47,36 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
+}
+
+@keyframes wizard-step-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes wizard-step-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.wizard-step-out {
+  animation: wizard-step-out var(--duration-quick) var(--ease-out) both;
+}
+
+.wizard-step-in {
+  animation: wizard-step-in var(--duration-normal) var(--ease-out) both;
 }
 
 .wizard-step h1 {

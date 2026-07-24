@@ -7,6 +7,67 @@ but trimmed to fit a small in-repo doc.
 > Per-`docs/RELEASE.md` is the canonical, deep-dive release
 > document for each tagged build. This file is the index.
 
+## [0.9.87a] — 2026-07-24
+
+npm package: `@keshm/aplyx` version `0.9.87-alpha.0`. Full notes:
+[`RELEASE.md`](./RELEASE.md).
+
+### Added
+
+- **Desktop: redesigned first-run onboarding.** A narrative intro
+  ("Welcome to Aplyx." → "Let's set up your preferences..." → "Now,
+  let's get to know more about you.") now precedes the setup
+  questions, each beat a full-bleed auto-advancing splash. The wizard
+  reuses the app shell's own two-phase route-transition choreography
+  (freeze → animate out → swap → animate in) instead of a plain
+  fade-on-mount, content is vertically centered instead of top-aligned,
+  and a new Preferences step (theme family/mode/font, reusing
+  Settings' own controls) applies live and carries through the rest of
+  onboarding and the app.
+- **TUI: Theme (dark/light), 24-hour clock, and Reduced motion**
+  Settings fields (Environment section), applied in-session — no
+  restart needed. Light mode uses hand-tuned darker accent/status
+  hexes rather than the dark palette's named ANSI colors, which are
+  close to unreadable on a light background.
+- **GitHub Copilot CLI gets real subagent support.** `.github/agents/*.md`
+  are generated the same way `.claude/agents/` already was; a runtime
+  probe (`copilot --help`) invokes `copilot --agent <name> --prompt
+  ...` when the installed CLI supports it, falling back to the
+  existing inlined-prompt path otherwise.
+- **Codex CLI subagent scaffolding** (`.codex/agents/*.toml`),
+  generated for forward-compat. Not yet wired into actual invocation —
+  `codex exec` (non-interactive mode) has no way to spawn a named
+  subagent from a registry file (tracked upstream as
+  openai/codex#15250); see `AGENTS.md`'s harness capability matrix for
+  the full breakdown of what each harness can and can't do.
+- **Installer download progress.** `install.sh`/`install_desktop.sh`
+  (and their PowerShell equivalents) now show a real byte-tracked
+  `[====>.......]  10MB/149MB` bar for downloads, and a spinner for
+  indefinite steps (npm install/build) instead of silent multi-minute
+  pauses.
+
+### Fixed
+
+- **TUI theme-mode colors could silently freeze at launch-time values.**
+  Four spots computed a color from `theme.accent`/`theme.good`/etc.
+  once at module load or component mount instead of reading it fresh,
+  so switching Settings' Theme field from Dark to Light (or back) left
+  them stuck on the old palette: the AUTO-mode sparkle badge and
+  default-gradient progress bars (`SPARKLE_GRADIENT`), StatusScreen/
+  HistoryScreen's outcome colors (`statusColor`), the update-prompt
+  box's border wave and fallback color (`UpdateBox`'s `PURPLE`/
+  `blend()`), and the banner's wordmark title on narrow/short terminals
+  (`Banner` was `React.memo`'d on `{columns, rows}` only, so a
+  theme-only change never triggered a re-render). All four now read
+  the mutated `theme` object live; verified in a running terminal that
+  switching Dark ⇄ Light repaints every one of them without a restart.
+
+### Removed
+
+- A stale, superseded rebrand-strategy planning doc
+  (`docs/product-positioning-and-rebrand-plan.md`) proposing name
+  candidates that were never adopted.
+
 ## [0.9.85a] — 2026-07-24
 
 npm package: `@keshm/aplyx` version `0.9.85-alpha.0`. Full notes:

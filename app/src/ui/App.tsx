@@ -18,7 +18,18 @@ import { loadState, isResolved, lastRunLine, latestSessionLog, readHeartbeat } f
 import { displayName } from "@aplyx/core/settings.js";
 import { pendingConversionCount } from "../resumes.js";
 import type { AplyxState } from "@aplyx/core/state.js";
-import { theme, MIN_COLUMNS, MIN_ROWS, SELECT_MARKER, SIDE_PANEL_WIDTH } from "../theme.js";
+import {
+  theme,
+  MIN_COLUMNS,
+  MIN_ROWS,
+  SELECT_MARKER,
+  SIDE_PANEL_WIDTH,
+  applyThemeMode,
+  resolveThemeMode,
+  applyReducedMotion,
+  resolveReducedMotion,
+  resolveHour24Clock,
+} from "../theme.js";
 
 export type Tab = "status" | "jobs" | "review" | "letters" | "history" | "resumes" | "settings";
 export type Mode = "manual" | "automatic";
@@ -144,6 +155,18 @@ export function App({
   const [welcomeCursor, setWelcomeCursor] = useState(() => welcomeIndexFor(initialTab, "manual"));
   const [size, setSize] = useState(stdoutSize);
   const { columns, rows } = size;
+  const [hour24, setHour24] = useState(() => resolveHour24Clock(root));
+
+  // Settings' Theme / Reduced motion / 24-hour clock fields (Environment
+  // section) apply in-session, not just on next launch — once here for
+  // the very first paint, and again from refresh() (below) every time the
+  // user switches tabs, which already runs after leaving Settings from an
+  // edit.
+  useEffect(() => {
+    applyThemeMode(resolveThemeMode(root));
+    applyReducedMotion(resolveReducedMotion(root));
+    setHour24(resolveHour24Clock(root));
+  }, [root]);
 
   useEffect(() => {
     const onResize = () => setSize(stdoutSize());
@@ -155,6 +178,9 @@ export function App({
 
   const refresh = useCallback(() => {
     setState(loadState(root));
+    applyThemeMode(resolveThemeMode(root));
+    applyReducedMotion(resolveReducedMotion(root));
+    setHour24(resolveHour24Clock(root));
     setRefreshNonce((n) => n + 1);
   }, [root]);
 
@@ -339,9 +365,9 @@ export function App({
   // so they fit instead of being clipped.
   return (
     <Box flexDirection="column" height={tty ? rows : undefined} overflow="hidden">
-      <Banner columns={columns} rows={rows} />
+      <Banner columns={columns} rows={rows} accent={theme.accent} />
       <Box paddingX={pad} justifyContent="space-between">
-        <TopStatusBar firstName={displayName(root)} />
+        <TopStatusBar firstName={displayName(root)} hour24={hour24} />
         <Box>
           <Text dimColor>MODE </Text>
           {mode === "manual" ? (

@@ -13,10 +13,18 @@ code lives in harness_adapter.py".
 Two capability facts drive everything below (see the matrix in AGENTS.md):
 
   - opencode and Claude Code have a **subagent registry**, so an agent is
-    named directly (`--agent <name>` / a generated `.claude/agents/` def).
-  - Codex and Copilot have **no registry**, so the agent's body must be
-    inlined into the prompt with an explicit "read this file and act as it"
-    instruction — the documented inline fallback.
+    named directly (`--agent <name>` / a generated `.claude/agents/` def)
+    and delegation (`@resume-tailor` etc.) resolves against it natively —
+    no extra instructions needed.
+  - Copilot CLI gained a real custom-agent registry too (`.github/agents/`,
+    `copilot --agent <name>`) — detected here via a `--help` probe so an
+    older Copilot CLI without it still gets the inline fallback rather than
+    a silently-ignored flag. Codex CLI's `.codex/agents/*.toml` files are
+    generated (forward-compat) but NOT wired in here: `codex exec` has no
+    way to spawn a named subagent from them as of this writing
+    (openai/codex#15250) — the community-documented workaround is exactly
+    the inline fallback below, so that stays Codex's real path, not a
+    stopgap.
 
 Keeping both shapes here is what makes a new agent work on all four harnesses
 by construction instead of by remembering to update four call sites.
@@ -38,7 +46,25 @@ SUPPORTED = ("opencode", "claude", "codex", "copilot")
 DETECT_ORDER = SUPPORTED
 
 # Harnesses with a subagent registry; everything else takes the inline path.
+# Codex is deliberately absent — see the module docstring; copilot is
+# checked at runtime (_copilot_has_agent_flag) since only newer CLI builds
+# support it.
 _HAS_REGISTRY = ("opencode", "claude")
+
+
+def _copilot_has_agent_flag(exe: str) -> bool:
+    """Probes for --agent support (Copilot CLI's custom-agent registry
+    flag) the same way opencode_print_flag probes for --print — an older
+    Copilot CLI without it must fall back to inlining the agent body
+    rather than passing a flag it silently ignores."""
+    try:
+        help_txt = subprocess.run(
+            [exe, "--help"], stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT, text=True,
+        ).stdout or ""
+        return bool(re.search(r"--agent([^-0-9A-Za-z]|$)", help_txt))
+    except OSError:
+        return False
 
 
 def resolve_harness(root: str = ".") -> str:
@@ -117,7 +143,21 @@ def agent_command(exe: str, harness: str, agent: str, prompt: str,
         # delegate inlining here — the registry handles it.
         return [exe, "-p", "--permission-mode", perm,
                 inline_preamble(agent, (), role) + " " + prompt]
-    # codex / copilot — no registry, inline the body.
+    if harness == "copilot" and _copilot_has_agent_flag(exe):
+        # .github/agents/<name>.md exists (generate_agent_definitions.py) and
+        # this CLI build recognizes --agent, so delegation resolves against
+        # the registry the same way it does for opencode/Claude — no
+        # delegate inlining needed. Still names the top-level agent
+        # explicitly, matching Claude's pattern above: nothing here assumes
+        # --agent alone selects the right one without also saying so in the
+        # prompt.
+        full = inline_preamble(agent, (), role)
+        if extra_preamble:
+            full += " " + extra_preamble
+        full += " " + prompt
+        return [exe, "--agent", agent, "--prompt", full, "--allow-all-tools"]
+    # codex, and copilot without --agent support — no usable registry,
+    # inline the body.
     full = inline_preamble(agent, delegates, role)
     if extra_preamble:
         full += " " + extra_preamble

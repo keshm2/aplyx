@@ -10,14 +10,13 @@ import { theme } from "../theme.js";
  *
  * The outline is a hand-drawn perimeter (not Ink's single-color
  * `borderStyle`) so each border cell can carry its own color: a white
- * bump travels clockwise around an otherwise theme-purple outline — a
- * wave that goes purple → white → purple, never rainbow.
+ * bump travels clockwise around an otherwise theme-accent outline — a
+ * wave that goes accent → white → accent, never rainbow.
  *
  * Controls support both keyboard (`y` / `n`) and mouse clicks. Ink 5 has
  * no stable high-level mouse API, so clicks are handled via raw xterm SGR
  * mouse-reporting escape sequences on stdin while the prompt is active.
  */
-const PURPLE = theme.accent; // #8B5CF6
 const BOX_W = 38;
 const BOX_H = 6;
 const BUTTON_ROW = 4; // zero-based within the box
@@ -27,11 +26,20 @@ const NO_RANGE: [number, number] = [13, 18];
 function hex2(n: number): string {
   return Math.round(n).toString(16).padStart(2, "0");
 }
-/** Blend between theme purple (t=0) and white (t=1). */
+/** Blend between theme.accent (t=0) and white (t=1). Reads theme.accent
+ *  fresh on every call rather than a module-load snapshot — Settings'
+ *  Theme field mutates it in place (see theme.ts's applyThemeMode), and a
+ *  frozen 0x8B5CF6 baked in here would keep animating dark-mode violet
+ *  even after switching to Light. */
 function blend(t: number): string {
-  const r = 0x8b + (0xff - 0x8b) * t;
-  const g = 0x5c + (0xff - 0x5c) * t;
-  const b = 0xf6 + (0xff - 0xf6) * t;
+  const hex = theme.accent.replace("#", "");
+  const n = Number.parseInt(hex, 16);
+  const r0 = (n >> 16) & 0xff;
+  const g0 = (n >> 8) & 0xff;
+  const b0 = n & 0xff;
+  const r = r0 + (0xff - r0) * t;
+  const g = g0 + (0xff - g0) * t;
+  const b = b0 + (0xff - b0) * t;
   return `#${hex2(r)}${hex2(g)}${hex2(b)}`;
 }
 
@@ -129,7 +137,7 @@ export function UpdateBox({
   const P = 2 * BOX_W + 2 * h - 4;
 
   const cellColor = (row: number, col: number) => {
-    if (!animate) return PURPLE;
+    if (!animate) return theme.accent;
     const idx = perimeterIndex(row, col, BOX_W, h);
     const intensity = Math.max(0, Math.cos((2 * Math.PI * (idx - phase)) / P));
     return blend(intensity ** 3);

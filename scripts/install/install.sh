@@ -27,6 +27,94 @@ say()  { echo "install: $*"; }
 warn() { echo "install: WARNING: $*" >&2; }
 fail() { echo "install: ERROR: $*" >&2; exit 1; }
 
+# Runs "$@" with a rotating spinner next to $1 (the message) while it's in
+# the background — for steps with no byte total to show (npm install, a
+# package manager resolving deps), unlike the tarball download below
+# which uses download_with_progress instead. Falls back to a plain
+# "$msg..." line with no live redraw when stdout isn't a TTY (piped
+# install, CI, a log file) — \r redraws would just spam a log with junk
+# rather than animate.
+spin() {
+  local msg="$1"; shift
+  if [ ! -t 1 ]; then
+    printf '%s...\n' "$msg"
+    "$@"
+    return $?
+  fi
+  "$@" &
+  local pid=$!
+  local frames='|/-\'
+  local i=0
+  while kill -0 "$pid" 2>/dev/null; do
+    printf '\r%s %s' "$msg" "${frames:$((i % 4)):1}"
+    i=$((i + 1))
+    sleep 0.1
+  done
+  wait "$pid"
+  local rc=$?
+  printf '\r%*s\r' "$((${#msg} + 2))" ""
+  return $rc
+}
+
+# Renders a fixed-width [====>.....] bar plus "current/total" in MB (decimal
+# — matches how download sizes are usually advertised) for $current/$total
+# bytes into $width columns. $total <= 0 (Content-Length wasn't available)
+# degrades to a bytes-downloaded counter with no bar/percentage, since
+# there's nothing to measure progress against.
+_draw_download_bar() {
+  local current="$1" total="$2" width="$3"
+  local filled=0
+  if [ "$total" -gt 0 ] 2>/dev/null; then
+    filled=$(( current * width / total ))
+    [ "$filled" -gt "$width" ] && filled="$width"
+  fi
+  local bar=""
+  [ "$filled" -gt 0 ] && bar="$(printf '%*s' "$((filled - 1))" '' | tr ' ' '=')>"
+  bar="${bar}$(printf '%*s' "$((width - filled))" '' | tr ' ' '.')"
+  local cur_mb=$(( current / 1000000 ))
+  if [ "$total" -gt 0 ] 2>/dev/null; then
+    printf '\r[%s] %sMB/%sMB ' "$bar" "$cur_mb" "$(( total / 1000000 ))"
+  else
+    printf '\r[%s] %sMB downloaded ' "$bar" "$cur_mb"
+  fi
+}
+
+# Downloads $2 (url) to $1 (outfile) with a live byte-tracked bar — a HEAD
+# request gets the total size, a background curl does the real download,
+# and this polls the growing file's size to redraw the bar. Falls back to
+# a single "downloading..." line with no live redraw when stdout isn't a
+# TTY, same reasoning as spin().
+download_with_progress() {
+  local outfile="$1" url="$2"
+  local total
+  total="$(curl -fsIL "$url" 2>/dev/null | tr -d '\r' | grep -i '^content-length:' | tail -1 | awk '{print $2}')"
+  [ -z "$total" ] && total=0
+
+  if [ ! -t 1 ]; then
+    say "downloading $(basename "$outfile")…"
+    curl -fL -o "$outfile" "$url"
+    return $?
+  fi
+
+  curl -fsL -o "$outfile" "$url" &
+  local pid=$!
+  local width=30 current
+  while kill -0 "$pid" 2>/dev/null; do
+    current=0
+    [ -f "$outfile" ] && current="$(wc -c < "$outfile" 2>/dev/null | tr -d ' ')"
+    [ -z "$current" ] && current=0
+    _draw_download_bar "$current" "$total" "$width"
+    sleep 0.2
+  done
+  wait "$pid"
+  local rc=$?
+  current=0
+  [ -f "$outfile" ] && current="$(wc -c < "$outfile" 2>/dev/null | tr -d ' ')"
+  _draw_download_bar "${current:-0}" "$total" "$width"
+  echo
+  return $rc
+}
+
 # Colors only on a TTY; the privacy notice and warnings must stand out.
 if [ -t 1 ]; then
   C_NOTICE=$'\033[1;36m'; C_WARN=$'\033[1;33m'; C_RESET=$'\033[0m'
@@ -59,8 +147,12 @@ else
   # bug) instead of re-running whatever happens to already be on disk.
   # Gitignored local state (config/*.json, data/, logs/, docs/PLAN.md)
   # isn't in the tarball, so it's left untouched.
-  curl -fsSL "https://codeload.github.com/keshm2/aplyx/tar.gz/refs/heads/main" \
-    | tar -xz --strip-components=1 -C "$TARGET_DIR"
+  TARBALL="$(mktemp -t aplyx-src.XXXXXX).tar.gz"
+  trap 'rm -f "$TARBALL"' EXIT
+  download_with_progress "$TARBALL" "https://codeload.github.com/keshm2/aplyx/tar.gz/refs/heads/main"
+  tar -xz --strip-components=1 -C "$TARGET_DIR" -f "$TARBALL"
+  rm -f "$TARBALL"
+  trap - EXIT
   # Re-attach stdin to the terminal so the interactive prompts below work
   # even though the script itself arrived on stdin.
   if [ -e /dev/tty ]; then
@@ -325,6 +417,8 @@ else
 fi
 
 # --- 8. TUI / extension (optional) ---------------------------------------------
+_npm_install_and_build() { (cd "$1" && npm install --silent && npm run build --silent); }
+
 build_node_surface() {
   local dir="$1" label="$2"
   if [ ! -f "$dir/package.json" ]; then
@@ -334,8 +428,7 @@ build_node_surface() {
     say "$label already installed."
     return 0
   fi
-  say "building $label ($dir/) …"
-  (cd "$dir" && npm install --silent && npm run build --silent) \
+  spin "building $label ($dir/)" _npm_install_and_build "$dir" \
     && say "$label ready." \
     || warn "$label build failed — see docs/SETUP.md."
 }
@@ -345,7 +438,8 @@ if command -v npm >/dev/null 2>&1; then
   # app/'s and desktop/'s own `tsc` builds both need its dist/ already
   # present to resolve `@aplyx/core/*` imports, which is never true on a
   # fresh clone. Build it first so both surfaces build clean below.
-  npm run build:core --silent || warn "core build failed — the TUI build below will likely fail too. See docs/SETUP.md."
+  spin "building the shared core" npm run build:core --silent \
+    || warn "core build failed — the TUI build below will likely fail too. See docs/SETUP.md."
   build_node_surface app "the TUI"
   build_node_surface extension "the browser extension"
 else

@@ -16,7 +16,7 @@ const GREETINGS = ["Hello,", "Welcome,", "Nice to see you,", "Hey there,"] as co
  * the sidebar without losing this. Owns its own 1 s clock tick so only
  * this small component re-renders, not the whole header.
  */
-export function TopStatusBar({ firstName }: { firstName?: string }) {
+export function TopStatusBar({ firstName, hour24 = false }: { firstName?: string; hour24?: boolean }) {
   const [greeting] = useState(
     () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)],
   );
@@ -26,7 +26,7 @@ export function TopStatusBar({ firstName }: { firstName?: string }) {
     return () => clearInterval(timer);
   }, []);
   const timeStr = now.toLocaleTimeString("en-US", {
-    hour12: true,
+    hour12: !hour24,
     hour: "2-digit",
     minute: "2-digit",
     timeZoneName: "short",

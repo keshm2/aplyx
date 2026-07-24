@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Text } from "ink";
-import { gradientColor, hueColor, theme, SPARKLE_GRADIENT, SPINNER_FRAMES } from "../theme.js";
+import { gradientColor, hueColor, theme, sparkleGradient, SPINNER_FRAMES, isReducedMotion } from "../theme.js";
 
 /**
  * Renders a hint string ("/ query · ↑↓ move · s save") with the key cap
@@ -42,7 +42,7 @@ export function RainbowText({
   children: string;
   wrap?: React.ComponentProps<typeof Text>["wrap"];
 }) {
-  const animate = Boolean(process.stdout.isTTY);
+  const animate = Boolean(process.stdout.isTTY) && !isReducedMotion();
   const [offset, setOffset] = useState(0);
   useEffect(() => {
     if (!animate) return;
@@ -68,13 +68,13 @@ export function RainbowText({
 }
 
 /**
- * Animated sparkle text for AUTO mode: each character cycles through a
- * purple → white blend (SPARKLE_GRADIENT, the same two colors UpdateBox's
+ * Animated sparkle text for AUTO mode: each character cycles through an
+ * accent → white blend (sparkleGradient(), the same two colors UpdateBox's
  * traveling border ring uses — see theme.ts) rather than the full hue
  * wheel, so "AUTO" reads as calm/purposeful instead of alarming. Pass
  * `gradient` to reuse this for a different wave — e.g. RunScreen's live
  * "running" indicator colors itself by the configured coding-agent
- * harness (see theme.ts's harnessGradient) instead of the default purple.
+ * harness (see theme.ts's harnessGradient) instead of the default accent.
  * `tickMs`/`offsetStep` default to the original AUTO-badge tuning (90ms,
  * 0.35/tick); callers that want a slower, smoother wave — the harness
  * gradient — pass a longer tick and a smaller step. Same
@@ -83,7 +83,7 @@ export function RainbowText({
  */
 export function AutoSparkleText({
   children,
-  gradient = SPARKLE_GRADIENT,
+  gradient = sparkleGradient(),
   tickMs = 90,
   offsetStep = 0.35,
 }: {
@@ -92,7 +92,7 @@ export function AutoSparkleText({
   tickMs?: number;
   offsetStep?: number;
 }) {
-  const animate = Boolean(process.stdout.isTTY);
+  const animate = Boolean(process.stdout.isTTY) && !isReducedMotion();
   const [offset, setOffset] = useState(0);
   const period = 2 * (gradient.length - 1);
   useEffect(() => {
@@ -128,6 +128,11 @@ export function AutoSparkleText({
  * statically, matching the other animated components' pattern.
  */
 export function SpinnerGlyph({ color }: { color?: string } = {}) {
+  // Deliberately not gated on isReducedMotion() like the other three —
+  // per this component's own docstring, it exists specifically so
+  // "something is happening" reads without watching color shifts.
+  // Freezing it under reduced motion would remove that fallback and make
+  // a genuinely live run look stuck instead of calmer.
   const animate = Boolean(process.stdout.isTTY);
   const [frame, setFrame] = useState(0);
   useEffect(() => {
@@ -148,7 +153,7 @@ const MIN_FILLED_CELLS = 3;
 
 /**
  * Animated gradient progress bar. Filled cells shimmer left-to-right
- * through `gradient` (default SPARKLE_GRADIENT) so the animation reads as
+ * through `gradient` (default sparkleGradient()) so the animation reads as
  * one system with AutoSparkleText — pass a different gradient (e.g.
  * theme.ts's harnessGradient) to recolor it for a specific context, as
  * RunScreen's live run-progress bar does by configured harness.
@@ -168,7 +173,7 @@ export function GradientProgressBar({
   minFilled = MIN_FILLED_CELLS,
   tickMs = 90,
   offsetStep = 0.35,
-  gradient = SPARKLE_GRADIENT,
+  gradient = sparkleGradient(),
 }: {
   ratio: number;
   width: number;
@@ -177,7 +182,7 @@ export function GradientProgressBar({
   offsetStep?: number;
   gradient?: readonly string[];
 }) {
-  const animate = Boolean(process.stdout.isTTY);
+  const animate = Boolean(process.stdout.isTTY) && !isReducedMotion();
   const [offset, setOffset] = useState(0);
   const period = 2 * (gradient.length - 1);
   useEffect(() => {
