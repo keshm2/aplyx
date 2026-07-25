@@ -15,6 +15,10 @@
 # packages/core/src/supabaseConfig.ts's readJobCacheSupabaseConfig.
 /config/job_cache_supabase.json
 
+# job_cache's Redis warm layer (read-only token) — see
+# packages/core/src/redisConfig.ts's readJobCacheRedisConfig.
+/config/job_cache_redis.json
+
 # Runtime state
 /data/applied_jobs.json
 /data/review_queue.json

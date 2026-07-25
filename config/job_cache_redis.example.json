@@ -1,0 +1,4 @@
+{
+  "url": "https://YOUR-UPSTASH-ENDPOINT.upstash.io",
+  "readOnlyToken": "YOUR_UPSTASH_READ_ONLY_REST_TOKEN"
+}

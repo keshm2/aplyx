@@ -197,7 +197,43 @@ def main(argv=None) -> int:
     fetched = 0
     failed = 0
     jobs = []
+
+    # Cache check — browse-all only (args.search is always "" in the
+    # automatic job-scraper's actual invocation, per agents/bodies/
+    # job-scraper.md's SmartRecruiters step; a manually-run --search
+    # skips this and goes straight to a live fetch, since the job_cache
+    # RPC's filtering semantics don't match SmartRecruiters' own
+    # server-side `q=` keyword param). Deliberately narrower than
+    # jobs.ts's maybeCached(): only intersects the operator's own
+    # configured companies with the shared cache list, never adds
+    # companies the operator didn't configure — this script feeds an
+    # auto-apply agent, not a read-only search UI, so silently
+    # expanding which companies get evaluated (and possibly applied to)
+    # beyond what the operator explicitly targeted would be a real
+    # behavior change, not just a speedup.
+    cache_covered = set()
+    if not args.search:
+        try:
+            import job_cache_client
+
+            shared = job_cache_client.shared_slugs(".", "smartrecruiters")
+            cache_targets = sorted(shared & set(companies))
+            if cache_targets:
+                cached_jobs = job_cache_client.get_cached_jobs(".", "smartrecruiters", cache_targets)
+                if cached_jobs:
+                    wanted = set(cache_targets)
+                    for job in cached_jobs:
+                        if job.get("company") in wanted and job.get("title") and job.get("external_job_id"):
+                            jobs.append(job)
+                            cache_covered.add(job["company"])
+        except Exception as exc:  # cache is always optional — never let a cache bug break a live-capable run
+            warn(f"job cache check failed, continuing live: {exc}")
+        if cache_covered:
+            fetched += len(cache_covered)
+
     for company in companies:
+        if company in cache_covered:
+            continue
         offset = 0
         count = 0
         try:

@@ -209,11 +209,24 @@ export function JobsScreen() {
         // sources finish. Phase 2 re-fetches fast sources (cheap, bounded
         // by the bridge's per-source deadline) so dedup/sort/slice stay
         // in one place — searchJobs — instead of being forked client-side.
+        //
+        // Both phases are fired together, not awaited sequentially — each
+        // is its own Tauri->Node subprocess spawn (no persistent bridge
+        // daemon), so awaiting phase1 fully before even starting phase2
+        // meant every search paid spawn+network cost twice, back to back,
+        // and phase2's slow sources (Amazon/Oracle/Workday, up to a 2.2s
+        // deadline each) didn't start counting until phase1 had already
+        // finished. Firing concurrently keeps the exact same progressive
+        // apply behavior (phase1's partial results still land first) but
+        // caps total wait for the final render at max(phase1, phase2)
+        // instead of phase1 + phase2.
         const fastOnly = { ...enabled, amazon: false, oracle: false, workday: false };
-        const phase1 = await searchJobs(root, trim, fastOnly);
+        const phase1Promise = searchJobs(root, trim, fastOnly);
+        const phase2Promise = searchJobs(root, trim, enabled);
+        const phase1 = await phase1Promise;
         if (gen !== searchGen.current) return;
         if (phase1.jobs.length > 0) apply(phase1);
-        const phase2 = await searchJobs(root, trim, enabled);
+        const phase2 = await phase2Promise;
         if (gen !== searchGen.current) return;
         apply(phase2);
         if (phase2.jobs.length === 0) {
@@ -328,16 +341,9 @@ export function JobsScreen() {
           </label>
           <select
             id="jobs-sort"
+            className="themed-select"
             value={sortMode}
             onChange={(e) => setSortMode(e.target.value as SortMode)}
-            style={{
-              border: "1px solid var(--border-strong)",
-              borderRadius: "var(--radius-md)",
-              padding: "var(--space-2) var(--space-3)",
-              background: "var(--surface)",
-              color: "var(--text)",
-              fontSize: "var(--text-sm)",
-            }}
           >
             {SORT_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -356,16 +362,9 @@ export function JobsScreen() {
           </label>
           <select
             id="jobs-per-page"
+            className="themed-select"
             value={resultsPerPage}
             onChange={(e) => setResultsPerPage(Number(e.target.value))}
-            style={{
-              border: "1px solid var(--border-strong)",
-              borderRadius: "var(--radius-md)",
-              padding: "var(--space-2) var(--space-3)",
-              background: "var(--surface)",
-              color: "var(--text)",
-              fontSize: "var(--text-sm)",
-            }}
           >
             {RESULTS_PER_PAGE_OPTIONS.map((n) => (
               <option key={n} value={n}>

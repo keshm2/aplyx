@@ -47,15 +47,39 @@
  * seed them with. searchJobs() already skips the cache check for those
  * three entirely (see maybeCached's call sites in jobs.ts), so this gap
  * is inert, not silently broken.
+ *
+ * Also eagerly warms a Redis browse-all entry per source right after
+ * its Postgres upsert succeeds (see jobCacheRedis.ts, jobCache.ts's
+ * readJobCache) — the single most common no-query "just show me
+ * openings" case is then warm immediately after every refresh instead
+ * of waiting for the first post-refresh search to populate it lazily
+ * (which a client can't do anyway: Redis writes need a write-capable
+ * token, and this script is the only thing that should ever hold one).
+ * Needs UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_WRITE_TOKEN as env
+ * vars (same discipline as SUPABASE_SECRET_KEY — never a config file,
+ * never a client bundle); if either is absent, the warm step logs and
+ * skips rather than failing the run, since the Postgres upsert already
+ * succeeded and stays the source of truth either way.
  */
 import fs from "node:fs/promises";
 import path from "node:path";
 import { findProjectRoot } from "./project.js";
 import { readJobCacheSupabaseConfig } from "./supabaseConfig.js";
 import { configured, fetchAshby, fetchLever, fetchGreenhouse, fetchSmartRecruiters } from "./jobs.js";
+import { UNFILTERED_PER_COMPANY_LIMIT } from "./jobCache.js";
+import { redisSetJobs } from "./jobCacheRedis.js";
 import type { SearchJob, JobSource } from "./jobsSort.js";
 
 const CACHE_TTL_MS = 2 * 60 * 60 * 1000; // matches job_cache's own column default (2h) — kept explicit here so upserts refresh it, not just inserts.
+
+// 75 minutes: just past the hourly refresh cadence (15min grace so one
+// slow/failed CI run doesn't let the warm entry go fully cold before
+// the next one lands), while staying well under job_cache's own 2h
+// Postgres expires_at — a served-at-expiry Redis entry can never be
+// staler than Postgres would already allow. Shorter buys no real
+// freshness (the underlying data only changes once an hour anyway) and
+// only throws away hit rate.
+const REDIS_WARM_TTL_SECONDS = 75 * 60;
 
 interface JobCacheTargets {
   ashby_company_slugs?: string[];
@@ -201,6 +225,43 @@ async function upsert(url: string, secretKey: string, rows: ReturnType<typeof jo
   }
 }
 
+/**
+ * Same shape the Postgres job_cache_search RPC returns for a browse-all
+ * (query='', no title words) lookup — grouped by company, capped at
+ * UNFILTERED_PER_COMPANY_LIMIT per company — so the Redis-cached value
+ * and the Postgres fallback stay consistent regardless of which path a
+ * given search happens to hit.
+ */
+function browseAllRows(jobs: SearchJob[]): SearchJob[] {
+  const byCompany = new Map<string, SearchJob[]>();
+  for (const job of jobs) {
+    const list = byCompany.get(job.company) ?? [];
+    if (list.length < UNFILTERED_PER_COMPANY_LIMIT) list.push(job);
+    byCompany.set(job.company, list);
+  }
+  return [...byCompany.values()].flat();
+}
+
+/**
+ * Eager warm, not lazy populate — the only Redis write path in the
+ * system (see jobCacheRedis.ts's header). Best-effort: a missing write
+ * token (e.g. a local manual refresh) just skips the warm with a log
+ * line rather than failing the whole refresh run, since the Postgres
+ * upsert above already succeeded and remains the source of truth
+ * either way.
+ */
+async function warmRedisBrowseAll(source: JobSource, jobs: SearchJob[]): Promise<void> {
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const writeToken = process.env.UPSTASH_REDIS_WRITE_TOKEN;
+  if (!url || !writeToken) {
+    console.log(`${source}: UPSTASH_REDIS_REST_URL/UPSTASH_REDIS_WRITE_TOKEN not set — skipping Redis warm`);
+    return;
+  }
+  const rows = browseAllRows(jobs);
+  await redisSetJobs(url, writeToken, source, rows, REDIS_WARM_TTL_SECONDS);
+  console.log(`${source}: warmed Redis browse-all cache with ${rows.length} postings`);
+}
+
 async function main(): Promise<void> {
   // SUPABASE_SECRET_KEY is the current name; SUPABASE_SERVICE_ROLE_KEY
   // still honored for anyone running this against a project still on
@@ -260,6 +321,7 @@ async function main(): Promise<void> {
     const rows = jobs.map((job) => jobCacheRow(source, job.company, "", job, now));
     await upsert(url, secretKey, rows);
     console.log(`${source}: cached ${rows.length} postings across ${slugs.length} companies`);
+    await warmRedisBrowseAll(source, jobs);
   }
 }
 

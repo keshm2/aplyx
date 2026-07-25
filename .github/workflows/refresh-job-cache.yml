@@ -16,6 +16,15 @@
 # config/job_cache_targets.json, not the gitignored, PII-bearing
 # config/targets.json.
 #
+# Also needs two more repository secrets for the Redis warm layer in
+# front of job_cache (see packages/core/src/jobCacheRedis.ts):
+# UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_WRITE_TOKEN (a *write*-capable
+# Upstash token — separate from the read-only one baked into
+# config/job_cache_redis.json for clients, same never-in-a-client-bundle
+# discipline as SUPABASE_SECRET_KEY). If either is unset, the warm step
+# logs and skips per source rather than failing the run — the Postgres
+# upsert above it already succeeded and is unaffected.
+#
 # Hourly, not every 90 minutes — cron's minute field only spans 0-59, so
 # a literal */90 there silently collapses to "minute 0 of every hour"
 # instead of the intended 90-minute cadence. Hourly is still a full 1h
@@ -47,3 +56,5 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+          UPSTASH_REDIS_WRITE_TOKEN: ${{ secrets.UPSTASH_REDIS_WRITE_TOKEN }}

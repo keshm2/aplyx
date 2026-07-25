@@ -1,6 +1,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { readJobCacheSupabaseConfig } from "./supabaseConfig.js";
+import { readJobCacheRedisConfig } from "./redisConfig.js";
+import { redisGetJobs } from "./jobCacheRedis.js";
 import type { JobSource, SearchJob } from "./jobsSort.js";
 
 // Cache lookups must never make a search feel slower than today. Tuned
@@ -42,7 +44,11 @@ const CACHE_LOOKUP_TIMEOUT_MS = 1200;
 // Matches jobs.ts's MAX_PAGE_SIZE — a merged, deduped, final result
 // page can never exceed that regardless of source, so there's no
 // value in capping any single company past it.
-const UNFILTERED_PER_COMPANY_LIMIT = 10;
+// Exported so refreshJobCache.ts's Redis eager-warm step caps its
+// browse-all rows identically instead of re-declaring this number —
+// the cached value has to match what this file's own Postgres path
+// would return for the same lookup.
+export const UNFILTERED_PER_COMPANY_LIMIT = 10;
 const FILTERED_PER_COMPANY_LIMIT = 75;
 
 export interface JobCacheLookup {
@@ -128,6 +134,22 @@ export async function readJobCache(root: string, lookup: JobCacheLookup): Promis
   if (!config) return undefined;
 
   const titleWords = lookup.titleWords ?? [];
+
+  // Redis only covers the browse-all (no-query) case — the expensive
+  // one (232-655ms, see this file's header) and the one
+  // refreshJobCache.ts's eager warm keeps populated. A filtered query
+  // is already ~77-103ms via the RPC's own ILIKE pre-filter (migration
+  // 0005), so it stays on the Postgres path below unchanged — caching
+  // it would buy little for real added complexity (a per-query-shape
+  // key space instead of one key per source).
+  if (titleWords.length === 0) {
+    const redisConfig = readJobCacheRedisConfig(root);
+    if (redisConfig) {
+      const cached = await redisGetJobs(redisConfig, lookup.source);
+      if (cached) return cached;
+    }
+  }
+
   const perCompanyLimit = titleWords.length > 0 ? FILTERED_PER_COMPANY_LIMIT : UNFILTERED_PER_COMPANY_LIMIT;
 
   const controller = new AbortController();
