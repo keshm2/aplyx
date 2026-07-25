@@ -19,7 +19,27 @@ import { effectiveEnv } from "@aplyx/core/settings.js";
  * does that with zero call-site changes, at the cost of `theme` no longer
  * being provably immutable — deliberate trade, not an oversight.
  */
-export type ThemeMode = "dark" | "light";
+// Four named themes rather than a Dark/Light binary — "dark"/"light"
+// describe a terminal background, not a color identity, and once there
+// was more than one palette per background (Aplyx Default/Ember Dusk
+// both dark-tuned; Cloud Surf/Mint Frost both light-tuned) a mode name
+// stopped meaning anything on its own. Each still targets ONE assumed
+// terminal background (declared per-palette below) — that half of the
+// original Dark/Light distinction (avoiding e.g. unreadable named
+// "yellow" on white) still matters and is still handled per palette,
+// just no longer conflated with the palette's actual color identity.
+export type ThemeMode = "aplyx-default" | "cloud-surf" | "ember-dusk" | "mint-frost";
+
+export const THEME_NAMES: Record<ThemeMode, string> = {
+  "aplyx-default": "Aplyx Default",
+  "cloud-surf": "Cloud Surf",
+  "ember-dusk": "Ember Dusk",
+  "mint-frost": "Mint Frost",
+};
+
+function isThemeMode(value: string): value is ThemeMode {
+  return value in THEME_NAMES;
+}
 
 interface Palette {
   accent: string;
@@ -27,60 +47,109 @@ interface Palette {
   good: string;
   warn: string;
   danger: string;
+  /** The color UpdateBox's traveling border highlight (and
+   *  sparkleGradient's AUTO-badge/progress-bar wave) blends the accent
+   *  color TOWARD, rather than a hardcoded white. A dark-background
+   *  palette wants white — a bright pop against both the accent and the
+   *  terminal background. A light-background palette wants the reverse:
+   *  blending toward white would fade the highlight into an
+   *  already-white terminal until it's unreadable, so those palettes
+   *  blend toward a deep, near-black shade of their own hue family
+   *  instead — still a bright/dark pop, just inverted to suit the
+   *  background it's actually tuned for. */
+  glow: string;
 }
 
-const DARK_PALETTE: Palette = {
+const APLYX_DEFAULT_PALETTE: Palette = {
   accent: "#8B5CF6", // violet — active tab, selection, titles
   rule: "#6D28D9", // dim violet — header/footer rules only
   good: "green",
   warn: "yellow",
   danger: "red",
+  glow: "#FFFFFF",
 };
 
 // Named ANSI "yellow" in particular is close to unreadable on a white
 // background — these are explicit darker hexes tuned for a light
 // terminal instead of the dark-terminal-friendly named colors above.
-// accent/rule are blue rather than the dark palette's violet — a light
-// blue → white identity for Light mode specifically (see
-// BANNER_GRADIENT_LIGHT below), applied everywhere theme.accent/
-// theme.rule already flow (sidebar border, tab/option selection,
-// titles) since every consumer already reads the shared `theme` object
-// live. good/warn/danger stay their outcome colors regardless of accent
-// hue — they carry meaning (applied/needs-review/failed), not brand.
-const LIGHT_PALETTE: Palette = {
+// A light blue → white identity (see BANNER_GRADIENT_CLOUD_SURF below),
+// applied everywhere theme.accent/theme.rule already flow (sidebar
+// border, tab/option selection, titles) since every consumer already
+// reads the shared `theme` object live. good/warn/danger stay their
+// outcome colors regardless of accent hue — they carry meaning
+// (applied/needs-review/failed), not brand.
+const CLOUD_SURF_PALETTE: Palette = {
   accent: "#2563EB",
   rule: "#93C5FD",
   good: "#15803D",
   warn: "#A16207",
   danger: "#B91C1C",
+  glow: "#1E3A8A", // deep navy — dark-on-light glow, not white-on-light
 };
 
-export const theme: Palette = { ...DARK_PALETTE };
+// Warm counterpart to Aplyx Default — same dark-terminal assumption
+// (named ANSI good/warn/danger are fine there, per the dark palette's
+// own reasoning above), amber/orange in place of violet.
+const EMBER_DUSK_PALETTE: Palette = {
+  accent: "#FB923C",
+  rule: "#C2410C",
+  good: "green",
+  warn: "yellow",
+  danger: "red",
+  glow: "#FFFFFF",
+};
 
-let currentThemeMode: ThemeMode = "dark";
+// Cool counterpart to Cloud Surf — same light-terminal assumption
+// (darker good/warn/danger hexes, per Cloud Surf's own reasoning
+// above), teal in place of blue.
+const MINT_FROST_PALETTE: Palette = {
+  accent: "#0D9488",
+  rule: "#5EEAD4",
+  good: "#15803D",
+  warn: "#A16207",
+  danger: "#B91C1C",
+  glow: "#134E4A", // deep teal — dark-on-light glow, not white-on-light
+};
 
-/** Repoints every `theme.*` property at the given mode's palette in
+const PALETTES: Record<ThemeMode, Palette> = {
+  "aplyx-default": APLYX_DEFAULT_PALETTE,
+  "cloud-surf": CLOUD_SURF_PALETTE,
+  "ember-dusk": EMBER_DUSK_PALETTE,
+  "mint-frost": MINT_FROST_PALETTE,
+};
+
+export const theme: Palette = { ...APLYX_DEFAULT_PALETTE };
+
+let currentThemeMode: ThemeMode = "aplyx-default";
+
+/** Repoints every `theme.*` property at the given theme's palette in
  *  place — called once at launch and again whenever Settings' Theme
  *  field might have changed (App.tsx's refresh(), which already runs on
  *  every tab switch). */
 export function applyThemeMode(mode: ThemeMode): void {
-  Object.assign(theme, mode === "light" ? LIGHT_PALETTE : DARK_PALETTE);
+  Object.assign(theme, PALETTES[mode]);
   currentThemeMode = mode;
 }
 
 /** The mode `applyThemeMode` last set — read by anything that needs to
- *  pick between a dark-tuned and a light-tuned asset wholesale (e.g.
- *  bannerGradient below) rather than recoloring individual `theme.*`
- *  roles. */
+ *  pick between per-theme wholesale assets (e.g. bannerGradient below)
+ *  rather than recoloring individual `theme.*` roles. */
 export function currentTheme(): ThemeMode {
   return currentThemeMode;
 }
 
 /** Reads the Settings "Theme" field (APLYX_TUI_THEME) the same way
  *  jobs.ts's resolveResultsPerPage reads its own env field — real env
- *  var, then config/env.json, then the default. */
+ *  var, then config/env.json, then the default. Back-compat: installs
+ *  from before the 4-theme rework stored the old "dark"/"light" values,
+ *  which still resolve to their closest match (Aplyx Default/Cloud
+ *  Surf) rather than silently falling back to the default and losing
+ *  a Light-mode preference someone had actually set. */
 export function resolveThemeMode(root: string): ThemeMode {
-  return effectiveEnv(root, ["APLYX_TUI_THEME"], "dark").value === "light" ? "light" : "dark";
+  const value = effectiveEnv(root, ["APLYX_TUI_THEME"], "aplyx-default").value;
+  if (value === "dark") return "aplyx-default";
+  if (value === "light") return "cloud-surf";
+  return isThemeMode(value) ? value : "aplyx-default";
 }
 
 let reducedMotion = false;
@@ -186,16 +255,18 @@ function hexToRgb(hex: string): [number, number, number] {
 }
 
 /** phase (any real number) → #rrggbb, smoothly interpolated within the
- *  given gradient (default BANNER_GRADIENT). Bounces back and forth
- *  across the stops (a triangle wave) instead of wrapping the last stop
- *  straight back to the first — a straight wrap would lerp maroon
- *  (#800020, near-zero green/blue) directly to violet (#A78BFA, high
- *  blue), passing through muddy green/blue-tinted hues on the way.
+ *  given gradient (default BANNER_GRADIENT_APLYX_DEFAULT — every real
+ *  caller passes its own `stops` explicitly, so this default is never
+ *  actually exercised; it's just a safe fallback). Bounces back and
+ *  forth across the stops (a triangle wave) instead of wrapping the
+ *  last stop straight back to the first — a straight wrap would lerp
+ *  maroon (#800020, near-zero green/blue) directly to violet (#A78BFA,
+ *  high blue), passing through muddy green/blue-tinted hues on the way.
  *  Ping-ponging means every step is a lerp between two *adjacent*,
  *  intentionally-designed stops, so it can never produce an off-palette
  *  hue — the gradient analog of hueColor's hue wheel, used to drive the
  *  animated AUTO-mode sparkle. */
-export function gradientColor(phase: number, stops: readonly string[] = BANNER_GRADIENT): string {
+export function gradientColor(phase: number, stops: readonly string[] = BANNER_GRADIENT_APLYX_DEFAULT): string {
   const n = stops.length;
   if (n === 1) return stops[0]!;
   const period = 2 * (n - 1);
@@ -210,7 +281,9 @@ export function gradientColor(phase: number, stops: readonly string[] = BANNER_G
   return `#${hex(lerp(r1, r2))}${hex(lerp(g1, g2))}${hex(lerp(b1, b2))}`;
 }
 
-/** ASCII banner — the one loud element. Rows fade violet → maroon. */
+/** ASCII banner — the one loud element. Each theme fades through its own
+ *  identity (see the BANNER_GRADIENT_* constants + bannerGradient below)
+ *  rather than sharing one gradient recolored. */
 export const BANNER_ROWS = [
   " █████╗ ██████╗ ██╗  ██╗   ██╗██╗  ██╗",
   "██╔══██╗██╔══██╗██║  ╚██╗ ██╔╝╚██╗██╔╝",
@@ -220,7 +293,7 @@ export const BANNER_ROWS = [
   "╚═╝  ╚═╝╚═╝     ╚══════╝╚═╝   ╚═╝  ╚═╝",
 ] as const;
 
-export const BANNER_GRADIENT = [
+export const BANNER_GRADIENT_APLYX_DEFAULT = [
   "#A78BFA", // violet
   "#9265F0",
   "#7C3AED",
@@ -229,50 +302,86 @@ export const BANNER_GRADIENT = [
   "#800020", // maroon
 ] as const;
 
-// Light mode's own identity: a light blue → (near-)white fade, matching
-// the blue LIGHT_PALETTE.accent above rather than the dark palette's
-// violet — a deliberate departure from "same hue, different shade" so
-// Light mode reads as its own theme, not just a paler recolor of Dark.
-// The bottom stop (blue-100) is close enough to white to visibly fade
+// Cloud Surf's own identity: a light blue → (near-)white fade, matching
+// its blue accent above rather than Aplyx Default's violet — a
+// deliberate departure from "same hue, different shade" so each theme
+// reads as genuinely its own rather than a recolor of one base. The
+// bottom stop (blue-100) is close enough to white to visibly fade
 // toward the terminal background on a true-white profile — read as the
 // intended "to white" effect for decorative ASCII art rather than a
 // contrast bug, since (unlike theme.accent's actual UI text) this row
 // carries no information a fade-out would obscure.
-const BANNER_GRADIENT_LIGHT = [
+const BANNER_GRADIENT_CLOUD_SURF = [
   "#1D4ED8", // blue-700
-  "#2563EB", // blue-600 — same hex as LIGHT_PALETTE.accent
+  "#2563EB", // blue-600 — same hex as CLOUD_SURF_PALETTE.accent
   "#3B82F6", // blue-500
   "#60A5FA", // blue-400
   "#93C5FD", // blue-300
   "#DBEAFE", // blue-100 — fades toward white
 ] as const;
 
-/** BANNER_GRADIENT or BANNER_GRADIENT_LIGHT depending on the current
- *  Settings Theme mode — a function, not a constant, for the same reason
- *  sparkleGradient() is: `currentTheme()` can change after this module
- *  first loads (Settings' Theme field, applied live), so this has to be
- *  read fresh by its caller on every render rather than resolved once. */
+// Ember Dusk: warm amber → deep rust, the dark-background counterpart
+// to Cloud Surf's cool fade — light amber at top down through orange to
+// a near-black ember at the bottom, mirroring Aplyx Default's
+// light-to-dark shape but in a completely different hue family.
+const BANNER_GRADIENT_EMBER_DUSK = [
+  "#FDBA74", // amber-300
+  "#FB923C", // orange-400 — same hex as EMBER_DUSK_PALETTE.accent
+  "#F97316", // orange-500
+  "#EA580C", // orange-600
+  "#C2410C", // orange-700
+  "#7C2D12", // orange-900 — deep ember
+] as const;
+
+// Mint Frost: teal → (near-)white, the same "fade toward the light
+// background" shape as Cloud Surf, one hue family over.
+const BANNER_GRADIENT_MINT_FROST = [
+  "#0F766E", // teal-700
+  "#0D9488", // teal-600 — same hex as MINT_FROST_PALETTE.accent
+  "#14B8A6", // teal-500
+  "#2DD4BF", // teal-400
+  "#5EEAD4", // teal-300
+  "#CCFBF1", // teal-100 — fades toward white
+] as const;
+
+const BANNER_GRADIENTS: Record<ThemeMode, readonly string[]> = {
+  "aplyx-default": BANNER_GRADIENT_APLYX_DEFAULT,
+  "cloud-surf": BANNER_GRADIENT_CLOUD_SURF,
+  "ember-dusk": BANNER_GRADIENT_EMBER_DUSK,
+  "mint-frost": BANNER_GRADIENT_MINT_FROST,
+};
+
+/** The current theme's banner gradient — a function, not a constant, for
+ *  the same reason sparkleGradient() is: `currentTheme()` can change
+ *  after this module first loads (Settings' Theme field, applied live),
+ *  so this has to be read fresh by its caller on every render rather
+ *  than resolved once. */
 export function bannerGradient(): readonly string[] {
-  return currentTheme() === "light" ? BANNER_GRADIENT_LIGHT : BANNER_GRADIENT;
+  return BANNER_GRADIENTS[currentTheme()];
 }
 
-/** Accent → white — the same two-color blend UpdateBox's traveling
+/** Accent → theme.glow — the same two-color blend UpdateBox's traveling
  *  border ring uses (see blend() there), reused here so every "AUTO"
  *  sparkle (AutoSparkleText, GradientProgressBar) reads as one visual
  *  language across the app. gradientColor's ping-pong bounces cleanly
  *  between the two, so this never touches the banner's plum/maroon end
  *  (which read as "too much red" when it was in the sparkle mix). The
- *  static banner keeps its own full BANNER_GRADIENT — this is scoped to
- *  animations only.
+ *  static banner keeps its own full per-theme gradient — this is scoped
+ *  to animations only.
  *
- *  A function, not a frozen array: `theme.accent` is mutated in place by
- *  applyThemeMode (Settings' Theme field), so a plain `[theme.accent,
- *  "#FFFFFF"] as const` evaluated once at module load would freeze in
- *  the dark palette's violet forever and silently stop matching Light
- *  mode. Called fresh from each consumer's default-param position on
- *  every render instead. */
+ *  A function, not a frozen array: `theme.accent`/`theme.glow` are
+ *  mutated in place by applyThemeMode (Settings' Theme field), so a
+ *  plain `[theme.accent, "#FFFFFF"] as const` evaluated once at module
+ *  load would freeze in whichever theme was active at that moment
+ *  forever — and hardcoding white specifically would, for a
+ *  light-background theme (Cloud Surf, Mint Frost), fade the sparkle
+ *  into an already-white terminal until it's unreadable. `theme.glow`
+ *  is each palette's own answer to "what should this blend toward,"
+ *  already tuned per background (see the Palette interface's own
+ *  comment). Called fresh from each consumer's default-param position
+ *  on every render instead. */
 export function sparkleGradient(): readonly string[] {
-  return [theme.accent, "#FFFFFF"];
+  return [theme.accent, theme.glow];
 }
 
 /** Which coding-agent CLI a run uses — mirrors the four harnesses

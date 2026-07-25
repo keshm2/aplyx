@@ -9,9 +9,17 @@ import { theme } from "../theme.js";
  * install it?" with yes/no controls.
  *
  * The outline is a hand-drawn perimeter (not Ink's single-color
- * `borderStyle`) so each border cell can carry its own color: a white
- * bump travels clockwise around an otherwise theme-accent outline — a
- * wave that goes accent → white → accent, never rainbow.
+ * `borderStyle`) so each border cell can carry its own color: a
+ * `theme.glow` bump travels clockwise around an otherwise theme-accent
+ * outline — a wave that goes accent → glow → accent, never rainbow.
+ * `glow` is a per-theme color (theme.ts's Palette interface), not
+ * always literal white: a dark-background theme (Aplyx Default, Ember
+ * Dusk) wants a bright white pop, but a light-background theme (Cloud
+ * Surf, Mint Frost) blending toward white would fade the wave into an
+ * already-white terminal until it's unreadable — those themes set glow
+ * to a deep, near-black shade of their own hue instead, so the wave
+ * still reads as a clear highlight regardless of which background the
+ * active theme actually targets.
  *
  * Controls support both keyboard (`y` / `n` / `esc`) and mouse clicks.
  * Ink 5 has no stable high-level mouse API, so clicks are handled via raw
@@ -32,21 +40,23 @@ const CLOSE_RANGE: [number, number] = [BOX_W - 6, BOX_W - 4]; // the "[×]" cell
 function hex2(n: number): string {
   return Math.round(n).toString(16).padStart(2, "0");
 }
-/** Blend between theme.accent (t=0) and white (t=1). Reads theme.accent
+/** Blend between theme.accent (t=0) and theme.glow (t=1). Reads both
  *  fresh on every call rather than a module-load snapshot — Settings'
- *  Theme field mutates it in place (see theme.ts's applyThemeMode), and a
- *  frozen 0x8B5CF6 baked in here would keep animating dark-mode violet
- *  even after switching to Light. */
+ *  Theme field mutates them in place (see theme.ts's applyThemeMode),
+ *  and frozen hexes baked in here would keep animating whichever
+ *  theme was active at first render forever, never matching a later
+ *  switch. */
 function blend(t: number): string {
-  const hex = theme.accent.replace("#", "");
-  const n = Number.parseInt(hex, 16);
-  const r0 = (n >> 16) & 0xff;
-  const g0 = (n >> 8) & 0xff;
-  const b0 = n & 0xff;
-  const r = r0 + (0xff - r0) * t;
-  const g = g0 + (0xff - g0) * t;
-  const b = b0 + (0xff - b0) * t;
+  const from = hexToRgbLocal(theme.accent);
+  const to = hexToRgbLocal(theme.glow);
+  const r = from[0] + (to[0] - from[0]) * t;
+  const g = from[1] + (to[1] - from[1]) * t;
+  const b = from[2] + (to[2] - from[2]) * t;
   return `#${hex2(r)}${hex2(g)}${hex2(b)}`;
+}
+function hexToRgbLocal(hex: string): [number, number, number] {
+  const n = Number.parseInt(hex.replace("#", ""), 16);
+  return [(n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff];
 }
 
 /** Perimeter index for a border cell, clockwise from the top-left

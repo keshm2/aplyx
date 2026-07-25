@@ -29,47 +29,69 @@
 
 ## What's new in 0.9.91a
 
-A small, focused follow-up to 0.9.90a: Light mode gets its own light
-blue → white identity — banner, sidebar border, tab/option selection,
-and titles all together — instead of secretly rendering the same
-violet brand hue as Dark mode wherever `theme.accent`/`theme.rule`
-flow. (Revised same-day from an initial violet→purple→fuchsia→pink→
-rose→red banner-only pass, before any wider rollout — this replaces
-that version rather than sitting alongside it, still under the 0.9.91a
-tag.)
+The Dark/Light binary is replaced with four named, color-identified
+themes, and the update-prompt box's "glow" highlight is now correctly
+theme-aware instead of hardcoded to blend toward white. (This entry
+folds together three same-day iterations under one tag, before any
+wider rollout — a brighter-but-still-violet banner pass, then a
+blue-identity pass, then this full four-theme rework — replacing each
+prior version rather than sitting alongside it, still under 0.9.91a.)
 
-### Changed: light blue → white identity for Light mode
+### Changed: four named themes instead of Dark/Light
 
-`LIGHT_PALETTE.accent`/`rule` (`theme.ts`) moved from violet
-(`#6D28D9`/`#C4B5FD`) to blue (`#2563EB`/`#93C5FD`) — every consumer
-that already reads the shared `theme` object live picks this up with no
-call-site changes: the sidebar's border, tab/option selection
-highlighting, titles, all of it. `good`/`warn`/`danger` are untouched —
-they carry outcome meaning (applied/needs-review/failed), not brand
-identity, so they stay their existing green/amber/red regardless of
-accent hue.
+"Dark"/"Light" described a terminal background, not a color identity —
+once there was reason for more than one palette per background, a mode
+name stopped meaning anything on its own. `theme.ts` now defines four:
 
-The banner (`Banner.tsx`) was never theme-reactive at all before this
-pair of releases — same violet→maroon `BANNER_GRADIENT` regardless of
-the Settings Theme field, by original design ("the one loud element,"
-deliberately static). Added a real Light-mode variant,
-`BANNER_GRADIENT_LIGHT`: blue-700 → blue-600 → blue-500 → blue-400 →
-blue-300 → blue-100, fading toward (not quite reaching) white — a
-deliberate fade-out effect for decorative ASCII art, not a contrast bug
-the way it would be for actual UI text — and a `bannerGradient()`
-function that picks between the two gradients based on the current
-Theme setting.
+| Theme | Identity | Terminal background |
+| --- | --- | --- |
+| **Aplyx Default** | violet → maroon (unchanged from the original palette) | dark |
+| **Cloud Surf** | blue → white | light |
+| **Ember Dusk** *(new)* | amber → deep ember | dark |
+| **Mint Frost** *(new)* | teal → white | light |
 
-Threading the gradient into the actual component needed the same fix
-already applied once this week for the banner's *wordmark* variant (the
-narrow/short-terminal fallback): `Banner` is wrapped in `React.memo`,
-which only re-renders on a shallow prop change — `theme.accent` and
-`bannerGradient()`'s result are both invisible to that check unless
-passed down as plain props, since neither is itself a "new" prop value
-memo would notice otherwise. `accent` was already fixed this way;
-`gradient` had the identical exposure and gets the same treatment here,
-so it doesn't remain frozen at whichever gradient was live at the
-banner's last resize.
+Every consumer that already reads the shared `theme` object live —
+sidebar border, tab/option selection, titles, the ASCII banner — picks
+up all four with zero call-site changes, the same mechanism that
+already carried the Dark/Light split. `good`/`warn`/`danger` stay their
+outcome colors (green/amber/red) regardless of theme — they carry
+meaning (applied/needs-review/failed), not brand identity. Old installs
+with `APLYX_TUI_THEME=dark`/`light` still resolve correctly — mapped to
+Aplyx Default/Cloud Surf respectively in both the actual palette
+resolution (`resolveThemeMode`) and the Settings popup's checkmark
+display (`currentOptionValue`), rather than silently losing a saved
+preference or showing nothing checked.
+
+### Fixed: update-box "glow" hardcoded to blend toward white
+
+UpdateBox's traveling border highlight blended `theme.accent` toward a
+literal `#FFFFFF` — fine for a dark-background theme (a bright pop
+against both the accent and the terminal), but for a light-background
+theme (Cloud Surf, Mint Frost) that blend fades the highlight into an
+already-white terminal until it's unreadable at the wave's peak. Added
+`glow` as a fourth color on the `Palette` interface — white for the two
+dark-terminal themes, a deep near-black shade of the theme's own hue for
+the two light-terminal ones (`#1E3A8A` navy for Cloud Surf, `#134E4A`
+teal for Mint Frost) — and changed `UpdateBox`'s `blend()` to
+interpolate `theme.accent` → `theme.glow` instead of a hardcoded white.
+`sparkleGradient()` (the AUTO-badge sparkle and default-gradient
+progress bars) had the identical hardcoded-white exposure and got the
+same fix.
+
+### Also carried in this pass
+
+- Fixed a second instance of the `React.memo` staleness bug found
+  earlier for the banner's *wordmark* variant: `Banner` memoizes on
+  props, so its gradient has to be threaded through as an explicit
+  `gradient` prop (like `accent` already is) rather than read from a
+  theme.js function inside the component — otherwise switching themes
+  would leave the art variant frozen at whichever gradient was live at
+  the banner's last resize.
+- Each new theme's banner gradient mirrors its dark/light counterpart's
+  shape (Ember Dusk fades light-amber-to-deep-ember like Aplyx Default
+  fades light-violet-to-maroon; Mint Frost fades teal-to-near-white like
+  Cloud Surf fades blue-to-near-white) so all four read as one coherent
+  system rather than four unrelated palettes.
 
 ## Install / update / uninstall
 
@@ -98,14 +120,26 @@ Windows: `powershell -ExecutionPolicy Bypass -File scripts\install\install.ps1`
 
 - `npm run typecheck:app`, `npm run build`, and `npm run smoke` are all
   clean.
-- Verified live in a real tmux terminal session, both iterations:
-  captured the raw ANSI color codes for all 6 banner rows plus the tab
-  row's accent color and the sidebar's border color in Dark mode
-  (matching `BANNER_GRADIENT`/`theme.accent`/`theme.rule` exactly),
-  switched Settings' Theme field to Light, re-captured, and confirmed
-  every one of them changed to the exact new `BANNER_GRADIENT_LIGHT` /
-  `LIGHT_PALETTE.accent` / `LIGHT_PALETTE.rule` hex values — not just
-  that *something* changed, the precise stops and hexes.
+- Verified live in tmux across every theme, not just spot-checked one:
+  captured raw ANSI codes for all 6 banner rows in Aplyx Default, Cloud
+  Surf, Ember Dusk, and Mint Frost, confirming each against its
+  respective `BANNER_GRADIENT_*` constant's exact hex stops. Confirmed
+  the Settings popup's checkmark correctly resolves a legacy
+  `APLYX_TUI_THEME=light` value to "Cloud Surf" (both before and after
+  the `currentOptionValue` back-compat fix — reproduced the "nothing
+  checked" gap first, then confirmed it resolved). Triggered the actual
+  update-prompt box (temporarily lowering local `VERSION`) and captured
+  its border-wave ANSI codes for Mint Frost and Ember Dusk specifically
+  — confirmed the wave's endpoints exactly match `theme.accent` and
+  `theme.glow` for each (Mint Frost's dark-teal glow for a
+  light-terminal theme; Ember Dusk's white glow for a dark-terminal
+  theme), not just that the box renders at all.
+- One clipping artifact hit during testing (a 4-option Theme popup plus
+  the update box both open at once, at a 30-row terminal, made the
+  cursor seem to "skip" an option) was confirmed to be the terminal
+  simply being too short for everything simultaneously — re-tested at
+  45 rows with all four options visible at once and no update box open,
+  confirmed it was never a real navigation bug.
 
 ## Release artifacts
 

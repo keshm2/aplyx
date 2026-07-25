@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Text, useInput } from "ink";
-import { statusGlyph, theme, harnessGradient, pageSizeTier, HARNESS_WAVE_TICK_MS, HARNESS_WAVE_STEP, type HarnessId } from "../theme.js";
+import { statusGlyph, theme, harnessGradient, pageSizeTier, HARNESS_WAVE_TICK_MS, HARNESS_WAVE_STEP, THEME_NAMES, type HarnessId, type ThemeMode } from "../theme.js";
 import { DEFAULT_PAGE_SIZE, MIN_PAGE_SIZE, MAX_PAGE_SIZE, DEFAULT_RESULTS_PER_PAGE } from "../jobs.js";
 import {
   effectiveEnv,
@@ -272,12 +272,9 @@ const SECTIONS: Section[] = [
         kind: "env",
         key: "APLYX_TUI_THEME",
         label: "Theme",
-        explain: "Recolors aplyx's own accent/status text only — Dark keeps the default palette, Light swaps in darker accent/status colors that stay readable if YOUR terminal's background is already light (named ANSI yellow in particular is hard to read on white). This does NOT change your terminal's background color itself — that's controlled by your terminal app's own color scheme/profile setting, outside aplyx. Takes effect immediately, no restart needed.",
-        fallback: "dark",
-        options: [
-          { label: "Dark", value: "dark" },
-          { label: "Light", value: "light" },
-        ],
+        explain: "Recolors aplyx's own accent/status text and the ASCII banner only — Aplyx Default and Ember Dusk are tuned for a dark terminal background; Cloud Surf and Mint Frost swap in darker accent/status colors tuned to stay readable if YOUR terminal's background is already light (named ANSI yellow in particular is hard to read on white). This does NOT change your terminal's background color itself — that's controlled by your terminal app's own color scheme/profile setting, outside aplyx. Takes effect immediately, no restart needed.",
+        fallback: "aplyx-default",
+        options: (Object.entries(THEME_NAMES) as [ThemeMode, string][]).map(([value, label]) => ({ label, value })),
       },
       {
         kind: "env",
@@ -589,8 +586,22 @@ export function SettingsScreen({
   // — this is what the ✓ marks, so hovering a different choice never
   // looks like it's already picked. Once Enter writes a new choice, this
   // recomputes on the next render and the ✓ jumps to it immediately.
-  const currentOptionValue =
+  //
+  // Theme specifically maps the old "dark"/"light" values (from before
+  // the 4-theme rework) to their closest new slug here too — otherwise
+  // an install that set Light and never touched this field again would
+  // show nothing checked in the popup, even though resolveThemeMode's
+  // own matching back-compat mapping (theme.ts) already applies Cloud
+  // Surf correctly. Picking any option here writes the new slug and
+  // self-heals the stored value going forward.
+  const rawOptionValue =
     field.options && field.kind === "env" ? effectiveEnv(root, [field.key, ...(field.legacyKeys ?? [])], field.fallback ?? "").value : "";
+  const currentOptionValue =
+    field.key === "APLYX_TUI_THEME" && rawOptionValue === "dark"
+      ? "aplyx-default"
+      : field.key === "APLYX_TUI_THEME" && rawOptionValue === "light"
+        ? "cloud-surf"
+        : rawOptionValue;
 
   // Inside a section (or editing) this screen owns the keyboard — esc
   // backs out one level instead of jumping to the welcome menu.

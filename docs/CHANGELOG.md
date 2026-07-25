@@ -14,25 +14,43 @@ npm package: `@keshm/aplyx` version `0.9.91-alpha.0`. Full notes:
 
 ### Changed
 
-- **TUI: Light mode now has its own light-blue → white identity**,
-  covering the banner, sidebar border, tab/option selection, and titles
-  — everywhere `theme.accent`/`theme.rule` already flow. Originally
-  shipped as a violet→purple→fuchsia→pink→rose→red banner gradient
-  (same brand hue as Dark mode, just re-shaded); revised same-day,
-  before any wider rollout, to a deliberately different blue identity
-  instead — `LIGHT_PALETTE.accent`/`rule` moved from violet to blue
-  (`#2563EB`/`#93C5FD`), and the banner's `BANNER_GRADIENT_LIGHT` now
-  fades blue-700 → blue-100 (near-white). `good`/`warn`/`danger` stay
-  their outcome colors regardless — meaning-bearing, not brand. Also
-  fixed a second instance of the exact React.memo staleness bug found
-  earlier for the banner's wordmark variant: `Banner` memoizes on
-  props, so the gradient has to be threaded through as an explicit
-  `gradient` prop (like `accent` already is) rather than read from a
-  theme.js function inside the component — otherwise switching
-  Dark⇄Light would leave the art variant frozen at whichever gradient
-  was live at the banner's last resize. Verified live in tmux both
-  times: switching Theme to Light recolors the banner, sidebar border,
-  and tab/title accents to the exact new hex values.
+- **TUI: replaced the Dark/Light binary with four named themes** —
+  **Aplyx Default** (violet, dark-terminal-tuned — the original
+  palette, unchanged), **Cloud Surf** (blue → white, light-terminal-
+  tuned), **Ember Dusk** (amber → deep ember, dark-terminal-tuned, new),
+  and **Mint Frost** (teal → white, light-terminal-tuned, new). "Dark"/
+  "Light" described a terminal background, not a color identity, and
+  stopped meaning anything once there was more than one palette per
+  background. Old installs with `APLYX_TUI_THEME=dark`/`light` still
+  resolve correctly (mapped to Aplyx Default/Cloud Surf respectively,
+  in both the actual palette resolution and the Settings popup's
+  checkmark display) rather than silently losing a saved preference.
+  Every consumer already reading the shared `theme` object live (sidebar
+  border, tab/option selection, titles, banner) picks up all four with
+  no call-site changes; `good`/`warn`/`danger` stay outcome colors
+  regardless of theme — meaning-bearing, not brand.
+- **The update-prompt box's traveling border highlight ("glow") is now
+  theme-aware too**, not hardcoded to blend toward white. Each palette
+  gained a `glow` color: white for the two dark-terminal themes (a
+  bright pop, as before), but a deep near-black shade of the theme's own
+  hue for the two light-terminal themes (`#1E3A8A` navy for Cloud Surf,
+  `#134E4A` teal for Mint Frost) — blending toward white on an
+  already-white terminal would have faded the highlight to
+  unreadable. The same fix was applied to `sparkleGradient()` (the
+  AUTO-badge sparkle and default-gradient progress bars), which had the
+  identical hardcoded-white exposure.
+- Fixed a second instance of the React.memo staleness bug found earlier
+  for the banner's wordmark variant: `Banner` memoizes on props, so its
+  gradient has to be threaded through as an explicit `gradient` prop
+  (like `accent` already is) rather than read from a theme.js function
+  inside the component — otherwise switching themes would leave the art
+  variant frozen at whichever gradient was live at the banner's last
+  resize.
+- Verified live in tmux across all four themes: banner (all 6 rows per
+  theme), sidebar border, tab/title accents, the Settings popup's
+  checkmark (including the legacy-value back-compat case), and the
+  update box's glow blend all confirmed switching to the exact expected
+  hex values.
 
 ## [0.9.90a] — 2026-07-24
 
