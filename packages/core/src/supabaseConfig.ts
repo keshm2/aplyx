@@ -7,15 +7,38 @@ export interface SupabaseConfig {
 }
 
 /**
- * Reads config/supabase.json — the live, gitignored Supabase project URL +
- * anon key (config/supabase.example.json is the committed placeholder
- * template, same convention as every other config/*.example.json file).
- * Returns undefined when the file is missing or still holds the example
- * placeholders, so callers (the desktop app's entry/auth screens) can show
- * a "hosted mode isn't configured yet" state instead of crashing.
+ * aplyx's own hosted-auth Supabase project — the backend "Sign in / Sync
+ * across devices" on the desktop app's entry screen actually talks to.
+ * An anon key is meant to be public (every Supabase web/mobile app ships
+ * one in its client bundle; access control is Row Level Security on the
+ * backend, not secrecy of this key), so baking it in here is the normal,
+ * correct way to do this — the alternative, requiring every end user to
+ * stand up their own Supabase project just to click "Sign in," is what
+ * was actually shipping: config/supabase.json is gitignored and reaches
+ * no distribution channel (git tarball, npm package, or the desktop
+ * app's bundled resources all exclude it), so literally every install
+ * outside this maintainer's own dev machine hit the "isn't set up yet"
+ * dead end. `readSupabaseConfig` below still checks for a local
+ * config/supabase.json first — self-hosters who want their own backend
+ * still get to override this, same as before.
  */
-export function readSupabaseConfig(root: string): SupabaseConfig | undefined {
-  return readSupabaseConfigFile(root, "supabase.json");
+export const DEFAULT_SUPABASE_CONFIG: SupabaseConfig = {
+  url: "https://aedejjesqcbndphkldfs.supabase.co",
+  anonKey: "sb_publishable_d3pJdWv70x7tYbDEWoGkFw_HCUpS1_i",
+};
+
+/**
+ * Reads config/supabase.json — a live, gitignored, *local override* of
+ * DEFAULT_SUPABASE_CONFIG above (config/supabase.example.json is the
+ * committed placeholder template, same convention as every other
+ * config/*.example.json file) — and falls back to the baked-in default
+ * when it's missing or still holds the example placeholders. Every real
+ * install gets working hosted sign-in against aplyx's own backend without
+ * any setup; a self-hoster who wants a different backend still can by
+ * dropping their own config/supabase.json in.
+ */
+export function readSupabaseConfig(root: string): SupabaseConfig {
+  return readSupabaseConfigFile(root, "supabase.json") ?? DEFAULT_SUPABASE_CONFIG;
 }
 
 /**

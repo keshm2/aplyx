@@ -15,14 +15,14 @@ import { useEffect, useState } from "react";
  */
 
 export type ThemePref = "system" | "light" | "dark";
-export type ThemeFamily = "cobalt" | "sage" | "legacy" | "graphite";
+export type ThemeFamily = "cobalt" | "sage" | "legacy" | "graphite" | "ember";
 export type FontPref = "system" | "geist" | "inter" | "plex" | "atkinson";
 
 const THEME_KEY = "aplyx.theme";
 const THEME_FAMILY_KEY = "aplyx.themeFamily";
 const FONT_KEY = "aplyx.font";
 
-const THEME_FAMILIES: ThemeFamily[] = ["cobalt", "sage", "legacy", "graphite"];
+const THEME_FAMILIES: ThemeFamily[] = ["cobalt", "sage", "legacy", "graphite", "ember"];
 const FONTS: FontPref[] = ["system", "geist", "inter", "plex", "atkinson"];
 
 export const THEME_FAMILY_LABELS: Record<ThemeFamily, string> = {
@@ -30,6 +30,7 @@ export const THEME_FAMILY_LABELS: Record<ThemeFamily, string> = {
   sage: "Sage Slate",
   legacy: "Aplyx Classic",
   graphite: "Graphite Cyan",
+  ember: "Ember Glow",
 };
 
 export const FONT_LABELS: Record<FontPref, string> = {

@@ -94,6 +94,22 @@ export async function writeProfileField(root: string, id: string, value: string 
   await invoke("write_profile_field", { root, id, value });
 }
 
+/** Batched siblings of readProfileField/writeProfileField — one bridge
+ *  call (one spawned node process) for a whole page/set of fields instead
+ *  of one per field. Each bridge call is its own process spawn (see
+ *  desktop/src-tauri/src/lib.rs's run_bridge); a page with several fields
+ *  firing that many concurrently was reported live as flashing console
+ *  windows and multi-second page transitions on Windows. Prefer these over
+ *  Promise.all-ing the singular versions for any multi-field read/write. */
+export async function readProfileFields(root: string, ids: string[]): Promise<Record<string, string | string[]>> {
+  const result = await invoke<{ values: Record<string, string | string[]> }>("read_profile_fields", { root, ids });
+  return result.values;
+}
+
+export async function writeProfileFields(root: string, values: Record<string, string | string[]>): Promise<void> {
+  await invoke("write_profile_fields", { root, values });
+}
+
 export async function loadLocalState(root: string): Promise<unknown> {
   return invoke("load_local_state", { root });
 }
@@ -102,12 +118,12 @@ export async function runValidator(root: string): Promise<{ ok: boolean; output:
   return invoke("run_validator", { root });
 }
 
-/** Returns undefined when config/supabase.json is missing or still holds
- *  the example placeholders — the caller shows a "hosted mode isn't
- *  configured yet" state rather than treating this as a hard error. */
-export async function readSupabaseConfig(root: string): Promise<SupabaseConfig | undefined> {
-  const result = await invoke<SupabaseConfig | null>("read_supabase_config", { root });
-  return result ?? undefined;
+/** Falls back to aplyx's own baked-in hosted-auth project when
+ *  config/supabase.json is missing or still holds the example
+ *  placeholders (see @aplyx/core/supabaseConfig.ts's
+ *  DEFAULT_SUPABASE_CONFIG) — a local override still wins when present. */
+export async function readSupabaseConfig(root: string): Promise<SupabaseConfig> {
+  return invoke<SupabaseConfig>("read_supabase_config", { root });
 }
 
 /** True when a local aplyx installation was found — i.e. findRoot()

@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { BUILD_MARKER } from "@aplyx/core/version.js";
 import { useAuth } from "../../lib/AuthContext";
 import { findRoot, hasLocalInstall, setLocalRoot, forgetLocalRoot } from "../../lib/bridge";
+import { useDesktopUpdateStatus } from "../../lib/updateCheck";
 import {
   useUiPrefs,
   THEME_FAMILY_LABELS,
@@ -25,6 +27,7 @@ const THEME_FAMILY_OPTIONS: { value: ThemeFamily; detail: string }[] = [
   { value: "sage", detail: "Quieter, softer, less saturated green-gray accent" },
   { value: "legacy", detail: "The original warm beige + violet/plum look" },
   { value: "graphite", detail: "Darker, more technical, ops-console feeling" },
+  { value: "ember", detail: "Warm and inviting — burnt orange-red on cream, glowing amber in dark mode" },
 ];
 
 const FONT_OPTIONS: { value: FontPref; detail: string }[] = [
@@ -42,6 +45,7 @@ export function SettingsScreen() {
   const [root, setRoot] = useState<string | undefined>(undefined);
   const [browsing, setBrowsing] = useState(false);
   const [rootError, setRootError] = useState<string | undefined>(undefined);
+  const desktopUpdate = useDesktopUpdateStatus();
 
   const refreshLocalInstall = () => {
     hasLocalInstall().then((has) => {
@@ -207,8 +211,38 @@ export function SettingsScreen() {
       </section>
 
       {/* Same build marker the TUI shows (dimmed) in its side panel footer
-       * — one shared @aplyx/core constant, so both surfaces always agree. */}
-      <p style={{ fontSize: "var(--text-xs)", color: "var(--text-faint)" }}>build {BUILD_MARKER}</p>
+       * — one shared @aplyx/core constant, so both surfaces always agree.
+       * `aplyx update` (the TUI/core self-updater) can't reach this app's
+       * own binary or its bundled bridge resource — both are baked in at
+       * build time and only ever change on a fresh install — so this is
+       * the desktop app's own, separate update check; see updateCheck.ts. */}
+      {desktopUpdate.updateAvailable ? (
+        <section>
+          <h2 style={{ fontSize: "var(--text-lg)", marginBottom: "var(--space-3)" }}>Desktop app update</h2>
+          <div className="check-row">
+            <span className="check-icon check-icon-fail">↑</span>
+            <div style={{ flex: 1 }}>
+              <div className="check-label">Update available: {desktopUpdate.latest}</div>
+              <div className="check-detail">
+                You're on build {desktopUpdate.current}. Download and run the installer for your OS —
+                it replaces this install in place; re-open aplyx afterward.
+              </div>
+            </div>
+            <button
+              type="button"
+              className="wizard-back"
+              onClick={() => void openUrl(desktopUpdate.releaseUrl)}
+            >
+              Get the update
+            </button>
+          </div>
+        </section>
+      ) : (
+        <p style={{ fontSize: "var(--text-xs)", color: "var(--text-faint)" }}>
+          build {BUILD_MARKER}
+          {desktopUpdate.checking ? "" : " (latest)"}
+        </p>
+      )}
     </div>
   );
 }

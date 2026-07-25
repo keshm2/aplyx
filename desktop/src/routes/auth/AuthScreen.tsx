@@ -68,25 +68,6 @@ export function AuthScreen() {
     );
   }
 
-  if (status === "unconfigured") {
-    return (
-      <main className="auth">
-        <div className="auth-card">
-          <Logo size={32} />
-          <h1>Hosted sign-in isn&rsquo;t set up yet</h1>
-          <p className="auth-status-line">
-            This installation doesn&rsquo;t have a hosted backend configured. Ask whoever set up
-            this copy of aplyx to add <code>config/supabase.json</code>, or continue without an
-            account.
-          </p>
-          <button className="auth-secondary" onClick={() => navigate("/onboarding/local")}>
-            Run locally instead
-          </button>
-        </div>
-      </main>
-    );
-  }
-
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(undefined);

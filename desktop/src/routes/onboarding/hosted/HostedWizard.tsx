@@ -28,14 +28,10 @@ export function HostedWizard() {
   const [stepIndex, setStepIndex] = useState(0);
 
   useEffect(() => {
-    // An unconfigured (undefined) or failed client must not strand this
-    // screen on "Loading…" — bounce back to /auth, which renders the
-    // matching unconfigured/error state.
+    // A failed client must not strand this screen on "Loading…" — bounce
+    // back to /auth, which renders the matching error state.
     getSupabaseClient()
-      .then((c) => {
-        if (c) setClient(c);
-        else navigate("/auth");
-      })
+      .then(setClient)
       .catch(() => navigate("/auth"));
   }, [navigate]);
 

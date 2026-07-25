@@ -202,6 +202,24 @@ fn node_binary_uncached() -> PathBuf {
 fn run_bridge(app: &tauri::AppHandle, command: &str, args: Option<Value>) -> Result<Value, String> {
     let script = bridge_script_path(app)?;
     let mut cmd = Command::new(node_binary());
+    // On Windows, spawning a console subprocess (node.exe) from a GUI app
+    // with no console of its own makes Windows allocate a brand-new
+    // console window for it by default — visible as a black cmd-style
+    // window flashing open and closed. std::process::Command does not
+    // suppress this on its own; CREATE_NO_WINDOW is the documented way to
+    // opt out. Reported live: "a bunch of command prompts that open and
+    // close in the background in quick sub-second intervals" whenever a
+    // screen fires several bridge calls in a row (e.g. one per profile
+    // field before the batching fix below) — window allocation isn't free
+    // either, so this was also part of the reported per-page slowness, not
+    // just the visual flashing. No-op on macOS/Linux, where a spawned
+    // process never gets its own terminal window regardless.
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
     // Never let node inherit this process's cwd. A GUI-launched app's
     // working directory is whatever the OS/shortcut happened to set it to
     // (observed on Windows: a bare drive root with no trailing
@@ -270,6 +288,33 @@ fn write_profile_field(app: tauri::AppHandle, root: String, id: String, value: V
         &app,
         "writeProfileField",
         Some(serde_json::json!({ "root": root, "id": id, "value": value })),
+    )
+}
+
+/// Batched siblings of read/write_profile_field — one bridge spawn (one
+/// node process) for a whole page of fields instead of one per field. See
+/// packages/core/src/bridge.ts's matching comment for why: each of these
+/// commands is a separate `node <script>` process (run_bridge above has no
+/// long-lived bridge process to reuse), so N fields meant N concurrent
+/// cold-started processes — reported live as flashing console windows and
+/// multi-second page transitions on Windows, worst on the onboarding
+/// Profile step and Settings' Profile screen (which read every field up
+/// front).
+#[tauri::command]
+fn read_profile_fields(app: tauri::AppHandle, root: String, ids: Vec<String>) -> Result<Value, String> {
+    run_bridge(
+        &app,
+        "readProfileFields",
+        Some(serde_json::json!({ "root": root, "ids": ids })),
+    )
+}
+
+#[tauri::command]
+fn write_profile_fields(app: tauri::AppHandle, root: String, values: Value) -> Result<Value, String> {
+    run_bridge(
+        &app,
+        "writeProfileFields",
+        Some(serde_json::json!({ "root": root, "values": values })),
     )
 }
 
@@ -434,6 +479,8 @@ pub fn run() {
             ensure_targets_file,
             read_profile_field,
             write_profile_field,
+            read_profile_fields,
+            write_profile_fields,
             load_local_state,
             run_validator,
             read_supabase_config,

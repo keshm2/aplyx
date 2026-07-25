@@ -1,7 +1,7 @@
 /*
  * aplyx desktop design tokens.
  *
- * Four theme families (Settings → Appearance), each with its own light/dark
+ * Five theme families (Settings → Appearance), each with its own light/dark
  * pair, sharing one token contract so every component only ever reads
  * --ground/--surface/--text/--accent/etc — never a family's actual hex.
  * Status colors (good/warn/danger) stay identical across families and
@@ -13,15 +13,19 @@
  * - **Aplyx Classic** (`legacy`) — the original warm beige/violet-plum
  *   look, kept as a named option rather than the only identity.
  * - **Graphite Cyan** — darker, more technical/ops-console feeling.
+ * - **Ember Glow** — warm and inviting: a burnt orange-red accent on soft
+ *   cream (light) or glowing amber on deep charcoal-ash (dark), like
+ *   coals in a fire rather than an open flame.
  *
  * Mode (light/dark) and family are independent axes: `data-theme` on
  * <html> ("system" leaves it unset so the prefers-color-scheme media
  * query decides; "light"/"dark" force it) and `data-theme-family`
- * ("cobalt" | "sage" | "legacy" | "graphite", src/lib/uiPrefs.ts). A
- * family's `[data-theme-family="x"][data-theme="…"]` block always wins
- * over its own media-query block via specificity, exactly like the
- * bare-:root pattern below did before families existed — every family
- * repeats that same 4-block shape (base light, media-query dark,
+ * ("cobalt" | "sage" | "legacy" | "graphite" | "ember", src/lib/
+ * uiPrefs.ts). A family's `[data-theme-family="x"][data-theme="…"]`
+ * block always wins over its own media-query block via specificity,
+ * exactly like the bare-:root pattern below did before families
+ * existed — every family repeats that same 4-block shape (base light,
+ * media-query dark,
  * explicit dark, explicit light).
  *
  * The bare `:root` block (no attribute yet) doubles as Calm Cobalt and
@@ -413,6 +417,82 @@
   --accent-soft: #e0f4f7;
   --accent-ink: #ffffff;
   --shadow-lift: 0 12px 32px -12px rgb(20 25 27 / 0.16);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+/* ================= Ember Glow ================= */
+
+:root[data-theme-family="ember"] {
+  color-scheme: light;
+  --ground: #fbf1e7;
+  --surface: #ffffff;
+  --surface-raised: #fdf6ee;
+  --border: #ecd7c4;
+  --border-strong: #dbb996;
+  --text: #2b1a12;
+  --text-muted: #6b5142;
+  --text-faint: #9c8172;
+  --accent: #c23f18;
+  --accent-strong: #9e3110;
+  --accent-soft: #fce3d5;
+  --accent-ink: #ffffff;
+  --shadow-lift: 0 12px 32px -12px rgb(43 26 18 / 0.2);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme-family="ember"] {
+    color-scheme: dark;
+    --ground: #1a1210;
+    --surface: #241713;
+    --surface-raised: #2c1c17;
+    --border: #3d2620;
+    --border-strong: #54332a;
+    --text: #f5e6da;
+    --text-muted: #c2a291;
+    --text-faint: #8a6e60;
+    --accent: #ff9a52;
+    --accent-strong: #ffb066;
+    --accent-soft: #4a2814;
+    --accent-ink: #2b1206;
+    --shadow-lift: 0 16px 40px -14px rgb(0 0 0 / 0.6);
+    --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+}
+
+:root[data-theme-family="ember"][data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #1a1210;
+  --surface: #241713;
+  --surface-raised: #2c1c17;
+  --border: #3d2620;
+  --border-strong: #54332a;
+  --text: #f5e6da;
+  --text-muted: #c2a291;
+  --text-faint: #8a6e60;
+  --accent: #ff9a52;
+  --accent-strong: #ffb066;
+  --accent-soft: #4a2814;
+  --accent-ink: #2b1206;
+  --shadow-lift: 0 16px 40px -14px rgb(0 0 0 / 0.6);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+:root[data-theme-family="ember"][data-theme="light"] {
+  color-scheme: light;
+  --ground: #fbf1e7;
+  --surface: #ffffff;
+  --surface-raised: #fdf6ee;
+  --border: #ecd7c4;
+  --border-strong: #dbb996;
+  --text: #2b1a12;
+  --text-muted: #6b5142;
+  --text-faint: #9c8172;
+  --accent: #c23f18;
+  --accent-strong: #9e3110;
+  --accent-soft: #fce3d5;
+  --accent-ink: #ffffff;
+  --shadow-lift: 0 12px 32px -12px rgb(43 26 18 / 0.2);
   --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 

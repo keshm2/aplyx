@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { PAGES } from "@aplyx/core/onboarding/fields.js";
-import { findRoot, hasLocalInstall, readProfileField, writeProfileField } from "../../lib/bridge";
+import { findRoot, hasLocalInstall, readProfileFields, writeProfileFields } from "../../lib/bridge";
 import { FieldInput } from "../../components/FieldInput";
 import "../../components/formFields.css";
 
@@ -28,10 +28,11 @@ export function ProfileScreen() {
         const r = await findRoot();
         setRoot(r);
         const allFields = PAGES.flatMap((p) => p.fields);
-        const entries = await Promise.all(
-          allFields.map(async (f) => [f.id, await readProfileField(r, f.id)] as const),
+        const values = await readProfileFields(
+          r,
+          allFields.map((f) => f.id),
         );
-        setValues(Object.fromEntries(entries));
+        setValues(values);
       })
       .catch((err) => setError(err instanceof Error ? err.message : String(err)))
       .finally(() => setLoaded(true));
@@ -47,7 +48,8 @@ export function ProfileScreen() {
     setError(undefined);
     try {
       const page = PAGES[pageIndex];
-      await Promise.all(page.fields.map((f) => writeProfileField(root, f.id, values[f.id] ?? emptyValueFor(f.kind))));
+      const toWrite = Object.fromEntries(page.fields.map((f) => [f.id, values[f.id] ?? emptyValueFor(f.kind)]));
+      await writeProfileFields(root, toWrite);
       setSavedAt((prev) => ({ ...prev, [pageIndex]: true }));
       window.setTimeout(() => setSavedAt((prev) => ({ ...prev, [pageIndex]: false })), 2000);
     } catch (err) {

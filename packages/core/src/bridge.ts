@@ -98,6 +98,44 @@ async function dispatch(command: string, args: Args): Promise<unknown> {
       return { ok: true };
     }
 
+    // Batched siblings of readProfileField/writeProfileField: the desktop
+    // app's onboarding ProfileStep and Settings' ProfileScreen used to fire
+    // one bridge call per field (one per-call `node <script>` process spawn
+    // each, since the Rust side has no long-lived bridge process — see
+    // desktop/src-tauri/src/lib.rs's run_bridge) — a page with 5 fields
+    // meant 5 concurrent cold-started node processes just to load it, and
+    // another 5 to save it. Reported live as multiple flashing console
+    // windows per click and multi-second page transitions on Windows,
+    // where process creation is heavier than on macOS/Linux. One call for
+    // the whole page (or, for ProfileScreen's initial load, the whole
+    // field set) collapses that down to a single spawn.
+    case "readProfileFields": {
+      const root = resolveRoot(args);
+      const ids = args.ids;
+      if (!Array.isArray(ids) || ids.some((id) => typeof id !== "string")) {
+        throw new Error("readProfileFields requires { ids: string[] }");
+      }
+      const adapter = new LocalAdapter(root);
+      const values: Record<string, unknown> = {};
+      for (const id of ids as string[]) {
+        values[id] = await adapter.readProfileField(id);
+      }
+      return { values };
+    }
+
+    case "writeProfileFields": {
+      const root = resolveRoot(args);
+      const values = args.values;
+      if (typeof values !== "object" || values === null || Array.isArray(values)) {
+        throw new Error("writeProfileFields requires { values: Record<string, string | string[]> }");
+      }
+      const adapter = new LocalAdapter(root);
+      for (const [id, value] of Object.entries(values as Record<string, string | string[]>)) {
+        await adapter.writeProfileField(id, value);
+      }
+      return { ok: true };
+    }
+
     case "loadState": {
       const root = resolveRoot(args);
       const adapter = new LocalAdapter(root);
@@ -111,7 +149,7 @@ async function dispatch(command: string, args: Args): Promise<unknown> {
 
     case "readSupabaseConfig": {
       const root = resolveRoot(args);
-      return readSupabaseConfig(root) ?? null;
+      return readSupabaseConfig(root);
     }
 
     case "detectHarnesses":

@@ -24,6 +24,7 @@ const THEME_FAMILY_OPTIONS: { value: ThemeFamily; detail: string }[] = [
   { value: "sage", detail: "Quieter, softer, less saturated green-gray accent" },
   { value: "legacy", detail: "The original warm beige + violet/plum look" },
   { value: "graphite", detail: "Darker, more technical, ops-console feeling" },
+  { value: "ember", detail: "Warm and inviting — burnt orange-red on cream, glowing amber in dark mode" },
 ];
 
 const FONT_OPTIONS: { value: FontPref; detail: string }[] = [

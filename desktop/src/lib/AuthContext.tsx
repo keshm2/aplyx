@@ -5,7 +5,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { SupabaseAdapter } from "@aplyx/core/adapters/supabase.js";
 import { getSupabaseClient } from "./supabaseClient";
 
-type AuthStatus = "checking" | "unconfigured" | "error" | "signed-out" | "signed-in";
+type AuthStatus = "checking" | "error" | "signed-out" | "signed-in";
 
 /**
  * Custom URL scheme this app registers (desktop/src-tauri/tauri.conf.json
@@ -109,10 +109,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     getSupabaseClient()
       .then(async (c) => {
         if (cancelled) return;
-        if (!c) {
-          setStatus("unconfigured");
-          return;
-        }
         setClient(c);
         const { data } = await c.auth.getSession();
         if (cancelled) return;
@@ -174,7 +170,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async signInWithPassword(email, password) {
         try {
           const c = await getSupabaseClient();
-          if (!c) return { error: "Hosted sign-in isn't configured on this machine yet." };
           const { error } = await c.auth.signInWithPassword({ email, password });
           return { error: error?.message };
         } catch (err) {
@@ -184,7 +179,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async signUpWithPassword(email, password) {
         try {
           const c = await getSupabaseClient();
-          if (!c) return { error: "Hosted sign-in isn't configured on this machine yet." };
           const { data, error } = await c.auth.signUp({
             email,
             password,
@@ -207,7 +201,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async resendConfirmation(email) {
         try {
           const c = await getSupabaseClient();
-          if (!c) return { error: "Hosted sign-in isn't configured on this machine yet." };
           const { error } = await c.auth.resend({
             type: "signup",
             email,
@@ -221,7 +214,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async signInWithGoogle() {
         try {
           const c = await getSupabaseClient();
-          if (!c) return { error: "Hosted sign-in isn't configured on this machine yet." };
           // skipBrowserRedirect: the webview must not navigate itself — Google
           // blocks OAuth from embedded webviews. Open the auth URL in the
           // user's real system browser instead; it redirects back to

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { PAGES, PRIVACY_LINE } from "@aplyx/core/onboarding/fields.js";
-import { readProfileField, writeProfileField } from "../../../lib/bridge";
+import { readProfileFields, writeProfileFields } from "../../../lib/bridge";
 import { FieldInput } from "../../../components/FieldInput";
 
 type FieldValue = string | string[];
@@ -25,12 +25,13 @@ export function ProfileStep({ root, onComplete }: { root: string; onComplete: ()
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all(
-      page.fields.map(async (f) => [f.id, await readProfileField(root, f.id)] as const),
+    readProfileFields(
+      root,
+      page.fields.map((f) => f.id),
     )
-      .then((entries) => {
+      .then((values) => {
         if (cancelled) return;
-        setValues((prev) => ({ ...prev, ...Object.fromEntries(entries) }));
+        setValues((prev) => ({ ...prev, ...values }));
       })
       // A failed prefill must not strand the page on its loading state —
       // the fields just start empty and the write path reports its own
@@ -45,7 +46,8 @@ export function ProfileStep({ root, onComplete }: { root: string; onComplete: ()
   }, [pageIndex, root]);
 
   async function commitPage() {
-    await Promise.all(page.fields.map((f) => writeProfileField(root, f.id, values[f.id] ?? "")));
+    const toWrite = Object.fromEntries(page.fields.map((f) => [f.id, values[f.id] ?? ""]));
+    await writeProfileFields(root, toWrite);
   }
 
   async function handleNext() {

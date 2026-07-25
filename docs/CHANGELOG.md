@@ -7,6 +7,56 @@ but trimmed to fit a small in-repo doc.
 > Per-`docs/RELEASE.md` is the canonical, deep-dive release
 > document for each tagged build. This file is the index.
 
+## [0.9.945a] — 2026-07-25
+
+npm package: `@keshm/aplyx` version `0.9.945-alpha.0`. Full notes:
+[`RELEASE.md`](./RELEASE.md).
+
+### Fixed
+
+- **Critical: "update available" didn't actually update the desktop
+  app.** `aplyx update` (TUI/core) only ever touches the checkout it
+  runs from — the desktop app's own binary and its bundled
+  `core/bridge.js` are baked in at build time and never change after
+  install, no matter how many times the core updates. Reported live: a
+  crash fix shipped in a prior release "did nothing" until the desktop
+  app was uninstalled and reinstalled by hand. Fixed two ways: `aplyx
+  update` now detects an installed-but-stale desktop app (comparing its
+  recorded install version to the just-updated core) and automatically
+  refreshes it via the existing `install_desktop.sh`/`.ps1` path; the
+  desktop app's own Settings screen also now checks the public VERSION
+  file directly and surfaces a real "Update available — Get the update"
+  action, for anyone who updates from inside the desktop app instead of
+  the TUI.
+- **Windows: flashing console windows and multi-second page
+  transitions, worst on the Profile pages.** Two compounding causes.
+  (1) `std::process::Command` on Windows allocates a visible console
+  window per spawned `node.exe` by default (no console of its own to
+  inherit) — fixed with the `CREATE_NO_WINDOW` process creation flag.
+  (2) The onboarding Profile step and Settings' Profile screen fired one
+  separate bridge call — one separate cold-started node process — per
+  field, concurrently; Settings' version was worst, reading every field
+  across all 8 pages at once on load. A page with 5 fields meant ~10
+  process spawns per click. Added batched `readProfileFields`/
+  `writeProfileFields` bridge commands (one spawn for a whole page) and
+  switched both screens to use them.
+- **Online sign-in was broken for every user except the maintainer.**
+  `config/supabase.json` is gitignored and excluded from every
+  distribution channel (git tarball, npm package, desktop bundle), so
+  no end user could ever have it — "Sign in" always landed on "Hosted
+  sign-in isn't set up yet." Fixed by baking in aplyx's own Supabase
+  project as the default (anon keys are meant to be public — standard
+  practice, not a leak); a local `config/supabase.json` still overrides
+  it for self-hosters. Also decoupled hosted sign-in from needing a
+  local checkout to exist at all — it no longer calls `findRoot()` as a
+  hard prerequisite just to read the (now-optional) config.
+
+### Added
+
+- **Ember Glow**, a fifth desktop app theme (Settings → Appearance):
+  warm burnt orange-red on soft cream in light mode, glowing amber on
+  deep charcoal-ash in dark mode.
+
 ## [0.9.94a] — 2026-07-25
 
 npm package: `@keshm/aplyx` version `0.9.94-alpha.0`. Full notes:
