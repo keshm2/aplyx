@@ -18,12 +18,25 @@ export async function withAltScreen(renderFn: () => Instance): Promise<void> {
     // size, leaving artifacts (stale rows on shrink, misaligned lines on
     // reflow). Clearing Ink's frame forces a clean full repaint at the new
     // size; the mounted component's own resize listener re-derives layout.
-    const onResize = () => instance.clear();
+    //
+    // Debounced: a single user resize can fire many 'resize' events in a
+    // row (observed on Windows Terminal, whose maximize/snap animation
+    // reports several intermediate sizes rather than one final one) — each
+    // one triggering an immediate full-screen clear stacked back-to-back
+    // reads as visible flicker, worst at the bottom rows since those paint
+    // last in every one of the redraws. Waiting for the burst to settle
+    // collapses it into a single clear+repaint.
+    let resizeTimer: ReturnType<typeof setTimeout> | undefined;
+    const onResize = () => {
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => instance.clear(), 80);
+    };
     process.stdout.on("resize", onResize);
     try {
       await instance.waitUntilExit();
     } finally {
       process.stdout.off("resize", onResize);
+      if (resizeTimer) clearTimeout(resizeTimer);
     }
   } finally {
     process.off("exit", restore);

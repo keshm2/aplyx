@@ -56,6 +56,41 @@ TARBALL_URL = os.environ.get(
     ),
 )
 
+# Dev-only cruft install.sh/install.ps1's fresh-install path already trims
+# (CI workflow definitions, per-harness agent files
+# generate_agent_definitions.py regenerates fresh from agents/ on every
+# install/update anyway, hosted-backend Supabase migrations, internal
+# design/process docs) — applied here too so a clean install doesn't
+# reaccumulate it on the next `aplyx update`'s tarball overlay.
+_EXCLUDED_DIRS = (".github", ".claude", ".opencode", ".codex", "supabase", "docs/assets")
+_EXCLUDED_FILES = (
+    ".gitignore",
+    "CLAUDE.md",
+    "research-notes.md",
+    "docs/CHANGELOG.md",
+    "docs/RELEASE.md",
+    "docs/ui-development-plan.md",
+)
+
+
+def _is_excluded(rel: str) -> bool:
+    rel = rel.rstrip("/")
+    if rel in _EXCLUDED_FILES:
+        return True
+    return any(rel == d or rel.startswith(d + "/") for d in _EXCLUDED_DIRS)
+
+
+def _remove_excluded(root: str) -> None:
+    for rel in (*_EXCLUDED_DIRS, *_EXCLUDED_FILES):
+        target = os.path.join(root, *rel.split("/"))
+        try:
+            if os.path.isdir(target) and not os.path.islink(target):
+                shutil.rmtree(target, ignore_errors=True)
+            elif os.path.exists(target) or os.path.islink(target):
+                os.remove(target)
+        except OSError:
+            pass
+
 
 class FailOpen(Exception):
     def __init__(self, line: str):
@@ -202,6 +237,8 @@ def _overlay_tarball(fail_open) -> None:
                     if len(parts) < 2 or not parts[1]:
                         continue
                     rel = parts[1]
+                    if _is_excluded(rel):
+                        continue
                     # Guard against path traversal in a hostile tarball.
                     dest = os.path.normpath(os.path.join(ROOT, rel))
                     if not dest.startswith(os.path.normpath(ROOT) + os.sep):
@@ -209,6 +246,14 @@ def _overlay_tarball(fail_open) -> None:
                     m.name = rel
                     members.append(m)
                 _safe_extractall(tar, ROOT, members)
+                # An install from before this exclusion list existed may
+                # still have this cruft on disk — the overlay above only
+                # adds/overwrites files present in the (now-filtered)
+                # tarball, it never deletes anything, so those installs
+                # would otherwise never converge. Remove it here so
+                # `aplyx update` finishes the cleanup install.sh/
+                # install.ps1 already do for a fresh install.
+                _remove_excluded(ROOT)
         except tarfile.TarError:
             fail_open("update: failed tarball extract")
     finally:

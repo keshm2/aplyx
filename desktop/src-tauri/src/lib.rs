@@ -46,7 +46,20 @@ fn bridge_script_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 fn bridge_script_path_uncached(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     if let Ok(resource_path) = app.path().resolve("core/bridge.js", BaseDirectory::Resource) {
         if resource_path.exists() {
-            return Ok(resource_path);
+            // Canonicalize before handing this to Command: on Windows a
+            // GUI-launched app's resolved resource path can come back non-
+            // fully-qualified (relative components, a bare drive prefix
+            // with no root, etc. depending on how resource_dir() derived
+            // it from current_exe()). Node's own startup does
+            // fs.realpathSync() on argv[1] before any of our code runs
+            // (resolveMainPath -> toRealPath in node:internal/modules) —
+            // handing it something already-canonical avoids feeding that
+            // codepath anything ambiguous. A path that exists but fails to
+            // canonicalize is treated as not found rather than risking a
+            // bad argv[1] reaching node at all.
+            if let Ok(canonical) = resource_path.canonicalize() {
+                return Ok(canonical);
+            }
         }
     }
 
@@ -58,8 +71,8 @@ fn bridge_script_path_uncached(app: &tauri::AppHandle) -> Result<PathBuf, String
         .join("core")
         .join("dist")
         .join("bridge.js");
-    if dev_path.exists() {
-        return Ok(dev_path);
+    if let Ok(canonical) = dev_path.canonicalize() {
+        return Ok(canonical);
     }
 
     Err(format!(
@@ -75,6 +88,16 @@ fn bridge_script_path_uncached(app: &tauri::AppHandle) -> Result<PathBuf, String
 /// spawn failure surfaced as the auth screen hanging on "Checking sign-in
 /// availability…" forever. Probe the common install locations before
 /// falling back to PATH lookup.
+///
+/// Windows GUI processes (Start Menu/taskbar-launched) DO inherit the
+/// registry-derived user/machine PATH at logon, unlike launchd — but that
+/// PATH is stale for any node install that happened after the current
+/// login session started (a very normal sequence: install Node, don't
+/// reboot, launch aplyx from the Start Menu the same session), and
+/// nvm-windows/Volta both manage their active version through paths this
+/// process's inherited PATH may not include even when fresh. Probe the
+/// same well-known install locations there too rather than relying solely
+/// on inherited PATH.
 fn node_binary() -> PathBuf {
     // Probing Homebrew/Volta/nvm install paths (several exists() checks
     // and a read_dir) on every bridge command is wasteful — the node
@@ -88,6 +111,33 @@ fn node_binary() -> PathBuf {
     resolved
 }
 
+#[cfg(target_os = "windows")]
+fn node_binary_uncached() -> PathBuf {
+    // Covers both the official Node installer's default install dir AND
+    // nvm-windows, whose default `path` setting (the symlink/junction it
+    // repoints to the active version) is this same directory.
+    for var in ["ProgramFiles", "ProgramFiles(x86)"] {
+        if let Ok(dir) = std::env::var(var) {
+            let path = PathBuf::from(dir).join("nodejs").join("node.exe");
+            if path.exists() {
+                return path;
+            }
+        }
+    }
+    if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
+        // Volta on Windows.
+        let volta = PathBuf::from(&local_app_data)
+            .join("Volta")
+            .join("bin")
+            .join("node.exe");
+        if volta.exists() {
+            return volta;
+        }
+    }
+    PathBuf::from("node")
+}
+
+#[cfg(not(target_os = "windows"))]
 fn node_binary_uncached() -> PathBuf {
     for p in [
         "/opt/homebrew/bin/node",
@@ -123,6 +173,20 @@ fn node_binary_uncached() -> PathBuf {
 fn run_bridge(app: &tauri::AppHandle, command: &str, args: Option<Value>) -> Result<Value, String> {
     let script = bridge_script_path(app)?;
     let mut cmd = Command::new(node_binary());
+    // Never let node inherit this process's cwd. A GUI-launched app's
+    // working directory is whatever the OS/shortcut happened to set it to
+    // (observed on Windows: a bare drive root with no trailing
+    // separator), and that gets passed straight through to the spawned
+    // node process. Node's startup resolves argv[1] via
+    // path.resolve(cwd, main) before any of our code runs, so an
+    // unpredictable inherited cwd is a hazard even when `script` itself is
+    // a fully-qualified, canonical path. Anchoring to the script's own
+    // parent directory — guaranteed to exist, since bridge_script_path()
+    // just verified the script file itself — removes the dependency on
+    // ambient process state entirely.
+    if let Some(parent) = script.parent() {
+        cmd.current_dir(parent);
+    }
     cmd.arg(&script).arg(command);
     if let Some(a) = &args {
         cmd.arg(a.to_string());

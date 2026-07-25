@@ -37,11 +37,18 @@ _indeterminate_bar() {
   local i="$1" width="$2" block="$3"
   local range=$(( width - block ))
   local period=$(( range * 2 ))
-  local pos=$(( i % period ))
-  [ "$pos" -gt "$range" ] && pos=$(( period - pos ))
+  local raw=$(( i % period ))
+  local pos block_str
+  if [ "$raw" -le "$range" ]; then
+    pos=$raw
+    block_str="$(printf '%*s' "$((block - 1))" '' | tr ' ' '=')>"
+  else
+    pos=$(( period - raw ))
+    block_str="<$(printf '%*s' "$((block - 1))" '' | tr ' ' '=')"
+  fi
   local bar
   bar="$(printf '%*s' "$pos" '' | tr ' ' '.')"
-  bar="${bar}$(printf '%*s' "$block" '' | tr ' ' '=')"
+  bar="${bar}${block_str}"
   bar="${bar}$(printf '%*s' "$((width - pos - block))" '' | tr ' ' '.')"
   printf '%s' "$bar"
 }
@@ -170,6 +177,30 @@ else
   trap 'rm -f "$TARBALL"' EXIT
   download_with_progress "$TARBALL" "https://codeload.github.com/keshm2/aplyx/tar.gz/refs/heads/main"
   tar -xz --strip-components=1 -C "$TARGET_DIR" -f "$TARBALL"
+  # Trim what the tarball still carries but install/build/run/update never
+  # touch: CI workflow definitions, the per-harness agent files step 6
+  # below regenerates fresh from agents/ anyway, hosted-backend (Supabase)
+  # migrations that only matter to whoever runs that backend, and internal
+  # design/process docs. A fresh install should hold exactly what it needs
+  # to work, not a mirror of the whole source tree. Only runs on THIS
+  # downloaded-tarball path — never on a real git checkout someone points
+  # this script at directly (the `if` branch above, untouched).
+  for CRUFT in \
+    .github \
+    .claude \
+    .opencode \
+    .codex \
+    .gitignore \
+    CLAUDE.md \
+    research-notes.md \
+    supabase \
+    docs/assets \
+    docs/CHANGELOG.md \
+    docs/RELEASE.md \
+    docs/ui-development-plan.md \
+  ; do
+    rm -rf "${TARGET_DIR:?}/$CRUFT"
+  done
   rm -f "$TARBALL"
   trap - EXIT
   # Re-attach stdin to the terminal so the interactive prompts below work
@@ -436,7 +467,22 @@ else
 fi
 
 # --- 8. TUI / extension (optional) ---------------------------------------------
-_npm_install_and_build() { (cd "$1" && npm install --silent && npm run build --silent); }
+# --no-progress: npm's OWN fetch-progress spinner (a rotating -\|/ cursor
+# on terminals without Unicode/Braille support, which is npm's fallback —
+# most commonly hit on a plain Windows console) writes to the same line
+# via \r as our own bar above, and the two fighting over that line is what
+# looks like "the bar doesn't show, it's back to a spinner." --silent only
+# lowers npm's *log level*; progress is a separate npm switch. Disabling
+# it leaves our bar as the only thing animating this line.
+_npm_install_and_build() { (cd "$1" && npm install --silent --no-progress && npm run build --silent); }
+
+# Total on-disk size of a built surface (node_modules + dist), human-
+# readable — printed after a build so "ready" also answers "how much did
+# that just cost me," the same way the tarball/installer downloads above
+# already show MB downloaded instead of just "done."
+_dir_size_human() {
+  du -sch "$@" 2>/dev/null | tail -1 | awk '{print $1}'
+}
 
 build_node_surface() {
   local dir="$1" label="$2"
@@ -444,11 +490,11 @@ build_node_surface() {
     return 0
   fi
   if [ -d "$dir/node_modules" ] && [ -d "$dir/dist" ]; then
-    say "$label already installed."
+    say "$label already installed ($(_dir_size_human "$dir/node_modules" "$dir/dist"))."
     return 0
   fi
   spin "building $label ($dir/)" _npm_install_and_build "$dir" \
-    && say "$label ready." \
+    && say "$label ready ($(_dir_size_human "$dir/node_modules" "$dir/dist"))." \
     || warn "$label build failed — see docs/SETUP.md."
 }
 

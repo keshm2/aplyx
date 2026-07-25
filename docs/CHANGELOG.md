@@ -9,8 +9,9 @@ but trimmed to fit a small in-repo doc.
 
 ## [0.9.93a] — 2026-07-24
 
-npm package: `@keshm/aplyx` version `0.9.93-alpha.0`. Full notes:
-[`RELEASE.md`](./RELEASE.md).
+npm package: `@keshm/aplyx` version `0.9.93-alpha.1` (republished from
+`alpha.0` same day — see "Republished as alpha.1" below; the build
+marker/git tag stay `0.9.93a`). Full notes: [`RELEASE.md`](./RELEASE.md).
 
 ### Fixed
 
@@ -44,6 +45,45 @@ npm package: `@keshm/aplyx` version `0.9.93-alpha.0`. Full notes:
   launch-time update probe, but (unlike that probe) always checks
   regardless of `APLYX_AUTO_UPDATE` or TTY-ness, since an explicit
   `aplyx version` should always get a real answer.
+
+### Republished as alpha.1 — Windows desktop app + install fixes
+
+- **Critical: the desktop app's sign-in screens (both local and hosted)
+  crashed with `bridge produced non-JSON output: ... EISDIR: illegal
+  operation on a directory, lstat 'C:'` on Windows.** Root cause: a
+  known Node.js-on-Windows bootstrap bug where `node <script>` crashes
+  before any application code runs if the script path handed to it
+  isn't a clean, fully-qualified path. Fixed by canonicalizing the
+  resolved bridge-script path and pinning the spawned Node process's
+  working directory explicitly in `desktop/src-tauri/src/lib.rs`,
+  instead of trusting the ambient path/cwd a GUI-launched `.exe`
+  happens to inherit. This was also why a fresh Windows install
+  couldn't auto-find its own checkout — the crash hit before `findRoot()`
+  ever got to read the installer-written `~/.aplyx/root` pin file.
+- Hardened Windows `node.exe` discovery (`Program Files\nodejs`, Volta)
+  to match the existing macOS Homebrew/Volta/nvm handling.
+- **Installer: the progress bar was inconsistent between steps.** npm's
+  own fetch-progress spinner (a Windows-console `-\|/` fallback) was
+  writing to the same terminal line as the installer's own bar and
+  winning the race on some steps. Disabled npm's competing spinner
+  (`--no-progress`) across every `npm install` call in
+  `install.sh`/`install.ps1`/`install_desktop.sh`/`install_desktop.ps1`,
+  gave the indeterminate (no-byte-total) bar the same `==>` arrowhead
+  style as the byte-tracked download bar, and added install-size
+  reporting (`the TUI ready (312MB)`) to each build step.
+- **TUI: fullscreening/maximizing on Windows Terminal flickered the
+  hint bar and sidebar divider.** A single resize can fire a burst of
+  `resize` events during the window's maximize animation, and each one
+  triggered its own full-screen clear + re-render. Debounced both
+  resize handlers (`app/src/altScreen.ts`, `app/src/ui/App.tsx`) so a
+  burst settles into one repaint.
+- **Installer: a fresh install pulled the entire repo, dev tooling
+  included** (`.github/` CI workflows, generated per-harness agent
+  dirs, `supabase/` migrations, internal design notes). Trimmed to only
+  what install/build/run/update actually touch, in both the
+  `install.sh`/`install.ps1` bootstrap and `update.py`'s tarball
+  overlay — the latter also retroactively cleans up installs that
+  predate this change.
 
 ## [0.9.92a] — 2026-07-24
 

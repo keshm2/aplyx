@@ -39,9 +39,15 @@ function Format-IndeterminateBar {
   param([int]$I, [int]$Width, [int]$Block)
   $range = $Width - $Block
   $period = $range * 2
-  $pos = $I % $period
-  if ($pos -gt $range) { $pos = $period - $pos }
-  return ("." * $pos) + ("=" * $Block) + ("." * ($Width - $pos - $Block))
+  $raw = $I % $period
+  if ($raw -le $range) {
+    $pos = $raw
+    $blockStr = ("=" * ($Block - 1)) + ">"
+  } else {
+    $pos = $period - $raw
+    $blockStr = "<" + ("=" * ($Block - 1))
+  }
+  return ("." * $pos) + $blockStr + ("." * ($Width - $pos - $Block))
 }
 
 # Runs $Block with an indeterminate sliding bar next to $Message while
@@ -100,6 +106,24 @@ function Format-DownloadBar {
     return "[$bar] ${curMb}MB/${totMb}MB "
   }
   return "[$bar] ${curMb}MB downloaded "
+}
+
+# Total on-disk size of one or more directories, human-readable (decimal
+# MB/GB) — printed after a build so "ready" also answers "how much did
+# that just cost me," the same way the download bar above already shows
+# MB downloaded instead of just "done." Missing directories are skipped
+# rather than erroring (e.g. a surface with no dist/ yet).
+function Format-DirSize {
+  param([string[]]$Paths)
+  $bytes = 0
+  foreach ($p in $Paths) {
+    if (Test-Path $p) {
+      $bytes += (Get-ChildItem -Path $p -Recurse -File -Force -ErrorAction SilentlyContinue |
+        Measure-Object -Property Length -Sum).Sum
+    }
+  }
+  if ($bytes -ge 1000000000) { return "{0:N1}GB" -f ($bytes / 1000000000) }
+  return "{0:N0}MB" -f ($bytes / 1000000)
 }
 
 # Downloads $Url to $OutFile with a live byte-tracked bar — a HEAD request
@@ -173,6 +197,21 @@ if (-not $projectRoot) {
   # tar.exe ships with Windows 10+; --strip-components drops the top dir.
   & tar.exe -xzf $tgz --strip-components=1 -C $target
   if ($LASTEXITCODE -ne 0) { Fail "failed to unpack the source tarball (needs Windows 10+ tar.exe)" }
+  # Trim what the tarball still carries but install/build/run/update never
+  # touch: CI workflow definitions, the per-harness agent files step 6
+  # below regenerates fresh from agents\ anyway, hosted-backend (Supabase)
+  # migrations that only matter to whoever runs that backend, and internal
+  # design/process docs. A fresh install should hold exactly what it needs
+  # to work, not a mirror of the whole source tree. Only runs on THIS
+  # downloaded-tarball path - never on a real git checkout someone points
+  # this script at directly ($projectRoot already set, above).
+  foreach ($cruft in @(
+    ".github", ".claude", ".opencode", ".codex", ".gitignore",
+    "CLAUDE.md", "research-notes.md", "supabase",
+    "docs\assets", "docs\CHANGELOG.md", "docs\RELEASE.md", "docs\ui-development-plan.md"
+  )) {
+    Remove-Item -Recurse -Force -Path (Join-Path $target $cruft) -ErrorAction SilentlyContinue
+  }
   Remove-Item $tgz -ErrorAction SilentlyContinue
   & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $target "scripts\install\install.ps1")
   exit $LASTEXITCODE
@@ -443,19 +482,29 @@ if ($LASTEXITCODE -eq 0) {
 function Build-NodeSurface {
   param([string]$Dir, [string]$Label)
   if (-not (Test-Path (Join-Path $Dir "package.json"))) { return }
-  if ((Test-Path (Join-Path $Dir "node_modules")) -and (Test-Path (Join-Path $Dir "dist"))) {
-    Say "$Label already installed."
+  $nodeModules = Join-Path $Dir "node_modules"
+  $distDir = Join-Path $Dir "dist"
+  if ((Test-Path $nodeModules) -and (Test-Path $distDir)) {
+    Say "$Label already installed ($(Format-DirSize @($nodeModules, $distDir)))."
     return
   }
   try {
     Spin -Message "building $Label ($Dir/)" -Block {
       Push-Location $using:Dir
-      & npm install --silent
+      # --no-progress: npm's OWN fetch-progress spinner (a rotating -\|/
+      # cursor - npm's fallback on a terminal without Unicode/Braille
+      # support, most commonly plain Windows consoles) writes to the same
+      # line via `\r` as our own bar above, and the two fighting over that
+      # line is what looks like "the bar doesn't show, it's back to a
+      # spinner." -Silent only lowers npm's *log level*; progress is a
+      # separate npm switch. Disabling it leaves our bar as the only thing
+      # animating this line.
+      & npm install --silent --no-progress
       if ($LASTEXITCODE -ne 0) { throw "npm install failed" }
       & npm run build --silent
       if ($LASTEXITCODE -ne 0) { throw "npm run build failed" }
     }
-    Say "$Label ready."
+    Say "$Label ready ($(Format-DirSize @($nodeModules, $distDir)))."
   } catch {
     Warn "$Label build failed - see docs/SETUP.md."
   }

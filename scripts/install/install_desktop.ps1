@@ -37,9 +37,15 @@ function Format-IndeterminateBar {
   param([int]$I, [int]$Width, [int]$Block)
   $range = $Width - $Block
   $period = $range * 2
-  $pos = $I % $period
-  if ($pos -gt $range) { $pos = $period - $pos }
-  return ("." * $pos) + ("=" * $Block) + ("." * ($Width - $pos - $Block))
+  $raw = $I % $period
+  if ($raw -le $range) {
+    $pos = $raw
+    $blockStr = ("=" * ($Block - 1)) + ">"
+  } else {
+    $pos = $period - $raw
+    $blockStr = "<" + ("=" * ($Block - 1))
+  }
+  return ("." * $pos) + $blockStr + ("." * ($Width - $pos - $Block))
 }
 
 # Runs $Block with an indeterminate sliding bar next to $Message while
@@ -97,6 +103,24 @@ function Format-DownloadBar {
     return "[$bar] ${curMb}MB/${totMb}MB "
   }
   return "[$bar] ${curMb}MB downloaded "
+}
+
+# Total on-disk size of one or more directories, human-readable (decimal
+# MB/GB) — printed after a build so "ready" also answers "how much did
+# that just cost me," the same way the download bar above already shows
+# MB downloaded instead of just "done." Missing directories are skipped
+# rather than erroring (e.g. a surface with no dist/ yet).
+function Format-DirSize {
+  param([string[]]$Paths)
+  $bytes = 0
+  foreach ($p in $Paths) {
+    if (Test-Path $p) {
+      $bytes += (Get-ChildItem -Path $p -Recurse -File -Force -ErrorAction SilentlyContinue |
+        Measure-Object -Property Length -Sum).Sum
+    }
+  }
+  if ($bytes -ge 1000000000) { return "{0:N1}GB" -f ($bytes / 1000000000) }
+  return "{0:N0}MB" -f ($bytes / 1000000)
 }
 
 # Downloads $Url to $OutFile with a live byte-tracked bar — a HEAD request
@@ -396,7 +420,10 @@ $feOk = $true
 try {
   Spin -Message "building the desktop frontend" -Block {
     Push-Location desktop
-    npm install --silent
+    # --no-progress: see Build-NodeSurface's matching comment in
+    # install.ps1 — npm's own fetch spinner otherwise fights our bar for
+    # the same terminal line.
+    npm install --silent --no-progress
     if ($LASTEXITCODE -ne 0) { throw "npm install failed" }
     npm run build --silent
     if ($LASTEXITCODE -ne 0) { throw "npm run build failed" }
@@ -405,6 +432,7 @@ try {
   $feOk = $false
 }
 if (-not $feOk) { Fail "desktop frontend build failed." }
+Say "desktop frontend ready ($(Format-DirSize @('desktop\node_modules', 'desktop\dist')))."
 
 Say "compiling the desktop app (first run downloads + compiles Tauri's Rust dependencies - this can take several minutes)..."
 $buildOk = $true

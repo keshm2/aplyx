@@ -6,12 +6,13 @@
 > `BUILD_MARKER = "0.9.93a"` (re-exported from `app/src/theme.ts`,
 > visible in the TUI side-panel footer, and also in the desktop app's
 > Settings screen — one shared constant, both surfaces agree).
-> **npm package:** `@keshm/aplyx` version `0.9.93-alpha.0`, published to
-> the default `latest` dist-tag — `npm install -g @keshm/aplyx` gets it.
-> The unscoped npm name `aplyx` belongs to an unrelated package — never
-> `npm install aplyx`. If a re-publish is ever needed for this same
-> build, the npm semver bumps to `alpha.1`/`alpha.2` while the
-> human-facing build marker/git tag stay `0.9.93a`.
+> **npm package:** `@keshm/aplyx` version `0.9.93-alpha.1` (republished
+> same day — see "Republished as alpha.1" below), published to the
+> default `latest` dist-tag — `npm install -g @keshm/aplyx` gets it. The
+> unscoped npm name `aplyx` belongs to an unrelated package — never
+> `npm install aplyx`. The npm semver bumped to `alpha.1` for the
+> republish while the human-facing build marker/git tag stayed `0.9.93a`,
+> per this file's own standing convention for a same-build re-publish.
 > **Rollout:** this release specifically fixes `aplyx update` itself —
 > see below. Any install still on this release or older, once it
 > updates to 0.9.93a+, self-corrects permanently: the stale-in-memory
@@ -88,6 +89,86 @@ skip the check for `APLYX_AUTO_UPDATE=0` or non-TTY output, since an
 explicit `aplyx version` invocation should always get a real answer.
 Fails open on a dead network: prints the local version with no
 `(latest)` suffix rather than erroring.
+
+## Republished as alpha.1 — Windows desktop app + install fixes
+
+Same-day follow-up, reported live from Windows testing of `0.9.93-alpha.0`.
+Build marker/VERSION stay `0.9.93a`; only the npm semver moved
+(`alpha.0` → `alpha.1`), per the standing convention noted above.
+
+### Fixed: desktop app sign-in crashed on Windows (`EISDIR: lstat 'C:'`)
+
+Both the local and hosted sign-in screens failed with `Sign-in
+couldn't start` / `Couldn't find a local aplyx installation`, the
+error body reading `bridge produced non-JSON output: ... Error: EISDIR:
+illegal operation on a directory, lstat 'C:'`. Both screens resolve
+through the same `findRoot()` → Rust `run_bridge()` → `node
+core/bridge.js` call, and the crash trace (pure `node:internal/modules`
+frames, no application code) pins this as Node's own bootstrap failing
+to resolve `argv[1]` before any of our code runs — a known Node-on-
+Windows bug triggered by a script path that isn't clean and fully
+qualified. `desktop/src-tauri/src/lib.rs`'s `bridge_script_path()`
+resolved a path via Tauri's resource-dir API but never canonicalized
+it, and `run_bridge()` let the spawned `node` process inherit whatever
+working directory the OS happened to hand the GUI-launched `.exe`.
+
+Fixed by canonicalizing the resolved script path and explicitly pinning
+the spawned process's `current_dir()` to the script's own parent
+directory, removing the dependency on ambient OS/launch state entirely
+— the same category of fix `node_binary()` already applied for macOS's
+Homebrew-PATH problem, now extended with real Windows-native probing
+(`Program Files\nodejs`, Volta) instead of falling straight through to
+a bare PATH lookup.
+
+This was also the reason a fresh Windows install couldn't auto-locate
+itself and fell back to the "browse for my aplyx folder" picker: the
+crash happened *inside* `findRoot()`, before it ever got a chance to
+read the `~/.aplyx/root` pin file `install.ps1`/`install_desktop.ps1`
+already write unconditionally on every install. Fixing the crash was
+the actual fix for that complaint too — no separate change needed.
+
+### Fixed: installer progress bar inconsistent between steps
+
+npm's own fetch-progress spinner — a rotating `-\|/` cursor, npm's
+fallback on a Windows console without Unicode/Braille support — writes
+to the same terminal line via `\r` as the installer's own bar, and the
+two competing for that line is what looked like "the bar doesn't show,
+it's back to a spinner" on the TUI/extension/desktop-frontend build
+steps. Fixed in all four install scripts:
+
+- `npm install --no-progress` on every `npm install` call disables
+  npm's competing spinner (`--silent` only lowers its *log level*;
+  progress is a separate switch).
+- The indeterminate (no-byte-total) bar used for `npm install`/build
+  steps now renders with the same `==>` arrowhead style as the
+  byte-tracked download bar, instead of a plain dot-slide with no
+  arrow — one consistent visual language across both.
+- Each build step now reports its on-disk install size (e.g. `the TUI
+  ready (312MB)`), the same way downloads already report MB fetched.
+
+### Fixed: TUI fullscreen resize flicker on Windows Terminal
+
+Maximizing/fullscreening on Windows Terminal fires a *burst* of
+`resize` events for a single user action (the window-resize animation
+reports several intermediate sizes), and both `altScreen.ts`'s resize
+handler (a full-screen Ink `.clear()`) and `App.tsx`'s resize handler
+(a React re-render) fired on every one of them — several full repaints
+back-to-back, most visible tearing at the last-painted rows (hint bar,
+sidebar divider). Debounced both handlers so a resize burst settles
+into a single repaint.
+
+### Changed: fresh installs no longer pull the whole dev repo
+
+`install.sh`/`install.ps1`'s bootstrap and `update.py`'s tarball overlay
+downloaded and extracted the entire tracked repo — CI workflow
+definitions, four generated per-harness agent directories that
+`generate_agent_definitions.py` regenerates from `agents/` on every
+install anyway, `supabase/` migrations relevant only to whoever runs
+the hosted backend, and internal design/process notes. Trimmed to only
+what install/build/run/update actually touch; `update.py`'s change also
+retroactively cleans up installs that predate this fix, not just new
+ones. Scoped to the downloaded-tarball path only — never touches a real
+`git clone`.
 
 ## Install / update / uninstall
 

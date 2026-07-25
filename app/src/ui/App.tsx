@@ -192,10 +192,22 @@ export function App({
   });
 
   useEffect(() => {
-    const onResize = () => setSize(stdoutSize());
+    // Debounced for the same reason as altScreen.ts's onResize: a single
+    // user resize can fire a burst of 'resize' events (Windows Terminal's
+    // maximize/snap animation reports several intermediate sizes), and
+    // reacting to every one re-renders the whole shell that many times in
+    // a row — visible as flicker, worst in the last-painted rows (hint
+    // bar, sidebar). Settling on the final size before re-rendering
+    // collapses the burst into one update.
+    let resizeTimer: ReturnType<typeof setTimeout> | undefined;
+    const onResize = () => {
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => setSize(stdoutSize()), 80);
+    };
     process.stdout.on("resize", onResize);
     return () => {
       process.stdout.off("resize", onResize);
+      if (resizeTimer) clearTimeout(resizeTimer);
     };
   }, []);
 

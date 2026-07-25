@@ -41,11 +41,18 @@ _indeterminate_bar() {
   local i="$1" width="$2" block="$3"
   local range=$(( width - block ))
   local period=$(( range * 2 ))
-  local pos=$(( i % period ))
-  [ "$pos" -gt "$range" ] && pos=$(( period - pos ))
+  local raw=$(( i % period ))
+  local pos block_str
+  if [ "$raw" -le "$range" ]; then
+    pos=$raw
+    block_str="$(printf '%*s' "$((block - 1))" '' | tr ' ' '=')>"
+  else
+    pos=$(( period - raw ))
+    block_str="<$(printf '%*s' "$((block - 1))" '' | tr ' ' '=')"
+  fi
   local bar
   bar="$(printf '%*s' "$pos" '' | tr ' ' '.')"
-  bar="${bar}$(printf '%*s' "$block" '' | tr ' ' '=')"
+  bar="${bar}${block_str}"
   bar="${bar}$(printf '%*s' "$((width - pos - block))" '' | tr ' ' '.')"
   printf '%s' "$bar"
 }
@@ -416,9 +423,12 @@ fi
 # both the TUI and the desktop app need its dist/ built explicitly first.
 spin "building the shared core" npm run build:core --silent || fail "core build failed."
 
-_desktop_frontend_build() { (cd desktop && npm install --silent && npm run build --silent); }
+# --no-progress: see install.sh's matching comment — npm's own fetch
+# spinner otherwise fights our bar for the same terminal line.
+_desktop_frontend_build() { (cd desktop && npm install --silent --no-progress && npm run build --silent); }
 spin "building the desktop frontend" _desktop_frontend_build \
   || fail "desktop frontend build failed."
+say "desktop frontend ready ($(du -sch desktop/node_modules desktop/dist 2>/dev/null | tail -1 | awk '{print $1}'))."
 
 say "compiling the desktop app (first run downloads + compiles Tauri's Rust dependencies — this can take several minutes)…"
 (cd desktop && npx tauri build) \
