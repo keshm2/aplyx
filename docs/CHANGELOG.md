@@ -7,6 +7,48 @@ but trimmed to fit a small in-repo doc.
 > Per-`docs/RELEASE.md` is the canonical, deep-dive release
 > document for each tagged build. This file is the index.
 
+## [0.9.90a] — 2026-07-24
+
+npm package: `@keshm/aplyx` version `0.9.90-alpha.0`. Full notes:
+[`RELEASE.md`](./RELEASE.md).
+
+### Fixed
+
+- **Critical: `aplyx update` silently failed to actually rebuild the TUI
+  whenever a shared-core change was involved** — which was most recent
+  releases. `update.py`'s post-update rebuild ran `app`'s (and the
+  extension's) own `npm run build` directly, but never rebuilt
+  `packages/core` first. `app`'s build is `tsc && npm run bundle`; `tsc`
+  type-checks against `@aplyx/core/*`'s `dist/*.d.ts`, and if core's
+  source had changed (a new export, a fix) without its dist/ being
+  fresh, that type-check failed — silently aborting before the bundle
+  step ever ran. Net effect: source pulled down fine, `VERSION` bumped
+  fine, but the compiled `dist/cli.js` a user actually runs was left
+  **completely untouched**, not just missing the core-dependent parts —
+  the whole build never got that far. Reproduced directly (removing a
+  core `.d.ts` and running `app`'s own `npm run build` in isolation)
+  before landing the fix: rebuild `packages/core` first, matching the
+  ordering `install.sh`/`install.ps1` already use. Anyone who's been
+  running `aplyx update` on a shared-core-touching release may need to
+  run it twice (Python doesn't hot-reload — the *first* run picks up
+  this fix's own source but still executes with the old, already-loaded
+  broken rebuild order; the second run does it right) or just re-run
+  the full installer directly once.
+- **TUI Settings: "Theme → Light" explain text implied it would change
+  the terminal's own background color.** It doesn't and never has —
+  Light mode only recolors aplyx's own accent/status text to stay
+  readable if the terminal already has a light background set via the
+  terminal app's own profile. Reworded to say so explicitly.
+- **Desktop onboarding: the profile step's 8 internal sub-pages had no
+  transition effect at all** — a flat instant swap, unlike every other
+  step in the wizard. Since "Your profile" is a large fraction of the
+  post-"let's get to know more about you" flow by page count, this
+  likely read as "nothing after that splash has any effects." Added the
+  same fade-in used elsewhere (`wizard-step-in`, keyed per page) — a
+  single-phase fade rather than the outer wizard's full freeze/out/in
+  choreography, to avoid entangling with this component's own
+  independent loading-state handling.
+
 ## [0.9.89a] — 2026-07-24
 
 npm package: `@keshm/aplyx` version `0.9.89-alpha.0`. Full notes:

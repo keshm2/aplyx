@@ -1,167 +1,129 @@
-# Release notes — aplyx 0.9.89a
+# Release notes — aplyx 0.9.90a
 
-> **Build:** `0.9.89a` — alpha.
+> **Build:** `0.9.90a` — alpha.
 > **Branch:** `main`.
 > **TUI in-app marker:** `packages/core/src/version.ts` →
-> `BUILD_MARKER = "0.9.89a"` (re-exported from `app/src/theme.ts`,
+> `BUILD_MARKER = "0.9.90a"` (re-exported from `app/src/theme.ts`,
 > visible in the TUI side-panel footer, and also in the desktop app's
 > Settings screen — one shared constant, both surfaces agree).
-> **npm package:** `@keshm/aplyx` version `0.9.89-alpha.0`, published to
+> **npm package:** `@keshm/aplyx` version `0.9.90-alpha.0`, published to
 > the default `latest` dist-tag — `npm install -g @keshm/aplyx` gets it.
 > The unscoped npm name `aplyx` belongs to an unrelated package — never
 > `npm install aplyx`. If a re-publish is ever needed for this same
 > build, the npm semver bumps to `alpha.1`/`alpha.2` while the
-> human-facing build marker/git tag stay `0.9.89a`.
-> **Rollout:** clients on the updater lineage self-update on their next
-> scheduled run or `aplyx` launch; older installs update manually once
-> (`bash scripts/install/update.sh` / `powershell scripts\install\
-> update.ps1`) — Windows installs still on 0.9.87a-or-earlier should
-> re-run the one-liner directly rather than `aplyx update`, to pick up
-> 0.9.88a's install-hang fix first.
+> human-facing build marker/git tag stay `0.9.90a`.
+> **Rollout — read this before relying on `aplyx update` for this one:**
+> this release fixes a bug in the updater itself (see below). Anyone on
+> an install that predates this fix should run `aplyx update` **twice**
+> (the first run pulls this fix's source but still executes with the
+> old, already-loaded broken rebuild order — Python doesn't hot-reload —
+> so it won't actually take effect until the *second* run), or just
+> re-run the full installer one-liner directly once, which sidesteps the
+> issue entirely.
 > **Desktop app:** 0.1.0 internally (Tauri app version, not tied to the
 > TUI's release cadence).
 > **Browser extension:** unchanged in this build — `0.8.2` / `0.8.2a`.
-> **Previous releases:** `0.9.88a`, `0.9.87a`, `0.9.85a`, `0.9.8a`,
-> `0.9.75a`, `0.9.7a`, `0.9.1a`, `0.9.0a`, `0.8.43a`, `0.8.42a`,
-> `0.8.041a`, `0.8.4a`, `0.8.3a`, `0.8.2a`, `0.7.8a`, and `0.5.5a` —
-> deep-dive notes live at this path under their git tags; the index is
-> [`CHANGELOG.md`](./CHANGELOG.md).
+> **Previous releases:** `0.9.89a`, `0.9.88a`, `0.9.87a`, `0.9.85a`,
+> `0.9.8a`, `0.9.75a`, `0.9.7a`, `0.9.1a`, `0.9.0a`, `0.8.43a`,
+> `0.8.42a`, `0.8.041a`, `0.8.4a`, `0.8.3a`, `0.8.2a`, `0.7.8a`, and
+> `0.5.5a` — deep-dive notes live at this path under their git tags; the
+> index is [`CHANGELOG.md`](./CHANGELOG.md).
 
-## What's new in 0.9.89a
+## What's new in 0.9.90a
 
-A TUI-focused bug-fix + polish pass: a real fix for the Windows
-desktop-app install offer going missing, a new "Install desktop app"
-Settings action, a city-search ranking bug, a genuine selector-vanishing
-bug found in three different list screens, more reliable onboarding
-page navigation, and a rewrite of how the update-prompt box claims its
-space so it renders as a complete box instead of colliding with the
-sidebar.
+A same-day fast-follow to 0.9.89a, triggered by live Windows testing: a
+critical fix for the self-updater silently no-opping on releases that
+touch the shared core, a Settings copy fix for a real point of user
+confusion, and a transition-effects gap in the desktop onboarding
+wizard's largest step.
 
-### Fixed: Windows desktop-app install offer going missing
+### Fixed: `aplyx update` silently failing to rebuild the TUI
 
-Reported live: after a fresh Windows install (`npm install -g
-@keshm/aplyx` followed by the TUI's own first-run bootstrap, or the
-`irm | iex` one-liner directly), the script went straight from "TUI
-built" to "done" — the "aplyx also has an early-preview desktop app…"
-offer never appeared at all, no prompt, no error.
+Reported live: after running `aplyx update` on Windows, several
+0.9.89a features (the new "Install desktop app" Settings action, the
+Automatic-run resume/agent gate) were simply absent — not broken, not
+erroring, just not there at all, as if the update had only partially
+landed.
 
-Root cause: `install.ps1`'s step 8 (build the TUI from source) and step
-8b (offer the desktop app) are both gated behind the same `Get-Command
-npm -ErrorAction SilentlyContinue` check. `install.ps1` runs as its own
-spawned subprocess — either via the npm-installed `aplyx` command's own
-`bootstrapCore()` (`powershell -NoProfile -File ...`), or the `irm |
-iex` one-liner — and that subprocess inherits a `$env:PATH` snapshot
-from its parent's process start, which can be stale relative to the
-registry even when `npm` clearly resolves in the user's own interactive
-shell. `-NoProfile` compounds this: it also skips any PATH
-customization a PowerShell profile script would normally contribute
-(common for Node version managers on Windows). The TUI the user ended
-up with had actually come from the separate `npm install -g
-@keshm/aplyx` command, not from `install.ps1` at all — its own npm
-detection had quietly failed and skipped both steps.
+Root cause, confirmed by direct reproduction: `update.py`'s
+`_post_update()` step rebuilds `app`'s (and the browser extension's)
+compiled output by running `npm run build` directly inside each
+directory — but it never rebuilds `packages/core` first.
+`packages/core` has no install/prepare hook that builds it
+automatically (the installer scripts already know this — see
+`install.sh`'s own comment on the exact same point), and `app`'s build
+script is `tsc && npm run bundle`: `tsc` type-checks against
+`@aplyx/core/*`'s `dist/*.d.ts` files. When core's *source* had changed
+across the update (a new export like `desktopApp.ts`, a fixed function)
+but its `dist/` was still the pre-update snapshot, that type-check
+failed — and because of the `&&`, `npm run bundle` never ran. The net
+effect: `git pull`/tarball-overlay updates `app`'s own TypeScript
+source just fine, `VERSION` bumps just fine, but the actual compiled
+`dist/cli.js` a user launches is left **completely untouched** — not
+just missing the parts that depend on core, *nothing* from the update
+took effect, because the build never got far enough to produce a new
+artifact at all.
 
-Fixed by refreshing `$env:PATH` from the registry (Machine + User,
-appended rather than replacing so nothing already valid is lost) right
-after each script sets its working directory — the exact same fix
-already applied elsewhere in `install.ps1` for a freshly-winget-
-installed Python, just never extended to Node/npm detection. Applied to
-both `install.ps1` and `install_desktop.ps1` (the latter runs as its
-own further-spawned subprocess with the identical exposure for its
-`cargo`/`winget`/`rustup-init` checks).
+Verified directly: removed one of `packages/core/dist`'s compiled files
+by hand and ran `app`'s own `npm run build` in isolation — reproduced
+the exact `tsc` failure and confirmed `dist/cli.js` was never
+regenerated. Fixed by rebuilding `packages/core` first in
+`_post_update()`, matching the ordering already used by
+`install.sh`/`install.ps1`/`install_desktop.sh`/`install_desktop.ps1`.
+Re-simulated the corrected order afterward and confirmed both the core
+rebuild and the subsequent `app` build succeed, with `dist/cli.js`
+getting a fresh timestamp.
 
-### Added: "Install desktop app" in TUI Settings
+This had been silently broken for a while — anyone whose Windows (or
+any-OS) install has been tracking releases purely via `aplyx update`
+across a stretch that touched `packages/core` may be running a build
+several versions stale without any error ever having been shown. See
+the rollout note above for how to actually pick this fix up, given the
+chicken-and-egg nature of a broken updater fixing itself.
 
-A new Desktop app section in Settings lets anyone who skipped the
-desktop app during setup install it later, without re-running the whole
-installer or hunting for the right command. Selecting it leaves the TUI
-and hands off to `install_desktop.sh` (or `.ps1` on Windows) on the
-normal screen — the script keeps its own interactive prompts and
-progress bars, prefers a prebuilt download, falls back to building from
-source — then returns to a fresh `aplyx` launch when it's done, the
-same exit-then-run-on-the-normal-screen handoff the existing
-update-install flow already uses.
+### Fixed: "Theme → Light" explain text implied it repaints the terminal background
 
-Already installed? The row renders dimmed with a green
-"✓ app is already installed (vX.Y)" note on its own line beneath it,
-and Enter is a no-op instead of a dead re-offer. Detection is via a
-small marker file (`~/.aplyx/desktop_installed`, plain text — the aplyx
-VERSION current at install time) that both installer scripts now write
-on success (both the prebuilt-download and build-from-source paths),
-read fresh on every render via a new `@aplyx/core/desktopApp.js` — no
-caching, so installing it from Settings, or by hand outside aplyx
-entirely, is picked up on the very next render with no restart needed.
-A marker file rather than probing real install locations directly: the
-actual path varies by OS and, on Linux, by which of three package
-formats (`apt`/`dnf`/AppImage) ended up being used — the installer
-already knows definitively whether it succeeded, so it just says so.
+It never has — Light mode only recolors aplyx's own accent/status text
+(so it stays readable against a light background), not the terminal's
+actual background color, which is controlled entirely by the terminal
+application's own profile/color-scheme setting, outside aplyx's reach.
+The prior wording ("tuned for a light terminal background") read as a
+promise to set one. Reworded to say explicitly that it does not change
+the terminal's background.
 
-### Fixed: city search ranking
+### Fixed: desktop onboarding's profile step had no transition effects
 
-Searching "sea" in the onboarding wizard's location field returned
-"Scottsdale, AZ" as the top result instead of "Seattle, WA". Traced the
-exact scores: the fuzzy matcher's word-boundary bonus rewards a
-character landing right after a space/hyphen/underscore, and
-"Scottsdale, AZ" happens to hit that bonus twice for a "sea" query (once
-at the city name's own start, once for the "a" right after the comma
-into the state code) — two boundary hits (11 + 11 points-ish) edged out
-"Seattle, WA"'s single boundary hit plus a long unbroken consecutive run
-by a single point (22 vs 23). Added an explicit bonus for a genuine
-prefix match (`text.startsWith(query)`) large enough to dominate any
-combination of the other bonuses, so a real prefix always wins
-regardless of what a scattered match elsewhere in a busier candidate
-string might score.
+The wizard's outer step-to-step transitions (Preferences → Environment
+→ Agent → Profile → Resumes → …) all animate via `WizardShell`'s
+freeze/fade-out/swap/fade-in choreography. But "Your profile" is a
+self-contained mini-wizard with its own 8 internal sub-pages
+(`ProfileStep.tsx`), and those swapped instantly with no effect at all
+— a real, structurally-confirmed gap, not a guess. Since profile is by
+far the largest step by page count, this likely read as "nothing after
+the 'let's get to know more about you' splash has any effects," even
+though the outer transitions between steps were (per React's own
+type-based reconciliation rules, not just assumed) still firing
+correctly the whole time. Added the same fade-in animation
+(`wizard-step-in`, keyed per page so it replays fresh on every page
+change) used everywhere else — a single-phase fade rather than
+replicating the outer wizard's full freeze/out/in machinery, which
+would have needed careful coordination with this component's own
+independent `loaded`/data-fetch state and wasn't worth the added risk
+for a lighter-weight sub-navigation.
 
-### Fixed: selection marker vanishing in scrollable lists
+### Investigated, not resolved this pass
 
-Reported as "sometimes there's an empty entry the selector skips over —
-you have to press down again." Root cause, found in three places
-(`MultiEntryAutocomplete`'s city/company suggestion list, `ReviewScreen`'s
-queue, and `SettingsScreen`'s checklist popup): each computed its
-scroll-window offset in a `useEffect` reacting to the cursor position,
-which only runs *after* the render where the cursor had already moved —
-producing a real intermediate frame, actually painted to the terminal,
-where the just-moved cursor had scrolled past the edge of the
-still-stale window and nothing visible carried the selection marker.
-Fixed all three by deriving the offset synchronously during render (via
-a ref, not `useState`+`useEffect`) — React's own recommended pattern for
-adjusting a value in response to a prop/state change without an extra
-render pass — so the window rendered on any given pass is already
-correct, with no lag possible.
-
-### Fixed: onboarding back/forward navigation unreliable on Windows
-
-Page navigation only listened for Shift+Left/Shift+Right. Several
-Windows terminal hosts (legacy `conhost.exe`, and some Windows
-Terminal/shell combinations) don't reliably emit the modifier-prefixed
-escape sequence arrow keys need to report Shift — silently making
-Shift+←/→ inert with no error. PageUp/PageDown are now the primary
-back/forward keys (a dedicated, unambiguous escape sequence every
-terminal sends the same way, no modifier-detection involved);
-Shift+←/→ still works too, wherever it already did.
-
-### Fixed: update-prompt box rendering incompletely / colliding with the sidebar
-
-Reported as "only 3 sides display, the top is overtaken by the
-sidebar." Root cause: neither the sidebar nor the main content column
-actually enforced the row budget `contentRows` computed for them —
-`overflow="hidden"` alone clips nothing unless the box's own layout
-size is pinned to something concrete, and without a `height` prop both
-just rendered at their natural content size instead. On any screen
-whose content ran even slightly longer than its budget (confirmed live
-with `WelcomeScreen`'s description text + option list), the whole
-document grew past the terminal's actual height, and whatever didn't
-fit got clipped from wherever the overflow physically landed — which
-could be the update-prompt box below, even though it had done nothing
-wrong itself. Fixed by pinning `height={contentRows}` (plus
-`overflow="hidden"`) on both the sidebar and the main content column,
-so neither can ever grow past its budget regardless of what a given
-screen tries to render. Verified live in tmux: the box's all-4-sides
-render restored, no more collision.
-
-Also added: a clickable `[×]` close control in the box's top border
-(mouse click or `Esc`), alongside the existing `y`/`n` keyboard and
-mouse-click controls — declining and closing are the same outcome, just
-two more ways in to it.
+- **Automatic-run resume/agent gate not appearing**, and **the sidebar
+  disappearing after entering/exiting Automatic mode**, both reported
+  on the same Windows machine. Given the confirmed updater bug above,
+  it's likely both were symptoms of running a build from well before
+  either feature/fix existed — the gate is new in 0.9.87a/0.9.88a work,
+  and no code-level bug reproducing either symptom was found on review
+  of the current source (the sidebar's visibility is a plain expression
+  recomputed fresh every render, with nothing that could make it
+  "stick," and `RunScreen` touches no terminal-dimension state at all).
+  Needs re-testing on a genuinely fresh build (see the rollout note) —
+  flagged as a known gap below rather than closed out on an assumption.
 
 ## Install / update / uninstall
 
@@ -176,7 +138,8 @@ npm install -g @keshm/aplyx
 bash scripts/install/install_desktop.sh        # macOS / Linux
 powershell -ExecutionPolicy Bypass -File scripts\install\install_desktop.ps1   # Windows
 
-# update now (also happens automatically on runs and launches):
+# update now (also happens automatically on runs and launches) — see the
+# rollout note above if you're updating FROM a pre-0.9.90a install:
 aplyx update
 
 # uninstall (removes the desktop app too, if installed):
@@ -190,38 +153,23 @@ Windows: `powershell -ExecutionPolicy Bypass -File scripts\install\install.ps1`
 
 - `npm run typecheck:app` (rebuilds `@aplyx/core` first), `npm run
   build`, and `npm run smoke` are all clean. `desktop`'s own `npm run
-  typecheck` is clean too (touched via `@aplyx/core`'s new
-  `desktopApp.ts` export).
-- The city-search ranking fix was verified by tracing the exact scores
-  for "sea" against both "seattle, wa" and "scottsdale, az" before and
-  after (22 vs 23 → 72 vs 23).
-- The selector-vanishing fix's root cause was confirmed by reasoning
-  through React's effect-timing model (`useEffect` runs after the
-  commit it reacts to), not just inferred from the symptom.
-- The update-box fix was verified live in a real tmux terminal session:
-  reproduced the exact "top border missing" symptom against
-  `WelcomeScreen`'s longer content, then confirmed the fix restores all
-  4 sides and that `Esc` correctly dismisses the box and lets the
-  underlying screen reclaim the freed space with no leftover gap.
-- The "Install desktop app" Settings feature was verified live end to
-  end for both states: the not-installed row renders actionable, and —
-  after writing a test `~/.aplyx/desktop_installed` marker — the
-  installed row renders dimmed with the green checkmark note, and Enter
-  correctly no-ops with an explanatory message instead of re-triggering
-  install.
-- **Not verified by actual execution**: the Windows PATH-refresh fix and
-  the "Install desktop app" action's real exit-and-run-install.ps1
-  handoff — no PowerShell interpreter available in this environment.
-  The PATH fix is reasoned through PowerShell's documented subprocess
-  environment-inheritance behavior and mirrors an already-working
-  pattern elsewhere in the same file; the install-handoff code mirrors
-  the already-proven `onUpdateInstall` pattern exactly. Both are due a
-  real Windows confirmation.
+  typecheck` and `npm run build` are clean too.
+- The `update.py` fix was verified by direct reproduction of the bug
+  (deleting a compiled core file, confirming `app`'s isolated `npm run
+  build` fails exactly as described) and by re-simulating the corrected
+  rebuild order afterward, confirming both steps succeed and
+  `dist/cli.js` regenerates with a fresh timestamp — not just reasoned
+  about.
+- The `ProfileStep` transition fix and Settings copy fix are both
+  low-risk, localized changes verified via `tsc`/`vite build` only (no
+  live desktop-app run this pass — the existing Tauri-IPC-mocked
+  Playwright harness from earlier onboarding work would be the way to
+  visually confirm, not exercised here given time).
 
 ## Release artifacts
 
-- Git tag `v0.9.89a` on `main`.
-- npm: `@keshm/aplyx@0.9.89-alpha.0` under the `latest` dist-tag
+- Git tag `v0.9.90a` on `main`.
+- npm: `@keshm/aplyx@0.9.90-alpha.0` under the `latest` dist-tag
   (`cd app && npm publish` — `publishConfig` sets `access: public` and
   the tag). Publish requires `npm login` (and, on this account, an OTP
   step in the browser).
@@ -232,9 +180,12 @@ Windows: `powershell -ExecutionPolicy Bypass -File scripts\install\install.ps1`
 
 ## Known gaps
 
-- Windows execution of this release's `.ps1` changes remains
-  unconfirmed by an actual run — flagged above, carried forward until
-  someone reports back from a real Windows machine.
+- Automatic-run gate and sidebar-visibility reports from a Windows
+  session — investigated, no code bug found on the current source, most
+  likely explained by the updater bug this release fixes; needs
+  re-confirmation on a genuinely fresh build (see above).
+- The `ProfileStep` transition fix wasn't verified with a live/visual
+  desktop-app run this pass.
 - The 80×20–22 terminal-size Settings-field-list render glitch noted in
   0.9.87a (pre-existing, not a regression, not yet root-caused).
 - Codex CLI subagents remain registry-only, not invokable in headless

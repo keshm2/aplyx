@@ -73,7 +73,20 @@ export function ProfileStep({ root, onComplete }: { root: string; onComplete: ()
       {!loaded ? (
         <p className="field-help">Loading&hellip;</p>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+        // key={pageIndex}: forces a fresh mount on every page change, so
+        // wizard-step-in's fade+slide-up animation (the same one
+        // WizardShell uses for the outer step-to-step transition) plays
+        // again each time — without this, the 8 pages inside this
+        // self-contained mini-wizard just swapped instantly with no
+        // effect at all, unlike every step around it. A single "in"
+        // fade rather than WizardShell's full out-then-in: the outer
+        // freeze/swap choreography exists to keep outgoing content
+        // visible during its own fade so nothing looks like a hard cut,
+        // but that machinery would have to duplicate/coordinate with
+        // this component's own `loaded` loading-state handling
+        // (Next/Back already flip it false before the page advances) —
+        // not worth the added risk for a lighter-weight sub-navigation.
+        <div key={pageIndex} className="wizard-step-in" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
           {page.fields.map((field) => (
             <FieldInput
               key={field.id}

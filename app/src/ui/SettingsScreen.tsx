@@ -272,7 +272,7 @@ const SECTIONS: Section[] = [
         kind: "env",
         key: "APLYX_TUI_THEME",
         label: "Theme",
-        explain: "Dark keeps the default palette; Light swaps in darker accent/status colors tuned for a light terminal background — named ANSI yellow in particular is hard to read on white. Takes effect immediately, no restart needed.",
+        explain: "Recolors aplyx's own accent/status text only — Dark keeps the default palette, Light swaps in darker accent/status colors that stay readable if YOUR terminal's background is already light (named ANSI yellow in particular is hard to read on white). This does NOT change your terminal's background color itself — that's controlled by your terminal app's own color scheme/profile setting, outside aplyx. Takes effect immediately, no restart needed.",
         fallback: "dark",
         options: [
           { label: "Dark", value: "dark" },

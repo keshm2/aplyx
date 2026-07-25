@@ -234,6 +234,33 @@ def _post_update(say) -> None:
     _refresh_schedule_if_installed(say)
     npm = shutil.which("npm")
     if npm:
+        # packages/core has no install/prepare hook that builds it
+        # automatically — app/'s and extension's own `tsc` builds both
+        # resolve `@aplyx/core/*` imports against its dist/*.d.ts, which
+        # this step used to leave stale. If an update changed core's
+        # source (a new export, a bug fix) without this rebuild running
+        # first, app/'s own `tsc` would fail type-checking against the
+        # stale dist (a new export's .d.ts simply not there yet) — and
+        # since the build script is `tsc && npm run bundle`, that failure
+        # silently aborted before the bundle step ever ran, leaving
+        # dist/cli.js completely untouched. The result: source pulled
+        # down fine, VERSION bumped fine, but the compiled binary the
+        # user actually runs never picked up ANY of the update — not just
+        # the core-dependent parts — because the build never got that
+        # far. Reproduced directly (removing a core .d.ts and running
+        # app's own `npm run build` in isolation fails exactly this way)
+        # before landing this fix.
+        core_pkg = os.path.join(ROOT, "packages", "core", "package.json")
+        core_ok = True
+        if os.path.isfile(core_pkg):
+            core_ok = (
+                subprocess.run([npm, "install", "--silent"], cwd=os.path.join(ROOT, "packages", "core"),
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
+                and subprocess.run([npm, "run", "build", "--silent"], cwd=os.path.join(ROOT, "packages", "core"),
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
+            )
+            if not core_ok:
+                say("WARNING: shared core rebuild failed — the TUI/extension rebuilds below will likely fail too. Run: cd packages/core && npm install && npm run build")
         for rel, label in (("app", "TUI"), ("extension", "browser extension")):
             pkg = os.path.join(ROOT, rel, "package.json")
             if not os.path.isfile(pkg):
@@ -247,7 +274,7 @@ def _post_update(say) -> None:
             if not ok:
                 say(f"WARNING: {label} rebuild failed — run: cd {rel} && npm install && npm run build")
     else:
-        say("node/npm not found — skipped the TUI and browser-extension rebuilds")
+        say("node/npm not found — skipped the shared core/TUI/browser-extension rebuilds")
 
 
 if __name__ == "__main__":
