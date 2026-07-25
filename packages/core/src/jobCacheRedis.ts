@@ -8,13 +8,26 @@ const gunzip = promisify(zlib.gunzip);
 
 /**
  * A slow/hung Redis must never delay falling through to the existing
- * Postgres path (its own CACHE_LOOKUP_TIMEOUT_MS budget in
- * jobCache.ts) — this is well under that, so the two timeouts can
+ * Postgres path (its own CACHE_LOOKUP_TIMEOUT_MS budget of 1200ms in
+ * jobCache.ts) — this stays well under that, so the two timeouts can
  * never stack into a search-visible delay the way an earlier version
  * of the Postgres-vs-live fallback bug did (see jobs.ts's maybeCached
  * comment on withDeadline).
+ *
+ * 900, not something tighter: measured live from a cold, one-shot Node
+ * process (the same shape every real search spawns, per bridge.ts) —
+ * 5 consecutive cold runs against a real ~180-row/300KB compressed
+ * payload landed at 232-265ms, but one outlier (likely a cold DNS
+ * resolution) hit 435ms. A timeout right at the typical case only
+ * buys ~2x margin and risks a spurious "miss" (silently falling
+ * through to the slower Postgres path) on ordinary network jitter,
+ * not just a genuinely broken Redis — the whole point of this cache
+ * is for the fast path to actually fire. 900 keeps real margin over
+ * the observed outlier while still leaving Postgres's own fallback
+ * budget untouched (500 + 1200 well under any total search deadline
+ * elsewhere in the pipeline).
  */
-export const REDIS_LOOKUP_TIMEOUT_MS = 500;
+export const REDIS_LOOKUP_TIMEOUT_MS = 900;
 
 /** Bump to v2 to invalidate every cached entry at once (a row-shape or
  *  per-company-cap change) without a manual flush. */
