@@ -7,6 +7,28 @@ but trimmed to fit a small in-repo doc.
 > Per-`docs/RELEASE.md` is the canonical, deep-dive release
 > document for each tagged build. This file is the index.
 
+## [0.9.91a] — 2026-07-24
+
+npm package: `@keshm/aplyx` version `0.9.91-alpha.0`. Full notes:
+[`RELEASE.md`](./RELEASE.md).
+
+### Changed
+
+- **TUI: brighter ASCII-art banner gradient in Light mode.** The banner
+  was never theme-reactive at all — same violet→maroon gradient in both
+  modes, tuned for a dark background, muddy/low-contrast on a light
+  one. Added a genuinely different, vivid violet→purple→fuchsia→pink→
+  rose→red gradient for Light mode (all fully-saturated stops, no pale
+  or near-black ends). Also fixed a second instance of the exact
+  React.memo staleness bug found earlier for the banner's wordmark
+  variant: `Banner` memoizes on props, so the new gradient has to be
+  threaded through as an explicit `gradient` prop (like `accent`
+  already is) rather than read from a theme.js function inside the
+  component — otherwise switching Dark⇄Light would leave the art
+  variant frozen at whichever gradient was live at the banner's last
+  resize. Verified live in tmux: switching Theme to Light recolors all
+  6 banner rows to the exact new hex values.
+
 ## [0.9.90a] — 2026-07-24
 
 npm package: `@keshm/aplyx` version `0.9.90-alpha.0`. Full notes:

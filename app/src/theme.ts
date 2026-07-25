@@ -50,12 +50,23 @@ const LIGHT_PALETTE: Palette = {
 
 export const theme: Palette = { ...DARK_PALETTE };
 
+let currentThemeMode: ThemeMode = "dark";
+
 /** Repoints every `theme.*` property at the given mode's palette in
  *  place — called once at launch and again whenever Settings' Theme
  *  field might have changed (App.tsx's refresh(), which already runs on
  *  every tab switch). */
 export function applyThemeMode(mode: ThemeMode): void {
   Object.assign(theme, mode === "light" ? LIGHT_PALETTE : DARK_PALETTE);
+  currentThemeMode = mode;
+}
+
+/** The mode `applyThemeMode` last set — read by anything that needs to
+ *  pick between a dark-tuned and a light-tuned asset wholesale (e.g.
+ *  bannerGradient below) rather than recoloring individual `theme.*`
+ *  roles. */
+export function currentTheme(): ThemeMode {
+  return currentThemeMode;
 }
 
 /** Reads the Settings "Theme" field (APLYX_TUI_THEME) the same way
@@ -210,6 +221,32 @@ export const BANNER_GRADIENT = [
   "#8B1E5B", // plum
   "#800020", // maroon
 ] as const;
+
+// The dark-mode gradient's lower half (plum → maroon) is tuned for good
+// contrast against a black background specifically — muted, near-dark
+// tones that would read as dull/low-contrast rather than "the one loud
+// element" against a light/white terminal background instead. Vivid,
+// fully-saturated stops throughout (no pastel/pale end that would wash
+// out on white, no near-black end that would go muddy) — same violet
+// starting point so the brand color reads consistently between modes,
+// bending through magenta/rose instead of down into maroon.
+const BANNER_GRADIENT_LIGHT = [
+  "#7C3AED", // violet
+  "#9333EA", // purple
+  "#C026D3", // fuchsia
+  "#DB2777", // pink
+  "#E11D48", // rose
+  "#DC2626", // red
+] as const;
+
+/** BANNER_GRADIENT or BANNER_GRADIENT_LIGHT depending on the current
+ *  Settings Theme mode — a function, not a constant, for the same reason
+ *  sparkleGradient() is: `currentTheme()` can change after this module
+ *  first loads (Settings' Theme field, applied live), so this has to be
+ *  read fresh by its caller on every render rather than resolved once. */
+export function bannerGradient(): readonly string[] {
+  return currentTheme() === "light" ? BANNER_GRADIENT_LIGHT : BANNER_GRADIENT;
+}
 
 /** Accent → white — the same two-color blend UpdateBox's traveling
  *  border ring uses (see blend() there), reused here so every "AUTO"

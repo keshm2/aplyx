@@ -1,6 +1,6 @@
 import React from "react";
 import { Box, Text } from "ink";
-import { BANNER_ROWS, BANNER_GRADIENT, BANNER_WIDTH } from "../theme.js";
+import { BANNER_ROWS, BANNER_WIDTH } from "../theme.js";
 
 /** Terminals shorter than this get the one-line wordmark even when wide —
  *  six rows of art plus the shell chrome (7) leaves too little room for
@@ -20,29 +20,35 @@ export function bannerHeight(columns: number, rows: number): number {
 }
 
 /**
- * The persistent aplyx banner. Violet→maroon gradient by row, centered
- * to the current terminal width; collapses to a centered one-line
- * wordmark when the terminal is too narrow or too short for the art
- * (never corrupts layout).
+ * The persistent aplyx banner. Gradient by row (mode-dependent — see
+ * `gradient` below), centered to the current terminal width; collapses
+ * to a centered one-line wordmark when the terminal is too narrow or too
+ * short for the art (never corrupts layout).
  *
- * `accent` is an explicit prop (not read from `theme` directly inside),
- * despite the component already importing `theme` for other purposes —
- * this component is React.memo'd on props, and `theme.accent` is a
- * mutated-in-place value (see theme.ts's applyThemeMode), not a new
- * object reference the memo comparison would ever see change. Passing it
- * as a plain string prop from App lets the default shallow-prop-equality
- * check actually notice a Settings Theme-field switch and re-render the
- * wordmark variant's title in the new color, instead of memo silently
- * freezing it at whatever accent was live at the banner's last resize.
+ * `accent`/`gradient` are explicit props (not read from `theme`/
+ * `bannerGradient()` directly inside), despite the component already
+ * importing from theme.js for other purposes — this component is
+ * React.memo'd on props, and both `theme.accent` (mutated in place) and
+ * `bannerGradient()`'s result (re-resolved fresh on each call, but never
+ * itself a changed prop unless passed down) are invisible to a shallow
+ * prop-equality check unless threaded through as plain props. Passing
+ * them from App lets memo actually notice a Settings Theme-field switch
+ * and re-render both the wordmark title and the art gradient in the new
+ * colors, instead of freezing at whatever was live at the banner's last
+ * resize (the exact bug `accent` was already fixed for; `gradient` had
+ * the identical exposure and was fixed the same way rather than being
+ * missed a second time).
  */
 export const Banner = React.memo(function Banner({
   columns,
   rows,
   accent,
+  gradient,
 }: {
   columns: number;
   rows: number;
   accent: string;
+  gradient: readonly string[];
 }) {
   if (bannerVariant(columns, rows) === "wordmark") {
     return (
@@ -62,7 +68,7 @@ export const Banner = React.memo(function Banner({
     <Box flexDirection="column" paddingX={1}>
       {BANNER_ROWS.map((row, i) => (
         <Box key={i} justifyContent="center">
-          <Text color={BANNER_GRADIENT[i]}>{row}</Text>
+          <Text color={gradient[i]}>{row}</Text>
         </Box>
       ))}
     </Box>

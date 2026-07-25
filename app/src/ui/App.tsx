@@ -32,6 +32,7 @@ import {
   applyReducedMotion,
   resolveReducedMotion,
   resolveHour24Clock,
+  bannerGradient,
 } from "../theme.js";
 
 export type Tab = "status" | "jobs" | "review" | "letters" | "history" | "resumes" | "settings";
@@ -395,7 +396,7 @@ export function App({
   // so they fit instead of being clipped.
   return (
     <Box flexDirection="column" height={tty ? rows : undefined} overflow="hidden">
-      <Banner columns={columns} rows={rows} accent={theme.accent} />
+      <Banner columns={columns} rows={rows} accent={theme.accent} gradient={bannerGradient()} />
       <Box paddingX={pad} justifyContent="space-between">
         <TopStatusBar firstName={displayName(root)} hour24={hour24} />
         <Box>
