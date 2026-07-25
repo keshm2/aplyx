@@ -40,9 +40,16 @@ const DARK_PALETTE: Palette = {
 // Named ANSI "yellow" in particular is close to unreadable on a white
 // background — these are explicit darker hexes tuned for a light
 // terminal instead of the dark-terminal-friendly named colors above.
+// accent/rule are blue rather than the dark palette's violet — a light
+// blue → white identity for Light mode specifically (see
+// BANNER_GRADIENT_LIGHT below), applied everywhere theme.accent/
+// theme.rule already flow (sidebar border, tab/option selection,
+// titles) since every consumer already reads the shared `theme` object
+// live. good/warn/danger stay their outcome colors regardless of accent
+// hue — they carry meaning (applied/needs-review/failed), not brand.
 const LIGHT_PALETTE: Palette = {
-  accent: "#6D28D9",
-  rule: "#C4B5FD",
+  accent: "#2563EB",
+  rule: "#93C5FD",
   good: "#15803D",
   warn: "#A16207",
   danger: "#B91C1C",
@@ -222,21 +229,22 @@ export const BANNER_GRADIENT = [
   "#800020", // maroon
 ] as const;
 
-// The dark-mode gradient's lower half (plum → maroon) is tuned for good
-// contrast against a black background specifically — muted, near-dark
-// tones that would read as dull/low-contrast rather than "the one loud
-// element" against a light/white terminal background instead. Vivid,
-// fully-saturated stops throughout (no pastel/pale end that would wash
-// out on white, no near-black end that would go muddy) — same violet
-// starting point so the brand color reads consistently between modes,
-// bending through magenta/rose instead of down into maroon.
+// Light mode's own identity: a light blue → (near-)white fade, matching
+// the blue LIGHT_PALETTE.accent above rather than the dark palette's
+// violet — a deliberate departure from "same hue, different shade" so
+// Light mode reads as its own theme, not just a paler recolor of Dark.
+// The bottom stop (blue-100) is close enough to white to visibly fade
+// toward the terminal background on a true-white profile — read as the
+// intended "to white" effect for decorative ASCII art rather than a
+// contrast bug, since (unlike theme.accent's actual UI text) this row
+// carries no information a fade-out would obscure.
 const BANNER_GRADIENT_LIGHT = [
-  "#7C3AED", // violet
-  "#9333EA", // purple
-  "#C026D3", // fuchsia
-  "#DB2777", // pink
-  "#E11D48", // rose
-  "#DC2626", // red
+  "#1D4ED8", // blue-700
+  "#2563EB", // blue-600 — same hex as LIGHT_PALETTE.accent
+  "#3B82F6", // blue-500
+  "#60A5FA", // blue-400
+  "#93C5FD", // blue-300
+  "#DBEAFE", // blue-100 — fades toward white
 ] as const;
 
 /** BANNER_GRADIENT or BANNER_GRADIENT_LIGHT depending on the current

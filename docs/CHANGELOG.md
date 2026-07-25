@@ -14,20 +14,25 @@ npm package: `@keshm/aplyx` version `0.9.91-alpha.0`. Full notes:
 
 ### Changed
 
-- **TUI: brighter ASCII-art banner gradient in Light mode.** The banner
-  was never theme-reactive at all — same violet→maroon gradient in both
-  modes, tuned for a dark background, muddy/low-contrast on a light
-  one. Added a genuinely different, vivid violet→purple→fuchsia→pink→
-  rose→red gradient for Light mode (all fully-saturated stops, no pale
-  or near-black ends). Also fixed a second instance of the exact
-  React.memo staleness bug found earlier for the banner's wordmark
-  variant: `Banner` memoizes on props, so the new gradient has to be
-  threaded through as an explicit `gradient` prop (like `accent`
-  already is) rather than read from a theme.js function inside the
-  component — otherwise switching Dark⇄Light would leave the art
-  variant frozen at whichever gradient was live at the banner's last
-  resize. Verified live in tmux: switching Theme to Light recolors all
-  6 banner rows to the exact new hex values.
+- **TUI: Light mode now has its own light-blue → white identity**,
+  covering the banner, sidebar border, tab/option selection, and titles
+  — everywhere `theme.accent`/`theme.rule` already flow. Originally
+  shipped as a violet→purple→fuchsia→pink→rose→red banner gradient
+  (same brand hue as Dark mode, just re-shaded); revised same-day,
+  before any wider rollout, to a deliberately different blue identity
+  instead — `LIGHT_PALETTE.accent`/`rule` moved from violet to blue
+  (`#2563EB`/`#93C5FD`), and the banner's `BANNER_GRADIENT_LIGHT` now
+  fades blue-700 → blue-100 (near-white). `good`/`warn`/`danger` stay
+  their outcome colors regardless — meaning-bearing, not brand. Also
+  fixed a second instance of the exact React.memo staleness bug found
+  earlier for the banner's wordmark variant: `Banner` memoizes on
+  props, so the gradient has to be threaded through as an explicit
+  `gradient` prop (like `accent` already is) rather than read from a
+  theme.js function inside the component — otherwise switching
+  Dark⇄Light would leave the art variant frozen at whichever gradient
+  was live at the banner's last resize. Verified live in tmux both
+  times: switching Theme to Light recolors the banner, sidebar border,
+  and tab/title accents to the exact new hex values.
 
 ## [0.9.90a] — 2026-07-24
 

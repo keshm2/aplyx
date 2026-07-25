@@ -29,25 +29,39 @@
 
 ## What's new in 0.9.91a
 
-A small, focused follow-up to 0.9.90a: the TUI's ASCII-art banner is
-now genuinely brighter in Light mode instead of secretly rendering
-identical colors to Dark mode.
+A small, focused follow-up to 0.9.90a: Light mode gets its own light
+blue → white identity — banner, sidebar border, tab/option selection,
+and titles all together — instead of secretly rendering the same
+violet brand hue as Dark mode wherever `theme.accent`/`theme.rule`
+flow. (Revised same-day from an initial violet→purple→fuchsia→pink→
+rose→red banner-only pass, before any wider rollout — this replaces
+that version rather than sitting alongside it, still under the 0.9.91a
+tag.)
 
-### Changed: brighter banner gradient in Light mode
+### Changed: light blue → white identity for Light mode
 
-The banner (`Banner.tsx`) was never theme-reactive at all — same
-violet→maroon `BANNER_GRADIENT` regardless of the Settings Theme field,
-by original design ("the one loud element," deliberately static). That
-gradient's lower half (plum → maroon, tuned for contrast against a
-*black* background) reads muddy and low-contrast against a light/white
-terminal background instead. Added a real Light-mode variant —
-`BANNER_GRADIENT_LIGHT`, violet → purple → fuchsia → pink → rose → red,
-every stop fully saturated (no pale end that would wash out on white,
-no near-black end that would go muddy) — and a `bannerGradient()`
-function that picks between the two based on the current Theme setting.
+`LIGHT_PALETTE.accent`/`rule` (`theme.ts`) moved from violet
+(`#6D28D9`/`#C4B5FD`) to blue (`#2563EB`/`#93C5FD`) — every consumer
+that already reads the shared `theme` object live picks this up with no
+call-site changes: the sidebar's border, tab/option selection
+highlighting, titles, all of it. `good`/`warn`/`danger` are untouched —
+they carry outcome meaning (applied/needs-review/failed), not brand
+identity, so they stay their existing green/amber/red regardless of
+accent hue.
 
-Threading it into the actual component needed the same fix already
-applied once this week for the banner's *wordmark* variant (the
+The banner (`Banner.tsx`) was never theme-reactive at all before this
+pair of releases — same violet→maroon `BANNER_GRADIENT` regardless of
+the Settings Theme field, by original design ("the one loud element,"
+deliberately static). Added a real Light-mode variant,
+`BANNER_GRADIENT_LIGHT`: blue-700 → blue-600 → blue-500 → blue-400 →
+blue-300 → blue-100, fading toward (not quite reaching) white — a
+deliberate fade-out effect for decorative ASCII art, not a contrast bug
+the way it would be for actual UI text — and a `bannerGradient()`
+function that picks between the two gradients based on the current
+Theme setting.
+
+Threading the gradient into the actual component needed the same fix
+already applied once this week for the banner's *wordmark* variant (the
 narrow/short-terminal fallback): `Banner` is wrapped in `React.memo`,
 which only re-renders on a shallow prop change — `theme.accent` and
 `bannerGradient()`'s result are both invisible to that check unless
@@ -84,12 +98,14 @@ Windows: `powershell -ExecutionPolicy Bypass -File scripts\install\install.ps1`
 
 - `npm run typecheck:app`, `npm run build`, and `npm run smoke` are all
   clean.
-- Verified live in a real tmux terminal session: captured the raw ANSI
-  color codes for all 6 banner rows in Dark mode (matching
-  `BANNER_GRADIENT` exactly), switched Settings' Theme field to Light,
-  re-captured, and confirmed all 6 rows changed to the exact new
-  `BANNER_GRADIENT_LIGHT` hex values — not just that *something*
-  changed, the precise stops.
+- Verified live in a real tmux terminal session, both iterations:
+  captured the raw ANSI color codes for all 6 banner rows plus the tab
+  row's accent color and the sidebar's border color in Dark mode
+  (matching `BANNER_GRADIENT`/`theme.accent`/`theme.rule` exactly),
+  switched Settings' Theme field to Light, re-captured, and confirmed
+  every one of them changed to the exact new `BANNER_GRADIENT_LIGHT` /
+  `LIGHT_PALETTE.accent` / `LIGHT_PALETTE.rule` hex values — not just
+  that *something* changed, the precise stops and hexes.
 
 ## Release artifacts
 
