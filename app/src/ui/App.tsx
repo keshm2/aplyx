@@ -166,16 +166,30 @@ export function App({
   const { columns, rows } = size;
   const [hour24, setHour24] = useState(() => resolveHour24Clock(root));
 
-  // Settings' Theme / Reduced motion / 24-hour clock fields (Environment
-  // section) apply in-session, not just on next launch — once here for
-  // the very first paint, and again from refresh() (below) every time the
-  // user switches tabs, which already runs after leaving Settings from an
-  // edit.
-  useEffect(() => {
+  // Settings' Theme / Reduced motion / 24-hour clock fields (Preferences
+  // section) apply in-session, not just on next launch — applied here
+  // via a lazy useState initializer (not a useEffect) specifically so
+  // relaunching never shows the wrong theme, even briefly. A useEffect
+  // runs AFTER the first paint/commit, and mutating the shared `theme`
+  // object (applyThemeMode's whole mechanism) doesn't itself trigger a
+  // re-render — only `setHour24` did, and only when the persisted value
+  // actually differed from `hour24`'s own initial useState above, which
+  // it usually didn't (that already reads the correct value from the
+  // start). So the very first paint always used module-load theme
+  // defaults, and unless something UNRELATED happened to re-render the
+  // tree shortly after mount, that flash never got corrected — "the
+  // theme doesn't show up properly" was really "no re-render ever
+  // happened to fix it," not a resolution/persistence bug. A lazy
+  // useState initializer runs synchronously as part of the FIRST render
+  // itself, before anything paints, so theme/reduced-motion are already
+  // correct by the time Banner/SidePanel/etc. render in that same pass —
+  // deterministic every launch, not dependent on what else happens to
+  // trigger a re-render afterward. refresh() (below) still re-applies
+  // both on every tab switch, for in-session edits.
+  useState(() => {
     applyThemeMode(resolveThemeMode(root));
     applyReducedMotion(resolveReducedMotion(root));
-    setHour24(resolveHour24Clock(root));
-  }, [root]);
+  });
 
   useEffect(() => {
     const onResize = () => setSize(stdoutSize());

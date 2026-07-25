@@ -75,6 +75,27 @@ def log(run_log: str, msg: str) -> None:
         fh.write(f"[{now_local()}] {msg}\n")
 
 
+def debug_logging_enabled() -> bool:
+    return os.environ.get("APLYX_DEBUG_LOGGING", os.environ.get("FLUX_DEBUG_LOGGING", "0")) == "1"
+
+
+def debug_log(logs_dir: str, msg: str) -> None:
+    """Separate, opt-in debug log (Settings > Preferences > Debug logging,
+    default off) — internal orchestration detail (harness selection, the
+    exact command argv, session-cap resolution, timing) that isn't part of
+    the always-on session_*.log (the harness's own transcript, which
+    RunScreen's live tail and StatusScreen's "last run" both depend on) or
+    run_job_agent.log (the always-on scheduler-health log). Neither of
+    those is touched by this toggle — this only adds a third, optional
+    file for troubleshooting a specific run, never removes one anything
+    else relies on."""
+    if not debug_logging_enabled():
+        return
+    path = os.path.join(logs_dir, "debug.log")
+    with open(path, "a", encoding="utf-8") as fh:
+        fh.write(f"[{now_local()}] {msg}\n")
+
+
 def env_truthy(*names_defaults) -> str:
     for name, default in names_defaults:
         v = os.environ.get(name)
@@ -248,6 +269,10 @@ def main() -> int:
     os.makedirs(os.path.join("logs", "tmp"), exist_ok=True)
 
     run_log = os.path.join(logs_dir, "run_job_agent.log")
+    run_start = datetime.now()
+    if debug_logging_enabled():
+        env_snapshot = {k: v for k, v in sorted(os.environ.items()) if k.startswith(("APLYX_", "FLUX_", "ARES_"))}
+        debug_log(logs_dir, f"run starting — resolved env: {json.dumps(env_snapshot)}")
 
     # --- Auto-update (fail-open) --------------------------------------------
     auto_update = os.environ.get("APLYX_AUTO_UPDATE", os.environ.get("FLUX_AUTO_UPDATE", os.environ.get("ARES_AUTO_UPDATE", "1")))
@@ -404,6 +429,7 @@ def _run(logs_dir: str, run_log: str) -> int:
         else:
             log(run_log, f"ABORTED: unsupported harness '{harness}' (supported: opencode, claude, codex, copilot).")
         return 1
+    debug_log(logs_dir, f"harness resolved: {harness}")
 
     before = _count_outcomes()
     before_skipped = _count_skipped_unfit()
@@ -436,6 +462,7 @@ def _run(logs_dir: str, run_log: str) -> int:
         elif session_cap < 1:
             log(run_log, f"WARNING: APLYX_SESSION_CAP={session_cap} is below 1; using default 25")
             session_cap = 25
+    debug_log(logs_dir, f"session cap resolved: raw={raw_cap!r} -> {session_cap}")
 
     run_prompt = (
         "Start a new job application run. Read AGENTS.md, load data/applied_jobs.json\n"
@@ -482,6 +509,7 @@ def _run(logs_dir: str, run_log: str) -> int:
             ),
             role="orchestrator",
         )
+        debug_log(logs_dir, f"harness command argv: {cmd!r}")
         run_rc = _run_harness_cmd(cmd, out)
 
     # A stop was requested (SIGTERM from the TUI, or SIGINT/Ctrl+C from a
@@ -519,6 +547,8 @@ def _run(logs_dir: str, run_log: str) -> int:
             pass
 
     tail = f"applied={d_applied} needs_review={d_review} failed={d_failed} skipped_unfit={d_skipped}"
+    duration_s = int((datetime.now() - run_start).total_seconds())
+    debug_log(logs_dir, f"run finished: rc={run_rc} duration={duration_s}s stopped={_stop_requested} {tail}")
     if _stop_requested:
         # Stopped runs skip the normal complete/failed post-processing
         # (no Discord summary, etc.) — just record it clearly and return.

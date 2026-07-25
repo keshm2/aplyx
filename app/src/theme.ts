@@ -11,9 +11,9 @@ import { effectiveEnv } from "@aplyx/core/settings.js";
  *
  * `theme` is a mutable object (properties reassigned by applyThemeMode,
  * never the exported binding itself) rather than the frozen `as const` it
- * used to be — the Settings "Theme" field (dark/light, see
- * SettingsScreen.tsx's Environment section) needs every one of the ~25
- * files that already read `theme.accent` etc. to pick up a mode change
+ * used to be — the Settings "Theme" field (see SettingsScreen.tsx's
+ * Preferences section) needs every one of the ~25 files that already
+ * read `theme.accent` etc. to pick up a mode change
  * without themselves becoming aware root-scoped settings even exist.
  * Mutating the same object every consumer already holds a reference to
  * does that with zero call-site changes, at the cost of `theme` no longer

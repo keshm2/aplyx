@@ -129,7 +129,7 @@ export function SearchScreen({
   const [editing, setEditing] = useState(false);
   const [action, setAction] = useState<Action>("idle");
   const [jobs, setJobs] = useState<SearchJob[]>([]);
-  // Discrete pages (default 25/page, Settings > Environment > "Results
+  // Discrete pages (default 25/page, Settings > Preferences > "Results
   // per page") over the already-fetched, already-sorted `jobs` array —
   // no re-fetch per page. Re-read when the tab becomes active again so
   // a change made on the Settings tab takes effect on return here,

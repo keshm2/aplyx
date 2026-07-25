@@ -231,11 +231,23 @@ const SECTIONS: Section[] = [
     ],
   },
   {
-    name: "Environment",
+    name: "Preferences",
     description:
       "Persisted APLYX_* overrides, saved to config/env.json and exported by every run. A variable set in your real shell environment always wins. Empty a value to return to the default.",
     fields: [
       { kind: "env", key: "APLYX_LOG_DIR", legacyKeys: ["FLUX_LOG_DIR"], label: "Log directory", explain: "Where run/session logs and the heartbeat are stored. Relative paths resolve inside the project. (Agent fetch-scratch stays in the project's logs/tmp.)", fallback: "logs" },
+      {
+        kind: "env",
+        key: "APLYX_DEBUG_LOGGING",
+        legacyKeys: ["FLUX_DEBUG_LOGGING"],
+        label: "Debug logging",
+        explain: "Writes an extra logs/debug.log with internal run details (resolved env vars, harness selection, the exact command argv, session-cap resolution, duration) for troubleshooting a specific run. Separate from — and never disables — the always-on session log RunScreen's live tail and Status' \"last run\" both read from. Off by default; only worth turning on while actually debugging something, since it does add noise to logs/.",
+        fallback: "0",
+        options: [
+          { label: "No", value: "0" },
+          { label: "Yes", value: "1" },
+        ],
+      },
       { kind: "env", key: "APLYX_SESSION_CAP", legacyKeys: ["FLUX_SESSION_CAP", "ARES_SESSION_CAP"], label: "Session cap", explain: "Default applications-per-run cap, 1-25. Runs may lower it; 25 is the hard ceiling.", fallback: "25" },
       { kind: "env", key: "APLYX_JOBS_PER_PAGE", legacyKeys: ["FLUX_JOBS_PER_PAGE"], label: "Max search results", explain: `How many total results the manual Jobs search keeps per search, ${MIN_PAGE_SIZE}-${MAX_PAGE_SIZE}. Separate from "Results per page" below, which just controls how many of these are shown on screen at once.`, fallback: String(DEFAULT_PAGE_SIZE) },
       { kind: "env", key: "APLYX_RESULTS_PER_PAGE", label: "Results per page", explain: `How many results the Jobs screen shows per page — ↑/PgUp and ↓/PgDn move within a page, [ and ] move between pages. Default ${DEFAULT_RESULTS_PER_PAGE}.`, fallback: String(DEFAULT_RESULTS_PER_PAGE) },

@@ -7,6 +7,42 @@ but trimmed to fit a small in-repo doc.
 > Per-`docs/RELEASE.md` is the canonical, deep-dive release
 > document for each tagged build. This file is the index.
 
+## [0.9.92a] — 2026-07-24
+
+npm package: `@keshm/aplyx` version `0.9.92-alpha.0`. Full notes:
+[`RELEASE.md`](./RELEASE.md).
+
+### Fixed
+
+- **TUI: the persisted theme could show up wrong on relaunch.** Theme/
+  reduced-motion were applied in a `useEffect`, which runs *after* the
+  first paint — and mutating the shared `theme` object doesn't itself
+  trigger a re-render, so the very first frame always used module-load
+  defaults (Aplyx Default) regardless of what was actually saved, and
+  nothing reliably re-rendered to correct it afterward (only
+  `setHour24` could, and usually didn't, since its own initial state
+  already matched). Reproduced deterministically: 5/5 fresh launches
+  with Mint Frost saved showed Aplyx Default's violet banner at 400ms,
+  every time. Fixed by applying the persisted theme via a lazy
+  `useState` initializer instead — runs synchronously as part of the
+  first render itself, before anything paints. Re-verified the same
+  way: 5/5 launches now show the correct saved theme immediately.
+
+### Changed
+
+- **TUI: Settings' "Environment" section renamed to "Preferences."**
+  No functional change — same fields, just a name that describes what
+  it actually is.
+- **TUI: new "Debug logging" toggle** (Preferences, defaults to **No**).
+  Writes a separate, opt-in `logs/debug.log` with internal run details
+  — resolved env vars, harness selection, the exact command argv,
+  session-cap resolution, duration — for troubleshooting a specific
+  run. Explicitly does **not** touch the always-on `session_*.log`
+  (RunScreen's live tail and Status' "last run" both depend on it) or
+  `run_job_agent.log` (scheduler health) — both stay on regardless of
+  this setting, by design; only a genuinely new, additive debug log is
+  gated by it.
+
 ## [0.9.91a] — 2026-07-24
 
 npm package: `@keshm/aplyx` version `0.9.91-alpha.0`. Full notes:
