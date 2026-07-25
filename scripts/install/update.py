@@ -63,7 +63,8 @@ class FailOpen(Exception):
 
 
 def main(argv) -> int:
-    auto = argv[:1] == ["--auto"]
+    auto = "--auto" in argv
+    post_only = "--post-update-only" in argv
     os.chdir(ROOT)
 
     def say(msg: str) -> None:
@@ -73,6 +74,15 @@ def main(argv) -> int:
     def fail_open(line: str) -> "int":
         print(line)
         raise FailOpen(line) if not auto else SystemExit(0)
+
+    if post_only:
+        # Invoked as a fresh child process from the git-pull/tarball-overlay
+        # branch below, specifically so this runs whatever _post_update
+        # logic was JUST pulled to disk — see the comment down there for
+        # why calling it directly in the parent process instead would run
+        # stale, already-loaded logic.
+        _post_update(say)
+        return 0
 
     try:
         local = ""
@@ -133,7 +143,35 @@ def main(argv) -> int:
             except OSError:
                 pass
 
-            _post_update(say)
+            # Run the post-update rebuild steps in a FRESH child process
+            # rather than calling _post_update() directly here: this
+            # process's own update.py module — including _post_update
+            # itself — was already imported and compiled into memory
+            # BEFORE the git-pull/tarball-overlay above just overwrote
+            # update.py's own source file on disk. Python doesn't
+            # hot-reload, so calling _post_update() directly in this same
+            # process would silently run whichever rebuild logic was
+            # current when THIS invocation *started* — ignoring anything
+            # the update itself just changed about how the rebuild works.
+            # That's exactly how a single `aplyx update` run from an
+            # install old enough to predate a _post_update fix kept
+            # running the old, broken rebuild order even though the
+            # correct new update.py was already sitting on disk by the
+            # time _post_update ran — reported live: "says it updated ...
+            # but none of the changes appeared," reproduced by tracing
+            # through exactly this sequence. A fresh child process
+            # re-imports this module from disk, so it always runs the
+            # version that was JUST pulled, no matter how stale this
+            # invocation's own in-memory code is. Mirrors the identical
+            # self-re-exec pattern run_job_agent.py's own pre-run
+            # auto-update already uses, for the same reason.
+            child_argv = [sys.executable, os.path.abspath(__file__), "--post-update-only"]
+            if auto:
+                child_argv.append("--auto")
+            r2 = subprocess.run(child_argv)
+            if r2.returncode != 0:
+                say("WARNING: post-update steps failed in the freshly-updated code — re-run 'aplyx update' or see the output above")
+
             print(f"update: updated {local} -> {new}")
             return 0
         finally:

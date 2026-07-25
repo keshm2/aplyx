@@ -27,6 +27,7 @@ Usage: aplyx [command]
   run               trigger a run in the current terminal (no app shell)
   setup [--check]   (re)open the guided setup wizard; --check only validates
   update            check upstream and self-update now
+  version           print the installed version (shows "(latest)" if it matches upstream main)
   uninstall         remove the schedule, command, and (after confirming) the install
   help              show this help
 
@@ -54,30 +55,61 @@ function bootstrapOneLiner(): string {
     : `curl -fsSL ${BOOTSTRAP_URL} | bash`;
 }
 
-/** Launch-time update probe: compare the local VERSION to upstream
- *  main and return the remote version when it differs, so the TUI can
- *  ask before installing (see App's UpdateBox). Strictly fail-open — a
- *  dead network, missing VERSION, or slow GitHub never delays launch
- *  more than the 2.5 s fetch timeout, and APLYX_AUTO_UPDATE=0 skips it.
- *  Reuses the same VERSION_URL fetch the old silent auto-update used;
- *  no second network check is added. */
-async function detectUpdate(root: string): Promise<string | null> {
-  if (process.env.APLYX_AUTO_UPDATE === "0" || process.env.FLUX_AUTO_UPDATE === "0" || process.env.ARES_AUTO_UPDATE === "0") return null;
-  if (!process.stdout.isTTY) return null; // never in piped/CI renders
+/** Fetches the remote VERSION file (upstream main), or null on any
+ *  failure/timeout — shared by detectUpdate (the launch-time probe) and
+ *  the `aplyx version` command below. */
+async function fetchRemoteVersion(): Promise<string | null> {
   try {
-    const local = fs.readFileSync(path.join(root, "VERSION"), "utf8").trim();
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 2500);
     const res = await fetch(VERSION_URL, { signal: ctrl.signal });
     clearTimeout(timer);
     if (!res.ok) return null;
     const remote = (await res.text()).trim();
+    return remote || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Launch-time update probe: compare the local VERSION to upstream
+ *  main and return the remote version when it differs, so the TUI can
+ *  ask before installing (see App's UpdateBox). Strictly fail-open — a
+ *  dead network, missing VERSION, or slow GitHub never delays launch
+ *  more than the 2.5 s fetch timeout, and APLYX_AUTO_UPDATE=0 skips it. */
+async function detectUpdate(root: string): Promise<string | null> {
+  if (process.env.APLYX_AUTO_UPDATE === "0" || process.env.FLUX_AUTO_UPDATE === "0" || process.env.ARES_AUTO_UPDATE === "0") return null;
+  if (!process.stdout.isTTY) return null; // never in piped/CI renders
+  try {
+    const local = fs.readFileSync(path.join(root, "VERSION"), "utf8").trim();
+    const remote = await fetchRemoteVersion();
     if (!remote || remote === local) return null;
     return remote;
   } catch {
     /* fail-open — updating is a convenience, never a launch blocker */
   }
   return null;
+}
+
+/** `aplyx version` — prints the local VERSION, with " (latest)" appended
+ *  when it matches upstream main. Unlike detectUpdate (the launch-time
+ *  probe this shares its fetch with), this always checks regardless of
+ *  APLYX_AUTO_UPDATE or TTY-ness — an explicit `aplyx version` should
+ *  always get a real answer instead of being silently skipped the way
+ *  the launch-time convenience probe is allowed to be. Never fails the
+ *  command outright on a dead network — it just can't say "(latest)"
+ *  then, same fail-open spirit as detectUpdate. */
+async function printVersion(root: string): Promise<number> {
+  let local = "unknown";
+  try {
+    local = fs.readFileSync(path.join(root, "VERSION"), "utf8").trim() || "unknown";
+  } catch {
+    /* fail-open — still print something rather than crashing */
+  }
+  const remote = await fetchRemoteVersion();
+  const suffix = remote && remote === local ? " (latest)" : "";
+  console.log(`${local}${suffix}`);
+  return 0;
 }
 
 /** Run the updater now (after the TUI has left the alternate screen).
@@ -274,6 +306,8 @@ async function main(): Promise<number> {
       const r = spawnSync(upd.cmd, upd.args, { cwd: root, stdio: "inherit" });
       return r.status ?? 1;
     }
+    case "version":
+      return printVersion(root);
     case "uninstall": {
       const un = py(["scripts/install/uninstall.py", ...rest]);
       const r = spawnSync(un.cmd, un.args, { cwd: root, stdio: "inherit" });

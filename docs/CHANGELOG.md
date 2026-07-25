@@ -7,6 +7,44 @@ but trimmed to fit a small in-repo doc.
 > Per-`docs/RELEASE.md` is the canonical, deep-dive release
 > document for each tagged build. This file is the index.
 
+## [0.9.93a] — 2026-07-24
+
+npm package: `@keshm/aplyx` version `0.9.93-alpha.0`. Full notes:
+[`RELEASE.md`](./RELEASE.md).
+
+### Fixed
+
+- **Critical: `aplyx update` could report success while changing
+  nothing at all.** Reported live: an update from `0.87a` straight to
+  `0.92a` printed "updated 0.87a -> 0.92a," but none of the actual
+  changes showed up. Root cause: `update.py`'s `main()` calls
+  `_post_update()` — the rebuild step, including the 0.9.90a fix for
+  rebuilding `packages/core` before `app` — in the *same already-running
+  Python process* that pulled the new source. Python doesn't hot-reload:
+  `_post_update` had already been imported into memory before the
+  `git pull`/tarball-overlay overwrote `update.py`'s own file on disk,
+  so this call always ran whichever rebuild logic was current when the
+  process *started*, never whatever the update itself had just changed.
+  Any install old enough to predate a `_post_update` fix would run that
+  fix's own source non-functionally, forever, on a single `aplyx
+  update` — exactly what happened going from `.87a` (before the
+  0.9.90a core-rebuild-ordering fix existed at all) to `.92a` in one
+  hop. Fixed by running the post-update rebuild in a **fresh child
+  process** instead of the same one — mirrors the identical self-re-exec
+  pattern `run_job_agent.py`'s own pre-run auto-update already uses for
+  the same reason. Verified directly: broke `packages/core/dist` by
+  hand, ran the new child-process path, confirmed it rebuilt core
+  before app and restored the missing file — not just reasoned about.
+
+### Added
+
+- **New `aplyx version` command.** Prints the installed VERSION, with
+  `" (latest)"` appended when it matches upstream `main` — e.g.
+  `0.9.93a (latest)`. Shares its remote-VERSION fetch with the
+  launch-time update probe, but (unlike that probe) always checks
+  regardless of `APLYX_AUTO_UPDATE` or TTY-ness, since an explicit
+  `aplyx version` should always get a real answer.
+
 ## [0.9.92a] — 2026-07-24
 
 npm package: `@keshm/aplyx` version `0.9.92-alpha.0`. Full notes:
