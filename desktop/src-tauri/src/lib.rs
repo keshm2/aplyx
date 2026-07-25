@@ -43,6 +43,35 @@ fn bridge_script_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(resolved)
 }
 
+/// `PathBuf::canonicalize()` on Windows always returns an extended-length
+/// "verbatim" path prefixed `\\?\` (from `GetFinalPathNameByHandleW` — this
+/// is documented Windows/Rust behavior, not a bug). That prefix opts OUT of
+/// normal Win32 path processing, and several Windows APIs explicitly don't
+/// support it — `SetCurrentDirectory`/`CreateProcess`'s working-directory
+/// argument being one (Microsoft's own "Maximum Path Length Limitation"
+/// docs call this out by name). Using an un-stripped canonical path as a
+/// spawned process's `current_dir()` risks exactly the kind of spawn-time
+/// failure this file already exists to avoid. Canonicalizing still buys
+/// the thing we actually want (a fully resolved, unambiguous, real path
+/// with no relative components or symlink indirection) — just strip the
+/// prefix back off before the path leaves this function, so nothing
+/// downstream has to know or care that it was ever there. No-op on
+/// non-Windows, where canonicalize() never adds this prefix.
+fn strip_verbatim_prefix(path: PathBuf) -> PathBuf {
+    match path.to_str() {
+        Some(s) => {
+            if let Some(rest) = s.strip_prefix(r"\\?\UNC\") {
+                PathBuf::from(format!(r"\\{rest}"))
+            } else if let Some(rest) = s.strip_prefix(r"\\?\") {
+                PathBuf::from(rest)
+            } else {
+                path
+            }
+        }
+        None => path,
+    }
+}
+
 fn bridge_script_path_uncached(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     if let Ok(resource_path) = app.path().resolve("core/bridge.js", BaseDirectory::Resource) {
         if resource_path.exists() {
@@ -58,7 +87,7 @@ fn bridge_script_path_uncached(app: &tauri::AppHandle) -> Result<PathBuf, String
             // canonicalize is treated as not found rather than risking a
             // bad argv[1] reaching node at all.
             if let Ok(canonical) = resource_path.canonicalize() {
-                return Ok(canonical);
+                return Ok(strip_verbatim_prefix(canonical));
             }
         }
     }
@@ -72,7 +101,7 @@ fn bridge_script_path_uncached(app: &tauri::AppHandle) -> Result<PathBuf, String
         .join("dist")
         .join("bridge.js");
     if let Ok(canonical) = dev_path.canonicalize() {
-        return Ok(canonical);
+        return Ok(strip_verbatim_prefix(canonical));
     }
 
     Err(format!(

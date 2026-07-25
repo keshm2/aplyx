@@ -7,6 +7,48 @@ but trimmed to fit a small in-repo doc.
 > Per-`docs/RELEASE.md` is the canonical, deep-dive release
 > document for each tagged build. This file is the index.
 
+## [0.9.94a] — 2026-07-25
+
+npm package: `@keshm/aplyx` version `0.9.94-alpha.0`. Full notes:
+[`RELEASE.md`](./RELEASE.md).
+
+### Fixed
+
+- **The Windows desktop-app fix in `0.9.93-alpha.1` never actually
+  shipped.** That release fixed the `EISDIR: lstat 'C:'` sign-in crash
+  in source but only pushed to `main` — no git tag — and
+  `desktop-release.yml` (which builds and attaches the desktop app
+  installers) only triggers on a `v*` tag push. The `v0.9.93a` GitHub
+  Release's Windows installer predated the fix and was never rebuilt,
+  so every re-run of `install_desktop.ps1` kept fetching the same
+  pre-fix binary. This release exists specifically to push a real tag
+  and produce a real rebuild.
+- **A second, independent defect found while re-auditing the alpha.1
+  fix.** `PathBuf::canonicalize()` on Windows returns a `\\?\`-prefixed
+  extended-length path, which Windows APIs including
+  `SetCurrentDirectory`/`CreateProcess`'s working-directory argument
+  don't support (documented Microsoft behavior) — and the alpha.1 fix
+  used exactly that verbatim path's parent as the spawned Node
+  process's `current_dir()`. Fixed by stripping the prefix back off
+  after canonicalizing.
+- **TUI flicker — the real cause, not the resize-burst theory from
+  alpha.1.** Ink does a full terminal erase + full rewrite on every
+  render (no partial diffing — verified by reading
+  `node_modules/ink/build/log-update.js` directly). The header's
+  `TopStatusBar`, mounted for the entire session on every tab, renders
+  the greeting name through `RainbowText`, which animated every 90ms
+  *forever* — roughly 11 full-screen repaints per second, continuously,
+  worse at fullscreen size (more rows to erase/redraw each cycle).
+  Verified empirically: rendered the real compiled component through
+  Ink with a write-counting mock stdout (`FORCE_COLOR=3`, since the
+  default color-support detection in a mocked environment produces
+  misleadingly flat results) — unfixed, a steady ~11 writes/sec
+  indefinitely; fixed (a new `stopAfterMs` prop, applied only to the
+  header's instance), identical ~11/s for a 4-second flourish, then
+  zero further writes. Also realigned the header's separate 1 Hz clock
+  tick to the next minute boundary — it only displays hour:minute, so
+  59 of every 60 prior ticks were redundant re-renders.
+
 ## [0.9.93a] — 2026-07-24
 
 npm package: `@keshm/aplyx` version `0.9.93-alpha.1` (republished from

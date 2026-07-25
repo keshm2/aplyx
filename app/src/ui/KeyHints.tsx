@@ -34,21 +34,45 @@ export function KeyHints({ hints }: { hints: string }) {
  * Animated rainbow text for the MAX-cap warning: each character cycles
  * through the hue wheel. Animates only on a real TTY (a piped one-frame
  * render gets a static warning color so CI output stays deterministic).
+ *
+ * `stopAfterMs`, when set, clears the interval after that long and settles
+ * on whatever hue offset it last reached — a brief flourish instead of a
+ * forever-running one. Every Ink render writes the ENTIRE frame (see
+ * node_modules/ink/build/log-update.js: full erase + full rewrite, no
+ * partial line diffing), so a `setInterval`-driven component that's always
+ * mounted for the app's whole lifetime — like the header greeting name
+ * below — forces a full-terminal repaint on every tick, forever, which is
+ * what actually caused the "TUI flickers, worst at the bottom of the
+ * screen, when fullscreened on Windows" report: not a resize-handling bug
+ * (that fix in altScreen.ts/App.tsx address a real but separate,
+ * transient issue), but a continuous ~11/s full-screen repaint loop from
+ * this exact effect that Windows Terminal renders more visibly/jankily
+ * than other terminals do, worse at fullscreen size because there's more
+ * screen to erase and redraw each cycle. The other three call sites below
+ * (a Settings tier preview, two MAX-cap warnings, a live-run gauge) are
+ * all only mounted during a temporary, meaningfully "active" state, so
+ * they keep animating indefinitely by leaving `stopAfterMs` unset.
  */
 export function RainbowText({
   children,
   wrap,
+  stopAfterMs,
 }: {
   children: string;
   wrap?: React.ComponentProps<typeof Text>["wrap"];
+  stopAfterMs?: number;
 }) {
   const animate = Boolean(process.stdout.isTTY) && !isReducedMotion();
   const [offset, setOffset] = useState(0);
   useEffect(() => {
     if (!animate) return;
     const timer = setInterval(() => setOffset((o) => (o + 14) % 360), 90);
-    return () => clearInterval(timer);
-  }, [animate]);
+    const stopTimer = stopAfterMs ? setTimeout(() => clearInterval(timer), stopAfterMs) : undefined;
+    return () => {
+      clearInterval(timer);
+      if (stopTimer) clearTimeout(stopTimer);
+    };
+  }, [animate, stopAfterMs]);
   if (!animate) {
     return (
       <Text bold color={theme.danger} wrap={wrap}>
