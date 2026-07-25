@@ -62,6 +62,10 @@
       "types": "./dist/harness.d.ts",
       "default": "./dist/harness.js"
     },
+    "./desktopApp.js": {
+      "types": "./dist/desktopApp.d.ts",
+      "default": "./dist/desktopApp.js"
+    },
     "./onboarding/fields.js": {
       "types": "./dist/onboarding/fields.d.ts",
       "default": "./dist/onboarding/fields.js"

@@ -136,6 +136,15 @@ $scriptDir = Split-Path -Parent $PSCommandPath
 $projectRoot = Split-Path -Parent (Split-Path -Parent $scriptDir)
 Set-Location $projectRoot
 
+# Refresh PATH from the registry before cargo/winget/rustup-init get
+# probed below — same fix and same reasoning as install.ps1's matching
+# refresh: this script runs as its own spawned subprocess (either as
+# install.ps1's opt-in step 8b, or standalone), so its inherited
+# $env:PATH can be stale relative to the registry even when the same
+# tools resolve fine in the user's own interactive shell. Append, don't
+# replace, so nothing already valid here is lost.
+$env:PATH = $env:PATH + ";" + [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("PATH", "User")
+
 # Pin this checkout's location to ~/.aplyx/root, same as install.ps1 -
 # written here too since this script is documented as independently
 # re-runnable on its own, not only as install.ps1's opt-in step. The
@@ -145,6 +154,19 @@ Set-Location $projectRoot
 $pinDir = Join-Path $HOME ".aplyx"
 New-Item -ItemType Directory -Force -Path $pinDir | Out-Null
 Set-Content -Path (Join-Path $pinDir "root") -Value $projectRoot -NoNewline
+
+# Marker file the TUI's Settings screen checks (see
+# @aplyx/core/desktopApp.ts's isDesktopAppInstalled) to show "already
+# installed" instead of offering to install again. Plain text, one line —
+# same convention as the root pin file above. Written once install
+# actually succeeds (see the two call sites below), not here at the top,
+# so an interrupted/failed run doesn't falsely claim success.
+function Mark-DesktopInstalled {
+  $ver = "unknown"
+  $verFile = Join-Path $projectRoot "VERSION"
+  if (Test-Path $verFile) { $ver = (Get-Content $verFile -Raw).Trim() }
+  Set-Content -Path (Join-Path $pinDir "desktop_installed") -Value $ver -NoNewline
+}
 
 if (-not (Test-Path "desktop\package.json")) { Fail "desktop\ not found in this checkout - nothing to install." }
 
@@ -254,6 +276,7 @@ function Try-PrebuiltInstall {
 }
 
 if (Try-PrebuiltInstall) {
+  Mark-DesktopInstalled
   Say "done."
   exit 0
 }
@@ -404,4 +427,5 @@ if (-not (Install-DesktopBundle -BundleDir $bundleDir)) {
   Fail "no installable bundle found under $bundleDir - build may have failed silently."
 }
 
+Mark-DesktopInstalled
 Say "done."

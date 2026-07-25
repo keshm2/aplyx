@@ -573,8 +573,19 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
         return;
       }
 
-      if (key.shift && key.leftArrow) return goToPage(currentPage - 1);
-      if (key.shift && key.rightArrow) {
+      // PageUp/PageDown are the primary back/forward keys — a dedicated,
+      // unambiguous escape sequence (\x1b[5~ / \x1b[6~) every terminal
+      // sends the same way, unlike Shift+Arrow: several Windows terminal
+      // hosts (legacy conhost.exe, and some Windows Terminal/shell
+      // combinations) don't reliably emit the modifier-prefixed CSI
+      // sequence arrow keys need to report Shift, so key.shift can just
+      // never come through — silently making Shift+←/→ inert with no
+      // error, which read as "the back/forth buttons don't work" on
+      // Windows. Shift+←/→ stays wired too (works fine on most
+      // terminals, and is worth keeping for muscle memory), but
+      // PageUp/PageDown no longer depend on modifier detection at all.
+      if (key.pageUp || (key.shift && key.leftArrow)) return goToPage(currentPage - 1);
+      if (key.pageDown || (key.shift && key.rightArrow)) {
         // Commit first, then gate. A value typed but not yet Entered is an
         // answer — checking the gate before committing meant typing a field
         // and pressing shift+→ was refused with "answer every field on this
@@ -591,7 +602,7 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
       // selected resume / shows a status message) — it's the one page
       // where the universal "commit & advance" key doesn't advance, so
       // Escape doubles as an explicit, easy-to-guess "skip this step"
-      // (Shift+→, handled above, still works too).
+      // (PageDown/Shift+→, handled above, still works too).
       if (isResumePage && key.escape) return goToPage(currentPage + 1);
       if (isResumePage) return; // ResumesScreen (mounted below) owns the rest of the keyboard
 
@@ -776,7 +787,7 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
     body = (
       <ResumeStep root={root} active={isResumePage} onInputActiveChange={setResumeInputActive} contentRows={contentRows} />
     );
-    footerHints = resumeInputActive ? RESUMES_PROMPT_HINTS : `${RESUMES_HINTS} · esc/shift+→ skip for now · shift+← back`;
+    footerHints = resumeInputActive ? RESUMES_PROMPT_HINTS : `${RESUMES_HINTS} · esc/PgDn skip for now · PgUp back`;
   } else {
     const page = PAGES[currentPage]!;
     const showAdvanceGateAlert = blockedAdvanceAttempted && !allFieldsCommittedOnPage(currentPage, focus.committed);
@@ -788,7 +799,7 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
         {page.fields.map((field, idx) => renderField(field, idx))}
       </QuestionFrame>
     );
-    footerHints = "↑↓/tab move field · enter commit & next · shift+←/→ prev/next page";
+    footerHints = "↑↓/tab move field · enter commit & next · PgUp/PgDn prev/next page";
   }
 
   return (

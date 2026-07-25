@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Text, useInput } from "ink";
 import { loadState, isResolved } from "@aplyx/core/state.js";
 import type { AplyxState, QueueEntry } from "@aplyx/core/state.js";
@@ -31,7 +31,6 @@ interface Props {
 export function ReviewScreen({ root, active, refreshNonce, onStateChange, contentRows = 20, columns = 0 }: Props) {
   const [state, setState] = useState<AplyxState>(() => loadState(root));
   const [cursor, setCursor] = useState(0);
-  const [offset, setOffset] = useState(0);
   const [showResolved, setShowResolved] = useState(false);
   const [message, setMessage] = useState("");
   // With the detail pane the selection details move off the list column,
@@ -65,15 +64,24 @@ export function ReviewScreen({ root, active, refreshNonce, onStateChange, conten
   // Keep the selected row visible when the queue is longer than the visible
   // window. The cursor may legitimately move outside the first page; this
   // window follows it so there is always a visible selection marker.
-  useEffect(() => {
-    const maxOffset = Math.max(0, entries.length - visible);
-    setOffset((o) => {
-      if (entries.length <= visible) return 0;
-      if (cursor < o) return cursor;
-      if (cursor >= o + visible) return Math.min(maxOffset, cursor - visible + 1);
-      return Math.min(o, maxOffset);
-    });
-  }, [cursor, entries.length, visible]);
+  //
+  // Computed during render (via a ref, not useState+useEffect): an effect
+  // reacting to `cursor` only adjusts the offset AFTER the commit that
+  // already moved the cursor, so there's a real intermediate frame —
+  // actually painted to the terminal, not just theoretical — where the
+  // selected row has scrolled out of the still-stale window and nothing
+  // visible carries the selection marker. Deriving offset synchronously
+  // here means the window rendered this pass is already correct.
+  const offsetRef = useRef(0);
+  const maxOffset = Math.max(0, entries.length - visible);
+  let offset = Math.min(offsetRef.current, maxOffset);
+  if (entries.length > visible) {
+    if (cursor < offset) offset = cursor;
+    else if (cursor >= offset + visible) offset = cursor - visible + 1;
+  } else {
+    offset = 0;
+  }
+  offsetRef.current = offset;
 
   const refresh = () => {
     const fresh = loadState(root);

@@ -7,6 +7,44 @@ but trimmed to fit a small in-repo doc.
 > Per-`docs/RELEASE.md` is the canonical, deep-dive release
 > document for each tagged build. This file is the index.
 
+## [0.9.89a] — 2026-07-24
+
+npm package: `@keshm/aplyx` version `0.9.89-alpha.0`. Full notes:
+[`RELEASE.md`](./RELEASE.md).
+
+### Added
+
+- **TUI: "Install desktop app" in Settings.** A new Desktop app section
+  lets anyone who skipped it during setup install it later without
+  re-running the whole installer — leaves the TUI, hands off to
+  `install_desktop.sh`/`.ps1` on the normal screen (its own interactive
+  prompts, progress bars), then returns to a fresh `aplyx` launch when
+  done. Already installed? The row shows dimmed with a green
+  "✓ app is already installed (vX.Y)" note beneath it and Enter is a
+  no-op — detected via a small marker file
+  (`~/.aplyx/desktop_installed`) both installer scripts now write on
+  success, read fresh on every render (no caching, no restart needed to
+  pick up a manual install).
+
+### Fixed
+
+- **Windows: the desktop-app install offer (and the TUI-from-source
+  build step) could be silently skipped**, going straight to "done"
+  with no visible prompt or error — reported live: `npm install -g
+  @keshm/aplyx` worked fine, but `install.ps1`'s own `Get-Command npm`
+  check (gating both steps) came back empty when the script ran as a
+  spawned subprocess (via the npm-installed `aplyx` command's own
+  bootstrap, or the `irm | iex` one-liner), even though `npm` clearly
+  resolved in the interactive shell. Root cause: a spawned subprocess's
+  `$env:PATH` is a snapshot from its parent's process start, which can
+  lag behind the registry — compounded by `-NoProfile`, which also skips
+  any PATH customization a profile script would normally add. Fixed by
+  refreshing `$env:PATH` from the registry (Machine + User) right after
+  each script sets its working directory, in both `install.ps1` and
+  `install_desktop.ps1` — the same fix already applied elsewhere in this
+  file for a freshly-winget-installed Python, just never extended to
+  Node/npm detection.
+
 ## [0.9.88a] — 2026-07-24
 
 npm package: `@keshm/aplyx` version `0.9.88-alpha.0`. Full notes:

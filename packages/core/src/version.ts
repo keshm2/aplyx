@@ -6,6 +6,6 @@
  * drifting apart. Bumped by hand alongside VERSION (repo root) and
  * app/package.json's semver-shaped "version" field on every release —
  * see docs/CHANGELOG.md for the mapping between this and the npm semver
- * string (e.g. "0.9.88a" here, "0.9.88-alpha.0" published to npm).
+ * string (e.g. "0.9.89a" here, "0.9.89-alpha.0" published to npm).
  */
-export const BUILD_MARKER = "0.9.88a";
+export const BUILD_MARKER = "0.9.89a";

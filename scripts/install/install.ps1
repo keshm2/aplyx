@@ -179,6 +179,22 @@ if (-not $projectRoot) {
 }
 Set-Location $projectRoot
 
+# Refresh PATH from the registry before anything on it gets probed below
+# (node/npm at step 8, coding agents at step 3). This process's own
+# $env:PATH was captured at ITS parent's process start — when install.ps1
+# runs as a child of the npm-installed `aplyx` command's own bootstrap
+# (cli.tsx's bootstrapCore spawns a fresh `powershell -File ...`, not the
+# user's own interactive shell), that inherited PATH can be stale
+# relative to the registry even though `npm` resolves fine when the user
+# types it themselves — reported live: `npm install -g @keshm/aplyx`
+# worked, but this script's own `Get-Command npm` (gating both the
+# TUI-from-source build AND the desktop-app install offer, step 8/8b)
+# came back empty inside the spawned subprocess, silently skipping both
+# straight to "done" with no visible error. Same fix already applied
+# just below for a freshly-winget-installed Python — append here rather
+# than replace, so nothing already valid in this process's PATH is lost.
+$env:PATH = $env:PATH + ";" + [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("PATH", "User")
+
 # Pin this checkout's location to ~/.aplyx/root, read by
 # packages/core/src/project.ts's findProjectRoot() as its primary
 # resolution signal. Written unconditionally, first, regardless of what

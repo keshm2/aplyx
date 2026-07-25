@@ -148,6 +148,17 @@ cd "$PROJECT_ROOT"
 mkdir -p "$HOME/.aplyx"
 printf '%s' "$PROJECT_ROOT" > "$HOME/.aplyx/root"
 
+# Marker file the TUI's Settings screen checks (see
+# @aplyx/core/desktopApp.ts's isDesktopAppInstalled) to show "already
+# installed" instead of offering to install again. Plain text, one line —
+# same convention as the root pin file above. Written once install
+# actually succeeds (both the prebuilt-download and build-from-source
+# paths call this — see the two call sites below), not here at the top,
+# so an interrupted/failed run doesn't falsely claim success.
+mark_desktop_installed() {
+  printf '%s' "$(cat "$PROJECT_ROOT/VERSION" 2>/dev/null || echo unknown)" > "$HOME/.aplyx/desktop_installed"
+}
+
 [ -f "desktop/package.json" ] || fail "desktop/ not found in this checkout — nothing to install."
 
 OS="$(uname -s)"
@@ -296,6 +307,7 @@ try_prebuilt_install() {
 }
 
 if try_prebuilt_install; then
+  mark_desktop_installed
   say "done."
   exit 0
 fi
@@ -423,4 +435,5 @@ elif [ "$OS" = "Linux" ]; then
   install_linux_bundle "$BUNDLE_DIR" || fail "no installable bundle found under $BUNDLE_DIR — build may have failed silently."
 fi
 
+mark_desktop_installed
 say "done."

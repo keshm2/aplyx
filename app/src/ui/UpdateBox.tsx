@@ -13,15 +13,21 @@ import { theme } from "../theme.js";
  * bump travels clockwise around an otherwise theme-accent outline — a
  * wave that goes accent → white → accent, never rainbow.
  *
- * Controls support both keyboard (`y` / `n`) and mouse clicks. Ink 5 has
- * no stable high-level mouse API, so clicks are handled via raw xterm SGR
- * mouse-reporting escape sequences on stdin while the prompt is active.
+ * Controls support both keyboard (`y` / `n` / `esc`) and mouse clicks.
+ * Ink 5 has no stable high-level mouse API, so clicks are handled via raw
+ * xterm SGR mouse-reporting escape sequences on stdin while the prompt
+ * is active. A `[×]` close control sits in the top border (clickable,
+ * and `esc` is its keyboard equivalent) — declining and closing are the
+ * same outcome (`onNo`), just two different ways in to it: pressing `n`,
+ * clicking `[N] no`, clicking `[×]`, or pressing `esc`.
  */
 const BOX_W = 38;
 const BOX_H = 6;
 const BUTTON_ROW = 4; // zero-based within the box
 const YES_RANGE: [number, number] = [3, 9];
 const NO_RANGE: [number, number] = [13, 18];
+const CLOSE_ROW = 0; // top border row
+const CLOSE_RANGE: [number, number] = [BOX_W - 6, BOX_W - 4]; // the "[×]" cells, left of the top-right corner
 
 function hex2(n: number): string {
   return Math.round(n).toString(16).padStart(2, "0");
@@ -96,8 +102,12 @@ export function UpdateBox({
         const y = Number.parseInt(match[3] ?? "", 10);
         const suffix = match[4];
         if (button !== 0 || suffix !== "M") continue;
-        if (y !== y0 + BUTTON_ROW) continue;
         const localX = x - x0;
+        if (y === y0 + CLOSE_ROW && localX >= CLOSE_RANGE[0] && localX <= CLOSE_RANGE[1]) {
+          onNo();
+          return;
+        }
+        if (y !== y0 + BUTTON_ROW) continue;
         if (localX >= YES_RANGE[0] && localX <= YES_RANGE[1]) {
           onYes();
           return;
@@ -117,10 +127,10 @@ export function UpdateBox({
   }, [active, columns, isRawModeSupported, onNo, onYes, pad, rows, stdin, stdout]);
 
   useInput(
-    (input) => {
+    (input, key) => {
       const k = input.toLowerCase();
       if (k === "y") onYes();
-      else if (k === "n") onNo();
+      else if (k === "n" || key.escape) onNo();
     },
     { isActive: active },
   );
@@ -136,7 +146,14 @@ export function UpdateBox({
   const inner = BOX_W - 2;
   const P = 2 * BOX_W + 2 * h - 4;
 
+  const isCloseCell = (row: number, col: number) =>
+    row === CLOSE_ROW && col >= CLOSE_RANGE[0] && col <= CLOSE_RANGE[1];
+
   const cellColor = (row: number, col: number) => {
+    // Plain, non-animated color for the [×] close control — a clickable
+    // control reading as decoration (traveling with the border wave)
+    // would be easy to miss as interactive at all.
+    if (isCloseCell(row, col)) return theme.warn;
     if (!animate) return theme.accent;
     const idx = perimeterIndex(row, col, BOX_W, h);
     const intensity = Math.max(0, Math.cos((2 * Math.PI * (idx - phase)) / P));
@@ -144,7 +161,14 @@ export function UpdateBox({
   };
 
   const borderChar = (row: number, col: number) => {
-    if (row === 0) return col === 0 ? "╭" : col === BOX_W - 1 ? "╮" : "─";
+    if (row === 0) {
+      if (col === 0) return "╭";
+      if (col === BOX_W - 1) return "╮";
+      if (col === CLOSE_RANGE[0]) return "[";
+      if (col === CLOSE_RANGE[0] + 1) return "×";
+      if (col === CLOSE_RANGE[1]) return "]";
+      return "─";
+    }
     if (row === h - 1) return col === 0 ? "╰" : col === BOX_W - 1 ? "╯" : "─";
     return col === 0 || col === BOX_W - 1 ? "│" : " ";
   };
@@ -152,7 +176,7 @@ export function UpdateBox({
   const renderBorderRow = (row: number) => (
     <Text>
       {Array.from({ length: BOX_W }, (_, col) => (
-        <Text key={col} color={cellColor(row, col)}>
+        <Text key={col} bold={isCloseCell(row, col)} color={cellColor(row, col)}>
           {borderChar(row, col)}
         </Text>
       ))}

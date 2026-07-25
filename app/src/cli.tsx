@@ -90,6 +90,33 @@ function installUpdate(root: string): void {
   }
 }
 
+/** Run install_desktop.sh/.ps1 now (after the TUI has left the alternate
+ *  screen, same handoff installUpdate above uses) — triggered from
+ *  Settings' "Install desktop app" action. Runs the LOCAL copy already in
+ *  this checkout (not a fresh curl/irm download like bootstrapCore's
+ *  first-run path), since a core checkout already exists by the time this
+ *  can even be reached. The script itself is interactive (its own
+ *  prompts, progress bars) — stdio: "inherit" puts it on the real
+ *  terminal, not inside Ink's raw mode. */
+function installDesktopApp(root: string): void {
+  const r =
+    process.platform === "win32"
+      ? spawnSync(
+          "powershell",
+          ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", path.join(root, "scripts", "install", "install_desktop.ps1")],
+          { cwd: root, stdio: "inherit" },
+        )
+      : spawnSync("bash", [path.join(root, "scripts", "install", "install_desktop.sh")], { cwd: root, stdio: "inherit" });
+  if (r.status === 0) {
+    console.log("Desktop app installed — open it from your applications menu; `aplyx` still works the same as before.\n");
+  } else {
+    console.log(
+      "Desktop app install did not complete — see the output above. Retry any time with: bash scripts/install/install_desktop.sh " +
+        "(or: powershell -ExecutionPolicy Bypass -File scripts\\install\\install_desktop.ps1 on Windows).\n",
+    );
+  }
+}
+
 /** No core checkout found: install it right here (one-command promise),
  *  unless the user opted out with --no-core / APLYX_SKIP_CORE=1, in
  *  which case just print the manual one-liner. */
@@ -149,7 +176,9 @@ async function openApp(root: string, initialTab: Tab, updateVersion?: string): P
   // The UpdateBox calls this when the user accepts the update; we run
   // scripts/install/update.py AFTER the alt screen is restored below so its
   // stdio-inherit output lands on the normal screen, not inside the TUI.
+  // Settings' "Install desktop app" action uses the identical handoff.
   let installAfterExit = false;
+  let installDesktopAfterExit = false;
   await withAltScreen(() =>
     render(
       <App
@@ -159,12 +188,16 @@ async function openApp(root: string, initialTab: Tab, updateVersion?: string): P
         onUpdateInstall={() => {
           installAfterExit = true;
         }}
+        onInstallDesktopApp={() => {
+          installDesktopAfterExit = true;
+        }}
       />,
     ),
   );
-  // Alt screen is now left; a user-accepted update runs here so the
-  // updater's stdio-inherit output is visible on the normal screen.
+  // Alt screen is now left; a user-accepted update/desktop-install runs
+  // here so its stdio-inherit output is visible on the normal screen.
   if (installAfterExit) installUpdate(root);
+  if (installDesktopAfterExit) installDesktopApp(root);
   return 0;
 }
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useRef } from "react";
 import { Box, Text } from "ink";
 import { statusGlyph, theme } from "../theme.js";
 import { InlineTextInput } from "./TextInput.js";
@@ -59,16 +59,28 @@ export function MultiEntryAutocomplete({
   /** Explanatory line under the label, shown only while focused. */
   help?: string;
 }) {
-  const [offset, setOffset] = useState(0);
-  useEffect(() => {
-    const maxOffset = Math.max(0, suggestions.length - maxVisible);
-    setOffset((o) => {
-      if (suggestions.length <= maxVisible) return 0;
-      if (suggestionIndex < o) return suggestionIndex;
-      if (suggestionIndex >= o + maxVisible) return Math.min(maxOffset, suggestionIndex - maxVisible + 1);
-      return Math.min(o, maxOffset);
-    });
-  }, [suggestionIndex, suggestions.length, maxVisible]);
+  // Computed during render (via a ref, not useState+useEffect): an effect
+  // reacting to suggestionIndex only adjusts the scroll offset AFTER the
+  // commit that already moved suggestionIndex, so there was a real
+  // intermediate frame — actually painted to the terminal, not just a
+  // theoretical one — where the highlighted row had scrolled out of the
+  // still-stale window and nothing in it matched `hit`. The selection
+  // marker visibly vanished for a beat every time a Down/Up press crossed
+  // a scroll boundary, which read as "the selector disappears — press
+  // down again to reach the next item." Deriving offset synchronously
+  // here (React's own recommended pattern for adjusting state from a prop
+  // change) means the window that gets rendered this pass is already
+  // correct — no lag, no extra render, no stale frame possible.
+  const offsetRef = useRef(0);
+  const maxOffset = Math.max(0, suggestions.length - maxVisible);
+  let offset = Math.min(offsetRef.current, maxOffset);
+  if (suggestions.length > maxVisible) {
+    if (suggestionIndex < offset) offset = suggestionIndex;
+    else if (suggestionIndex >= offset + maxVisible) offset = suggestionIndex - maxVisible + 1;
+  } else {
+    offset = 0;
+  }
+  offsetRef.current = offset;
 
   const windowed = suggestions.slice(offset, offset + maxVisible);
 

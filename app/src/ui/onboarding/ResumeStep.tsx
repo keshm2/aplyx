@@ -31,7 +31,7 @@ export function ResumeStep({
       <Box marginTop={1} flexDirection="column">
         <Text wrap="wrap">
           Press <Text bold color={theme.accent}>o</Text> to open this folder now and drop your resume file(s) in, or
-          press <Text bold color={theme.accent}>esc</Text> (or <Text bold color={theme.accent}>shift+→</Text>) to skip
+          press <Text bold color={theme.accent}>esc</Text> (or <Text bold color={theme.accent}>PgDn</Text>) to skip
           for now — you can add resumes any time later from the Resumes tab.
         </Text>
       </Box>

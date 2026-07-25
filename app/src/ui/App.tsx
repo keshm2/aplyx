@@ -14,9 +14,12 @@ import { WelcomeScreen, type WelcomeOption } from "./WelcomeScreen.js";
 import { KeyHints, AutoSparkleText } from "./KeyHints.js";
 import { SidePanel, TopStatusBar } from "./SidePanel.js";
 import { UpdateBox } from "./UpdateBox.js";
+import { AutomaticModeGate } from "./AutomaticModeGate.js";
 import { loadState, isResolved, lastRunLine, latestSessionLog, readHeartbeat } from "@aplyx/core/state.js";
 import { displayName } from "@aplyx/core/settings.js";
+import { listResumeFiles } from "@aplyx/core/resumes.js";
 import { pendingConversionCount } from "../resumes.js";
+import { effectiveHarness } from "../harness.js";
 import type { AplyxState } from "@aplyx/core/state.js";
 import {
   theme,
@@ -129,11 +132,16 @@ export function App({
   initialTab = "status",
   updateVersion,
   onUpdateInstall,
+  onInstallDesktopApp,
 }: {
   root: string;
   initialTab?: Tab;
   updateVersion?: string;
   onUpdateInstall?: () => void;
+  /** Fired (via SettingsScreen) when the user triggers "Install desktop
+   *  app" from Settings — same exit-then-run-on-the-normal-screen handoff
+   *  as onUpdateInstall, see cli.tsx's openApp. */
+  onInstallDesktopApp?: () => void;
 }) {
   const { exit } = useApp();
   const [tab, setTab] = useState<Tab>(initialTab);
@@ -266,6 +274,16 @@ export function App({
 
   const unresolved = state.queue.filter((e) => !isResolved(state, e)).length;
   const pendingResumes = pendingConversionCount(root);
+  // Automatic run's gate (AutomaticModeGate) — only computed on the Jobs
+  // tab in automatic mode, since both checks are real fs/PATH work and
+  // every other tab has no use for them. Re-run fresh every render (no
+  // caching here or in the helpers themselves), so installing a coding
+  // agent or adding a resume while the TUI is open clears the block on
+  // the very next render — a tab switch (which already calls refresh())
+  // or the m key toggling back and forth is enough, no restart needed.
+  const automaticGateActive = tab === "jobs" && mode === "automatic" && !welcome;
+  const missingResume = automaticGateActive && !listResumeFiles(root).some((f) => f.hasMarkdown);
+  const missingHarness = automaticGateActive && !effectiveHarness(root);
   const counts = { applied: 0, needsReview: 0, failed: 0 };
   for (const job of state.applied) {
     if (job.status === "applied") counts.applied += 1;
@@ -294,6 +312,12 @@ export function App({
   }
 
   const tty = Boolean(process.stdin.isTTY && process.stdout.isTTY);
+  // Computed early (moved ahead of showSidebar, below, and the rest of
+  // the chrome-row math further down, which reuses it): the update box's
+  // own fixed row budget, so sidebar visibility can account for it
+  // instead of assuming it never needs to compete for vertical room with
+  // the box.
+  const updateRows = showUpdateBox ? 7 : 0; // update box margin 1 + box height 6
   // Side panel: shown when the terminal is wide and tall enough; below
   // the threshold it hides and the content takes the full width (clean
   // degradation on narrower/shorter terminals).
@@ -305,7 +329,13 @@ export function App({
   // (posted/location/fit columns) more than the sidebar's stats do, and
   // the greeting/clock that used to live only in the sidebar now show in
   // the header on every tab (TopStatusBar, below) so nothing is lost.
-  const showSidebar = columns >= 72 && rows >= 18 && tab !== "jobs";
+  // rows >= 18 + updateRows: on a short terminal, showing the update box
+  // eats 7 more rows out of the same budget — without accounting for that
+  // here, the sidebar kept claiming its full natural content height (see
+  // the height/overflow constraint added on its Box below) right up
+  // against where the update box needed to start, which is what made the
+  // box's top border look "eaten" by the sidebar on shorter terminals.
+  const showSidebar = columns >= 72 && rows >= 18 + updateRows && tab !== "jobs";
   const sideOverhead = showSidebar ? SIDE_PANEL_WIDTH + 2 : 0; // panel + gutter
   // On very wide terminals, center a readable content column instead of
   // leaving the right half of the screen empty: the horizontal padding
@@ -325,7 +355,6 @@ export function App({
   // the active screen so lists grow on tall terminals and shrink on
   // short ones instead of assuming a fixed page size.
   const bannerRows = bannerHeight(columns, rows);
-  const updateRows = showUpdateBox ? 7 : 0; // update box margin 1 + box height 6
   const chromeRows = bannerRows + 7 + updateRows; // mode 1 + tabs 2 + rule 1 + content margin 1 + hints 2
   const contentRows = Math.max(6, rows - chromeRows);
 
@@ -335,7 +364,8 @@ export function App({
   // Every chunk is "key description" so KeyHints can color the key caps.
   let tabHints: string;
   if (tab === "jobs") {
-    if (childInputActive) tabHints = mode === "manual" ? SEARCH_EDIT_HINTS : RUN_EDIT_HINTS;
+    if (mode === "automatic" && (missingResume || missingHarness)) tabHints = "";
+    else if (childInputActive) tabHints = mode === "manual" ? SEARCH_EDIT_HINTS : RUN_EDIT_HINTS;
     else if (runInProgress) tabHints = RUN_LIVE_HINTS;
     else tabHints = mode === "manual" ? SEARCH_HINTS : RUN_HINTS;
   } else if (tab === "settings" && childInputActive) {
@@ -431,8 +461,19 @@ export function App({
       >
         {/* Explicit width (not just flexGrow): nested row layouts inside
             screens have wide min-content and would otherwise push into
-            the sidebar; with a fixed band the inner Texts truncate. */}
-        <Box flexDirection="column" width={contentCols} flexShrink={0} overflow="hidden">
+            the sidebar; with a fixed band the inner Texts truncate.
+            Explicit height, too (added alongside the sidebar's matching
+            fix): `overflow="hidden"` alone doesn't clip anything unless
+            the box's own layout size is pinned to something — without it,
+            a screen whose natural content runs longer than contentRows
+            (WelcomeScreen's item list + per-option description text,
+            observed live) grew this box past its budget, pushing the
+            whole document past `rows`, and whatever didn't fit got
+            clipped from wherever the overflow physically landed — which
+            could be the update box below, even though it did nothing
+            wrong itself. Pinning height here is what actually enforces
+            the budget contentRows only computes. */}
+        <Box flexDirection="column" width={contentCols} height={contentRows} flexShrink={0} overflow="hidden">
           {welcome ? (
             <WelcomeScreen
               contentRows={contentRows}
@@ -469,6 +510,12 @@ export function App({
                       onStateChange={refresh}
                       contentRows={contentRows}
                       columns={contentCols}
+                    />
+                  ) : missingResume || missingHarness ? (
+                    <AutomaticModeGate
+                      missingResume={missingResume}
+                      missingHarness={missingHarness}
+                      contentRows={contentRows}
                     />
                   ) : (
                     <RunScreen
@@ -517,6 +564,14 @@ export function App({
                     active={tab === "settings" && !helpOpen}
                     onInputActiveChange={setChildInputActive}
                     onSettingsChange={refresh}
+                    onInstallDesktopApp={
+                      onInstallDesktopApp
+                        ? () => {
+                            onInstallDesktopApp();
+                            exit();
+                          }
+                        : undefined
+                    }
                     contentRows={contentRows}
                     columns={contentCols}
                   />
@@ -530,7 +585,22 @@ export function App({
             flexDirection="column"
             marginLeft={1}
             width={SIDE_PANEL_WIDTH + 1}
+            // height + overflow: without an explicit height, a flex child
+            // with no flexGrow of its own renders at its natural content
+            // size (SidePanel's ~10 rows) regardless of how much room this
+            // row actually has — it never shrank to fit contentRows the
+            // way the main content column does. On a short terminal (or
+            // any time the update box's own 7-row reservation left less
+            // room than the sidebar's natural height), the sidebar just
+            // kept rendering its full height anyway, growing into the
+            // space the update box needed and making its top border look
+            // like it had been overwritten. contentRows already accounts
+            // for the update box's reservation (see chromeRows above), so
+            // constraining to it here is what actually enforces that
+            // budget instead of just computing it.
+            height={contentRows}
             flexShrink={0}
+            overflow="hidden"
             borderStyle="single"
             borderRight={false}
             borderTop={false}

@@ -15,6 +15,17 @@
  * rank hand-vetted companies above ones auto-discovered from a larger
  * external source, so a handful of well-known names don't get buried
  * once the pool grows into the thousands.
+ *
+ * A genuine prefix match gets an explicit bonus (PREFIX_BONUS) rather
+ * than relying purely on boundary/consecutive bonuses to float it to the
+ * top on their own — they don't reliably do that. A scattered match that
+ * happens to land on two word-boundary characters (e.g. "sea" against
+ * "Scottsdale, AZ": 's' starts the city, 'a' starts the state code after
+ * the comma) can out-score a true single-run prefix match against a
+ * different, better candidate ("sea" against "Seattle, WA" — one long
+ * consecutive run, but only one boundary hit) by a point or two, which
+ * ranked Scottsdale above Seattle for a "sea" search until this was
+ * added — confirmed by tracing the exact scores, not assumed.
  */
 export function filterSuggestions<T = string>(
   query: string,
@@ -56,6 +67,12 @@ const MATCH_BONUS = 1;
 /** Penalty per character the match starts into the text — an earlier
  *  match (closer to a true prefix) beats a later one, all else equal. */
 const START_PENALTY = 0.5;
+/** Flat bonus when the query is a true prefix of the text (case-
+ *  insensitive) — large enough to dominate any combination of the bonuses
+ *  above, so a real prefix match always outranks a scattered match that
+ *  happens to hit multiple word boundaries elsewhere in a longer/busier
+ *  candidate string. */
+const PREFIX_BONUS = 50;
 
 function isWordBoundaryChar(ch: string | undefined): boolean {
   return ch === undefined || !/[a-z0-9]/i.test(ch);
@@ -83,5 +100,6 @@ function fuzzyScore(query: string, text: string): number | null {
   }
   if (qi < query.length) return null;
   score -= firstMatchIndex * START_PENALTY;
+  if (text.startsWith(query)) score += PREFIX_BONUS;
   return score;
 }

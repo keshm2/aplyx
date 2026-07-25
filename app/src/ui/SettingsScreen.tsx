@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Text, useInput } from "ink";
 import { statusGlyph, theme, harnessGradient, pageSizeTier, HARNESS_WAVE_TICK_MS, HARNESS_WAVE_STEP, type HarnessId } from "../theme.js";
 import { DEFAULT_PAGE_SIZE, MIN_PAGE_SIZE, MAX_PAGE_SIZE, DEFAULT_RESULTS_PER_PAGE } from "../jobs.js";
@@ -20,6 +20,7 @@ import { readProfileUsername, writeProfileUsername } from "@aplyx/core/profileLi
 import { openPath } from "@aplyx/core/helpers.js";
 import { resumesDir } from "../resumes.js";
 import { detectHarnessOnPath } from "../harness.js";
+import { isDesktopAppInstalled, desktopInstalledVersion } from "@aplyx/core/desktopApp.js";
 import { readCommittedCompanyDisplays, writeCommittedCompanyDisplays } from "@aplyx/core/companyTargets.js";
 import { loadCompanyDirectory, companyWeight, type CompanyEntry } from "@aplyx/core/data/companyDirectory.js";
 import { US_CITIES } from "@aplyx/core/data/usCities.js";
@@ -200,6 +201,20 @@ const SECTIONS: Section[] = [
         label: "Open resumes folder",
         explain:
           "Opens the resumes folder in Finder / File Explorer / your Linux file manager so you can drag resume PDFs straight in — no need to find the path yourself. The folder is created if it doesn't exist yet.",
+      },
+    ],
+  },
+  {
+    name: "Desktop app",
+    description:
+      "aplyx also has an early-preview desktop app (Tauri) alongside this TUI — same local data, same config, just a graphical shell. Optional; skipping it during setup doesn't block anything here.",
+    fields: [
+      {
+        kind: "action",
+        key: "install_desktop_app",
+        label: "Install desktop app",
+        explain:
+          "Leaves the TUI and hands off to scripts/install/install_desktop.sh (or the .ps1 equivalent on Windows) on the normal screen — it has its own prompts (prefers a prebuilt download; falls back to building from source, which needs Rust). Returns you to a fresh aplyx launch when it's done. Already installed? This row shows a checkmark instead and Enter does nothing — reinstall any time by re-running that script directly.",
       },
     ],
   },
@@ -443,6 +458,7 @@ export function SettingsScreen({
   active,
   onInputActiveChange,
   onSettingsChange,
+  onInstallDesktopApp,
   contentRows = 20,
   columns = 76,
 }: {
@@ -451,6 +467,12 @@ export function SettingsScreen({
   onInputActiveChange: (active: boolean) => void;
   /** Fired after any write so the shell (sidebar name, etc.) refreshes. */
   onSettingsChange?: () => void;
+  /** Fired when the user triggers "Install desktop app" — App.tsx wraps
+   *  this with Ink's exit() so the installer's own interactive prompts
+   *  run on the normal screen after the TUI leaves the alt screen, the
+   *  same handoff the update-install flow already uses (see cli.tsx's
+   *  openApp). Not shown/wired at all once the app is already installed. */
+  onInstallDesktopApp?: () => void;
   contentRows?: number;
   columns?: number;
 }) {
@@ -489,8 +511,12 @@ export function SettingsScreen({
   // clips a frame taller than the terminal rather than scrolling it, so
   // the highlighted/just-toggled row could end up invisible — easy to
   // mistake for "the toggle didn't do anything."
-  const [categoryOffset, setCategoryOffset] = useState(0);
+  const categoryOffsetRef = useRef(0);
 
+  // Cheap fs read, re-checked fresh every render (no caching) — so
+  // installing the desktop app from this very screen, or by hand outside
+  // aplyx entirely, is reflected the moment this screen next renders.
+  const desktopInstalled = isDesktopAppInstalled();
   const section = SECTIONS[sectionCursor];
   // fieldCursor is only ever meant to index the CURRENTLY OPEN section — but
   // it's state that outlives leaving that section (Esc back to the section
@@ -512,19 +538,24 @@ export function SettingsScreen({
   const visibleRows = Math.max(3, contentRows - 10);
 
   const categories = field.kind === "checklist" ? field.categories ?? [] : [];
-  // Keep optionCursor inside the visible window as it moves — identical
-  // formula to ReviewScreen's cursor-follows-window effect.
-  useEffect(() => {
-    if (field.kind !== "checklist") return;
-    const maxOffset = Math.max(0, categories.length - visibleRows);
-    setCategoryOffset((o) => {
-      if (categories.length <= visibleRows) return 0;
-      if (optionCursor < o) return optionCursor;
-      if (optionCursor >= o + visibleRows) return Math.min(maxOffset, optionCursor - visibleRows + 1);
-      return Math.min(o, maxOffset);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [optionCursor, categories.length, visibleRows, field.kind]);
+  // Keep optionCursor inside the visible window as it moves. Computed
+  // during render (via a ref, not useState+useEffect): an effect reacting
+  // to optionCursor only adjusts the offset AFTER the commit that already
+  // moved it, so there's a real intermediate frame — actually painted to
+  // the terminal — where the just-toggled/highlighted row has scrolled
+  // out of the still-stale window. Deriving offset synchronously here
+  // means the window rendered this pass is already correct (same fix as
+  // ReviewScreen's and MultiEntryAutocomplete's identical pattern).
+  if (field.kind !== "checklist") categoryOffsetRef.current = 0;
+  const categoryMaxOffset = Math.max(0, categories.length - visibleRows);
+  let categoryOffset = Math.min(categoryOffsetRef.current, categoryMaxOffset);
+  if (field.kind === "checklist" && categories.length > visibleRows) {
+    if (optionCursor < categoryOffset) categoryOffset = optionCursor;
+    else if (optionCursor >= categoryOffset + visibleRows) categoryOffset = optionCursor - visibleRows + 1;
+  } else {
+    categoryOffset = 0;
+  }
+  categoryOffsetRef.current = categoryOffset;
 
   // Same vetted+discovered directory the onboarding wizard reads from —
   // recomputed only on root/nonce change (not every keystroke) so typing
@@ -799,6 +830,14 @@ export function SettingsScreen({
             }
             return;
           }
+          if (field.kind === "action" && field.key === "install_desktop_app") {
+            if (desktopInstalled) {
+              setMessage("Desktop app is already installed — nothing to do here. Reinstall any time by re-running scripts/install/install_desktop.sh (or the .ps1 equivalent on Windows) directly.");
+              return;
+            }
+            onInstallDesktopApp?.();
+            return;
+          }
           if (field.kind === "discord-enabled") {
             const next = !readDiscordEnabled(root);
             writeDiscordEnabled(root, next);
@@ -924,15 +963,27 @@ export function SettingsScreen({
       ) : (
         <>
           <Box marginTop={1} flexDirection="column">
-            {section.fields.map((f, i) => (
-              <NavRow
-                key={f.key}
-                label={f.label}
-                focused={i === safeFieldCursor}
-                dim={Boolean(f.disabled)}
-                value={f.kind === "personal" || f.kind === "personal-link" ? currentValue(root, f, directory).value : undefined}
-              />
-            ))}
+            {section.fields.map((f, i) => {
+              const isDesktopInstallRow = f.kind === "action" && f.key === "install_desktop_app";
+              const showInstalledNote = isDesktopInstallRow && desktopInstalled;
+              return (
+                <React.Fragment key={f.key}>
+                  <NavRow
+                    label={f.label}
+                    focused={i === safeFieldCursor}
+                    dim={Boolean(f.disabled) || showInstalledNote}
+                    value={f.kind === "personal" || f.kind === "personal-link" ? currentValue(root, f, directory).value : undefined}
+                  />
+                  {showInstalledNote ? (
+                    <Box paddingLeft={4}>
+                      <Text color={theme.good}>
+                        ✓ app is already installed{desktopInstalledVersion() ? ` (v${desktopInstalledVersion()})` : ""}
+                      </Text>
+                    </Box>
+                  ) : null}
+                </React.Fragment>
+              );
+            })}
           </Box>
           <Box marginTop={1} flexDirection="column">
             {explainLines.map((line, i) => (
