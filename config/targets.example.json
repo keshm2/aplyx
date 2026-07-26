@@ -70,7 +70,6 @@
     "workday",
     "smartrecruiters",
     "amazon",
-    "microsoft",
     "apple",
     "stripe"
   ],
@@ -93,6 +92,9 @@
     "REPLACE_ME"
   ],
   "oracle_tenants": [
+    "REPLACE_ME"
+  ],
+  "eightfold_tenants": [
     "REPLACE_ME"
   ],
   "safe_fields": {
@@ -126,7 +128,8 @@
     "smartrecruiters_company_slugs": "Company identifiers (from a SmartRecruiters careers URL, e.g. jobs.smartrecruiters.com/<identifier>) to scrape directly via the public SmartRecruiters Postings API.",
     "simplify_feeds": "Named SimplifyJobs GitHub listing feeds to pull from — see docs/SETUP.md for the supported feed names.",
     "workday_tenants": "Workday tenant identifiers (\"<host>/<site>\") to scrape in review-only mode — see docs/SETUP.md for how to find a tenant string. Verified live examples (2026-07-25): salesforce.wd12.myworkdayjobs.com/External_Career_Site, nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite.",
-    "oracle_tenants": "Oracle Recruiting Cloud tenant identifiers (\"<host>/<siteNumber>\", e.g. eeho.fa.us2.oraclecloud.com/CX_45001 for Oracle's own careers site) to scrape directly via the public Fusion HCM REST API — see docs/SETUP.md. Verified live examples (2026-07-25): egug.fa.us2.oraclecloud.com/CX_1 (American Express), jpmc.fa.oraclecloud.com/CX_1001 (JPMorgan Chase)."
+    "oracle_tenants": "Oracle Recruiting Cloud tenant identifiers (\"<host>/<siteNumber>\", e.g. eeho.fa.us2.oraclecloud.com/CX_45001 for Oracle's own careers site) to scrape directly via the public Fusion HCM REST API — see docs/SETUP.md. Verified live examples (2026-07-25): egug.fa.us2.oraclecloud.com/CX_1 (American Express), jpmc.fa.oraclecloud.com/CX_1001 (JPMorgan Chase).",
+    "eightfold_tenants": "Eightfold-powered careers site tenant identifiers (\"<host>/<domain>\", e.g. apply.careers.microsoft.com/microsoft.com) — a white-labeled ATS with no common hostname suffix across tenants, so each one has to be found by hand (inspect the employer's careers site network requests for an api/pcsx/search or api/apply/v2/jobs call). Verified live examples (2026-07-25): apply.careers.microsoft.com/microsoft.com, explore.jobs.netflix.net/netflix.com."
   },
   "_onboarding": { "completed": false, "committed_fields": [], "current_page": 0 }
 }

@@ -59,7 +59,6 @@ ATS_URL_PATTERNS = [
     ("smartrecruiters", ("smartrecruiters.com",)),
     ("amazon", ("amazon.jobs",)),
     ("oracle", ("oraclecloud.com",)),
-    ("microsoft", ("careers.microsoft.com",)),
     ("apple", ("jobs.apple.com",)),
     ("stripe", ("stripe.com",)),
     ("icims", ("icims.com",)),
@@ -79,7 +78,12 @@ ATS_SOURCE_MAP = {
     "smartrecruiters": "smartrecruiters",
     "amazon": "amazon",
     "oracle": "oracle",
-    "microsoft": "microsoft",
+    # No URL-pattern entry for Eightfold above — its hosts vary per
+    # tenant with no common suffix (apply.careers.microsoft.com,
+    # explore.jobs.netflix.net, ... — confirmed live, see
+    # fetch_eightfold_listings.py's header), so this source-name
+    # fallback is the only reliable signal.
+    "eightfold": "eightfold",
     "apple": "apple",
     "stripe": "stripe",
     "wellfound": "wellfound",
@@ -463,6 +467,80 @@ def upsert_job(canonical, registry_path):
     return result, action
 
 
+# --- Closed-posting inference (consecutive misses) --------------------------
+
+# How many consecutive scrapes a record can be absent from (while its
+# source IS being actively scraped — see mark_seen_batch's source-scoping
+# below) before it's inferred closed. 3 gives real margin against a single
+# transient fetch failure/rate-limit for one board looking identical to a
+# genuinely closed posting, while still catching persistently-vanished
+# postings within a handful of scrape cycles.
+CLOSED_MISS_THRESHOLD = 3
+
+
+def _record_sources(record):
+    """Every source name a registry record has ever been seen under —
+    record["source"] is just the first-seen/primary one; record["sources"]
+    (see upsert_job/merge_job) can carry more than one when the same
+    job_key was found via multiple boards."""
+    names = {record.get("source", "")}
+    for s in record.get("sources", []) or []:
+        if s.get("source"):
+            names.add(s["source"])
+    names.discard("")
+    return names
+
+
+def mark_seen_batch(job_keys, sources, registry_path):
+    """Updates every registry record whose source overlaps `sources` (the
+    sources actually scraped THIS run) — never records from sources this
+    run didn't touch at all, since "absent because this board wasn't
+    scraped this time" and "absent because the posting is actually gone"
+    are very different things, and conflating them would infer closed on
+    every record from a temporarily-disabled/skipped board. A record in
+    `job_keys` (found in this run's batch) has its miss counter reset
+    (and is reopened if a prior run had marked it closed — a posting
+    reappearing after being inferred closed most likely means it was
+    reposted/reopened, not that the inference was wrong); everything
+    else eligible gets its counter incremented, crossing
+    CLOSED_MISS_THRESHOLD sets closed=true. Returns a summary dict, never
+    raises on a malformed individual record — this is best-effort
+    bookkeeping, not a correctness-critical write path the way
+    upsert-job/record-event are.
+    """
+    job_keys = set(job_keys)
+    sources = set(sources)
+    registry = load_json_array(registry_path)
+    seen = 0
+    missed = 0
+    newly_closed = 0
+    reopened = 0
+    for record in registry:
+        if not _record_sources(record) & sources:
+            continue
+        if record.get("job_key") in job_keys:
+            record["consecutive_misses"] = 0
+            if record.get("closed"):
+                record["closed"] = False
+                reopened += 1
+            seen += 1
+        else:
+            count = int(record.get("consecutive_misses", 0)) + 1
+            record["consecutive_misses"] = count
+            missed += 1
+            if count >= CLOSED_MISS_THRESHOLD and not record.get("closed"):
+                record["closed"] = True
+                newly_closed += 1
+    save_json_array(registry_path, registry)
+    return {
+        "ok": True,
+        "seen": seen,
+        "missed": missed,
+        "newly_closed": newly_closed,
+        "reopened": reopened,
+    }
+
+
 # --- Pre-apply dedupe recheck ----------------------------------------------
 
 
@@ -666,6 +744,19 @@ def main(argv=None):
     p_record.add_argument("--registry", default=DEFAULT_REGISTRY)
     p_record.add_argument("--events", default=DEFAULT_EVENTS)
 
+    p_mark = sub.add_parser(
+        "mark-seen-batch",
+        help="update consecutive-miss/closed tracking for one run's scrape batch",
+    )
+    p_mark.add_argument("job_keys_json", help="JSON array of job_keys found in this run's batch")
+    p_mark.add_argument(
+        "--sources",
+        required=True,
+        help="JSON array of source names actually scraped this run (e.g. '[\"ashbyhq\",\"lever\"]') "
+        "— only registry records from these sources are touched",
+    )
+    p_mark.add_argument("--registry", default=DEFAULT_REGISTRY)
+
     args = parser.parse_args(argv)
 
     if args.command == "ensure-files":
@@ -701,6 +792,23 @@ def main(argv=None):
         event = parse_json_arg(args.event_json, "record-event")
         recorded = record_event(event, args.registry, args.events)
         print(json.dumps(recorded, ensure_ascii=False))
+        return 0
+
+    if args.command == "mark-seen-batch":
+        try:
+            job_keys = json.loads(args.job_keys_json)
+        except json.JSONDecodeError as exc:
+            die(f"mark-seen-batch: job_keys_json is not valid JSON: {exc.msg}")
+        if not isinstance(job_keys, list):
+            die("mark-seen-batch: job_keys_json must be a JSON array")
+        try:
+            sources = json.loads(args.sources)
+        except json.JSONDecodeError as exc:
+            die(f"mark-seen-batch: --sources is not valid JSON: {exc.msg}")
+        if not isinstance(sources, list):
+            die("mark-seen-batch: --sources must be a JSON array")
+        result = mark_seen_batch(job_keys, sources, args.registry)
+        print(json.dumps(result, ensure_ascii=False))
         return 0
 
     return 0  # unreachable: argparse enforces a known subcommand

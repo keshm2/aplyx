@@ -19,8 +19,11 @@ Determine what your harness can actually do, then follow the
   perform that role inline, following it exactly.
 - **No browser-automation tools** (no Playwright/browser tools in your
   toolset): fetch and process API-fed boards only (Ashby, Lever,
-  Greenhouse, SmartRecruiters, Amazon, Oracle, SimplifyJobs, Workday CXS). Route any job whose application would
-  require a browser to `needs_review` with reasoning
+  Greenhouse, SmartRecruiters, Amazon, Oracle, SimplifyJobs, Workday CXS,
+  Eightfold, Apple, Stripe — all of these have a working list AND
+  JD-detail fetch path with no browser automation needed at all). Route
+  any job whose application would require a browser to `needs_review`
+  with reasoning
   "harness lacks browser automation: <title> at <company>; user to
   apply manually" — the standard needs_review flow (applied_jobs
   append, review queue, record-event, Discord). Never silently skip
@@ -196,26 +199,35 @@ not optional narration, and never bundle them into a larger sentence.
      drop the posting with a logged warning (no Playwright fallback
      needed — the detail endpoint is as reliable as the list endpoint,
      same public API).
-3d. For Microsoft (company-specific board): use the deterministic fetch
-   helper — never scrape with Playwright for the LIST:
-   `python3 scripts/jobs/fetch_microsoft_listings.py --search "<query>" --limit 200`
-   Microsoft is a single company, not a multi-tenant ATS — there is no
-   per-company slug to configure; run this whenever "microsoft" is
-   present in config/targets.json "boards" (same convention as amazon/
-   linkedin/indeed/wellfound/handshake — a plain board-name toggle, no
-   further config). Prints one raw-job JSON object per line (source
-   "microsoft") via the public Eightfold/PCSX search API.
-   - The list response carries NO JD text, and there is no working
-     JD-detail JSON endpoint (confirmed live — the public detail page is
-     a client-side-rendered SPA with nothing in its server-rendered
-     HTML). After role filtering (step 8) and BEFORE the fit gate
-     (step 10), fetch the JD via Playwright on the posting's `url` (same
-     fallback SimplifyJobs already uses for non-API-fed JD fetches, NOT
-     the --jd-url pattern Oracle/Workday/SmartRecruiters use — this
-     helper has no --jd-url mode). Re-canonicalize and upsert the record
-     with the fetched jd_text. Never fit-gate a Microsoft job with empty
-     jd_text. If the Playwright JD fetch fails, drop the posting with a
-     logged warning.
+3d. For Eightfold-powered careers sites (a white-labeled ATS many large
+   employers use under their own custom domain — Microsoft and Netflix
+   both confirmed live, e.g. "apply.careers.microsoft.com" and
+   "explore.jobs.netflix.net", no common hostname suffix across
+   tenants): use the deterministic fetch helper — never scrape with
+   Playwright:
+   `python3 scripts/jobs/fetch_eightfold_listings.py --search "<query>" --limit 200`
+   It reads config/targets.json "eightfold_tenants" ("<host>/<domain>"
+   strings, e.g. "apply.careers.microsoft.com/microsoft.com") and
+   prints one raw-job JSON object per line (source "eightfold"). Two
+   different search endpoints exist on the Eightfold platform and which
+   one is enabled is a per-tenant setting, not constant across
+   tenants — the helper tries both automatically per tenant, nothing
+   extra to configure.
+   - If "eightfold_tenants" is missing, empty, or placeholder-only
+     ("REPLACE_ME"), the helper warns and exits 0 with no output — skip
+     the board and continue. On a non-zero exit (every tenant failed),
+     log one warning, skip the board, continue the run.
+   - Eightfold listings carry NO JD text in list mode, but (unlike an
+     earlier, narrower version of this adapter) there IS a working
+     per-posting detail endpoint. After role filtering (step 8) and
+     BEFORE the fit gate (step 10), fetch the JD per surviving
+     candidate:
+     `python3 scripts/jobs/fetch_eightfold_listings.py --jd-url '<posting-url>'`
+     then re-canonicalize and upsert with the fetched jd_text. Never
+     fit-gate an Eightfold job with empty jd_text. If the JD fetch
+     fails, drop the posting with a logged warning (no Playwright
+     fallback needed — the detail endpoint is as reliable as the list
+     endpoint, same public API).
 3e. For Apple (company-specific board, HTML-parsed — no public JSON
    API): use the deterministic fetch helper — never scrape with
    Playwright for the LIST:
