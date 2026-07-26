@@ -25,8 +25,9 @@ Determine what your harness can actually do, then follow the
 - **No browser-automation tools** (no Playwright/browser tools in your
   toolset): fetch and process API-fed boards only (Ashby, Lever,
   Greenhouse, SmartRecruiters, Amazon, Oracle, SimplifyJobs, Workday CXS,
-  Eightfold, Apple, Stripe — all of these have a working list AND
-  JD-detail fetch path with no browser automation needed at all). Route
+  Eightfold, Apple, Stripe, Google, Gem — all of these have a working
+  list AND JD-detail fetch path with no browser automation needed at
+  all). Route
   any job whose application would require a browser to `needs_review`
   with reasoning
   "harness lacks browser automation: <title> at <company>; user to
@@ -293,6 +294,31 @@ not optional narration, and never bundle them into a larger sentence.
      not retry in a loop. Any other non-zero exit (network failure)
      is handled the normal way: log one warning, skip the board,
      continue the run.
+3h. For Gem-powered company boards: use the deterministic fetch
+   helper — never scrape with Playwright:
+   `python3 scripts/jobs/fetch_gem_listings.py --limit 200`
+   It reads config/targets.json "gem_company_slugs" (the company
+   segment of a jobs.gem.com/<slug> URL) and prints one raw-job JSON
+   object per line (source "gem") via Gem's public GraphQL batch API
+   (`jobs.gem.com/api/public/graphql/batch` — genuinely public and
+   unauthenticated, no session or special headers needed, confirmed
+   live). Like Ashby/Lever/Greenhouse, Gem has no server-side search —
+   this always fetches a company's full board; role/level filtering
+   (step 8) narrows it downstream the same as any other unfiltered
+   board source.
+   - If "gem_company_slugs" is missing, empty, or placeholder-only
+     ("REPLACE_ME"), the helper warns and exits 0 with no output — skip
+     the board and continue. On a non-zero exit (every company failed),
+     log one warning, skip the board, continue the run.
+   - Gem listings carry NO JD text. After role filtering (step 8) and
+     BEFORE the fit gate (step 10), fetch the JD per surviving
+     candidate:
+     `python3 scripts/jobs/fetch_gem_listings.py --jd-url '<posting-url>'`
+     then re-canonicalize and upsert with the fetched jd_text. Never
+     fit-gate a Gem job with empty jd_text. If the JD fetch fails, drop
+     the posting with a logged warning (no Playwright fallback
+     needed — the detail endpoint is as reliable as the list endpoint,
+     same public API).
 4. For LinkedIn, Indeed, Handshake, Wellfound: use Playwright MCP to
    navigate to the board with role/location filters and scrape job
    listings, full JD text, and application URLs. (Greenhouse moved to
