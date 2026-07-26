@@ -68,17 +68,25 @@ export function discardLetter(root: string, jobKey: string) {
   return helper(root, ["discard", jobKey]);
 }
 
-/** Draft one via the @interest-letter agent, through the shared harness
- *  adapter. Synchronous + slow (an LLM call, up to ~4 min), so callers must
- *  show a spinner; there is no partial output to stream. */
+/** Draft one via a direct Anthropic API call (scripts/runtime/
+ *  generate_interest_letter.py — no coding-agent harness involved since
+ *  the B1 migration). Synchronous + slow-ish (an LLM call, up to ~2 min),
+ *  so callers must show a spinner; there is no partial output to stream. */
 export function generateLetter(root: string, jobKey: string): { ok: boolean; output: string } {
   const { cmd, args } = py([path.join("scripts", "runtime", "generate_interest_letter.py"), jobKey]);
   const r = spawnSync(cmd, args, { cwd: root, encoding: "utf8" });
   const raw = `${r.stdout ?? ""}${r.stderr ?? ""}`.trim();
   try {
     const obj = JSON.parse(raw.split("\n").filter(Boolean).pop() ?? "{}");
-    if (obj.declined) return { ok: true, output: String(obj.note ?? "Agent declined to draft.") };
-    if (obj.ok) return { ok: true, output: `Draft written (${obj.words ?? "?"} words) via ${obj.harness}.` };
+    if (obj.declined) return { ok: true, output: String(obj.note ?? "Model declined to draft.") };
+    if (obj.ok) {
+      const flags = Array.isArray(obj.flags) ? obj.flags : [];
+      const flagNote = flags.length > 0 ? ` — review before approving: ${flags.join("; ")}` : "";
+      return {
+        ok: true,
+        output: `Draft written (${obj.words ?? "?"} words, grounding confidence: ${obj.grounding_confidence ?? "unknown"}).${flagNote}`,
+      };
+    }
     return { ok: false, output: String(obj.error ?? raw) };
   } catch {
     return { ok: r.status === 0, output: raw || "no output from generator" };

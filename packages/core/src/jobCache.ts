@@ -128,11 +128,87 @@ function looseTitleFilterWords(titleWords: string[]): string[] {
   return titleWords.map((word) => (word.length >= MIN_PREFIX_LEN ? word.slice(0, MIN_PREFIX_LEN) : word));
 }
 
+// In-memory browse-all snapshots, one per cacheable source — only ever
+// populated by startInMemoryCacheRefresh() below, which only the
+// persistent search daemon (bridge.ts's --serve mode) calls. A one-shot
+// bridge invocation (the TUI, or the Rust side's one-shot fallback path)
+// never populates this, so it just stays empty and the check in
+// readJobCache() below is a no-op — completely safe either way, same
+// "an absent/unpopulated cache tier degrades to the next one" contract
+// every other tier here already has.
+const inMemorySnapshots = new Map<JobSource, SearchJob[]>();
+let inMemoryRefreshTimer: ReturnType<typeof setInterval> | undefined;
+
+// 3 minutes: short enough that the daemon's snapshot never meaningfully
+// lags what Redis itself has (Redis is warmed hourly by CI, so anything
+// well under that just tracks it closely), long enough that this loop's
+// own Redis/Postgres reads are a rounding error against how long the
+// daemon process actually stays alive for (a whole app session, not a
+// few seconds) — this is a background refresh cost, not something a
+// live search ever waits on.
+const IN_MEMORY_REFRESH_INTERVAL_MS = 3 * 60 * 1000;
+
+/**
+ * Starts a background loop that keeps an in-memory browse-all snapshot
+ * warm per cacheable source, for every source in `sources` that has a
+ * non-empty shared company list. This is the tier that actually reaches
+ * sub-10ms: no network call at all on a hit, just a Map lookup — but it
+ * only means anything inside a long-lived process, since the snapshot
+ * lives in module state that a one-shot process would just throw away
+ * on exit. Idempotent (a second call while a timer is already running
+ * is a no-op) so bridge.ts's --serve startup can call this without
+ * worrying about being invoked more than once.
+ */
+export function startInMemoryCacheRefresh(root: string, sources: readonly JobSource[]): void {
+  if (inMemoryRefreshTimer) return;
+  const refreshOnce = async () => {
+    for (const source of sources) {
+      const shared = await sharedCacheSlugs(root, source);
+      if (shared.size === 0) continue;
+      // Pulled directly from Postgres at IN_MEMORY_PER_COMPANY_LIMIT
+      // (500/company), not the small 10/company Redis browse-all entry
+      // — that cap is fine for a live search falling through to a
+      // precise query on a miss, but not for the ONLY thing a warm
+      // in-memory hit trusts (see readJobCache below).
+      const jobs = await fetchFullSourceSnapshot(root, source, [...shared]);
+      if (jobs) inMemorySnapshots.set(source, jobs);
+    }
+  };
+  void refreshOnce();
+  inMemoryRefreshTimer = setInterval(() => void refreshOnce(), IN_MEMORY_REFRESH_INTERVAL_MS);
+  inMemoryRefreshTimer.unref?.();
+}
+
 export async function readJobCache(root: string, lookup: JobCacheLookup): Promise<SearchJob[] | undefined> {
   if (lookup.companySlugs.length === 0) return undefined;
-  const config = readJobCacheSupabaseConfig(root);
-  if (!config) return undefined;
 
+  // Unconditional — not just the browse-all case. The in-memory
+  // snapshot holds IN_MEMORY_PER_COMPANY_LIMIT rows/company (not the
+  // small browse-all cap), so it's a large-enough candidate pool to
+  // answer a filtered query correctly too: searchJobs() (jobs.ts)
+  // always re-filters whatever readJobCache returns through the real,
+  // authoritative titleMatchesQuery on the final merged set regardless
+  // of where a row came from — this tier just needs to not silently
+  // exclude a real match before that filter ever sees it, exactly the
+  // same bar the Postgres RPC's own pre-filter already has to clear.
+  const snapshot = inMemorySnapshots.get(lookup.source);
+  if (snapshot) return snapshot;
+
+  return readFromRedisOrPostgres(root, lookup);
+}
+
+/**
+ * Redis (browse-all only) -> Postgres RPC. Split out from readJobCache()
+ * so the in-memory refresh loop above can call straight into this,
+ * bypassing the in-memory tier itself (refreshing FROM the snapshot
+ * would just keep re-returning the same stale copy forever). Checking
+ * Redis no longer depends on the Supabase job_cache config being
+ * present — an earlier version of this function gated the Redis check
+ * behind that config's existence, which meant an install with only
+ * config/job_cache_redis.json set (no Postgres project configured)
+ * would silently skip Redis too.
+ */
+async function readFromRedisOrPostgres(root: string, lookup: JobCacheLookup): Promise<SearchJob[] | undefined> {
   const titleWords = lookup.titleWords ?? [];
 
   // Redis only covers the browse-all (no-query) case — the expensive
@@ -150,10 +226,37 @@ export async function readJobCache(root: string, lookup: JobCacheLookup): Promis
     }
   }
 
-  const perCompanyLimit = titleWords.length > 0 ? FILTERED_PER_COMPANY_LIMIT : UNFILTERED_PER_COMPANY_LIMIT;
+  const config = readJobCacheSupabaseConfig(root);
+  if (!config) return undefined;
 
+  const perCompanyLimit = titleWords.length > 0 ? FILTERED_PER_COMPANY_LIMIT : UNFILTERED_PER_COMPANY_LIMIT;
+  return postgresJobCacheSearch(
+    config,
+    lookup.source,
+    lookup.companySlugs,
+    lookup.query,
+    perCompanyLimit,
+    looseTitleFilterWords(titleWords),
+    CACHE_LOOKUP_TIMEOUT_MS,
+  );
+}
+
+/** Raw job_cache_search RPC call — factored out so both a live search's
+ *  cache check (small, tightly-timed caps above) and the in-memory
+ *  daemon's background full-dataset refresh (see fetchFullSourceSnapshot
+ *  below, a much bigger cap with no live search waiting on it) share one
+ *  implementation instead of two copies of the same fetch/parse logic. */
+async function postgresJobCacheSearch(
+  config: { url: string; anonKey: string },
+  source: JobSource,
+  companySlugs: string[],
+  query: string,
+  perCompanyLimit: number,
+  titleWords: string[],
+  timeoutMs: number,
+): Promise<SearchJob[] | undefined> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), CACHE_LOOKUP_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(`${config.url}/rest/v1/rpc/job_cache_search`, {
       method: "POST",
@@ -164,18 +267,18 @@ export async function readJobCache(root: string, lookup: JobCacheLookup): Promis
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        p_source: lookup.source,
-        p_company_slugs: lookup.companySlugs,
-        p_query: lookup.query,
+        p_source: source,
+        p_company_slugs: companySlugs,
+        p_query: query,
         p_per_company_limit: perCompanyLimit,
-        p_title_words: looseTitleFilterWords(titleWords),
+        p_title_words: titleWords,
       }),
     });
     if (!response.ok) return undefined;
     const rows = (await response.json()) as JobCacheRow[];
     if (rows.length === 0) return undefined;
     return rows.map((row): SearchJob => ({
-      source: lookup.source,
+      source,
       company: row.company,
       title: row.title,
       url: row.url,
@@ -190,6 +293,37 @@ export async function readJobCache(root: string, lookup: JobCacheLookup): Promis
   } finally {
     clearTimeout(timer);
   }
+}
+
+// How many rows per company the in-memory daemon snapshot holds — much
+// higher than FILTERED_PER_COMPANY_LIMIT (75), which was already tuned
+// as "enough that a real filtered match isn't missed" for the direct
+// Postgres RPC path; 500 matches jobs.ts's own MAX_PAGE_SIZE, the
+// existing "this is already the most the app ever shows or uses"
+// ceiling elsewhere in this codebase. Deliberately NOT the small
+// UNFILTERED_PER_COMPANY_LIMIT (10) the browse-all Redis entry uses —
+// that cap is fine for Redis/the one-shot paths (a real search still
+// falls through to a precise Postgres/live query on a miss), but the
+// in-memory daemon tier is the ONLY thing standing between a query and
+// its answer once a source is warm — see readJobCache's in-memory
+// check, which unconditionally trusts whatever is in inMemorySnapshots
+// as a complete-enough candidate pool.
+const IN_MEMORY_PER_COMPANY_LIMIT = 500;
+
+// A background refresh has no live search waiting on it, so it can
+// afford a much longer budget than CACHE_LOOKUP_TIMEOUT_MS (1.2s) — a
+// bigger per-company cap means a bigger response to wait for.
+const IN_MEMORY_REFRESH_TIMEOUT_MS = 20_000;
+
+/** Pulls a much fuller per-company dataset directly from Postgres (not
+ *  the small capped Redis browse-all entry — see IN_MEMORY_PER_COMPANY_LIMIT
+ *  above for why) for the in-memory daemon's own background refresh
+ *  loop. Never throws; a failed refresh just leaves the previous
+ *  snapshot (if any) in place until the next attempt. */
+async function fetchFullSourceSnapshot(root: string, source: JobSource, companySlugs: string[]): Promise<SearchJob[] | undefined> {
+  const config = readJobCacheSupabaseConfig(root);
+  if (!config) return undefined;
+  return postgresJobCacheSearch(config, source, companySlugs, "", IN_MEMORY_PER_COMPANY_LIMIT, [], IN_MEMORY_REFRESH_TIMEOUT_MS);
 }
 
 const CACHE_SOURCE_KEY: Partial<Record<JobSource, string>> = {

@@ -6,9 +6,13 @@
 // logic the Ink TUI already uses. Hosted mode bypasses this entirely: the
 // frontend talks to Supabase directly via @supabase/supabase-js.
 use serde_json::Value;
+use std::collections::HashMap;
+use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
-use std::process::Command;
-use std::sync::OnceLock;
+use std::process::{Child, ChildStdin, Command, Stdio};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{mpsc, Arc, Mutex, OnceLock};
+use std::time::Duration;
 use tauri::path::BaseDirectory;
 use tauri::Manager;
 
@@ -258,6 +262,183 @@ fn run_bridge(app: &tauri::AppHandle, command: &str, args: Option<Value>) -> Res
     }
 }
 
+/// A persistent `bridge.js --serve` process (see that file's header) —
+/// spawned lazily on the first search, kept alive for the rest of the
+/// app session instead of the normal spawn-per-command model every
+/// other bridge command still uses. Its whole reason to exist is
+/// jobCache.ts's in-memory browse-all snapshot: that state only survives
+/// between searches if the process itself does. `child` is kept so the
+/// reader thread can reap it (avoiding a zombie on Unix) once it exits,
+/// and so it can be killed explicitly on app quit — a spawned child is
+/// NOT killed automatically when this process exits (Rust's `Child`
+/// drop does not do that), so without this the daemon would keep
+/// running as an orphan after the app window closes.
+struct SearchDaemon {
+    stdin: Mutex<ChildStdin>,
+    pending: Mutex<HashMap<u64, mpsc::Sender<Result<Value, String>>>>,
+    next_id: AtomicU64,
+    child: Mutex<Child>,
+}
+
+type SearchDaemonState = Mutex<Option<Arc<SearchDaemon>>>;
+
+/// Generous relative to jobs.ts's own internal deadlines (2.2s per live
+/// source, 1.2s Postgres, 0.9s Redis — a normal worst-case search lands
+/// comfortably under 3s) — this is a last-resort ceiling for something
+/// actually wrong (a hung/dead daemon), not a budget real searches are
+/// expected to approach. Timing out here just means falling back to the
+/// existing one-shot path, so erring generous costs nothing but a slower
+/// single search on the rare unlucky case.
+const DAEMON_REQUEST_TIMEOUT: Duration = Duration::from_secs(8);
+
+fn spawn_search_daemon(app: &tauri::AppHandle) -> Result<Arc<SearchDaemon>, String> {
+    let script = bridge_script_path(app)?;
+    let mut cmd = Command::new(node_binary());
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    if let Some(parent) = script.parent() {
+        cmd.current_dir(parent);
+    }
+    cmd.arg(&script)
+        .arg("--serve")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| format!("failed to spawn search daemon ({}): {e}", script.display()))?;
+    let stdin = child.stdin.take().ok_or("search daemon has no stdin")?;
+    let stdout = child.stdout.take().ok_or("search daemon has no stdout")?;
+    let stderr = child.stderr.take();
+
+    let daemon = Arc::new(SearchDaemon {
+        stdin: Mutex::new(stdin),
+        pending: Mutex::new(HashMap::new()),
+        next_id: AtomicU64::new(1),
+        child: Mutex::new(child),
+    });
+
+    // Reader thread: one line in, look up the pending sender for that
+    // request id, hand it the result. Requests are never processed in
+    // arrival order on the write side either (see bridge.ts's serve()) —
+    // a slow search never blocks a faster concurrent one from returning
+    // first, which matters here specifically because the desktop app's
+    // two-phase search fires both searchJobs() calls at once.
+    {
+        let daemon = Arc::clone(&daemon);
+        std::thread::spawn(move || {
+            let reader = BufReader::new(stdout);
+            for line in reader.lines() {
+                let Ok(line) = line else { break };
+                let Ok(parsed) = serde_json::from_str::<Value>(&line) else {
+                    continue;
+                };
+                let Some(id) = parsed.get("id").and_then(Value::as_u64) else {
+                    continue;
+                };
+                let ok = parsed.get("ok").and_then(Value::as_bool).unwrap_or(false);
+                let result = if ok {
+                    Ok(parsed.get("result").cloned().unwrap_or(Value::Null))
+                } else {
+                    Err(parsed
+                        .get("error")
+                        .and_then(Value::as_str)
+                        .unwrap_or("search daemon returned an error")
+                        .to_string())
+                };
+                let sender = daemon.pending.lock().unwrap().remove(&id);
+                if let Some(sender) = sender {
+                    let _ = sender.send(result);
+                }
+            }
+            // stdout closed — the daemon process exited (crashed, or was
+            // killed on app quit). Reap it so it doesn't linger as a
+            // zombie, and clear out any still-pending requests so their
+            // callers hit the timeout path promptly instead of waiting
+            // the full DAEMON_REQUEST_TIMEOUT for a response that will
+            // now never arrive.
+            let _ = daemon.child.lock().unwrap().wait();
+            daemon.pending.lock().unwrap().clear();
+        });
+    }
+
+    // Drain stderr so a chatty child (e.g. the in-memory refresh loop's
+    // own error logging) never blocks on a full pipe buffer. Forwarded
+    // to this process's stderr, prefixed, purely for local debugging —
+    // never parsed or acted on.
+    if let Some(stderr) = stderr {
+        std::thread::spawn(move || {
+            let reader = BufReader::new(stderr);
+            for line in reader.lines().map_while(Result::ok) {
+                eprintln!("[search-daemon] {line}");
+            }
+        });
+    }
+
+    Ok(daemon)
+}
+
+fn get_or_spawn_daemon(app: &tauri::AppHandle) -> Result<Arc<SearchDaemon>, String> {
+    let state = app.state::<SearchDaemonState>();
+    let mut guard = state.lock().unwrap();
+    if let Some(daemon) = guard.as_ref() {
+        // A previously-spawned daemon whose process has since died (see
+        // the reader thread's cleanup above) still lives in this Option
+        // until replaced — detect that and respawn rather than handing
+        // back a daemon nothing will ever respond through.
+        if daemon.child.lock().unwrap().try_wait().ok().flatten().is_none() {
+            return Ok(Arc::clone(daemon));
+        }
+    }
+    let daemon = spawn_search_daemon(app)?;
+    *guard = Some(Arc::clone(&daemon));
+    Ok(daemon)
+}
+
+/// Sends one request to the persistent search daemon and waits for its
+/// response, falling back to nothing on any failure — the caller (see
+/// search_jobs below) is responsible for retrying via the existing
+/// one-shot run_bridge path when this returns Err, so a daemon bug can
+/// only ever make a search as slow as it already was before this
+/// existed, never slower or broken.
+fn send_daemon_request(app: &tauri::AppHandle, command: &str, args: Value) -> Result<Value, String> {
+    let daemon = get_or_spawn_daemon(app)?;
+    let id = daemon.next_id.fetch_add(1, Ordering::SeqCst);
+    let (tx, rx) = mpsc::channel();
+    daemon.pending.lock().unwrap().insert(id, tx);
+
+    let request = serde_json::json!({ "id": id, "command": command, "args": args }).to_string();
+    {
+        let mut stdin = daemon.stdin.lock().unwrap();
+        if let Err(e) = writeln!(stdin, "{request}").and_then(|_| stdin.flush()) {
+            daemon.pending.lock().unwrap().remove(&id);
+            return Err(format!("failed to write to search daemon: {e}"));
+        }
+    }
+
+    match rx.recv_timeout(DAEMON_REQUEST_TIMEOUT) {
+        Ok(result) => result,
+        Err(_) => {
+            daemon.pending.lock().unwrap().remove(&id);
+            Err("search daemon request timed out".to_string())
+        }
+    }
+}
+
+/// Best-effort — called on app exit so the daemon doesn't keep running
+/// as an orphaned background process after the window closes.
+fn kill_search_daemon(app: &tauri::AppHandle) {
+    if let Some(state) = app.try_state::<SearchDaemonState>() {
+        if let Some(daemon) = state.lock().unwrap().take() {
+            let _ = daemon.child.lock().unwrap().kill();
+        }
+    }
+}
+
 #[tauri::command]
 fn find_root(app: tauri::AppHandle) -> Result<Value, String> {
     run_bridge(&app, "findRoot", None)
@@ -401,11 +582,16 @@ fn open_extension_folder(app: tauri::AppHandle, root: String) -> Result<Value, S
 
 #[tauri::command]
 fn search_jobs(app: tauri::AppHandle, root: String, query: String, sources: Value) -> Result<Value, String> {
-    run_bridge(
-        &app,
-        "searchJobs",
-        Some(serde_json::json!({ "root": root, "query": query, "sources": sources })),
-    )
+    let args = serde_json::json!({ "root": root, "query": query, "sources": sources });
+    // Daemon first — its whole point is an in-memory cache that only a
+    // long-lived process can hold — falling back to the always-correct
+    // one-shot path on any failure (spawn error, dead process, timeout,
+    // malformed response) so a daemon bug degrades to exactly today's
+    // behavior rather than breaking search.
+    match send_daemon_request(&app, "searchJobs", args.clone()) {
+        Ok(result) => Ok(result),
+        Err(_) => run_bridge(&app, "searchJobs", Some(args)),
+    }
 }
 
 #[tauri::command]
@@ -473,6 +659,7 @@ pub fn run() {
         // instance before shipping cross-platform; not added yet since
         // this pass only needed macOS to work.
         .plugin(tauri_plugin_deep_link::init())
+        .manage::<SearchDaemonState>(Mutex::new(None))
         .invoke_handler(tauri::generate_handler![
             find_root,
             validate_root,
@@ -504,6 +691,15 @@ pub fn run() {
             read_onboarding_completed,
             write_onboarding_completed
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            // The search daemon (see spawn_search_daemon) is a
+            // persistent child process — nothing kills it automatically
+            // when this process exits, so without this it would keep
+            // running as an orphan after the window closes.
+            if let tauri::RunEvent::ExitRequested { .. } = event {
+                kill_search_daemon(app_handle);
+            }
+        });
 }

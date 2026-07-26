@@ -19,6 +19,12 @@
 # packages/core/src/redisConfig.ts's readJobCacheRedisConfig.
 /config/job_cache_redis.json
 
+# Anthropic API key for the direct-API judgment calls (interest-letter,
+# resume-tailor) — see scripts/runtime/generate_interest_letter.py's
+# read_anthropic_key. ANTHROPIC_API_KEY env var is checked first; this
+# file is the local-file fallback, same pattern as job_cache_redis.json.
+/config/anthropic_key.json
+
 # Runtime state
 /data/applied_jobs.json
 /data/review_queue.json

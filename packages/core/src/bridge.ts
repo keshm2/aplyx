@@ -17,9 +17,11 @@ import { loadCompanyDirectory } from "./data/companyDirectory.js";
 import { searchJobs, checkJobFit, saveJobForReview, type JobSource, type SearchJob } from "./jobs.js";
 import { markQueueEntryApplied, dismissQueueEntry } from "./reviewActions.js";
 import { listResumeFiles, resumesDir } from "./resumes.js";
+import { startInMemoryCacheRefresh } from "./jobCache.js";
 import type { QueueEntry } from "./stateDerive.js";
 import fs from "node:fs";
 import path from "node:path";
+import readline from "node:readline";
 
 /**
  * Local-mode IPC bridge for the Tauri desktop app (docs/app-integration-plan.md
@@ -300,7 +302,73 @@ async function dispatch(command: string, args: Args): Promise<unknown> {
   }
 }
 
+/**
+ * The 4 sources readJobCache() can serve from a shared, curated
+ * company list (see jobCache.ts's header) — the same set searchJobs()
+ * already treats as cache-eligible via maybeCached()'s union logic.
+ * Kept here rather than imported from jobs.ts to avoid a cross-module
+ * "list of sources" duplicating what maybeCached's own call sites
+ * already encode implicitly; this is only used to seed the in-memory
+ * warm loop, not to gate anything correctness-sensitive.
+ */
+const IN_MEMORY_CACHE_SOURCES: JobSource[] = ["ashbyhq", "lever", "greenhouse", "smartrecruiters"];
+
+/**
+ * Persistent daemon mode (`aplyx-core-bridge --serve`) — the process
+ * this file's default `main()` normally is (spawn, run one command,
+ * exit) stays completely unchanged and is still what every command
+ * OTHER than search uses. This mode exists for exactly one reason:
+ * jobCache.ts's in-memory browse-all snapshot only means anything
+ * inside a process that stays alive across searches — a one-shot
+ * spawn-per-command process throws that state away on exit before a
+ * second search could ever benefit from it. desktop/src-tauri/src/
+ * lib.rs spawns this once (lazily, on first search) and keeps its
+ * stdin/stdout piped open for the rest of the app session instead of
+ * spawning fresh each time, falling back to the normal one-shot path
+ * on any failure — this mode is purely additive, never load-bearing
+ * for correctness.
+ *
+ * Protocol: one JSON object per line in both directions,
+ * `{ id, command, args }` in, `{ id, ok, result }` or
+ * `{ id, ok: false, error }` out. Requests are NOT processed one at a
+ * time — dispatch() is invoked as soon as a line arrives and its
+ * response is written whenever it resolves, independent of arrival
+ * order, so concurrent callers (e.g. the desktop app's two-phase
+ * search firing both searchJobs() calls at once — see JobsScreen.tsx)
+ * are never serialized behind each other the way they would be if
+ * this read one line, awaited fully, then read the next.
+ */
+async function serve(): Promise<void> {
+  const root = findProjectRoot();
+  startInMemoryCacheRefresh(root, IN_MEMORY_CACHE_SOURCES);
+
+  const rl = readline.createInterface({ input: process.stdin });
+  rl.on("line", (line) => {
+    void handleServeLine(line);
+  });
+  // Nothing left to read from stdin (the Rust parent dropped its
+  // handle, e.g. on app quit) — exit cleanly rather than idle forever
+  // as an orphaned process.
+  rl.on("close", () => process.exit(0));
+}
+
+async function handleServeLine(line: string): Promise<void> {
+  let id: unknown;
+  try {
+    const parsed = JSON.parse(line) as { id: unknown; command: string; args?: Args };
+    id = parsed.id;
+    const result = await dispatch(parsed.command, parsed.args ?? {});
+    process.stdout.write(`${JSON.stringify({ id, ok: true, result })}\n`);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    process.stdout.write(`${JSON.stringify({ id, ok: false, error: message })}\n`);
+  }
+}
+
 async function main(): Promise<void> {
+  if (process.argv[2] === "--serve") {
+    return serve();
+  }
   const [command, rawArgs] = process.argv.slice(2);
   if (!command) {
     process.stderr.write("usage: aplyx-core-bridge <command> [jsonArgs]\n");

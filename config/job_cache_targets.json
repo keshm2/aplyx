@@ -18,7 +18,11 @@
     "thumbtack",
     "clickup",
     "supabase",
-    "drata"
+    "drata",
+    "cognition",
+    "elevenlabs",
+    "linear",
+    "posthog"
   ],
   "lever_company_slugs": [
     "spotify",
@@ -26,7 +30,13 @@
     "ro",
     "gopuff",
     "anchorage",
-    "highspot"
+    "highspot",
+    "activecampaign",
+    "octoenergy",
+    "outreach",
+    "shieldai",
+    "veeva",
+    "zoox"
   ],
   "greenhouse_company_slugs": [
     "spacex",
@@ -48,11 +58,22 @@
     "scaleai",
     "reddit",
     "twilio",
-    "gitlab"
+    "gitlab",
+    "affirm",
+    "airbnb",
+    "asana",
+    "discord",
+    "figma",
+    "robinhood"
   ],
   "smartrecruiters_company_slugs": [
     "sixt",
     "wise",
-    "canva"
+    "canva",
+    "Docusign",
+    "Dominos",
+    "Equinox",
+    "Visa",
+    "Wayfair"
   ]
 }

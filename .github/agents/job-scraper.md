@@ -200,6 +200,66 @@ not optional narration, and never bundle them into a larger sentence.
      drop the posting with a logged warning (no Playwright fallback
      needed — the detail endpoint is as reliable as the list endpoint,
      same public API).
+3d. For Microsoft (company-specific board): use the deterministic fetch
+   helper — never scrape with Playwright for the LIST:
+   `python3 scripts/jobs/fetch_microsoft_listings.py --search "<query>" --limit 200`
+   Microsoft is a single company, not a multi-tenant ATS — there is no
+   per-company slug to configure; run this whenever "microsoft" is
+   present in config/targets.json "boards" (same convention as amazon/
+   linkedin/indeed/wellfound/handshake — a plain board-name toggle, no
+   further config). Prints one raw-job JSON object per line (source
+   "microsoft") via the public Eightfold/PCSX search API.
+   - The list response carries NO JD text, and there is no working
+     JD-detail JSON endpoint (confirmed live — the public detail page is
+     a client-side-rendered SPA with nothing in its server-rendered
+     HTML). After role filtering (step 8) and BEFORE the fit gate
+     (step 10), fetch the JD via Playwright on the posting's `url` (same
+     fallback SimplifyJobs already uses for non-API-fed JD fetches, NOT
+     the --jd-url pattern Oracle/Workday/SmartRecruiters use — this
+     helper has no --jd-url mode). Re-canonicalize and upsert the record
+     with the fetched jd_text. Never fit-gate a Microsoft job with empty
+     jd_text. If the Playwright JD fetch fails, drop the posting with a
+     logged warning.
+3e. For Apple (company-specific board, HTML-parsed — no public JSON
+   API): use the deterministic fetch helper — never scrape with
+   Playwright for the LIST:
+   `python3 scripts/jobs/fetch_apple_listings.py --search "<query>" --limit 200`
+   Apple is a single company, not a multi-tenant ATS — there is no
+   per-company slug to configure; run this whenever "apple" is present
+   in config/targets.json "boards" (same convention as microsoft/amazon/
+   linkedin/indeed/wellfound/handshake). Prints one raw-job JSON object
+   per line (source "apple") via HTML parsing of jobs.apple.com's
+   server-rendered search page (a community-claimed JSON API 404'd in
+   live testing — do not attempt it).
+   - The list response carries only a truncated summary, not the full
+     JD. After role filtering (step 8) and BEFORE the fit gate
+     (step 10), fetch the JD per surviving candidate:
+     `python3 scripts/jobs/fetch_apple_listings.py --jd-url '<posting-url>'`
+     then re-canonicalize and upsert with the fetched jd_text. Never
+     fit-gate an Apple job with empty jd_text. If the JD fetch fails,
+     drop the posting with a logged warning (no Playwright fallback
+     needed — the detail page is as reliably fetchable as the list
+     page, same static HTML).
+3f. For Stripe (company-specific board, HTML-parsed — no public JSON
+   API): use the deterministic fetch helper — never scrape with
+   Playwright for the LIST:
+   `python3 scripts/jobs/fetch_stripe_listings.py --search "<query>" --limit 200`
+   Stripe is a single company, not a multi-tenant ATS — there is no
+   per-company slug to configure; run this whenever "stripe" is present
+   in config/targets.json "boards" (same convention as apple/microsoft/
+   amazon/linkedin/indeed/wellfound/handshake). Prints one raw-job JSON
+   object per line (source "stripe") via HTML parsing of
+   stripe.com/jobs/search's server-rendered results — no separate
+   per-company config, and no pagination param exists (a full query's
+   results render in one page load).
+   - The list response carries only title/department/location, not the
+     JD. After role filtering (step 8) and BEFORE the fit gate
+     (step 10), fetch the JD per surviving candidate:
+     `python3 scripts/jobs/fetch_stripe_listings.py --jd-url '<posting-url>'`
+     then re-canonicalize and upsert with the fetched jd_text. Never
+     fit-gate a Stripe job with empty jd_text. If the JD fetch fails,
+     drop the posting with a logged warning (no Playwright fallback
+     needed — same static HTML reliability as the list page).
 4. For LinkedIn, Indeed, Handshake, Wellfound: use Playwright MCP to
    navigate to the board with role/location filters and scrape job
    listings, full JD text, and application URLs. (Greenhouse moved to
