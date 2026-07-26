@@ -114,7 +114,16 @@ _draw_download_bar() {
 download_with_progress() {
   local outfile="$1" url="$2"
   local total
-  total="$(curl -fsIL "$url" 2>/dev/null | tr -d '\r' | grep -i '^content-length:' | tail -1 | awk '{print $2}')"
+  # awk-only, not grep|awk — see scripts/install/install.sh's identical
+  # fix for the full explanation: a HEAD response with no Content-Length
+  # header makes grep exit 1 (no match), which this script's
+  # `set -o pipefail` turns into a silent, undiagnosed fatal exit of the
+  # WHOLE installer right here, even at call sites already guarded with
+  # `|| warn ...` — that guard never gets a chance to run, since the
+  # failure kills the script before this function can return at all.
+  # awk's own exit status is always 0 regardless of whether its pattern
+  # matched, so this removes the failure mode instead of working around it.
+  total="$(curl -fsIL "$url" 2>/dev/null | tr -d '\r' | awk -F': ' 'tolower($1) == "content-length" {v=$2} END {print v}')"
   [ -z "$total" ] && total=0
 
   if [ ! -t 1 ]; then

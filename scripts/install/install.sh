@@ -113,7 +113,18 @@ _draw_download_bar() {
 download_with_progress() {
   local outfile="$1" url="$2"
   local total
-  total="$(curl -fsIL "$url" 2>/dev/null | tr -d '\r' | grep -i '^content-length:' | tail -1 | awk '{print $2}')"
+  # awk-only, not grep|awk: codeload.github.com's tarball response has no
+  # Content-Length header at all (confirmed live — it's a dynamically
+  # generated archive, not a static file), so grep finds zero matches and
+  # exits 1; under this script's `set -o pipefail`, that non-zero pipeline
+  # exit silently killed the ENTIRE installer right here, before the real
+  # download ever started — reproduced live, this was why `curl | bash`
+  # died right after printing "downloading aplyx into ~/aplyx" with no
+  # further output or error on every single run. awk's own exit status is
+  # always 0 whether or not its pattern ever matched a line, so folding
+  # the match into one awk program (no grep) removes the failure mode
+  # entirely instead of just working around this one call site.
+  total="$(curl -fsIL "$url" 2>/dev/null | tr -d '\r' | awk -F': ' 'tolower($1) == "content-length" {v=$2} END {print v}')"
   [ -z "$total" ] && total=0
 
   if [ ! -t 1 ]; then
@@ -173,7 +184,16 @@ else
   # bug) instead of re-running whatever happens to already be on disk.
   # Gitignored local state (config/*.json, data/, logs/, docs/PLAN.md)
   # isn't in the tarball, so it's left untouched.
-  TARBALL="$(mktemp -t aplyx-src.XXXXXX).tar.gz"
+  # A full-path template ("$TMPDIR/prefix.XXXXXX"), not `mktemp -t prefix`:
+  # confirmed live on macOS's BSD mktemp, `-t` treats its argument as a
+  # literal prefix and does NOT substitute the XXXXXX pattern the way GNU
+  # mktemp (Linux) does — produced a real, valid, still-unique file, just
+  # with the literal string "aplyx-src.XXXXXX" embedded in its name
+  # instead of a proper temp suffix. Harmless by itself, but confusing
+  # (looked like a real bug while investigating the actual crash below)
+  # and worth being correct on both platforms rather than accidentally
+  # relying on BSD's own fallback random suffix.
+  TARBALL="$(mktemp "${TMPDIR:-/tmp}/aplyx-src.XXXXXX").tar.gz"
   trap 'rm -f "$TARBALL"' EXIT
   download_with_progress "$TARBALL" "https://codeload.github.com/keshm2/aplyx/tar.gz/refs/heads/main"
   tar -xz --strip-components=1 -C "$TARGET_DIR" -f "$TARBALL"
