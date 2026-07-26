@@ -84,6 +84,11 @@ ATS_SOURCE_MAP = {
     # fetch_eightfold_listings.py's header), so this source-name
     # fallback is the only reliable signal.
     "eightfold": "eightfold",
+    # No URL-pattern entry for Google either — google.com is too broad a
+    # domain to safely match on (risks false-positives against unrelated
+    # Google-hosted URLs that might appear in some other source's apply
+    # flow), so this is source-fallback-only too.
+    "google": "google",
     "apple": "apple",
     "stripe": "stripe",
     "wellfound": "wellfound",

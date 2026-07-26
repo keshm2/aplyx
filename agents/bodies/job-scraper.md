@@ -261,6 +261,26 @@ not optional narration, and never bundle them into a larger sentence.
      fit-gate a Stripe job with empty jd_text. If the JD fetch fails,
      drop the posting with a logged warning (no Playwright fallback
      needed — same static HTML reliability as the list page).
+3g. For Google (company-specific board — the most fragile source in
+   this pipeline, treat it accordingly): use the deterministic fetch
+   helper — never scrape with Playwright:
+   `python3 scripts/jobs/fetch_google_listings.py --search "<query>" --limit 200`
+   Google is a single company, not a multi-tenant ATS; run this
+   whenever "google" is present in config/targets.json "boards" (same
+   convention as apple/stripe/microsoft/amazon). Prints one raw-job
+   JSON object per line (source "google") by parsing Google's embedded,
+   UNLABELED positional search-results data (no public API exists) —
+   the full JD is already included, no separate JD fetch needed.
+   - **Exit code 4 is not a normal skip — it means the helper's health
+     check failed** (Google's internal data format no longer matches
+     what the script depends on) and it emitted NOTHING rather than
+     risk silently-wrong titles/locations. Log this as its own distinct
+     warning — e.g. "Google adapter health check failed, needs
+     maintainer attention (scripts/jobs/fetch_google_listings.py)" —
+     do not treat it the same as an empty/unconfigured board, and do
+     not retry in a loop. Any other non-zero exit (network failure)
+     is handled the normal way: log one warning, skip the board,
+     continue the run.
 4. For LinkedIn, Indeed, Handshake, Wellfound: use Playwright MCP to
    navigate to the board with role/location filters and scrape job
    listings, full JD text, and application URLs. (Greenhouse moved to
