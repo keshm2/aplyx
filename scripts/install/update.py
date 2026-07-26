@@ -306,6 +306,52 @@ def _refresh_schedule_if_installed(say) -> None:
         say("WARNING: could not refresh the existing schedule — run scripts/runtime/scheduler.py install")
 
 
+def _refresh_desktop_app_if_stale(say) -> None:
+    """The desktop app's own binary and its bundled core/bridge.js resource
+    are baked in at *build* time (desktop/src-tauri/tauri.conf.json) and
+    never change after install — nothing this whole update process does
+    (git pull / tarball overlay, the rebuilds below) can reach them. A
+    prior fix added a version-staleness check for this, but only inside
+    app/src/cli.tsx's installUpdate() — the TypeScript wrapper the TUI's
+    `aplyx update` calls this script through. Every OTHER path that runs
+    update.py directly (the launchd/schtasks scheduler, run_job_agent.py's
+    own pre-run auto-update) went through _post_update() below and never
+    touched cli.tsx at all, so a desktop app that only ever updates via a
+    scheduled run stayed permanently stale — reported live as "still not
+    updating everything properly." Doing the check here instead, in the one
+    place every invocation path already funnels through, covers all of
+    them uniformly; the cli.tsx-side check was removed as the now-redundant
+    duplicate (both would have raced to reinstall at once otherwise).
+    """
+    marker = os.path.join(os.path.expanduser("~"), ".aplyx", "desktop_installed")
+    try:
+        with open(marker, "r", encoding="utf-8") as fh:
+            desktop_version = fh.read().strip()
+    except OSError:
+        return  # desktop app not installed — nothing to refresh
+    if not desktop_version:
+        return
+    try:
+        with open(os.path.join(ROOT, "VERSION"), "r", encoding="utf-8") as fh:
+            current_version = fh.read().strip()
+    except OSError:
+        return
+    if not current_version or desktop_version == current_version:
+        return
+    if os.name == "nt":
+        script = os.path.join(ROOT, "scripts", "install", "install_desktop.ps1")
+        cmd = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script]
+    else:
+        script = os.path.join(ROOT, "scripts", "install", "install_desktop.sh")
+        cmd = ["bash", script]
+    if not os.path.isfile(script):
+        return
+    say(f"desktop app is on build {desktop_version}, core just updated to {current_version} — it doesn't update itself, so refreshing it too...")
+    r = subprocess.run(cmd, cwd=ROOT)
+    if r.returncode != 0:
+        say(f"WARNING: desktop app refresh failed — see the output above, or re-run {script}")
+
+
 def _post_update(say) -> None:
     # Each step warn-only so a hiccup never bricks an already-updated install.
     if subprocess.run([sys.executable, "scripts/validate/generate_agent_definitions.py"],
@@ -315,6 +361,7 @@ def _post_update(say) -> None:
                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode != 0:
         say("WARNING: config validation reported issues — run scripts/validate/validate_local_config.py")
     _refresh_schedule_if_installed(say)
+    _refresh_desktop_app_if_stale(say)
     npm = shutil.which("npm")
     if npm:
         # packages/core has no install/prepare hook that builds it

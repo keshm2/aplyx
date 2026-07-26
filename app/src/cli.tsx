@@ -6,7 +6,6 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { findProjectRoot } from "@aplyx/core/project.js";
-import { desktopInstalledVersion } from "@aplyx/core/desktopApp.js";
 import { py } from "@aplyx/core/platform.js";
 import { loadState, isResolved, lastRunLine, latestSessionLog, readHeartbeat } from "@aplyx/core/state.js";
 import { App, type Tab } from "./ui/App.js";
@@ -116,42 +115,22 @@ async function printVersion(root: string): Promise<number> {
 /** Run the updater now (after the TUI has left the alternate screen).
  *  Mirrors the old silent auto-update install step.
  *
- *  Also refreshes the desktop app, if one is installed and its own
- *  recorded build is behind the core's just-updated VERSION (never
- *  unconditionally — install_desktop.sh/.ps1 always re-downloads,
- *  and re-running it on every single `aplyx update` even when nothing
- *  changed would waste bandwidth for no reason). `update.py` only
- *  ever touches the checkout `root` points at (scripts/, packages/core,
- *  config/); the desktop app's own binary and its bundled bridge.js
- *  resource are baked in at *build* time (desktop/src-tauri/
- *  tauri.conf.json) and never change after install, no matter how many
- *  times the core updates — reported live as a fix that "did nothing"
- *  until the desktop app was uninstalled and reinstalled by hand. `aplyx
- *  update` is the one place a user actually expects "update" to mean
- *  everything, so it's the one place this needs to happen automatically
- *  rather than leaving it to a separate discovery (Settings' own update
- *  check in the desktop app covers the case where someone updates
- *  *inside* the desktop app instead of the TUI). */
+ *  Refreshing a stale desktop app used to be checked here too, but that
+ *  only covers `aplyx update` run through the TUI — the launchd/schtasks
+ *  scheduler and run_job_agent.py's own pre-run auto-update both call
+ *  scripts/install/update.py directly and never go through this file at
+ *  all, so a desktop app that only ever updates via a scheduled run
+ *  stayed permanently stale even after that fix (reported live as
+ *  "still not updating everything properly"). The check now lives in
+ *  update.py's own _post_update() instead — the one place every
+ *  invocation path already funnels through — so `--auto` below already
+ *  covers it; doing it here too would just race a second install attempt
+ *  against the one update.py already started. */
 function installUpdate(root: string): void {
   const upd = py(["scripts/install/update.py", "--auto"]);
   const r = spawnSync(upd.cmd, upd.args, { cwd: root, stdio: "inherit" });
   if (r.status === 0) {
     console.log("Update installed — restart aplyx to load it.\n");
-  }
-  const desktopVersion = desktopInstalledVersion();
-  if (desktopVersion !== undefined) {
-    let currentVersion = "";
-    try {
-      currentVersion = fs.readFileSync(path.join(root, "VERSION"), "utf8").trim();
-    } catch {
-      /* can't tell — skip rather than reinstall on a guess */
-    }
-    if (currentVersion && desktopVersion !== currentVersion) {
-      console.log(
-        `Desktop app is on build ${desktopVersion}, core just updated to ${currentVersion} — it doesn't update itself, so refreshing it too...\n`,
-      );
-      installDesktopApp(root);
-    }
   }
 }
 

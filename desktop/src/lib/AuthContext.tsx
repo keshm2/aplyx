@@ -96,9 +96,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const completed = await new SupabaseAdapter(c, next.user.id).readOnboardingCompleted();
         if (!cancelled) setOnboardingCompleted(completed);
-      } catch {
-        // Leave it undefined ("still resolving") rather than guessing —
-        // callers wait for a definite answer instead of racing a wrong one.
+      } catch (err) {
+        // This used to be swallowed silently, leaving onboardingCompleted
+        // stuck at undefined forever: AuthScreen/EntryScreen's own
+        // "navigate once it resolves" effects never fire, status stays
+        // "signed-in", and the sign-in form just... sits there with no
+        // feedback at all — indistinguishable from "did nothing," which is
+        // exactly what got reported ("sign in just takes me back to the
+        // entry screen": the form never advances, so the only way forward
+        // looks like clicking back). Surfacing it as a real error means a
+        // stuck sign-in is now visible and retryable instead of a silent
+        // dead end, and — critically — the actual cause (RLS, network, a
+        // schema mismatch) shows up in statusError instead of vanishing.
+        if (!cancelled) {
+          setStatusError(errorMessage(err));
+          setStatus("error");
+        }
       }
     }
 

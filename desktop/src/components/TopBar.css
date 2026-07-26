@@ -1,0 +1,10 @@
+/* Lives as the first child of .shell-main, which already supplies the
+ * page's own top/side padding (AppShell.css) — no padding of its own here,
+ * just the icon row plus breathing room before the routed content below. */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}

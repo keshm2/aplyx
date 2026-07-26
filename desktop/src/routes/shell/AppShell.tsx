@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { Logo } from "../../components/Logo";
+import { TopBar } from "../../components/TopBar";
 import "./AppShell.css";
 
 // Same route-level code-splitting reasoning as App.tsx: a user visiting
@@ -16,6 +17,9 @@ const ReviewScreen = lazy(() => import("./ReviewScreen").then((m) => ({ default:
 const HistoryScreen = lazy(() => import("./HistoryScreen").then((m) => ({ default: m.HistoryScreen })));
 const ResumesScreen = lazy(() => import("./ResumesScreen").then((m) => ({ default: m.ResumesScreen })));
 
+// Settings used to be a nav entry here too — it's the gear icon in TopBar
+// now instead (next to the bell), so the /app/settings route stays wired
+// up below but isn't listed as a sidebar destination anymore.
 const NAV = [
   { to: "/app", label: "Home", end: true },
   { to: "/app/jobs", label: "Jobs" },
@@ -23,7 +27,6 @@ const NAV = [
   { to: "/app/history", label: "History" },
   { to: "/app/resumes", label: "Resumes" },
   { to: "/app/profile", label: "Profile" },
-  { to: "/app/settings", label: "Settings" },
 ];
 
 // Route chunks are lazy (see the imports above) so a fresh launch only
@@ -102,6 +105,7 @@ export function AppShell() {
       </aside>
 
       <main className="shell-main">
+        <TopBar />
         <div
           className={`shell-route-frame${transition === "out" ? " shell-route-out" : transition === "in" ? " shell-route-in" : ""}`}
           onAnimationEnd={(e) => {
