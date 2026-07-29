@@ -7,6 +7,7 @@ export function WizardShell({
   stepCount,
   title,
   subtitle,
+  error,
   children,
   onBack,
   onNext,
@@ -20,6 +21,10 @@ export function WizardShell({
   stepCount: number;
   title: string;
   subtitle?: string;
+  /** A non-blocking notice about the last Continue/Skip attempt (e.g. a
+   *  background write that failed) — shown but never prevents the wizard
+   *  from having already advanced, since onNext/onSkip fail open. */
+  error?: string;
   children: ReactNode;
   onBack?: () => void;
   onNext?: () => void;
@@ -96,6 +101,12 @@ export function WizardShell({
         >
           <h1>{frozen.title}</h1>
           {frozen.subtitle && <p className="wizard-subtitle">{frozen.subtitle}</p>}
+          {/* Deliberately NOT part of `frozen` — this reflects the outcome of
+           *  whatever Continue/Skip click just happened (onNext/onSkip fail
+           *  open, so the step may have already advanced by the time this
+           *  shows), not the identity of a particular step, so it updates
+           *  immediately rather than waiting for the next transition. */}
+          {error && <div className="message-banner message-banner-error wizard-error">{error}</div>}
           <div className="wizard-step-content">{frozen.children}</div>
         </div>
       </div>

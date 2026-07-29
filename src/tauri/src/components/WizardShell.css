@@ -96,6 +96,26 @@
   gap: var(--space-4);
 }
 
+/* Same convention as the shell screens' message-banner (dataList.css) —
+ * duplicated here rather than imported, since this component intentionally
+ * has no dependency on the shell's stylesheet. */
+.message-banner {
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  background: var(--border);
+  color: var(--text-muted);
+}
+
+.message-banner-error {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.wizard-error {
+  margin-top: var(--space-3);
+}
+
 .wizard-footer {
   display: flex;
   align-items: center;

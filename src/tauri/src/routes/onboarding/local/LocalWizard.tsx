@@ -71,6 +71,7 @@ export function LocalWizard() {
   const [browsing, setBrowsing] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
   const [harness, setHarness] = useState<string | undefined>(undefined);
+  const [actionError, setActionError] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     findRoot()
@@ -134,12 +135,41 @@ export function LocalWizard() {
   const step = STEPS[stepIndex];
 
   async function finish() {
-    await writeOnboardingCompleted(root!, true);
+    try {
+      await writeOnboardingCompleted(root!, true);
+    } catch (err) {
+      // Fail open: this only controls whether the wizard auto-launches
+      // again on the next start — worth logging, not worth stranding the
+      // user on this screen over (they're leaving it either way, so
+      // there's nowhere left to show an error message once we navigate).
+      console.error("failed to mark onboarding completed", err);
+    }
     navigate("/app");
   }
 
   async function goNext() {
-    if (step === "agent" && harness) await writeHarness(root!, harness);
+    if (step === "agent" && harness) {
+      // Cleared right before the attempt, not unconditionally on every
+      // goNext() call: "agent" is immediately followed by the
+      // "intro-profile" splash (no WizardShell, nowhere to show an error),
+      // whose OWN auto-advance also calls goNext() — clearing here
+      // unconditionally would wipe this message out before the user ever
+      // reaches a real step again. Splash-driven calls (step !== "agent")
+      // simply skip this whole block and leave any pending message alone.
+      setActionError(undefined);
+      try {
+        await writeHarness(root!, harness);
+      } catch (err) {
+        // Fail open here too — a coding agent can always be (re)selected
+        // later in Settings, so a save failure shouldn't be able to strand
+        // the user on this step with no way forward. Surface it and keep
+        // going rather than silently swallowing it (the previous bug).
+        setActionError(
+          `Couldn't save your coding-agent choice (${err instanceof Error ? err.message : String(err)}) — ` +
+            "continuing anyway; you can set this later in Settings.",
+        );
+      }
+    }
     if (stepIndex < STEPS.length - 1) {
       setStepIndex((i) => i + 1);
     } else {
@@ -148,6 +178,7 @@ export function LocalWizard() {
   }
 
   function goBack() {
+    setActionError(undefined);
     let i = stepIndex - 1;
     while (i >= 0 && isSplash(STEPS[i])) i--;
     if (i < 0) navigate("/");
@@ -188,7 +219,14 @@ export function LocalWizard() {
   // wizard and the one most worth an early exit from.
   if (step === "profile") {
     return (
-      <WizardShell stepIndex={realIndex} stepCount={REAL_STEPS.length} title={TITLES.profile} hideBack onSkip={finish}>
+      <WizardShell
+        stepIndex={realIndex}
+        stepCount={REAL_STEPS.length}
+        title={TITLES.profile}
+        error={actionError}
+        hideBack
+        onSkip={finish}
+      >
         <ProfileStep root={root} onComplete={goNext} />
       </WizardShell>
     );
@@ -200,6 +238,7 @@ export function LocalWizard() {
       stepCount={REAL_STEPS.length}
       title={TITLES[step as RealStep]}
       subtitle={SUBTITLES[step as RealStep]}
+      error={actionError}
       onBack={goBack}
       onNext={goNext}
       nextLabel={step === "review" ? "Finish" : "Continue"}
