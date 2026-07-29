@@ -1,0 +1,535 @@
+/*
+ * aplyx desktop design tokens.
+ *
+ * Five theme families (Settings → Appearance), each with its own light/dark
+ * pair, sharing one token contract so every component only ever reads
+ * --ground/--surface/--text/--accent/etc — never a family's actual hex.
+ * Status colors (good/warn/danger) stay identical across families and
+ * separate from accent, so accent is never overloaded to mean success/
+ * warning/error (same rule the TUI follows in src/tui/src/theme.ts).
+ *
+ * - **Calm Cobalt** (default) — cool blue-tinted neutrals, cobalt accent.
+ * - **Sage Slate** — quieter, softer, less saturated green-gray accent.
+ * - **Aplyx Classic** (`legacy`) — the original warm beige/violet-plum
+ *   look, kept as a named option rather than the only identity.
+ * - **Graphite Cyan** — darker, more technical/ops-console feeling.
+ * - **Ember Glow** — warm and inviting: a burnt orange-red accent on soft
+ *   cream (light) or glowing amber on deep charcoal-ash (dark), like
+ *   coals in a fire rather than an open flame.
+ *
+ * Mode (light/dark) and family are independent axes: `data-theme` on
+ * <html> ("system" leaves it unset so the prefers-color-scheme media
+ * query decides; "light"/"dark" force it) and `data-theme-family`
+ * ("cobalt" | "sage" | "legacy" | "graphite" | "ember", src/lib/
+ * uiPrefs.ts). A family's `[data-theme-family="x"][data-theme="…"]`
+ * block always wins over its own media-query block via specificity,
+ * exactly like the bare-:root pattern below did before families
+ * existed — every family repeats that same 4-block shape (base light,
+ * media-query dark,
+ * explicit dark, explicit light).
+ *
+ * The bare `:root` block (no attribute yet) doubles as Calm Cobalt and
+ * as the pre-hydration fallback (src/lib/uiPrefs.ts sets the attribute
+ * from localStorage on mount, same timing as theme/font today) so a
+ * brief unstyled flash never happens — it just paints as the default.
+ *
+ * Fonts: the default is a system-font stack (nothing downloads at
+ * runtime, works fully offline). The optional Geist faces are bundled
+ * locally under the SIL OFL — still no CDN fetch.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* --- Calm Cobalt (default) — cool blue-tinted neutrals --- */
+  --ground: #f3f6fb;
+  --surface: #ffffff;
+  --surface-raised: #eef3fb;
+  --border: #dbe4f0;
+  --border-strong: #c1d0e6;
+  --text: #121a2c;
+  --text-muted: #55627a;
+  --text-faint: #8894ab;
+
+  --accent: #2f6fed;
+  --accent-strong: #1f56c4;
+  --accent-soft: #e8f0fe;
+  --accent-ink: #ffffff;
+
+  /* --- Brand pink (from the logo's feet/wordmark "r") — brand moments
+   *     only, never semantic state, never re-themed per family --- */
+  --pink: #e23a76;
+  --pink-soft: #fdeaf2;
+
+  /* --- Semantic (kept apart from accent, identical across families) --- */
+  --good: #357952;
+  --good-soft: #e4f2e9;
+  --warn: #96690f;
+  --warn-soft: #f8f0d8;
+  --danger: #b03a4a;
+  --danger-soft: #fbe8eb;
+
+  /* --- Type --- */
+  --font-display: ui-serif, Georgia, "Iowan Old Style", "Palatino Linotype", "URW Palladio L", serif;
+  --font-body: ui-sans-serif, -apple-system, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: 2.25rem;
+  --text-4xl: 3rem;
+
+  --leading-tight: 1.15;
+  --leading-snug: 1.35;
+  --leading-normal: 1.6;
+
+  /* --- Space scale (4px base) --- */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4.5rem;
+
+  /* --- Shape --- */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+
+  /* Subtle borders instead of shadows — a shadow only ever appears on
+   * something actively lifted (a modal, a dragged card), never as default
+   * card styling. */
+  --shadow-lift: 0 12px 32px -12px rgb(18 26 44 / 0.16);
+
+  /* --- Motion: orientation/progress only, never decorative --- */
+  --duration-quick: 120ms;
+  --duration-normal: 220ms;
+  --duration-slow: 420ms;
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --ground: #0f1420;
+    --surface: #161d2c;
+    --surface-raised: #1c2438;
+    --border: #29334a;
+    --border-strong: #3a4763;
+    --text: #eaeef7;
+    --text-muted: #a7b0c4;
+    --text-faint: #6f7890;
+    --accent: #6d9dff;
+    --accent-strong: #8ab0ff;
+    --accent-soft: #1d2c4d;
+    --accent-ink: #08152f;
+    --good: #79c48c;
+    --good-soft: #21322a;
+    --warn: #d9b45a;
+    --warn-soft: #37301b;
+    --danger: #e0768a;
+    --danger-soft: #3a2029;
+    --shadow-lift: 0 16px 40px -14px rgb(0 0 0 / 0.55);
+    --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #0f1420;
+  --surface: #161d2c;
+  --surface-raised: #1c2438;
+  --border: #29334a;
+  --border-strong: #3a4763;
+  --text: #eaeef7;
+  --text-muted: #a7b0c4;
+  --text-faint: #6f7890;
+  --accent: #6d9dff;
+  --accent-strong: #8ab0ff;
+  --accent-soft: #1d2c4d;
+  --accent-ink: #08152f;
+  --good: #79c48c;
+  --good-soft: #21322a;
+  --warn: #d9b45a;
+  --warn-soft: #37301b;
+  --danger: #e0768a;
+  --danger-soft: #3a2029;
+  --shadow-lift: 0 16px 40px -14px rgb(0 0 0 / 0.55);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --ground: #f3f6fb;
+  --surface: #ffffff;
+  --surface-raised: #eef3fb;
+  --border: #dbe4f0;
+  --border-strong: #c1d0e6;
+  --text: #121a2c;
+  --text-muted: #55627a;
+  --text-faint: #8894ab;
+  --accent: #2f6fed;
+  --accent-strong: #1f56c4;
+  --accent-soft: #e8f0fe;
+  --accent-ink: #ffffff;
+  --good: #357952;
+  --good-soft: #e4f2e9;
+  --warn: #96690f;
+  --warn-soft: #f8f0d8;
+  --danger: #b03a4a;
+  --danger-soft: #fbe8eb;
+  --shadow-lift: 0 12px 32px -12px rgb(18 26 44 / 0.16);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+/* ================= Sage Slate ================= */
+
+:root[data-theme-family="sage"] {
+  color-scheme: light;
+  --ground: #f4f5f1;
+  --surface: #ffffff;
+  --surface-raised: #fafbf7;
+  --border: #dfe3da;
+  --border-strong: #c6cbbe;
+  --text: #23271e;
+  --text-muted: #5c6354;
+  --text-faint: #8b9183;
+  --accent: #5b7a63;
+  --accent-strong: #46604e;
+  --accent-soft: #e6ede7;
+  --accent-ink: #ffffff;
+  --shadow-lift: 0 12px 32px -12px rgb(35 39 30 / 0.16);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme-family="sage"] {
+    color-scheme: dark;
+    --ground: #141712;
+    --surface: #1b1f19;
+    --surface-raised: #212620;
+    --border: #2e332a;
+    --border-strong: #3f453a;
+    --text: #e7ebe2;
+    --text-muted: #a6ac9d;
+    --text-faint: #767c6e;
+    --accent: #8fae95;
+    --accent-strong: #a7c2ac;
+    --accent-soft: #263129;
+    --accent-ink: #0f170f;
+    --shadow-lift: 0 16px 40px -14px rgb(0 0 0 / 0.55);
+    --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+}
+
+:root[data-theme-family="sage"][data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #141712;
+  --surface: #1b1f19;
+  --surface-raised: #212620;
+  --border: #2e332a;
+  --border-strong: #3f453a;
+  --text: #e7ebe2;
+  --text-muted: #a6ac9d;
+  --text-faint: #767c6e;
+  --accent: #8fae95;
+  --accent-strong: #a7c2ac;
+  --accent-soft: #263129;
+  --accent-ink: #0f170f;
+  --shadow-lift: 0 16px 40px -14px rgb(0 0 0 / 0.55);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+:root[data-theme-family="sage"][data-theme="light"] {
+  color-scheme: light;
+  --ground: #f4f5f1;
+  --surface: #ffffff;
+  --surface-raised: #fafbf7;
+  --border: #dfe3da;
+  --border-strong: #c6cbbe;
+  --text: #23271e;
+  --text-muted: #5c6354;
+  --text-faint: #8b9183;
+  --accent: #5b7a63;
+  --accent-strong: #46604e;
+  --accent-soft: #e6ede7;
+  --accent-ink: #ffffff;
+  --shadow-lift: 0 12px 32px -12px rgb(35 39 30 / 0.16);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+/* ================= Aplyx Classic (legacy warm beige / violet-plum) ================= */
+
+:root[data-theme-family="legacy"] {
+  color-scheme: light;
+  --ground: #f6f1e6;
+  --surface: #ffffff;
+  --surface-raised: #fdfaf3;
+  --border: #e7dfcd;
+  --border-strong: #d5c9af;
+  --text: #26221a;
+  --text-muted: #665e50;
+  --text-faint: #968c7b;
+  --accent: #7c3aed;
+  --accent-strong: #6d28d9;
+  --accent-soft: #f1eafd;
+  --accent-ink: #ffffff;
+  --shadow-lift: 0 12px 32px -12px rgb(38 34 26 / 0.22);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme-family="legacy"] {
+    color-scheme: dark;
+    --ground: #17141d;
+    --surface: #201c29;
+    --surface-raised: #272231;
+    --border: #362f45;
+    --border-strong: #4a415f;
+    --text: #ece9f4;
+    --text-muted: #aaa3c0;
+    --text-faint: #776f90;
+    --accent: #a78bfa;
+    --accent-strong: #bda6fc;
+    --accent-soft: #322a52;
+    --accent-ink: #1c1433;
+    --shadow-lift: 0 16px 40px -14px rgb(0 0 0 / 0.55);
+    --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+}
+
+:root[data-theme-family="legacy"][data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #17141d;
+  --surface: #201c29;
+  --surface-raised: #272231;
+  --border: #362f45;
+  --border-strong: #4a415f;
+  --text: #ece9f4;
+  --text-muted: #aaa3c0;
+  --text-faint: #776f90;
+  --accent: #a78bfa;
+  --accent-strong: #bda6fc;
+  --accent-soft: #322a52;
+  --accent-ink: #1c1433;
+  --shadow-lift: 0 16px 40px -14px rgb(0 0 0 / 0.55);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+:root[data-theme-family="legacy"][data-theme="light"] {
+  color-scheme: light;
+  --ground: #f6f1e6;
+  --surface: #ffffff;
+  --surface-raised: #fdfaf3;
+  --border: #e7dfcd;
+  --border-strong: #d5c9af;
+  --text: #26221a;
+  --text-muted: #665e50;
+  --text-faint: #968c7b;
+  --accent: #7c3aed;
+  --accent-strong: #6d28d9;
+  --accent-soft: #f1eafd;
+  --accent-ink: #ffffff;
+  --shadow-lift: 0 12px 32px -12px rgb(38 34 26 / 0.22);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+/* ================= Graphite Cyan ================= */
+
+:root[data-theme-family="graphite"] {
+  color-scheme: light;
+  --ground: #eef1f2;
+  --surface: #ffffff;
+  --surface-raised: #f5f7f8;
+  --border: #d7dde0;
+  --border-strong: #bcc4c8;
+  --text: #14191b;
+  --text-muted: #4d5658;
+  --text-faint: #83898b;
+  --accent: #0e8fa3;
+  --accent-strong: #0b7080;
+  --accent-soft: #e0f4f7;
+  --accent-ink: #ffffff;
+  --shadow-lift: 0 12px 32px -12px rgb(20 25 27 / 0.16);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme-family="graphite"] {
+    color-scheme: dark;
+    --ground: #0c1112;
+    --surface: #12191b;
+    --surface-raised: #171f21;
+    --border: #223032;
+    --border-strong: #304244;
+    --text: #dce7e8;
+    --text-muted: #93a5a7;
+    --text-faint: #647678;
+    --accent: #4fd8ea;
+    --accent-strong: #7de3ef;
+    --accent-soft: #123137;
+    --accent-ink: #05191b;
+    --shadow-lift: 0 16px 40px -14px rgb(0 0 0 / 0.6);
+    --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+}
+
+:root[data-theme-family="graphite"][data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #0c1112;
+  --surface: #12191b;
+  --surface-raised: #171f21;
+  --border: #223032;
+  --border-strong: #304244;
+  --text: #dce7e8;
+  --text-muted: #93a5a7;
+  --text-faint: #647678;
+  --accent: #4fd8ea;
+  --accent-strong: #7de3ef;
+  --accent-soft: #123137;
+  --accent-ink: #05191b;
+  --shadow-lift: 0 16px 40px -14px rgb(0 0 0 / 0.6);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+:root[data-theme-family="graphite"][data-theme="light"] {
+  color-scheme: light;
+  --ground: #eef1f2;
+  --surface: #ffffff;
+  --surface-raised: #f5f7f8;
+  --border: #d7dde0;
+  --border-strong: #bcc4c8;
+  --text: #14191b;
+  --text-muted: #4d5658;
+  --text-faint: #83898b;
+  --accent: #0e8fa3;
+  --accent-strong: #0b7080;
+  --accent-soft: #e0f4f7;
+  --accent-ink: #ffffff;
+  --shadow-lift: 0 12px 32px -12px rgb(20 25 27 / 0.16);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+/* ================= Ember Glow ================= */
+
+:root[data-theme-family="ember"] {
+  color-scheme: light;
+  --ground: #fbf1e7;
+  --surface: #ffffff;
+  --surface-raised: #fdf6ee;
+  --border: #ecd7c4;
+  --border-strong: #dbb996;
+  --text: #2b1a12;
+  --text-muted: #6b5142;
+  --text-faint: #9c8172;
+  --accent: #c23f18;
+  --accent-strong: #9e3110;
+  --accent-soft: #fce3d5;
+  --accent-ink: #ffffff;
+  --shadow-lift: 0 12px 32px -12px rgb(43 26 18 / 0.2);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme-family="ember"] {
+    color-scheme: dark;
+    --ground: #1a1210;
+    --surface: #241713;
+    --surface-raised: #2c1c17;
+    --border: #3d2620;
+    --border-strong: #54332a;
+    --text: #f5e6da;
+    --text-muted: #c2a291;
+    --text-faint: #8a6e60;
+    --accent: #ff9a52;
+    --accent-strong: #ffb066;
+    --accent-soft: #4a2814;
+    --accent-ink: #2b1206;
+    --shadow-lift: 0 16px 40px -14px rgb(0 0 0 / 0.6);
+    --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+}
+
+:root[data-theme-family="ember"][data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #1a1210;
+  --surface: #241713;
+  --surface-raised: #2c1c17;
+  --border: #3d2620;
+  --border-strong: #54332a;
+  --text: #f5e6da;
+  --text-muted: #c2a291;
+  --text-faint: #8a6e60;
+  --accent: #ff9a52;
+  --accent-strong: #ffb066;
+  --accent-soft: #4a2814;
+  --accent-ink: #2b1206;
+  --shadow-lift: 0 16px 40px -14px rgb(0 0 0 / 0.6);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+:root[data-theme-family="ember"][data-theme="light"] {
+  color-scheme: light;
+  --ground: #fbf1e7;
+  --surface: #ffffff;
+  --surface-raised: #fdf6ee;
+  --border: #ecd7c4;
+  --border-strong: #dbb996;
+  --text: #2b1a12;
+  --text-muted: #6b5142;
+  --text-faint: #9c8172;
+  --accent: #c23f18;
+  --accent-strong: #9e3110;
+  --accent-soft: #fce3d5;
+  --accent-ink: #ffffff;
+  --shadow-lift: 0 12px 32px -12px rgb(43 26 18 / 0.2);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+/* Font preference (Settings → Appearance). Each option swaps the whole
+ * UI — body, headlines, and (where the family ships one) mono — onto its
+ * bundled variable face (see base.css @font-face); default is the system
+ * stack above. The other three are the remaining directions from
+ * docs/ui-development-plan.md's Priority 4: Inter (dense/tabular product
+ * UI) and IBM Plex (enterprise/analytical tone) keep the system mono
+ * stack except Plex, which pairs with its own IBM Plex Mono; Atkinson
+ * Hyperlegible Next (accessibility/readability-first) does the same. */
+:root[data-font="geist"] {
+  --font-display: "Geist", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-body: "Geist", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", "SFMono-Regular", Consolas, monospace;
+}
+
+:root[data-font="inter"] {
+  --font-display: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+:root[data-font="plex"] {
+  --font-display: "IBM Plex Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+}
+
+:root[data-font="atkinson"] {
+  --font-display: "Atkinson Hyperlegible Next", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-body: "Atkinson Hyperlegible Next", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-quick: 0ms;
+    --duration-normal: 0ms;
+    --duration-slow: 0ms;
+  }
+}

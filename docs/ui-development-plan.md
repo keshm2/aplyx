@@ -22,7 +22,7 @@ turn the current app into something that feels:
 
 This plan is based on:
 
-- the current desktop app structure in `desktop/`
+- the current desktop app structure in `src/tauri/`
 - the current Tauri + React direction already chosen for the app
 - the user's request for a smoother, more aesthetic app
 - a Zoom-adjacent color sensibility

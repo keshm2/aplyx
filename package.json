@@ -1,19 +1,20 @@
 {
   "name": "aplyx-workspace",
   "private": true,
+  "license": "MIT",
   "description": "aplyx monorepo root — npm workspaces for the shared TS core, the Ink TUI, and the Tauri desktop app.",
   "workspaces": [
-    "packages/*",
-    "app",
-    "desktop"
+    "src/core",
+    "src/tui",
+    "src/tauri"
   ],
   "engines": {
     "node": ">=22"
   },
   "scripts": {
     "build:core": "npm run build --workspace=@aplyx/core",
-    "build:app": "npm run build:core && npm run build --workspace=app",
-    "typecheck:app": "npm run build:core && npm run typecheck --workspace=app",
-    "smoke:app": "npm run build:app && npm run smoke --workspace=app"
+    "build:app": "npm run build:core && npm run build --workspace=@keshm/aplyx",
+    "typecheck:app": "npm run build:core && npm run typecheck --workspace=@keshm/aplyx",
+    "smoke:app": "npm run build:app && npm run smoke --workspace=@keshm/aplyx"
   }
 }

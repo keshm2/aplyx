@@ -3,7 +3,7 @@
   "default_agent": "job-scraper",
   "instructions": [
     "AGENTS.md",
-    "config/targets.json",
+    "src/config/targets.json",
     "data/applied_jobs.json"
   ],
   "permission": {

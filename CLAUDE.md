@@ -19,11 +19,11 @@ local-only).
 - Work **one phase at a time**. Do not start a phase (or the next one)
   without the operator's explicit go-ahead; stop after printing the
   phase summary.
-- **All state writes go through the helpers** (`scripts/state/job_state.py`,
-  `scripts/state/append_state_entry.sh`). Never hand-write or hand-edit
+- **All state writes go through the helpers** (`src/scripts/state/job_state.py`,
+  `src/scripts/state/append_state_entry.sh`). Never hand-write or hand-edit
   `data/*.json` / `data/*.jsonl`.
 - **Gitignored files stay uncommitted**: live configs in
-  `config/*.json`, everything in `data/`, `logs/`, `docs/PLAN.md`, and
+  `src/config/*.json`, everything in `data/`, `logs/`, `docs/PLAN.md`, and
   `data/resumes/` hold PII/secrets and never enter git.
 - Do not introduce a new model name, MCP server, or permission surface
   without explicit operator approval.
@@ -33,29 +33,37 @@ local-only).
 
 ## Repo map
 
+Everything code/config-related lives under `src/`, one folder per concern;
+the repo root stays to README/LICENSE/canonical-ruleset docs and the
+harness dot-directories (which can't move — each harness hardcodes looking
+for its own at the repo root).
+
 | Path | What it is |
 | --- | --- |
 | `AGENTS.md` | Canonical behavioral rules (fetch methods, fit gate, write discipline) |
 | `docs/PLAN.md` | Phase roadmap + handoff (gitignored — read first when resuming) |
 | `docs/SETUP.md` | User-facing install/config walkthrough |
-| `agents/` | **Source of truth** for agent prompts: `bodies/` + `frontmatter/<harness>/` |
-| `.claude/agents/`, `.opencode/agents/` | **Generated** from `agents/` — never hand-edit |
-| `scripts/` | Deterministic helpers — the only things allowed to write state |
-| `app/` | The `aplyx` TUI (TypeScript/Ink overlay; shells out to the helpers) |
-| `config/` | `*.example.json` templates (committed) + live configs (gitignored) |
-| `data/`, `logs/` | Runtime state and logs (gitignored, PII) |
+| `src/agents/` | **Source of truth** for agent prompts: `bodies/` + `frontmatter/<harness>/` |
+| `.claude/agents/`, `.opencode/agents/` | **Generated** from `src/agents/` — never hand-edit |
+| `src/scripts/` | Deterministic helpers — the only things allowed to write state |
+| `src/tui/` | The `aplyx` TUI (TypeScript/Ink overlay; shells out to the helpers) |
+| `src/tauri/` | The Tauri desktop app |
+| `src/core/` | Shared TypeScript core (`@aplyx/core`) used by both apps |
+| `src/extension/` | The browser extension (user-driven hybrid mode) |
+| `src/config/` | `*.example.json` templates (committed) + live configs (gitignored) |
+| `data/`, `logs/` | Runtime state and logs (gitignored, PII) — stay at the repo root |
 
 ## Common commands
 
 ```bash
-bash scripts/install/install.sh                    # universal first-run installer
-bash scripts/validate/validate_local_config.sh      # config check (expect "OK")
-python3 scripts/state/job_state.py ensure-files  # bootstrap/validate state files
-bash scripts/runtime/run_job_agent.sh              # trigger one agent run
-bash scripts/runtime/scheduler.sh status           # 30-min launchd schedule state
-python3 scripts/validate/generate_agent_definitions.py --check   # agent-def drift check
+bash src/scripts/install/install.sh                    # universal first-run installer
+bash src/scripts/validate/validate_local_config.sh      # config check (expect "OK")
+python3 src/scripts/state/job_state.py ensure-files  # bootstrap/validate state files
+bash src/scripts/runtime/run_job_agent.sh              # trigger one agent run
+bash src/scripts/runtime/scheduler.sh status           # 30-min launchd schedule state
+python3 src/scripts/validate/generate_agent_definitions.py --check   # agent-def drift check
 
-cd app && npm install && npm run build     # build the TUI
+cd src/tui && npm install && npm run build     # build the TUI
 npm link                                   # exposes the `aplyx` command
 aplyx                                     # open the TUI (press ? for keys)
 npm run typecheck && npm run smoke         # TUI CI checks
@@ -64,12 +72,12 @@ npm run typecheck && npm run smoke         # TUI CI checks
 ## Harness notes
 
 - The agent definitions in `.claude/agents/` and `.opencode/agents/`
-  are **generated** from `agents/bodies/` +
-  `agents/frontmatter/<harness>/` by
-  `scripts/validate/generate_agent_definitions.py`. Edit the sources, then
+  are **generated** from `src/agents/bodies/` +
+  `src/agents/frontmatter/<harness>/` by
+  `src/scripts/validate/generate_agent_definitions.py`. Edit the sources, then
   regenerate — never the generated files.
-- Runtime runs go through `scripts/runtime/run_job_agent.sh`, which selects the
-  harness (opencode or Claude Code) via `config/harness.json`,
+- Runtime runs go through `src/scripts/runtime/run_job_agent.sh`, which selects the
+  harness (opencode or Claude Code) via `src/config/harness.json`,
   `$APLYX_HARNESS` (legacy `$ARES_HARNESS` still honored), or
   auto-detection. Claude Code is both a supported runtime driver and a
   development harness here.

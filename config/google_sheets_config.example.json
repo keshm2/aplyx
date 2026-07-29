@@ -1,9 +1,0 @@
-{
-  "enabled": true,
-  "spreadsheet_id": "REPLACE_ME",
-  "worksheet_title": "Internship Tracker",
-  "header_range": "A1:H",
-  "value_input_option": "USER_ENTERED",
-  "insert_data_option": "INSERT_ROWS",
-  "service_account_key_path": "config/service-account-key.json"
-}

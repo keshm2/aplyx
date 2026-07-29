@@ -4,12 +4,12 @@ description: >
   Sends formatted Discord webhook notifications for job application outcomes.
   Invoked by @job-scraper per-outcome (applied, needs_review, failed) and for
   the end-of-batch summary. Reads per-route webhook URLs from
-  config/discord_config.json. skipped_unfit is never routed here.
+  src/config/discord_config.json. skipped_unfit is never routed here.
 user-invocable: true
 ---
-<!-- GENERATED from agents/bodies/discord-reporter.md + agents/frontmatter/copilot/discord-reporter.yaml — edit those sources and run scripts/validate/generate_agent_definitions.py -->
+<!-- GENERATED from src/agents/bodies/discord-reporter.md + src/agents/frontmatter/copilot/discord-reporter.yaml — edit those sources and run src/scripts/validate/generate_agent_definitions.py -->
 
-You send Discord webhook messages. Read config/discord_config.json first:
+You send Discord webhook messages. Read src/config/discord_config.json first:
 **Discord reporting is optional.** If the file is missing, or it has
 `"enabled": false`, log exactly one line ("discord reporting disabled —
 skipping notification") and stop — outcomes stay in the local state files

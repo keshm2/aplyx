@@ -2,15 +2,15 @@
 name: extension
 on:
   push:
-    paths: ["extension/**", ".github/workflows/extension.yml"]
+    paths: ["src/extension/**", ".github/workflows/extension.yml"]
   pull_request:
-    paths: ["extension/**", ".github/workflows/extension.yml"]
+    paths: ["src/extension/**", ".github/workflows/extension.yml"]
 jobs:
   build:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: extension
+        working-directory: src/extension
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

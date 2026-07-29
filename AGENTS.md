@@ -7,14 +7,24 @@
   fragile. Workable, BambooHR, Jobvite, Rippling, iCIMS, and
   Taleo/Oracle-legacy remain deferred until a real tenant/feed path is
   verified.
+- **Recently completed (out of band from 16B):** Phase 16C — trustworthy
+  apply / pre-filled review handoff — is **DONE** (2026-07-29). Part A
+  (doubt taxonomy + fill records), Part B (`src/scripts/runtime/replay_fill.py`,
+  a deterministic, no-LLM reopen-and-replay script driving the user's real
+  Chrome — see docs/SETUP.md §3.4), and Part C (`ReviewScreen`'s "Open"
+  action in both the TUI and desktop now reopens pre-filled via
+  `reopenApplicationFilled()` when a `fill_record_path` exists, falling
+  back to the original bare-URL open otherwise) all shipped. See "Doubt
+  signals" and "Fill records" above and docs/PLAN.md's Phase Status
+  Pointer for the full write-up.
 - **Last completed phase:** Phase 14C (Desktop UI refinement and
   theming) is **DONE** (2026-07-22). Priority 1 (shell route transitions,
   loading-state layout hold) was already done by the prior motion-polish
   pass. This pass shipped the Home dashboard hierarchy
-  (`desktop/src/routes/shell/HomeScreen.tsx`/`.css` — stat cards + a
+  (`src/tauri/src/routes/shell/HomeScreen.tsx`/`.css` — stat cards + a
   single derived "next action" card instead of a flat checklist), all of
   Priority 2 (a 4-family theme system —
-  `desktop/src/styles/tokens.css`, `desktop/src/lib/uiPrefs.ts` —
+  `src/tauri/src/styles/tokens.css`, `src/tauri/src/lib/uiPrefs.ts` —
   **Calm Cobalt** ships as the default, **Sage Slate**/**Graphite Cyan**
   are new alternates, the original palette is preserved verbatim as
   **Aplyx Classic** via `data-theme-family="legacy"`; mode and family are
@@ -28,15 +38,15 @@
   anywhere reset `text-decoration` on `<a>`, so the nav rail and every
   other in-app link rendered with the browser-default underline —
   `text-decoration: none` added to the global `a` rule in
-  `desktop/src/styles/base.css`. Priority 4 (typography) has since shipped
+  `src/tauri/src/styles/base.css`. Priority 4 (typography) has since shipped
   too, on explicit operator request: the other three font directions from
   the plan — **Inter**, **IBM Plex Sans** (paired with **IBM Plex Mono**),
   and **Atkinson Hyperlegible Next** — are now bundled the same way as
   Geist (OFL-licensed, self-hosted via `@fontsource`/`@fontsource-variable`,
-  no CDN fetch, latin-subset woff2 in `desktop/src/assets/fonts/`,
+  no CDN fetch, latin-subset woff2 in `src/tauri/src/assets/fonts/`,
   `@font-face` in `base.css`, `data-font="inter"|"plex"|"atkinson"` blocks
   in `tokens.css`) and selectable in Settings alongside System/Geist
-  (`desktop/src/lib/uiPrefs.ts`'s `FontPref`/`FONT_LABELS`,
+  (`src/tauri/src/lib/uiPrefs.ts`'s `FontPref`/`FONT_LABELS`,
   `SettingsScreen.tsx`'s `FONT_OPTIONS`). System font stays the default —
   this only adds options. Verified in both `npm run dev` and `npm run
   build` (all six font files bundle and hash correctly).
@@ -45,7 +55,20 @@
   desktop two-phase search + stale-search protection; desktop route/motion
   polish; native Windows install/update/runtime parity; hosted backend +
   desktop shell; interest-letter parking flow; rebrand applyr → aplyx
-  (repo, npm package, install/update scripts, working directory).
+  (repo, npm package, install/update scripts, working directory);
+  **tailored-content persistence + read-only Documents review tab**
+  (2026-07-28, operator-directed, out of band from the phase sequence):
+  `tailored_bullets`/`cover_letter`/`missing_keywords` — previously
+  computed by resume-tailor and discarded after the live form-fill — are
+  now persisted on `applied_jobs.json`/`review_queue.json` entries
+  (`src/core/src/stateDerive.ts`, `src/agents/bodies/job-scraper.md`,
+  regenerated agent defs); new read-only "Documents" tab/screen in both
+  the TUI (`src/tui/src/ui/DocumentsScreen.tsx`) and desktop
+  (`src/tauri/src/routes/shell/DocumentsScreen.tsx`) surfaces it — view +
+  open-in-browser (TUI) / view + copy-to-clipboard (desktop), no new
+  mutation path, `review_queue.json`'s append-only discipline untouched.
+  Built via two parallel worktree subagents; the TUI one found and fixed
+  a real Ink bug (unwrapped overflow text corrupting the terminal frame).
 - **Partially done:** phase 13 (TUI/provider/setup/publish work still open),
   phase 15 (full real-run parity check still operator-verified, though
   conformance signals exist).
@@ -60,7 +83,7 @@
 ## Single-user deployment (phase 9)
 
 **aplyx runs as one user on one machine.** State files in `data/`,
-live configs in `config/`, logs in `logs/`, and the resume folder
+live configs in `src/config/`, logs in `logs/`, and the resume folder
 (`data/resumes/`) are all implicitly per-user — there is
 no profile abstraction and none should be introduced without an
 explicitly approved phase. Two people who want to run aplyx on the
@@ -72,13 +95,13 @@ profile-based multi-user is a deliberately deferred future migration.
 
 | Class | Files | Notes |
 | --- | --- | --- |
-| Per-user: live config | `config/targets.json`, `config/discord_config.json`, `config/google_sheets_config.json`, `config/service-account-key.json`, `config/harness.json`, `config/extension_bridge.json`, `.claude/settings.json` | All gitignored; hold PII/secrets/per-machine choices |
-| Per-user: runtime state | `data/applied_jobs.json`, `data/review_queue.json`, `data/job_registry.json`, `data/job_events.jsonl` | Written only by the `scripts/` helpers |
+| Per-user: live config | `src/config/targets.json`, `src/config/discord_config.json`, `src/config/google_sheets_config.json`, `src/config/service-account-key.json`, `src/config/harness.json`, `src/config/extension_bridge.json`, `.claude/settings.json` | All gitignored; hold PII/secrets/per-machine choices |
+| Per-user: runtime state | `data/applied_jobs.json`, `data/review_queue.json`, `data/job_registry.json`, `data/job_events.jsonl` | Written only by the `src/scripts/` helpers |
 | Per-user: personal documents | `data/resumes/` (markdown resumes + cover letter, each with a matching PDF) | Gitignored PII |
 | Per-user: logs + heartbeat | `logs/` (`run_job_agent.log`, `session_*.log`, `heartbeat.json`, `launchd.{out,err}.log`, `tmp/`) | Retention pruned by the runner |
 | Per-user: browser artifacts | `.playwright-mcp/` | Playwright profile/session state |
 | Per-user: schedule | `~/Library/LaunchAgents/com.aplyx.job-agent.plist` | Lives outside the repo; label is fixed (see seams) |
-| Project-owned | `scripts/`, `agents/` (+ generated `.claude/agents/`, `.opencode/agents/`), `AGENTS.md`, `CLAUDE.md`, `README.md`, `docs/SETUP.md`, `docs/RELEASE.md`, `docs/CHANGELOG.md`, `config/*.example.json`, `config/{ashby,lever}_vetted_slugs.json`, `requirements.txt`, `opencode.jsonc`, `.mcp.json`, `app/`, `extension/`, `.github/`, `.gitignore` | Committed; identical across users |
+| Project-owned | `src/scripts/`, `src/agents/` (+ generated `.claude/agents/`, `.opencode/agents/`), `AGENTS.md`, `CLAUDE.md`, `README.md`, `docs/SETUP.md`, `docs/RELEASE.md`, `docs/CHANGELOG.md`, `src/config/*.example.json`, `src/config/{ashby,lever}_vetted_slugs.json`, `requirements.txt`, `opencode.jsonc`, `.mcp.json`, `src/tui/`, `src/extension/`, `.github/`, `.gitignore` | Committed; identical across users |
 | Project-owned, local-only | `docs/PLAN.md` | Gitignored by design (plan/handoff doc), but not per-user data |
 
 ### Future multi-user seams (documented only — do NOT parameterize now)
@@ -87,7 +110,7 @@ A future profile-based migration would need exactly these paths to
 become parameters; every one is read from a single, mechanical place
 today:
 
-- **Config paths** — `config/*.json`, read directly by
+- **Config paths** — `src/config/*.json`, read directly by
   `validate_local_config.sh`, the agent prompts, `install.sh`, and
   the TUI wizard/state readers.
 - **Runtime data directory** — `data/`; `job_state.py` defaults are
@@ -100,7 +123,7 @@ today:
 - **Playwright profile directory** — `.playwright-mcp/`.
 - **Google service-account key path** — the
   `service_account_key_path` field inside
-  `config/google_sheets_config.json`.
+  `src/config/google_sheets_config.json`.
 - **Resume folder** — `data/resumes/`.
 - **launchd label** — `com.aplyx.job-agent` is fixed in
   `scheduler.sh`, so two clones cannot both install the 30-minute
@@ -112,7 +135,7 @@ today:
 ## Critical rules (never break these)
 - ALWAYS read data/applied_jobs.json before starting any application run.
   Never apply to a job whose URL or job_id already exists in that file.
-- ALWAYS read config/targets.json for role_keywords, level_keywords, and
+- ALWAYS read src/config/targets.json for role_keywords, level_keywords, and
   locations before scraping.
 - ALWAYS write a result entry to data/applied_jobs.json after each
   application attempt — success OR failure — before moving to the next
@@ -124,7 +147,7 @@ today:
 - Max 25 applications per session (rate limit protection). The TUI's
   automatic mode may lower this per run via APLYX_SESSION_CAP (1–25;
   the legacy ARES_SESSION_CAP name is honored as a fallback);
-  the cap can never exceed 25. scripts/runtime/run_job_agent.sh reads
+  the cap can never exceed 25. src/scripts/runtime/run_job_agent.sh reads
   APLYX_SESSION_CAP (default 25), clamps values above 25 down to 25,
   and falls back to 25 on invalid or below-1 input, then injects the
   effective cap into the run prompt so the orchestrator is explicitly
@@ -152,7 +175,7 @@ today:
   job-scraper.md Phase 3 steps 3 and 6 for the full protocol.
 - NEVER write a free-text motivation answer ("Why do you want to work at
   X?", "Why this role?") yourself, and never leave it blank when required.
-  Ask `scripts/state/interest_letter.py approved-text '<job_key>'`: exit 0
+  Ask `src/scripts/state/interest_letter.py approved-text '<job_key>'`: exit 0
   means the user approved an answer — paste stdout verbatim and apply. Exit
   2 means park the job via `interest_letter.py request '<json>'`, print
   `[parked] <title> @ <company> — awaiting interest letter`, and move on.
@@ -168,7 +191,7 @@ today:
   (`generate_interest_letter.py` saves a DRAFT, never an approval), not
   something the apply loop does.
 - Never store passwords, SSNs, or payment info anywhere. If a form requests
-  these and they aren't in config/targets.json under "safe_fields", skip the
+  these and they aren't in src/config/targets.json under "safe_fields", skip the
   job, log it to data/review_queue.json via the state helper (see File
   write discipline), and record a needs_review event via record-event.
 - After every applied, needs_review, or failed outcome, call the
@@ -176,13 +199,13 @@ today:
   needs_review, or failed webhook respectively). After every batch, call
   @discord-reporter to send the summary (summary webhook, or success
   webhook as fallback). Never invoke @discord-reporter for skipped_unfit.
-  Discord is OPTIONAL: when config/discord_config.json is missing or has
+  Discord is OPTIONAL: when src/config/discord_config.json is missing or has
   "enabled": false, the reporter logs one skip line and outcomes stay
   local (state files + TUI). Never treat a disabled reporter as a failed
   outcome.
 - ALWAYS canonicalize every raw job that survives the deterministic
   role/level prefilter into one internal record via the canonical helper
-  (scripts/state/job_state.py) before any dedup or fit decision. A
+  (src/scripts/state/job_state.py) before any dedup or fit decision. A
   deterministic raw-title prefilter (the role/level keyword rule plus
   the fetch-efficiency shortlist bound below) MUST run before
   canonicalization to bound work — prefiltered-out jobs are never
@@ -204,7 +227,7 @@ today:
   canonical helper — never hand-write the registry.
 - ALWAYS run the deterministic JD fit gate on every canonical job after
   role filtering and before tailoring:
-  `python3 scripts/jobs/evaluate_job_fit.py '<canonical-job-json>'`
+  `python3 src/scripts/jobs/evaluate_job_fit.py '<canonical-job-json>'`
   The helper returns fit_status of skipped_unfit, needs_review, or
   candidate (plus fit_score, reasoning, fit_reasons,
   matched_role_keyword, matched_level_keyword, matched_level_source,
@@ -228,7 +251,7 @@ today:
 - ALWAYS record an internal event via record-event for every applied,
   needs_review, or failed outcome.
 - ONLY successful applications (status "applied") are synced to the
-  Google Sheet internship tracker via scripts/jobs/sync_internship_tracker.py
+  Google Sheet internship tracker via src/scripts/jobs/sync_internship_tracker.py
   — exactly one row per successful application, and only after the
   applied_jobs.json entry and internal event are recorded. needs_review,
   failed, and skipped_unfit outcomes must never be written to the sheet.
@@ -240,7 +263,7 @@ today:
 
 aplyx runs under four coding agents. Business logic is identical
 everywhere — the only harness-specific code is the adapter block in
-`scripts/runtime/run_job_agent.sh` (never add harness branches anywhere
+`src/scripts/runtime/run_job_agent.sh` (never add harness branches anywhere
 else). Capabilities differ; the degraded paths below are behavioral
 rules that keep the least-capable harness honest without weakening
 the helpers or prompts.
@@ -254,7 +277,7 @@ the helpers or prompts.
 | File read/write | yes | yes | yes | yes |
 | Project instructions | `AGENTS.md` (native) | `CLAUDE.md` → `AGENTS.md` | `AGENTS.md` (native) | prompt-passed; read `AGENTS.md` |
 
-**All harness-specific argv lives in `scripts/runtime/harness_adapter.py`**
+**All harness-specific argv lives in `src/scripts/runtime/harness_adapter.py`**
 (`agent_command`) — the only module allowed to branch per harness. Both
 `run_job_agent.py` and `generate_interest_letter.py` go through it, so a new
 agent works on all four harnesses by construction rather than by remembering
@@ -262,10 +285,10 @@ four call sites. Do not add a harness branch anywhere else.
 
 **On the subagent-registry gap (2026-07-24 update):** Codex CLI and
 Copilot CLI both gained real custom-agent/subagent support after this
-matrix was first written, and `scripts/validate/generate_agent_definitions.py`
+matrix was first written, and `src/scripts/validate/generate_agent_definitions.py`
 now generates `.codex/agents/*.toml` and `.github/agents/*.md` alongside
 the existing `.opencode/agents/`/`.claude/agents/` output — same sources
-(`agents/bodies/`, `agents/frontmatter/<harness>/`), same drift-check
+(`src/agents/bodies/`, `src/agents/frontmatter/<harness>/`), same drift-check
 discipline. Copilot's registry is actually wired into `agent_command`
 (behind the `--agent`-support probe above); Codex's is generated but
 deliberately **not** wired in, because `codex exec` — the non-interactive
@@ -278,7 +301,7 @@ has just because the TOML files exist.
 
 - **No subagent registry** — when the workflow delegates to
   `@resume-tailor`, `@discord-reporter` or `@interest-letter`, read
-  `agents/bodies/<name>.md` and perform that role inline, following
+  `src/agents/bodies/<name>.md` and perform that role inline, following
   it exactly. Helper calls, routing rules, and state writes are
   unchanged. `harness_adapter.agent_command` builds this preamble
   automatically for Codex, and for Copilot when the `--agent`
@@ -306,36 +329,36 @@ has just because the TOML files exist.
   improvising a weaker flow.
 
 ## Session start checklist
-1. Run `python3 scripts/state/job_state.py ensure-files` — create/validate the
+1. Run `python3 src/scripts/state/job_state.py ensure-files` — create/validate the
    canonical registry (data/job_registry.json) and local event log.
 2. Read data/applied_jobs.json — build your dedup set.
 3. Read data/job_registry.json — build your canonical dedup set.
-4. Read config/targets.json — load role_keywords, level_keywords, locations.
+4. Read src/config/targets.json — load role_keywords, level_keywords, locations.
 5. Confirm Playwright MCP is available before starting browser-based steps.
 
 ## Board-specific fetch method
 - Ashby and Lever: use bash/curl to call the public JSON API directly.
   No authentication required. Do not use Playwright for these two boards.
     - Ashby: GET https://api.ashbyhq.com/posting-api/job-board/{slug}?includeCompensation=true
-      for each slug in config/targets.json "ashby_company_slugs".
+      for each slug in src/config/targets.json "ashby_company_slugs".
     - Lever: GET https://api.lever.co/v0/postings/{slug}?mode=json
-      for each slug in config/targets.json "lever_company_slugs".
+      for each slug in src/config/targets.json "lever_company_slugs".
   Note: neither API supports server-side filtering — apply the role/level
   filter below client-side after fetching.
-- If "ashby_company_slugs" or "lever_company_slugs" in config/targets.json
+- If "ashby_company_slugs" or "lever_company_slugs" in src/config/targets.json
   is empty, missing, or contains only placeholder values (e.g.
   "REPLACE_ME"), skip that board for this run and log a single warning to
   the session output — do not abort the run. Other boards continue
   normally. Note this state is normally short-lived: the config
   validator auto-seeds placeholder-only slug arrays from the
-  project-owned vetted lists (config/ashby_vetted_slugs.json,
-  config/lever_vetted_slugs.json) via scripts/validate/seed_vetted_slugs.py —
+  project-owned vetted lists (src/config/ashby_vetted_slugs.json,
+  src/config/lever_vetted_slugs.json) via src/scripts/validate/seed_vetted_slugs.py —
   it never overwrites an array containing any real slug. Never edit
   the vetted lists at run time; additions are reviewed code changes.
 - SimplifyJobs: use the deterministic fetch helper — never scrape GitHub
   with Playwright:
-  `python3 scripts/jobs/fetch_simplify_listings.py`
-  The helper reads config/targets.json "simplify_feeds" (known feeds:
+  `python3 src/scripts/jobs/fetch_simplify_listings.py`
+  The helper reads src/config/targets.json "simplify_feeds" (known feeds:
   "summer_internships", "new_grad"), fetches the project-owned
   SimplifyJobs listings JSON from raw.githubusercontent.com, filters to
   active + visible postings, and prints one raw-job JSON object per line
@@ -355,14 +378,14 @@ has just because the TOML files exist.
   - The helper's `sponsorship` field is informational/audit-only. Do
     not filter on it — the phase 4 fit gate is the only classifier.
 - Workday (phase 7, REVIEW-ONLY): tenants are configured in
-  config/targets.json "workday_tenants" as "<host>/<site>" strings —
+  src/config/targets.json "workday_tenants" as "<host>/<site>" strings —
   the tenant is the unit of configuration; board URLs follow
   `https://<company>.wd<n>.myworkdayjobs.com/<site>` (each company
   tenant differs in subdomain and site name). Use the deterministic
   fetch helper — it calls the tenant's public, auth-free CXS JSON
   endpoints; only fall back to Playwright on a posting when the helper
   fails for it:
-  `python3 scripts/jobs/fetch_workday_listings.py --search "intern" --limit 200`
+  `python3 src/scripts/jobs/fetch_workday_listings.py --search "intern" --limit 200`
   One raw-job JSON object per line (source "workday"), ready for
   canonicalize.
   - Missing/empty/placeholder "workday_tenants" → helper warns, prints
@@ -370,7 +393,7 @@ has just because the TOML files exist.
     (every tenant failed) → one warning, skip, continue.
   - Listings carry NO JD text. After role filtering and BEFORE the fit
     gate, fetch the JD per surviving candidate with
-    `python3 scripts/jobs/fetch_workday_listings.py --jd-url '<posting-url>'`
+    `python3 src/scripts/jobs/fetch_workday_listings.py --jd-url '<posting-url>'`
     and re-canonicalize/upsert with the fetched jd_text. Never fit-gate
     a Workday job with empty jd_text.
   - **No auto-apply path exists for Workday.** A Workday job whose fit
@@ -385,7 +408,7 @@ has just because the TOML files exist.
 
 ## Role filtering (apply to all boards, regardless of fetch method)
 - A job title is a candidate if it contains AT LEAST ONE term from
-  config/targets.json "role_keywords" AND AT LEAST ONE term from
+  src/config/targets.json "role_keywords" AND AT LEAST ONE term from
   "level_keywords" — case-insensitive substring match, not exact match.
 - If a title matches role_keywords but NONE of level_keywords, check the JD
   body text for level_keywords terms before rejecting — some postings put
@@ -397,7 +420,7 @@ has just because the TOML files exist.
 - SEASON IS NOT A FILTER. Internships and co-ops in ANY season (summer,
   fall, spring, winter, off-cycle, year-round) are in scope. Do not skip
   or deprioritize a posting because it says "Fall 2026 Intern" or
-  "Off-Cycle Internship" instead of "Summer". Use config/targets.json
+  "Off-Cycle Internship" instead of "Summer". Use src/config/targets.json
   "season_keywords" only as a reference list of terms that should NOT
   cause rejection — never as a list to filter for or require.
 - There is no company exclusion list — every company is in scope as long
@@ -408,7 +431,7 @@ has just because the TOML files exist.
 ## Deterministic JD fit gate
 - After role filtering and before tailoring, run the deterministic fit
   helper on every canonical job:
-  `python3 scripts/jobs/evaluate_job_fit.py '<canonical-job-json>'`
+  `python3 src/scripts/jobs/evaluate_job_fit.py '<canonical-job-json>'`
   Pass the canonical job JSON (the same object upserted into the
   registry). The helper returns a JSON object with at least fit_status,
   fit_score, reasoning, fit_reasons, matched_role_keyword,
@@ -453,7 +476,7 @@ has just because the TOML files exist.
   do not retry in a loop.
 
 ## Location handling
-- "preferred_locations" in config/targets.json is a PRIORITY list, not a
+- "preferred_locations" in src/config/targets.json is a PRIORITY list, not a
   filter. Any job matching role_keywords + level_keywords is in scope
   regardless of location, as long as it's within "fallback_scope"
   (United States, including remote-US roles).
@@ -470,13 +493,13 @@ has just because the TOML files exist.
   scope. This field is required by the File write discipline schema.
 
 ## Canonical registry and event log
-- The canonical helper (scripts/state/job_state.py) is the single source of truth
+- The canonical helper (src/scripts/state/job_state.py) is the single source of truth
   for canonical job records and internal events. Never hand-write
   data/job_registry.json or the local event log — always go through the
   helper.
 - Canonicalize every scraped raw job into one internal record before any
   dedup or filtering decision:
-  `python3 scripts/state/job_state.py canonicalize '<raw-job-json>'`
+  `python3 src/scripts/state/job_state.py canonicalize '<raw-job-json>'`
   Pass the raw job (company, title, url, source, jd_text, location, etc.)
   as a single JSON object string. The helper returns a canonical job JSON
   with a stable job_key (the canonical identity) and a job_id. job_id is
@@ -492,16 +515,16 @@ has just because the TOML files exist.
   Keep the existing `url` field on those entries too — it still records
   where the posting was found; `apply_url` is additive, not a replacement.
 - Upsert each canonical record into the registry:
-  `python3 scripts/state/job_state.py upsert-job '<canonical-job-json>'`
+  `python3 src/scripts/state/job_state.py upsert-job '<canonical-job-json>'`
   The helper merges by job_key — existing records are updated, new records
   are inserted. Never append duplicates manually.
 - Before any application attempt, re-check eligibility:
-  `python3 scripts/state/job_state.py can-apply '<canonical-job-json>'`
+  `python3 src/scripts/state/job_state.py can-apply '<canonical-job-json>'`
   This is the dedupe recheck against the registry and applied history. If
   the helper refuses (returns non-zero or prints "no"), skip the job and
   record a skipped_unfit event. Do not attempt the application.
 - Record internal events for every outcome:
-  `python3 scripts/state/job_state.py record-event '<event-json>'`
+  `python3 src/scripts/state/job_state.py record-event '<event-json>'`
   Status values and when to use them:
     - skipped_unfit — a hard reject during filtering (3+ years, out of US
       scope, etc.), a skipped_unfit from the deterministic fit gate
@@ -529,6 +552,37 @@ has just because the TOML files exist.
   The @discord-reporter subagent must not be invoked for skipped_unfit
   events.
 
+## Doubt signals (apply-time review triggers)
+- A "doubt signal" is any concrete, machine-checkable reason to distrust an
+  automatic submission. This is the canonical vocabulary — use these exact
+  strings in a `doubt_signals` array (see "File write discipline") instead of
+  inventing new ones per call site, so the review queue is filterable and the
+  taxonomy stays enumerable in one place:
+  - `ambiguous_dropdown` — a dropdown/combobox/typeahead had no unique exact
+    match for the intended value (Phase 3 step 3d).
+  - `verification_mismatch` — the mandatory pre-submit field-by-field
+    verification found a filled value that didn't match its intended source
+    (Phase 3 step 6).
+  - `unrecognized_field` — the form contains a field with no mapping in
+    `safe_fields` and no constructed equivalent (resume, cover letter, essay
+    answer). Never skip this silently — a required field could be left
+    unfilled with no record of it.
+  - `unmapped_required_field` — a required field maps to an empty
+    `safe_fields` value (the user declined to answer).
+  - `low_ats_score` — @resume-tailor's ats_score fell below the Phase 2
+    threshold (60).
+  - `unapproved_essay_answer` — a free-text motivation question has no
+    user-approved interest letter yet (Phase 3 step 3, interest_letter.py).
+  - `captcha` — a CAPTCHA was detected on the board.
+  - `credential_or_payment_request` — the form asks for a password, SSN, or
+    payment info not present in `safe_fields`.
+  - `non_candidate_fit` — the deterministic fit gate did not return
+    `candidate`.
+  - `workday_review_only` — the job is on Workday, which has no auto-apply
+    path by design (see "Board-specific fetch method").
+  A single job may carry more than one doubt signal; list every one that
+  applies rather than picking the first.
+
 ## File write discipline
 - applied_jobs.json entries must include: job_id, company, title, url,
   apply_url, date_applied, status (applied|failed|needs_review), role_type
@@ -547,26 +601,60 @@ has just because the TOML files exist.
   "ATS score 38/100 — requires CISSP certification not present in
   resume"). Never leave this field empty or generic. The "reasoning"
   field is optional when status is "applied".
+- When status is "needs_review", also include `doubt_signals` — a non-empty
+  array drawn from the canonical vocabulary in "Doubt signals" above (every
+  triggering signal, not just one) — and `fill_record_path` when
+  `src/scripts/state/record_fill.py` was called for this job (see "Fill records"
+  below); omit `fill_record_path` (do not send an empty string) when no
+  fields were ever filled for this job, e.g. a Workday entry or a Phase
+  1/Phase 2 pre-tailoring reject. `doubt_signals` is optional (and normally
+  empty/omitted) when status is "applied" or "failed".
 - Never overwrite the file — always append new entries.
 - Use the deterministic state helper for all JSON state writes — never
   hand-write jq one-liners to mutate state files directly. The helper
   handles atomic write, array append, and dedup guard.
   - Append to applied_jobs.json:
-    `bash scripts/state/append_state_entry.sh data/applied_jobs.json '<entry-json>'`
+    `bash src/scripts/state/append_state_entry.sh data/applied_jobs.json '<entry-json>'`
   - Append to review_queue.json:
-    `bash scripts/state/append_state_entry.sh data/review_queue.json '<entry-json>'`
+    `bash src/scripts/state/append_state_entry.sh data/review_queue.json '<entry-json>'`
   - Pass the entry as a single JSON object string. Do not construct tmp
     files or mv commands yourself.
 - Canonical registry and event log writes go through the canonical helper
-  (scripts/state/job_state.py), not append_state_entry.sh:
-  `python3 scripts/state/job_state.py upsert-job '<canonical-job-json>'`
-  `python3 scripts/state/job_state.py record-event '<event-json>'`
+  (src/scripts/state/job_state.py), not append_state_entry.sh:
+  `python3 src/scripts/state/job_state.py upsert-job '<canonical-job-json>'`
+  `python3 src/scripts/state/job_state.py record-event '<event-json>'`
   See "Canonical registry and event log" above for the full flow.
+
+## Fill records (phase 16C)
+- `src/scripts/state/record_fill.py` is the canonical helper for persisting
+  exactly what was typed/attached into an application form — a durable,
+  provenance-tagged record, not just an in-context comparison that's
+  forgotten once the run ends. Never hand-write `data/fill_records/`.
+- Call it once per job, immediately after the mandatory pre-submit
+  verification (Phase 3 step 6), for **every** application that reached the
+  point of filling at least one field — whether the outcome ends in a real
+  submit or a `needs_review` abort. This is what lets a later "reopen this
+  application" action replay precisely what was already verified, instead of
+  re-deciding anything.
+  `python3 src/scripts/state/record_fill.py record '<job_id>' '<fields-json>'`
+  where `<fields-json>` is a JSON array of
+  `{field_name, filled_value, source, verified}` objects — `source` is one
+  of `safe_fields:<key>` (naming the config key it came from), `constructed`
+  (e.g. a linkedin/github URL built from a username), `resume_upload`, or
+  `cover_letter`; `verified` is the boolean result of the Phase 3 step 6
+  check for that field.
+  Writes `data/fill_records/<job_id>.json` and prints its path — pass that
+  path as `fill_record_path` in the applied_jobs.json/review_queue.json
+  entry (see "File write discipline").
+- Do not call this for a job where no field was ever filled (e.g. a Phase
+  1/Phase 2 pre-tailoring reject, or a Workday entry while
+  `workday_prefill_for_review` is false) — there is nothing to record, and
+  `fill_record_path` should simply be omitted for those entries.
 
 ## Scheduler (phase 8)
 - The production cadence is a launchd user agent (macOS) running
-  scripts/runtime/run_job_agent.sh every 30 minutes, 24/7 — managed by
-  scripts/runtime/scheduler.sh (install|uninstall|status|plist); Linux
+  src/scripts/runtime/run_job_agent.sh every 30 minutes, 24/7 — managed by
+  src/scripts/runtime/scheduler.sh (install|uninstall|status|plist); Linux
   equivalent documented in docs/SETUP.md 2.5. The runner owns overlap
   protection (skip-on-overlap, dead-lock reclaim, 60-min hung-run
   threshold), writes the machine-parseable
@@ -575,7 +663,7 @@ has just because the TOML files exist.
   unchanged by the cadence.
 
 ## TUI surface (phase 13)
-- The TypeScript TUI in app/ is a rendering/orchestration overlay only.
+- The TypeScript TUI in src/tui/ is a rendering/orchestration overlay only.
   The Python/bash helpers remain the sole authoritative state writers:
   the TUI shells out to append_state_entry.sh and job_state.py for every
   state mutation and never edits state JSON directly. A TypeScript port
@@ -585,19 +673,19 @@ has just because the TOML files exist.
   them — it never deletes queue entries.
 
 ## Browser extension surface (phase 10)
-- The Manifest V3 extension in extension/ is the user-driven hybrid
+- The Manifest V3 extension in src/extension/ is the user-driven hybrid
   mode: the USER browses postings and submits forms; the extension only
   autofills, shows the fit verdict, and records outcomes.
 - The extension NEVER submits a form. Autofill stops at a filled form;
   the user reviews and clicks submit themselves. This is the defining
   safety property of hybrid mode — never weaken it.
-- Autofill values come ONLY from config/targets.json "safe_fields". A
+- Autofill values come ONLY from src/config/targets.json "safe_fields". A
   field the profile cannot answer is highlighted for the user, never
   invented. The bridge serves only the specific keys a page's form
   mapped — never the whole safe_fields map.
-- All extension reads/writes flow through scripts/runtime/extension_bridge.py
+- All extension reads/writes flow through src/scripts/runtime/extension_bridge.py
   (localhost-only, per-install bearer token in the gitignored
-  config/extension_bridge.json). The bridge itself only shells out to
+  src/config/extension_bridge.json). The bridge itself only shells out to
   the standard helpers (job_state.py, evaluate_job_fit.py,
   append_state_entry.sh, sync_internship_tracker.py) — the same write
   discipline as the agent and the TUI, so hybrid-mode and agent-mode
@@ -606,7 +694,7 @@ has just because the TOML files exist.
   they submitted) and "needs_review" (save for later). The applied
   path re-checks can-apply before writing and syncs the tracker
   best-effort, mirroring the agent path.
-- ATS selector fixups live in extension/src/ats.ts only — one
+- ATS selector fixups live in src/extension/src/ats.ts only — one
   reviewable module for all four families (Greenhouse, Lever, Ashby,
   Workday). Web-store distribution is out of scope (load unpacked).
 
@@ -629,7 +717,7 @@ has just because the TOML files exist.
   role_type) to the sheet.
 - Invoke the helper with a single JSON payload describing one successful
   application:
-  `python3 scripts/jobs/sync_internship_tracker.py '<row-json>'`
+  `python3 src/scripts/jobs/sync_internship_tracker.py '<row-json>'`
   The payload carries the visible tracker row fields (JSON keys match
   the helper's accepted payload fields):
     - company (required) — the applied job's company.
@@ -649,7 +737,7 @@ has just because the TOML files exist.
        non-empty.
     2. Otherwise, infer a term from the job title and JD text ONLY when
        a clear term is present (e.g. "Summer 2026", "Fall 2026 Intern",
-       "Spring Co-op"). Use config/targets.json "season_keywords" as
+       "Spring Co-op"). Use src/config/targets.json "season_keywords" as
        the reference set of recognizable terms. Do not guess or
        fabricate a term.
     3. Otherwise, leave Internship Term blank.

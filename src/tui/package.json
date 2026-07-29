@@ -1,0 +1,42 @@
+{
+  "name": "@keshm/aplyx",
+  "version": "0.9.948-alpha.0",
+  "description": "Terminal UI overlay for aplyx — manual job search, automatic runs, review triage, status, and history over the Python core.",
+  "publishConfig": {
+    "tag": "latest",
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/keshm2/aplyx.git",
+    "directory": "app"
+  },
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "aplyx": "dist/cli.js"
+  },
+  "files": [
+    "dist/cli.js"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc && npm run bundle",
+    "bundle": "esbuild dist/cli.js --bundle --platform=node --format=esm --outfile=dist/cli.js --allow-overwrite --external:ink --external:react && chmod +x dist/cli.js",
+    "typecheck": "tsc --noEmit",
+    "smoke": "node dist/cli.js status"
+  },
+  "dependencies": {
+    "ink": "^5.0.1",
+    "react": "^18.3.1"
+  },
+  "devDependencies": {
+    "@aplyx/core": "^0.1.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.3",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.5.0"
+  }
+}

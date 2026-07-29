@@ -1,14 +1,14 @@
 # Phase 13: TUI package CI — typecheck, build, and a non-interactive
 # smoke run. The repo's live config/state files are gitignored, so the
 # smoke test only exercises commands that tolerate their absence.
-# app/ depends on the shared @aplyx/core workspace package (packages/core),
-# so installs/builds run from the repo root rather than app/ standalone.
+# src/tui/ depends on the shared @aplyx/core workspace package (src/core),
+# so installs/builds run from the repo root rather than src/tui/ standalone.
 name: tui
 on:
   push:
-    paths: ["app/**", "packages/core/**", "package.json", "package-lock.json", ".github/workflows/tui.yml"]
+    paths: ["src/tui/**", "src/core/**", "package.json", "package-lock.json", ".github/workflows/tui.yml"]
   pull_request:
-    paths: ["app/**", "packages/core/**", "package.json", "package-lock.json", ".github/workflows/tui.yml"]
+    paths: ["src/tui/**", "src/core/**", "package.json", "package-lock.json", ".github/workflows/tui.yml"]
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -19,6 +19,6 @@ jobs:
           node-version: 22
       - run: npm ci
       - run: npm run build --workspace=@aplyx/core
-      - run: npm run typecheck --workspace=app
-      - run: npm run build --workspace=app
-      - run: npm run smoke --workspace=app
+      - run: npm run typecheck --workspace=@keshm/aplyx
+      - run: npm run build --workspace=@keshm/aplyx
+      - run: npm run smoke --workspace=@keshm/aplyx

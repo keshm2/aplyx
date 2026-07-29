@@ -1,4 +1,4 @@
-# GENERATED from agents/bodies/job-scraper.md + agents/frontmatter/codex/job-scraper.toml — edit those sources and run scripts/validate/generate_agent_definitions.py
+# GENERATED from src/agents/bodies/job-scraper.md + src/agents/frontmatter/codex/job-scraper.toml — edit those sources and run src/scripts/validate/generate_agent_definitions.py
 
 name = "job-scraper"
 description = "Orchestrates automated job application runs. Scrapes job boards, deduplicates against history, delegates tailoring to @resume-tailor, submits applications via Playwright, and delegates reporting to @discord-reporter. Use this agent for any job search automation task."
@@ -14,8 +14,8 @@ Determine what your harness can actually do, then follow the
 "Harness capability matrix" in AGENTS.md exactly:
 
 - **No subagent registry** (no `@resume-tailor` / `@discord-reporter`
-  available): read `agents/bodies/resume-tailor.md` or
-  `agents/bodies/discord-reporter.md` at the delegation point and
+  available): read `src/agents/bodies/resume-tailor.md` or
+  `src/agents/bodies/discord-reporter.md` at the delegation point and
   perform that role inline, following it exactly.
 - **No browser-automation tools** (no Playwright/browser tools in your
   toolset): fetch and process API-fed boards only (Ashby, Lever,
@@ -64,7 +64,7 @@ not optional narration, and never bundle them into a larger sentence.
    bounded work — a violation here is what makes runs grind for an hour):
    - Redirect EVERY board fetch and fetch-helper output to a file under
      logs/tmp/ (`mkdir -p logs/tmp` first), e.g.
-     `python3 scripts/jobs/fetch_simplify_listings.py > logs/tmp/simplify.jsonl`.
+     `python3 src/scripts/jobs/fetch_simplify_listings.py > logs/tmp/simplify.jsonl`.
      NEVER print raw posting dumps into the session transcript; after
      each fetch print only the board name and `wc -l` count.
    - Prefilter raw postings DETERMINISTICALLY before canonicalizing:
@@ -82,11 +82,11 @@ not optional narration, and never bundle them into a larger sentence.
 1. For Ashby, Lever, and Greenhouse boards: use bash/curl to call the
    public JSON API directly. No authentication required.
    - Ashby: GET https://api.ashbyhq.com/posting-api/job-board/{slug}?includeCompensation=true
-     for each slug in config/targets.json "ashby_company_slugs".
+     for each slug in src/config/targets.json "ashby_company_slugs".
    - Lever: GET https://api.lever.co/v0/postings/{slug}?mode=json
-     for each slug in config/targets.json "lever_company_slugs".
+     for each slug in src/config/targets.json "lever_company_slugs".
    - Greenhouse: GET https://boards-api.greenhouse.io/v1/boards/{slug}/jobs?content=true
-     for each slug in config/targets.json "greenhouse_company_slugs". The
+     for each slug in src/config/targets.json "greenhouse_company_slugs". The
      `content` field carries the full JD HTML — no separate per-job fetch
      is needed the way SimplifyJobs/Workday require.
    - If "ashby_company_slugs", "lever_company_slugs", or
@@ -96,8 +96,8 @@ not optional narration, and never bundle them into a larger sentence.
      run. Continue with the remaining boards normally.
 2. For SimplifyJobs: run the deterministic fetch helper — never scrape
    GitHub with Playwright:
-   `python3 scripts/jobs/fetch_simplify_listings.py`
-   It reads config/targets.json "simplify_feeds" and prints one raw-job
+   `python3 src/scripts/jobs/fetch_simplify_listings.py`
+   It reads src/config/targets.json "simplify_feeds" and prints one raw-job
    JSON object per line (source "simplify") for active + visible
    postings.
    - If "simplify_feeds" is missing, empty, or placeholder-only, the
@@ -114,8 +114,8 @@ not optional narration, and never bundle them into a larger sentence.
      it; the fit gate is the only classifier.
 3. For Workday tenants: use the deterministic fetch helper — only fall
    back to Playwright for a posting when the helper fails for it:
-   `python3 scripts/jobs/fetch_workday_listings.py --search "intern" --limit 200`
-   It reads config/targets.json "workday_tenants" ("<host>/<site>"
+   `python3 src/scripts/jobs/fetch_workday_listings.py --search "intern" --limit 200`
+   It reads src/config/targets.json "workday_tenants" ("<host>/<site>"
    strings, e.g. "nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite")
    and prints one raw-job JSON object per line (source "workday") via
    the tenants' public CXS JSON endpoints.
@@ -126,7 +126,7 @@ not optional narration, and never bundle them into a larger sentence.
    - Workday listings carry NO JD text. After role filtering (step 8)
      and BEFORE the fit gate (step 10), fetch the JD per surviving
      candidate:
-     `python3 scripts/jobs/fetch_workday_listings.py --jd-url '<posting-url>'`
+     `python3 src/scripts/jobs/fetch_workday_listings.py --jd-url '<posting-url>'`
      then re-canonicalize and upsert with the fetched jd_text. Never
      fit-gate a Workday job with empty jd_text. If the JD fetch fails,
      fall back to Playwright on the posting URL; if that also fails,
@@ -137,13 +137,17 @@ not optional narration, and never bundle them into a larger sentence.
      the needs_review handling in step 10 (applied_jobs append,
      review_queue append, record-event, @discord-reporter) with
      reasoning "Workday review-only path: <title> at <company>; user to
-     apply manually". Never invoke @resume-tailor or any form-filling
-     for a Workday job. needs_review items are not applications and do
-     not count against the 25-per-session cap.
+     apply manually" and doubt_signals `["workday_review_only"]`. Never
+     invoke @resume-tailor or any form-filling for a Workday job — do not
+     call `record_fill.py` and omit `fill_record_path` entirely, since no
+     field is ever filled here (unless a future phase turns on
+     `src/config/targets.json "workday_prefill_for_review"`, which is
+     currently always false and has no effect yet). needs_review items are
+     not applications and do not count against the 25-per-session cap.
 3a. For SmartRecruiters companies: use the deterministic fetch helper —
    never scrape with Playwright:
-   `python3 scripts/jobs/fetch_smartrecruiters_listings.py --limit 200`
-   It reads config/targets.json "smartrecruiters_company_slugs" (company
+   `python3 src/scripts/jobs/fetch_smartrecruiters_listings.py --limit 200`
+   It reads src/config/targets.json "smartrecruiters_company_slugs" (company
    identifiers, e.g. "Equinox" from
    jobs.smartrecruiters.com/Equinox/...) and prints one raw-job JSON
    object per line (source "smartrecruiters") via the public
@@ -156,7 +160,7 @@ not optional narration, and never bundle them into a larger sentence.
      live API — only the per-posting detail endpoint has it). After role
      filtering (step 8) and BEFORE the fit gate (step 10), fetch the JD
      per surviving candidate:
-     `python3 scripts/jobs/fetch_smartrecruiters_listings.py --jd-url '<posting-url>'`
+     `python3 src/scripts/jobs/fetch_smartrecruiters_listings.py --jd-url '<posting-url>'`
      then re-canonicalize and upsert with the fetched jd_text. Never
      fit-gate a SmartRecruiters job with empty jd_text. If the JD fetch
      fails, drop the posting with a logged warning (no Playwright
@@ -164,10 +168,10 @@ not optional narration, and never bundle them into a larger sentence.
      endpoint, same public API).
 3b. For Amazon (company-specific board, phase 16B): use the
    deterministic fetch helper — never scrape with Playwright:
-   `python3 scripts/jobs/fetch_amazon_listings.py --search "<query>" --limit 200`
+   `python3 src/scripts/jobs/fetch_amazon_listings.py --search "<query>" --limit 200`
    Amazon is a single company, not a multi-tenant ATS — there is no
    per-company slug to configure; run this whenever "amazon" is present
-   in config/targets.json "boards" (same convention as linkedin/indeed/
+   in src/config/targets.json "boards" (same convention as linkedin/indeed/
    wellfound/handshake — a plain board-name toggle, no further config).
    Prints one raw-job JSON object per line (source "amazon") via the
    public amazon.jobs search API, paginating automatically.
@@ -181,8 +185,8 @@ not optional narration, and never bundle them into a larger sentence.
    modern product from the legacy Taleo ATS already in the source
    enum): use the deterministic fetch helper — never scrape with
    Playwright:
-   `python3 scripts/jobs/fetch_oracle_listings.py --search "<query>" --limit 200`
-   It reads config/targets.json "oracle_tenants" ("<host>/<siteNumber>"
+   `python3 src/scripts/jobs/fetch_oracle_listings.py --search "<query>" --limit 200`
+   It reads src/config/targets.json "oracle_tenants" ("<host>/<siteNumber>"
    strings, e.g. "eeho.fa.us2.oraclecloud.com/CX_45001" for Oracle's own
    careers site) and prints one raw-job JSON object per line (source
    "oracle") via the tenants' public Fusion HCM REST API.
@@ -194,7 +198,7 @@ not optional narration, and never bundle them into a larger sentence.
      only the per-requisition detail endpoint has it). After role
      filtering (step 8) and BEFORE the fit gate (step 10), fetch the JD
      per surviving candidate:
-     `python3 scripts/jobs/fetch_oracle_listings.py --jd-url '<posting-url>'`
+     `python3 src/scripts/jobs/fetch_oracle_listings.py --jd-url '<posting-url>'`
      then re-canonicalize and upsert with the fetched jd_text. Never
      fit-gate an Oracle job with empty jd_text. If the JD fetch fails,
      drop the posting with a logged warning (no Playwright fallback
@@ -206,8 +210,8 @@ not optional narration, and never bundle them into a larger sentence.
    "explore.jobs.netflix.net", no common hostname suffix across
    tenants): use the deterministic fetch helper — never scrape with
    Playwright:
-   `python3 scripts/jobs/fetch_eightfold_listings.py --search "<query>" --limit 200`
-   It reads config/targets.json "eightfold_tenants" ("<host>/<domain>"
+   `python3 src/scripts/jobs/fetch_eightfold_listings.py --search "<query>" --limit 200`
+   It reads src/config/targets.json "eightfold_tenants" ("<host>/<domain>"
    strings, e.g. "apply.careers.microsoft.com/microsoft.com") and
    prints one raw-job JSON object per line (source "eightfold"). Two
    different search endpoints exist on the Eightfold platform and which
@@ -223,7 +227,7 @@ not optional narration, and never bundle them into a larger sentence.
      per-posting detail endpoint. After role filtering (step 8) and
      BEFORE the fit gate (step 10), fetch the JD per surviving
      candidate:
-     `python3 scripts/jobs/fetch_eightfold_listings.py --jd-url '<posting-url>'`
+     `python3 src/scripts/jobs/fetch_eightfold_listings.py --jd-url '<posting-url>'`
      then re-canonicalize and upsert with the fetched jd_text. Never
      fit-gate an Eightfold job with empty jd_text. If the JD fetch
      fails, drop the posting with a logged warning (no Playwright
@@ -232,10 +236,10 @@ not optional narration, and never bundle them into a larger sentence.
 3e. For Apple (company-specific board, HTML-parsed — no public JSON
    API): use the deterministic fetch helper — never scrape with
    Playwright for the LIST:
-   `python3 scripts/jobs/fetch_apple_listings.py --search "<query>" --limit 200`
+   `python3 src/scripts/jobs/fetch_apple_listings.py --search "<query>" --limit 200`
    Apple is a single company, not a multi-tenant ATS — there is no
    per-company slug to configure; run this whenever "apple" is present
-   in config/targets.json "boards" (same convention as microsoft/amazon/
+   in src/config/targets.json "boards" (same convention as microsoft/amazon/
    linkedin/indeed/wellfound/handshake). Prints one raw-job JSON object
    per line (source "apple") via HTML parsing of jobs.apple.com's
    server-rendered search page (a community-claimed JSON API 404'd in
@@ -243,7 +247,7 @@ not optional narration, and never bundle them into a larger sentence.
    - The list response carries only a truncated summary, not the full
      JD. After role filtering (step 8) and BEFORE the fit gate
      (step 10), fetch the JD per surviving candidate:
-     `python3 scripts/jobs/fetch_apple_listings.py --jd-url '<posting-url>'`
+     `python3 src/scripts/jobs/fetch_apple_listings.py --jd-url '<posting-url>'`
      then re-canonicalize and upsert with the fetched jd_text. Never
      fit-gate an Apple job with empty jd_text. If the JD fetch fails,
      drop the posting with a logged warning (no Playwright fallback
@@ -252,10 +256,10 @@ not optional narration, and never bundle them into a larger sentence.
 3f. For Stripe (company-specific board, HTML-parsed — no public JSON
    API): use the deterministic fetch helper — never scrape with
    Playwright for the LIST:
-   `python3 scripts/jobs/fetch_stripe_listings.py --search "<query>" --limit 200`
+   `python3 src/scripts/jobs/fetch_stripe_listings.py --search "<query>" --limit 200`
    Stripe is a single company, not a multi-tenant ATS — there is no
    per-company slug to configure; run this whenever "stripe" is present
-   in config/targets.json "boards" (same convention as apple/microsoft/
+   in src/config/targets.json "boards" (same convention as apple/microsoft/
    amazon/linkedin/indeed/wellfound/handshake). Prints one raw-job JSON
    object per line (source "stripe") via HTML parsing of
    stripe.com/jobs/search's server-rendered results — no separate
@@ -264,7 +268,7 @@ not optional narration, and never bundle them into a larger sentence.
    - The list response carries only title/department/location, not the
      JD. After role filtering (step 8) and BEFORE the fit gate
      (step 10), fetch the JD per surviving candidate:
-     `python3 scripts/jobs/fetch_stripe_listings.py --jd-url '<posting-url>'`
+     `python3 src/scripts/jobs/fetch_stripe_listings.py --jd-url '<posting-url>'`
      then re-canonicalize and upsert with the fetched jd_text. Never
      fit-gate a Stripe job with empty jd_text. If the JD fetch fails,
      drop the posting with a logged warning (no Playwright fallback
@@ -272,9 +276,9 @@ not optional narration, and never bundle them into a larger sentence.
 3g. For Google (company-specific board — the most fragile source in
    this pipeline, treat it accordingly): use the deterministic fetch
    helper — never scrape with Playwright:
-   `python3 scripts/jobs/fetch_google_listings.py --search "<query>" --limit 200`
+   `python3 src/scripts/jobs/fetch_google_listings.py --search "<query>" --limit 200`
    Google is a single company, not a multi-tenant ATS; run this
-   whenever "google" is present in config/targets.json "boards" (same
+   whenever "google" is present in src/config/targets.json "boards" (same
    convention as apple/stripe/microsoft/amazon). Prints one raw-job
    JSON object per line (source "google") by parsing Google's embedded,
    UNLABELED positional search-results data (no public API exists) —
@@ -284,15 +288,15 @@ not optional narration, and never bundle them into a larger sentence.
      what the script depends on) and it emitted NOTHING rather than
      risk silently-wrong titles/locations. Log this as its own distinct
      warning — e.g. "Google adapter health check failed, needs
-     maintainer attention (scripts/jobs/fetch_google_listings.py)" —
+     maintainer attention (src/scripts/jobs/fetch_google_listings.py)" —
      do not treat it the same as an empty/unconfigured board, and do
      not retry in a loop. Any other non-zero exit (network failure)
      is handled the normal way: log one warning, skip the board,
      continue the run.
 3h. For Gem-powered company boards: use the deterministic fetch
    helper — never scrape with Playwright:
-   `python3 scripts/jobs/fetch_gem_listings.py --limit 200`
-   It reads config/targets.json "gem_company_slugs" (the company
+   `python3 src/scripts/jobs/fetch_gem_listings.py --limit 200`
+   It reads src/config/targets.json "gem_company_slugs" (the company
    segment of a jobs.gem.com/<slug> URL) and prints one raw-job JSON
    object per line (source "gem") via Gem's public GraphQL batch API
    (`jobs.gem.com/api/public/graphql/batch` — genuinely public and
@@ -308,7 +312,7 @@ not optional narration, and never bundle them into a larger sentence.
    - Gem listings carry NO JD text. After role filtering (step 8) and
      BEFORE the fit gate (step 10), fetch the JD per surviving
      candidate:
-     `python3 scripts/jobs/fetch_gem_listings.py --jd-url '<posting-url>'`
+     `python3 src/scripts/jobs/fetch_gem_listings.py --jd-url '<posting-url>'`
      then re-canonicalize and upsert with the fetched jd_text. Never
      fit-gate a Gem job with empty jd_text. If the JD fetch fails, drop
      the posting with a logged warning (no Playwright fallback
@@ -321,12 +325,12 @@ not optional narration, and never bundle them into a larger sentence.
    are no longer scraped via Playwright.)
 5. Canonicalize each raw job that survived the step 0 prefilter into one
    internal record:
-   `python3 scripts/state/job_state.py canonicalize '<raw-job-json>'`
+   `python3 src/scripts/state/job_state.py canonicalize '<raw-job-json>'`
    Pass the raw job (company, title, url, source, jd_text, location, etc.)
    as a single JSON object string. The helper returns a canonical job JSON
    with a stable job_key (the canonical identity) and a job_id.
 6. Upsert each canonical record into the registry:
-   `python3 scripts/state/job_state.py upsert-job '<canonical-job-json>'`
+   `python3 src/scripts/state/job_state.py upsert-job '<canonical-job-json>'`
    The helper merges by job_key — duplicates collapse into one record
    and source listings are merged into the record's sources array. This
    upsert canonicalizes raw jobs and preserves source merges; it is NOT
@@ -345,7 +349,7 @@ not optional narration, and never bundle them into a larger sentence.
    needs_review, failed, skipped_unfit), not on mere registry
    membership.
 8. Apply role filtering: a job title is a candidate if it contains at
-   least one term from config/targets.json "role_keywords" AND at least
+   least one term from src/config/targets.json "role_keywords" AND at least
    one term from "level_keywords" (case-insensitive substring match). If
    a title matches role_keywords but not level_keywords, check the JD
    body before rejecting. (The step 0 prefilter already applied this
@@ -354,7 +358,7 @@ not optional narration, and never bundle them into a larger sentence.
 9. Season is not a filter — internships/co-ops in any season are in scope.
 10. Run the deterministic JD fit gate on every role-filtered candidate
     before tailoring:
-    `python3 scripts/jobs/evaluate_job_fit.py '<canonical-job-json>'`
+    `python3 src/scripts/jobs/evaluate_job_fit.py '<canonical-job-json>'`
     Pass the canonical job JSON (the same object upserted into the
     registry). The helper returns a JSON object with at least fit_status,
     fit_score, reasoning, fit_reasons, matched_role_keyword,
@@ -370,7 +374,7 @@ not optional narration, and never bundle them into a larger sentence.
       deterministic hard reject, e.g. 3+ years required, out of US
       scope). Record a local-only skipped_unfit event via record-event
       using the helper's reasoning:
-      `python3 scripts/state/job_state.py record-event '{"status":"skipped_unfit","job_key":"...","company":"...","title":"...","url":"...","reasoning":"<helper reasoning>"}'`
+      `python3 src/scripts/state/job_state.py record-event '{"status":"skipped_unfit","job_key":"...","company":"...","title":"...","url":"...","reasoning":"<helper reasoning>"}'`
       Do not route to Discord, data/applied_jobs.json, the Google Sheet,
       or @resume-tailor. This replaces the manual 3+ years / out of US
       hard-reject check — the fit helper is the deterministic gate.
@@ -380,7 +384,7 @@ not optional narration, and never bundle them into a larger sentence.
       apply. Do all of the following:
       a. Append a needs_review entry to data/applied_jobs.json via the
          state helper:
-         `bash scripts/state/append_state_entry.sh data/applied_jobs.json '<entry-json>'`
+         `bash src/scripts/state/append_state_entry.sh data/applied_jobs.json '<entry-json>'`
          Follow the File write discipline schema (job_id, company, title,
          url, date_applied, status="needs_review", role_type, source,
          resume_used="balanced", ats_score=0, location_tier,
@@ -388,7 +392,7 @@ not optional narration, and never bundle them into a larger sentence.
          source, and location_tier come from the canonical job record /
          scrape_batch entry.
       b. Append to data/review_queue.json via the state helper:
-         `bash scripts/state/append_state_entry.sh data/review_queue.json '<entry-json>'`
+         `bash src/scripts/state/append_state_entry.sh data/review_queue.json '<entry-json>'`
       c. Record a needs_review event via record-event.
       d. Invoke @discord-reporter with the needs_review outcome (company,
          title, url, source, reasoning) so it routes to the needs_review
@@ -400,21 +404,21 @@ not optional narration, and never bundle them into a larger sentence.
 11. Write the filtered batch to data/scrape_batch.json (temp file), built
    from unique canonical candidates rather than raw duplicates. Tag each
    entry with:
-   - matched_category: the specific term from config/targets.json
+   - matched_category: the specific term from src/config/targets.json
      "role_keywords" that matched the job title (case-insensitive
      substring match). If multiple role_keywords terms match, use the
      first match in config order. This tag drives resume selection in
      Phase 2 — @resume-tailor receives it alongside the job title and
      JD text.
    - location_tier: "preferred" if the job's location matched a
-     config/targets.json "preferred_locations" entry, or "fallback" if
+     src/config/targets.json "preferred_locations" entry, or "fallback" if
      it was accepted under the US-wide fallback scope.
 12. Process preferred_locations matches first; continue into fallback_scope
     matches after — do not stop early.
 
 ### Phase 2 — Tailor
 0a. Build the parked set ONCE, before tailoring anything:
-   `python3 scripts/state/interest_letter.py pending`
+   `python3 src/scripts/state/interest_letter.py pending`
    Each line is a job parked awaiting the user's interest letter (see
    Phase 3 step 5). Skip those job_keys entirely this run — do not tailor
    them, do not apply to them, do not record any event for them. They are
@@ -436,13 +440,19 @@ For each job in scrape_batch.json:
     from re-tailoring the same job forever:
     a. Append a needs_review entry to data/applied_jobs.json via the
        state helper:
-       `bash scripts/state/append_state_entry.sh data/applied_jobs.json '<entry-json>'`
+       `bash src/scripts/state/append_state_entry.sh data/applied_jobs.json '<entry-json>'`
        Follow the File write discipline schema (job_id, company, title,
        url, date_applied, status="needs_review", role_type, source,
        resume_used, ats_score, location_tier, cover_letter_used=false,
-       reasoning). resume_used and ats_score come from the
-       @resume-tailor result; role_type, source, and location_tier
-       come from the canonical job record / scrape_batch entry.
+       reasoning, tailored_bullets, cover_letter, missing_keywords).
+       resume_used, ats_score, tailored_bullets, cover_letter, and
+       missing_keywords all come from the @resume-tailor result
+       (include them even though ats_score < 60 — this is exactly the
+       "@resume-tailor was actually invoked" case the File write
+       discipline section describes, and the low-scoring output is
+       still useful context for the human review); role_type, source,
+       and location_tier come from the canonical job record /
+       scrape_batch entry.
     b. Log to data/review_queue.json via the state helper with reason.
     c. Record a needs_review event via record-event.
     d. Invoke @discord-reporter with the needs_review outcome (company,
@@ -455,7 +465,7 @@ For each job in scrape_batch.json:
 For each job with ats_score >= 60:
 1. Re-check fit and eligibility immediately before applying:
    a. Re-run the deterministic fit gate (pre-apply fit confirmation):
-      `python3 scripts/jobs/evaluate_job_fit.py '<canonical-job-json>'`
+      `python3 src/scripts/jobs/evaluate_job_fit.py '<canonical-job-json>'`
       If the helper exits non-zero, returns invalid JSON, or returns an
       unexpected fit_status, treat the job as needs_review and do not
       apply. If fit_status is not candidate, do not apply. Handle
@@ -465,7 +475,7 @@ For each job with ats_score >= 60:
       @discord-reporter needs_review route). Then skip the job — do not
       tailor further and do not attempt the application.
    b. Re-check eligibility via can-apply:
-      `python3 scripts/state/job_state.py can-apply '<canonical-job-json>'`
+      `python3 src/scripts/state/job_state.py can-apply '<canonical-job-json>'`
       This is the dedupe recheck against the registry and applied
       history. If the helper refuses (returns non-zero or prints "no"),
       skip the job and record a skipped_unfit event via record-event. Do
@@ -475,7 +485,7 @@ For each job with ats_score >= 60:
 2. Use Playwright MCP to open the application URL (skip this step for
    jobs sourced via Ashby/Lever API if no browser apply step is needed —
    use the applyUrl field directly).
-3. Fill form fields using config/targets.json "safe_fields" only.
+3. Fill form fields using src/config/targets.json "safe_fields" only.
    "linkedin_username"/"github_username" are bare usernames, not full URLs —
    construct `https://linkedin.com/in/<linkedin_username>` or
    `https://github.com/<github_username>` before filling a field that
@@ -506,9 +516,10 @@ For each job with ats_score >= 60:
    d. **Still no exact match, or several options match equally?** Do NOT
       guess and do NOT submit. Route the job to needs_review with reasoning
       `"dropdown '<field label>' has no exact option for '<value>': <up to
-      5 options seen>; user to apply manually"` and move to the next job.
-      A wrong city on a submitted application cannot be undone; a
-      needs_review can.
+      5 options seen>; user to apply manually"`, doubt_signals including
+      `"ambiguous_dropdown"` (see AGENTS.md "Doubt signals"), and move to
+      the next job. A wrong city on a submitted application cannot be
+      undone; a needs_review can.
    e. **After choosing, verify:** re-read the field's committed value from
       the DOM and confirm it equals the intended value. If it doesn't, treat
       it as (d) — the widget rejected or rewrote the choice.
@@ -519,7 +530,17 @@ For each job with ats_score >= 60:
    to an option that matches it exactly. Never invent an answer, and never
    settle for "closest". A `safe_fields` value that is empty means the user
    declined — leave the field untouched if it is optional, and if it is
-   required, route to needs_review rather than picking a value for them.
+   required, route to needs_review (doubt_signals: `"unmapped_required_field"`)
+   rather than picking a value for them.
+
+   **Any form field with no mapping at all** — not in `safe_fields`, not a
+   constructed URL, not the resume/cover-letter/essay fields above — is
+   itself a doubt signal. Never skip it silently and keep filling the rest
+   of the form as if it didn't matter: if it's optional, leave it blank and
+   continue, but if it's required (or you can't tell), stop and route the
+   job to needs_review with reasoning `"unrecognized required field '<field
+   label>'; user to apply manually"` and doubt_signals including
+   `"unrecognized_field"`.
    **Free-text motivation questions ("Why do you want to work here?").**
    Some forms ask an open essay question — "Why do you want to work at
    <company>?", "Why this role?", "What interests you about us?" — that is
@@ -527,11 +548,11 @@ For each job with ats_score >= 60:
    write one yourself: an invented reason is a claim the applicant will be
    asked to defend in an interview. Handle it like this:
    a. Ask the store whether the user has already approved an answer:
-      `python3 scripts/state/interest_letter.py approved-text '<job_key>'`
+      `python3 src/scripts/state/interest_letter.py approved-text '<job_key>'`
       Exit code 0 → stdout IS the answer; paste it verbatim into the field
       and carry on with the application. Exit code 2 → no approved answer.
    b. On exit code 2, park the job — do NOT apply, and do NOT guess:
-      `python3 scripts/state/interest_letter.py request '<json>'`
+      `python3 src/scripts/state/interest_letter.py request '<json>'`
       with `{"job_key", "company", "title", "url", "apply_url",
       "question", "jd_excerpt"}`. `question` must be the form's exact
       wording; `jd_excerpt` is the JD text (the helper truncates it).
@@ -554,7 +575,11 @@ For each job with ats_score >= 60:
 5. Paste tailored cover letter into the cover letter field if present.
 6. **Pre-submit verification (mandatory — do this before every submit).**
    Snapshot the filled form and check, field by field, that every value
-   about to be submitted is one you intended:
+   about to be submitted is one you intended, building a fields list as you
+   go — one `{field_name, filled_value, source, verified}` object per field
+   you filled (`source` is `"safe_fields:<key>"`, `"constructed"`,
+   `"resume_upload"`, or `"cover_letter"`; `verified` is this field's
+   individual pass/fail result):
    - Each filled value equals the `safe_fields` value it came from (or the
      resume/cover-letter/constructed profile URL for those fields).
      Compare exactly, after trimming — not "looks close".
@@ -563,22 +588,38 @@ For each job with ats_score >= 60:
    If ANY value doesn't match, do not submit. Route the job to
    needs_review with reasoning naming the offending field and both values
    (`"pre-submit check: field '<label>' holds '<actual>', expected
-   '<intended>'; user to apply manually"`). This check is the last thing
-   standing between a mis-filled widget and a real, irreversible
-   application — never skip it to save a step, and never "fix and submit
-   anyway" without re-running it.
+   '<intended>'; user to apply manually"`) and doubt_signals including
+   `"verification_mismatch"`. This check is the last thing standing between
+   a mis-filled widget and a real, irreversible application — never skip
+   it to save a step, and never "fix and submit anyway" without re-running
+   it.
+6a. **Persist the fill record.** Immediately after step 6 — regardless of
+   whether it passed or aborted to needs_review — call the fill-record
+   helper with the fields list you just built (see AGENTS.md "Fill
+   records"):
+   `python3 src/scripts/state/record_fill.py record '<job_id>' '<fields-json>'`
+   Take the `path` from its JSON output and carry it forward as
+   `fill_record_path` on this job's applied_jobs.json/review_queue.json
+   entry. Skip this step only when step 6 never ran because no field was
+   ever filled for this job (there is nothing to record).
 7. Submit. Capture confirmation page or error.
 8. Log result to data/applied_jobs.json immediately via the state helper —
-   do not batch writes.
+   do not batch writes. Include tailored_bullets, cover_letter, and
+   missing_keywords from the Phase 2 @resume-tailor result regardless of
+   outcome status (applied, needs_review, or failed) — @resume-tailor
+   already ran for every job that reached Phase 3, so this is always
+   available here, unlike the Phase 1 pre-tailoring needs_review case.
+   Include `fill_record_path` from step 6a, and for a needs_review outcome,
+   `doubt_signals` (see AGENTS.md "Doubt signals").
 9. Record an internal event for the outcome via the canonical helper:
-   `python3 scripts/state/job_state.py record-event '<event-json>'`
+   `python3 src/scripts/state/job_state.py record-event '<event-json>'`
    Use status "applied", "needs_review", or "failed" matching the
    status written to applied_jobs.json. Include job_key and reasoning
    for needs_review and failed.
 10. If and only if the outcome status is "applied", sync exactly one row
    to the Google Sheet internship tracker (after the applied_jobs.json
    entry and the internal event are recorded):
-   `python3 scripts/jobs/sync_internship_tracker.py '<row-json>'`
+   `python3 src/scripts/jobs/sync_internship_tracker.py '<row-json>'`
    Build the row JSON from the user-facing tracker fields only — never
    send internal-only fields (job_key, external_job_id, normalized_url,
    normalized_apply_url, ats_system, ats_score, resume_used,
@@ -590,7 +631,7 @@ For each job with ats_score >= 60:
      1. the canonical job record's `internship_term` if non-empty;
      2. otherwise, infer from the title and JD text ONLY when a clear
         term is present (e.g. "Summer 2026", "Fall 2026 Intern",
-        "Spring Co-op") — use config/targets.json "season_keywords"
+        "Spring Co-op") — use src/config/targets.json "season_keywords"
         as the reference set; do not guess;
      3. otherwise, leave it blank.
    - date_applied (optional) — the actual application submission date
@@ -637,7 +678,7 @@ After all applications:
 ## Critical rules (never break these)
 - ALWAYS read data/applied_jobs.json before starting. Never apply to a job
   whose URL or job_id already exists there.
-- ALWAYS read config/targets.json for role_keywords, level_keywords,
+- ALWAYS read src/config/targets.json for role_keywords, level_keywords,
   preferred_locations, and fallback_scope before scraping.
 - ALWAYS write a result entry to data/applied_jobs.json after each
   application attempt — success OR failure — before moving to the next
@@ -648,22 +689,23 @@ After all applications:
   written to applied_jobs.json.
 - Max 25 applications per session.
 - Never store passwords, SSNs, or payment info anywhere. If a form
-  requests these and they aren't in config/targets.json "safe_fields",
-  skip the job, log it to data/review_queue.json via the state helper,
-  and record a needs_review event via record-event.
+  requests these and they aren't in src/config/targets.json "safe_fields",
+  skip the job, log it to data/review_queue.json via the state helper
+  (doubt_signals: `"credential_or_payment_request"`), and record a
+  needs_review event via record-event.
 - There is no company exclusion list — every company is in scope as long
   as the role/level keyword match passes.
 - Handshake requires a student login session. If Playwright cannot
   authenticate, skip Handshake and log one "handshake_auth_needed" entry
   to data/review_queue.json via the state helper — do not retry in a loop.
-- ALWAYS run `python3 scripts/state/job_state.py ensure-files` and read
+- ALWAYS run `python3 src/scripts/state/job_state.py ensure-files` and read
   data/job_registry.json before starting. Build your canonical dedup set
   from the registry.
 - ALWAYS canonicalize every scraped raw job via the canonical helper and
   upsert into data/job_registry.json before any dedup or filtering
   decision.
 - ALWAYS run the deterministic JD fit gate
-  (scripts/jobs/evaluate_job_fit.py) on every canonical job after role
+  (src/scripts/jobs/evaluate_job_fit.py) on every canonical job after role
   filtering and before tailoring. Only candidate jobs proceed to
   @resume-tailor. skipped_unfit is local-only; needs_review from the
   fit gate is a user-visible manual-review outcome (append to
@@ -685,7 +727,7 @@ After all applications:
 - ALWAYS record an internal event via record-event for every applied,
   needs_review, or failed outcome.
 - ONLY sync successful applications (status "applied") to the Google
-  Sheet internship tracker via scripts/jobs/sync_internship_tracker.py —
+  Sheet internship tracker via src/scripts/jobs/sync_internship_tracker.py —
   exactly one row per successful application, after the applied_jobs.json
   entry and internal event are recorded. Pass only the user-facing
   tracker fields (company, title, date_applied, internship_term, notes);
@@ -707,20 +749,33 @@ After all applications:
   explanation of why the application failed or needs review. Never leave
   this field empty or generic. The "reasoning" field is optional when
   status is "applied".
+- **Whenever @resume-tailor was actually invoked for this job** (Phase 2
+  onward — never for a Phase 1 needs_review, which happens before
+  tailoring), also include the tailoring output verbatim so it's reviewable
+  later instead of being discarded after the live form-fill: tailored_bullets
+  (string array, exactly what @resume-tailor returned), cover_letter
+  (string, the full tailored letter body), missing_keywords (string array).
+  Omit all three entirely for a Phase 1 pre-tailoring needs_review — they
+  don't exist yet for that case, don't send empty placeholders.
+- When status is "needs_review", also include `doubt_signals` (every
+  triggering signal from AGENTS.md "Doubt signals", not just one) and
+  `fill_record_path` when Phase 3 step 6a ran for this job (omit it — never
+  an empty string — when no field was ever filled, e.g. Workday or a
+  pre-tailoring reject).
 - Never overwrite the file — always append.
 - Use the deterministic state helper for all JSON state writes — never
   hand-write jq one-liners to mutate state files directly. The helper
   handles atomic write, array append, and dedup guard.
   - Append to applied_jobs.json:
-    `bash scripts/state/append_state_entry.sh data/applied_jobs.json '<entry-json>'`
+    `bash src/scripts/state/append_state_entry.sh data/applied_jobs.json '<entry-json>'`
   - Append to review_queue.json:
-    `bash scripts/state/append_state_entry.sh data/review_queue.json '<entry-json>'`
+    `bash src/scripts/state/append_state_entry.sh data/review_queue.json '<entry-json>'`
   - Pass the entry as a single JSON object string. Do not construct tmp
     files or mv commands yourself.
 - Canonical registry and event log writes go through the canonical helper
-  (scripts/state/job_state.py), not append_state_entry.sh:
-  `python3 scripts/state/job_state.py upsert-job '<canonical-job-json>'`
-  `python3 scripts/state/job_state.py record-event '<event-json>'`
+  (src/scripts/state/job_state.py), not append_state_entry.sh:
+  `python3 src/scripts/state/job_state.py upsert-job '<canonical-job-json>'`
+  `python3 src/scripts/state/job_state.py record-event '<event-json>'`
   See AGENTS.md "Canonical registry and event log" for the full flow.
 - applied_jobs.json and review_queue.json entries with status "failed" or
   "needs_review" must include a "reasoning" field — a specific, one-
@@ -730,9 +785,13 @@ After all applications:
 
 ## Error handling
 - CAPTCHA detected → stop applying to that board, log all pending jobs as
-  "needs_review" in applied_jobs.json and via record-event, notify Discord
-  via @discord-reporter (needs_review route) for each, continue with other
-  boards.
-- Form field not recognized → skip field, do not guess, continue form.
+  "needs_review" in applied_jobs.json and via record-event (doubt_signals:
+  `"captcha"`), notify Discord via @discord-reporter (needs_review route)
+  for each, continue with other boards.
+- Form field not recognized → do not guess and do not skip it silently. If
+  the field is optional, leave it blank and continue the form. If it's
+  required (or you can't tell), stop and route the job to needs_review with
+  doubt_signals including `"unrecognized_field"` (see Phase 3 step 3) rather
+  than submitting a form with an unknown required field left empty.
 - Network timeout → retry once, then log as "failed" and move on.
 '''

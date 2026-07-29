@@ -1,4 +1,0 @@
-name = "discord-reporter"
-description = "Sends formatted Discord webhook notifications for job application outcomes. Invoked by @job-scraper per-outcome (applied, needs_review, failed) and for the end-of-batch summary. Reads per-route webhook URLs from config/discord_config.json. skipped_unfit is never routed here."
-model = "gpt-5.4"
-sandbox_mode = "workspace-write"

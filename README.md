@@ -13,7 +13,7 @@ a Google Sheet tracker.
 It's built on top of a coding agent — aplyx is the workflow, the
 agent is the executor.
 
-> **Build 0.9.88a** — see [Release notes](docs/RELEASE.md) and
+> **Build 0.9.948a** — see [Release notes](docs/RELEASE.md) and
 > [Changelog](docs/CHANGELOG.md).
 
 ## You need a coding agent
@@ -33,13 +33,13 @@ up whatever you have and asks if you have more than one.
 **macOS / Linux:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/keshm2/aplyx/main/scripts/install/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/keshm2/aplyx/main/src/scripts/install/install.sh | bash
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
-irm https://raw.githubusercontent.com/keshm2/aplyx/main/scripts/install/install.ps1 | iex
+irm https://raw.githubusercontent.com/keshm2/aplyx/main/src/scripts/install/install.ps1 | iex
 ```
 
 **Or via npm:**
@@ -86,7 +86,7 @@ aplyx run                # one agent run in this terminal
 aplyx setup [--check]    # config wizard / validate only
 aplyx review | history   # jump straight to a screen
 
-bash scripts/runtime/scheduler.sh install    # 30-minute always-on schedule (launchd)
+bash src/scripts/runtime/scheduler.sh install    # 30-minute always-on schedule (launchd)
 ```
 
 Updates happen automatically — each run and TUI launch checks for
@@ -101,7 +101,7 @@ These are how aplyx is wired, not suggestions:
 
 - **Personal data stays local.** Live configs, `data/` (incl.
   resumes), and `logs/` are gitignored and never leave your machine.
-- **Form fields are filled only from `config/targets.json`
+- **Form fields are filled only from `src/config/targets.json`
   `"safe_fields"`.** Passwords, SSNs, and payment info are
   never stored. A form asking for something outside safe_fields
   sends the job to review instead.
@@ -119,6 +119,26 @@ For the full walkthrough — boards, Discord webhooks, the Google
 Sheets sync, per-agent quickstarts, the scheduler, and the
 browser extension — see **[docs/SETUP.md](docs/SETUP.md)**.
 
+## Repository layout
+
+Everything code- and config-related lives under `src/`, one folder per
+concern; the repo root stays to this file, the license, and the
+canonical behavioral docs every coding agent reads first.
+
+| Path | What it is |
+| --- | --- |
+| [`AGENTS.md`](AGENTS.md) | Canonical behavioral rules for any agent operating in this repo |
+| [`docs/SETUP.md`](docs/SETUP.md) | Full install/config walkthrough |
+| [`docs/RELEASE.md`](docs/RELEASE.md) / [`docs/CHANGELOG.md`](docs/CHANGELOG.md) | Release notes / changelog |
+| `src/tui/` | The `aplyx` TUI (Ink/React) |
+| `src/tauri/` | The Tauri desktop app (early preview) |
+| `src/core/` | Shared TypeScript core (`@aplyx/core`) used by both apps |
+| `src/scripts/` | Deterministic Python/bash helpers — the only things allowed to write state |
+| `src/agents/` | Source of truth for agent prompts (generated into `.claude/`, `.opencode/`, `.github/`, `.codex/`) |
+| `src/extension/` | The browser extension (user-driven hybrid mode) |
+| `src/config/` | Committed config templates (live, per-user configs are gitignored) |
+| `data/`, `logs/` | Runtime state and logs — gitignored, stay at the repo root, hold your PII |
+
 ## License
 
-MIT.
+[MIT](LICENSE).

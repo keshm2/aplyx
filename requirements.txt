@@ -8,3 +8,8 @@ google-auth-httplib2>=0.1.0
 # Resume PDF -> markdown conversion (scripts/state/convert_resume.py,
 # TUI Resumes screen). Pure-Python text extraction, no system deps.
 pypdf>=5.0.0
+
+# Phase 16C, Part B: review-queue reopen/replay (scripts/runtime/replay_fill.py).
+# Drives the user's real, already-installed Google Chrome via
+# channel="chrome" — no bundled-browser download needed, just the driver.
+playwright>=1.40.0

@@ -1,0 +1,146 @@
+{
+  "name": "@aplyx/core",
+  "version": "0.1.0",
+  "description": "Shared framework-agnostic TS core for aplyx: local state reads, helper wrappers that shell out to the Python core, settings/config read-write, platform/process utilities, project-root resolution, the onboarding field schema, and the storage-adapter interface (Local/Supabase). Consumed by the Ink TUI (src/tui/) and the Tauri desktop app (src/tauri/).",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    "./state.js": {
+      "types": "./dist/state.d.ts",
+      "default": "./dist/state.js"
+    },
+    "./stateDerive.js": {
+      "types": "./dist/stateDerive.d.ts",
+      "default": "./dist/stateDerive.js"
+    },
+    "./jobs.js": {
+      "types": "./dist/jobs.d.ts",
+      "default": "./dist/jobs.js"
+    },
+    "./jobsSort.js": {
+      "types": "./dist/jobsSort.d.ts",
+      "default": "./dist/jobsSort.js"
+    },
+    "./resumes.js": {
+      "types": "./dist/resumes.d.ts",
+      "default": "./dist/resumes.js"
+    },
+    "./reviewActions.js": {
+      "types": "./dist/reviewActions.d.ts",
+      "default": "./dist/reviewActions.js"
+    },
+    "./helpers.js": {
+      "types": "./dist/helpers.d.ts",
+      "default": "./dist/helpers.js"
+    },
+    "./settings.js": {
+      "types": "./dist/settings.d.ts",
+      "default": "./dist/settings.js"
+    },
+    "./platform.js": {
+      "types": "./dist/platform.d.ts",
+      "default": "./dist/platform.js"
+    },
+    "./project.js": {
+      "types": "./dist/project.d.ts",
+      "default": "./dist/project.js"
+    },
+    "./supabaseConfig.js": {
+      "types": "./dist/supabaseConfig.d.ts",
+      "default": "./dist/supabaseConfig.js"
+    },
+    "./version.js": {
+      "types": "./dist/version.d.ts",
+      "default": "./dist/version.js"
+    },
+    "./changelogNotifications.js": {
+      "types": "./dist/changelogNotifications.d.ts",
+      "default": "./dist/changelogNotifications.js"
+    },
+    "./autocomplete.js": {
+      "types": "./dist/autocomplete.d.ts",
+      "default": "./dist/autocomplete.js"
+    },
+    "./harness.js": {
+      "types": "./dist/harness.d.ts",
+      "default": "./dist/harness.js"
+    },
+    "./desktopApp.js": {
+      "types": "./dist/desktopApp.d.ts",
+      "default": "./dist/desktopApp.js"
+    },
+    "./onboarding/fields.js": {
+      "types": "./dist/onboarding/fields.d.ts",
+      "default": "./dist/onboarding/fields.js"
+    },
+    "./onboarding/profile.js": {
+      "types": "./dist/onboarding/profile.d.ts",
+      "default": "./dist/onboarding/profile.js"
+    },
+    "./onboarding/hostedFields.js": {
+      "types": "./dist/onboarding/hostedFields.d.ts",
+      "default": "./dist/onboarding/hostedFields.js"
+    },
+    "./profileLinks.js": {
+      "types": "./dist/profileLinks.d.ts",
+      "default": "./dist/profileLinks.js"
+    },
+    "./companyTargets.js": {
+      "types": "./dist/companyTargets.d.ts",
+      "default": "./dist/companyTargets.js"
+    },
+    "./data/companyDirectory.js": {
+      "types": "./dist/data/companyDirectory.d.ts",
+      "default": "./dist/data/companyDirectory.js"
+    },
+    "./data/usCities.js": {
+      "types": "./dist/data/usCities.d.ts",
+      "default": "./dist/data/usCities.js"
+    },
+    "./data/roleCategories.js": {
+      "types": "./dist/data/roleCategories.d.ts",
+      "default": "./dist/data/roleCategories.js"
+    },
+    "./data/levelCategories.js": {
+      "types": "./dist/data/levelCategories.d.ts",
+      "default": "./dist/data/levelCategories.js"
+    },
+    "./data/seasonCategories.js": {
+      "types": "./dist/data/seasonCategories.d.ts",
+      "default": "./dist/data/seasonCategories.js"
+    },
+    "./adapter.js": {
+      "types": "./dist/adapter.d.ts",
+      "default": "./dist/adapter.js"
+    },
+    "./adapters/local.js": {
+      "types": "./dist/adapters/local.d.ts",
+      "default": "./dist/adapters/local.js"
+    },
+    "./adapters/supabase.js": {
+      "types": "./dist/adapters/supabase.d.ts",
+      "default": "./dist/adapters/supabase.js"
+    }
+  },
+  "bin": {
+    "aplyx-core-bridge": "dist/bridge.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0"
+  }
+}

@@ -1,9 +1,9 @@
 # Populates the shared Supabase job_cache table on a schedule (see
-# packages/core/src/refreshJobCache.ts for what this actually does and
-# why) so searchJobs()'s cache checks (packages/core/src/jobCache.ts)
+# src/core/src/refreshJobCache.ts for what this actually does and
+# why) so searchJobs()'s cache checks (src/core/src/jobCache.ts)
 # have fresh data to hit instead of always falling back to a live
 # per-source fetch. job_cache rows expire 2h after being written
-# (supabase/migrations/0003_job_cache.sql's default); 90 minutes keeps a
+# (src/supabase/migrations/0003_job_cache.sql's default); 90 minutes keeps a
 # real margin under that so a slow/failed run doesn't let the cache go
 # fully stale before the next attempt.
 #
@@ -13,14 +13,14 @@
 # the Supabase dashboard — bypasses RLS; never printed, never written to
 # a file, only ever passed as an env var to the one process that needs
 # it). Company slugs to refresh come from the committed
-# config/job_cache_targets.json, not the gitignored, PII-bearing
-# config/targets.json.
+# src/config/job_cache_targets.json, not the gitignored, PII-bearing
+# src/config/targets.json.
 #
 # Also needs two more repository secrets for the Redis warm layer in
-# front of job_cache (see packages/core/src/jobCacheRedis.ts):
+# front of job_cache (see src/core/src/jobCacheRedis.ts):
 # UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_WRITE_TOKEN (a *write*-capable
 # Upstash token — separate from the read-only one baked into
-# config/job_cache_redis.json for clients, same never-in-a-client-bundle
+# src/config/job_cache_redis.json for clients, same never-in-a-client-bundle
 # discipline as SUPABASE_SECRET_KEY). If either is unset, the warm step
 # logs and skips per source rather than failing the run — the Postgres
 # upsert above it already succeeded and is unaffected.
@@ -52,7 +52,7 @@ jobs:
           node-version: 22
       - run: npm ci
       - run: npm run build --workspace=@aplyx/core
-      - run: node packages/core/dist/refreshJobCache.js
+      - run: node src/core/dist/refreshJobCache.js
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}

@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem("aplyx.theme");
+        if (stored === "light" || stored === "dark") {
+          document.documentElement.dataset.theme = stored;
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Features — aplyx</title>
+  <meta
+    name="description"
+    content="What aplyx actually does: multi-board search, a deterministic fit gate, resume tailoring, and a review queue before anything is submitted."
+  />
+  <link rel="icon" href="assets/logo-mark.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <nav class="site-nav">
+    <div class="wrap">
+      <a class="logo-lockup" href="index.html">
+        <img src="assets/logo-mark.png" width="30" height="30" alt="" />
+        <span class="logo-wordmark">aplyx</span>
+      </a>
+      <div class="nav-actions">
+        <div class="nav-links" data-nav-links>
+        <a class="nav-link is-active" href="features.html" aria-current="page">Features</a>
+        <a class="nav-link" href="pricing.html">Pricing</a>
+        <a class="nav-link" href="install.html">Install</a>
+        <a class="nav-link" href="https://github.com/keshm2/aplyx" target="_blank" rel="noopener">GitHub</a>
+        </div>
+        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle dark mode">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="4" />
+            <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+          </svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
+          </svg>
+        </button>
+        <button class="nav-toggle" type="button" data-nav-toggle aria-label="Toggle menu" aria-expanded="false">
+          <span class="nav-toggle-bar"></span>
+          <span class="nav-toggle-bar"></span>
+          <span class="nav-toggle-bar"></span>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <header class="page-hero">
+    <div class="wrap">
+      <h1 data-reveal>Everything aplyx does for your job search</h1>
+      <p data-reveal>One local-first pipeline, from finding postings to a reviewable, ready-to-send application.</p>
+    </div>
+  </header>
+
+  <main>
+    <section class="content">
+      <div class="wrap">
+        <div class="feature-rows">
+          <article class="feature-row" data-reveal>
+            <span class="feature-row-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
+            </span>
+            <div style="flex: 1; min-width: 0;">
+              <h3>Multi-board search</h3>
+              <p>Ashby, Lever, Greenhouse, Workday, SmartRecruiters, and more — searched in one pass and deduplicated automatically, so the same posting never shows up twice just because it's listed on two boards. Every result is fit-checked against your preferences right in the same view, so you can act without switching screens.</p>
+              <figure class="feature-shot" data-reveal>
+                <figcaption class="feature-shot-chrome">
+                  <span class="hero-mockup-dot hero-mockup-dot-red"></span>
+                  <span class="hero-mockup-dot hero-mockup-dot-yellow"></span>
+                  <span class="hero-mockup-dot hero-mockup-dot-green"></span>
+                </figcaption>
+                <img src="assets/screenshots/jobs-screen.png" alt="aplyx desktop app's Jobs screen, showing search results across Greenhouse, Lever, Ashby, SmartRecruiters, and Workday, with a fit-gate score and reasoning shown for the selected posting" loading="lazy" />
+              </figure>
+            </div>
+          </article>
+
+          <article class="feature-row" data-reveal>
+            <span class="feature-row-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
+            </span>
+            <div>
+              <h3>A deterministic fit gate</h3>
+              <p>Every posting is checked against your role, level, and location preferences with plain, rule-based logic before anything reaches a resume-tailoring step — not a model guessing whether a job is a fit.</p>
+            </div>
+          </article>
+
+          <article class="feature-row" data-reveal>
+            <span class="feature-row-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
+            </span>
+            <div style="flex: 1; min-width: 0;">
+              <h3>Resume &amp; cover letter tailoring</h3>
+              <p>Bullets are rewritten and reordered per job description, and a short cover letter is drafted grounded strictly in your actual resume and the posting — never invented experience. Keep several base resumes on hand (SWE, AI/ML, cyber, and more) and aplyx picks the right starting point for each posting.</p>
+              <figure class="feature-shot" data-reveal>
+                <figcaption class="feature-shot-chrome">
+                  <span class="hero-mockup-dot hero-mockup-dot-red"></span>
+                  <span class="hero-mockup-dot hero-mockup-dot-yellow"></span>
+                  <span class="hero-mockup-dot hero-mockup-dot-green"></span>
+                </figcaption>
+                <img src="assets/screenshots/resumes-screen.png" alt="aplyx desktop app's Resumes screen, listing base resume profiles by category (SWE, AI/ML, Cyber, Networking/Cyber, Balanced, and a cover letter) with their conversion status" loading="lazy" />
+              </figure>
+            </div>
+          </article>
+
+          <article class="feature-row" data-reveal>
+            <span class="feature-row-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" /></svg>
+            </span>
+            <div style="flex: 1; min-width: 0;">
+              <h3>Review before it goes out</h3>
+              <p>Anything uncertain lands in a review queue — you decide before it's submitted. Nothing is applied to on your behalf without a decision you control. Each entry shows its ATS score, the resume picked for it, and the fit-gate reasoning behind it, so a decision never means guessing.</p>
+              <figure class="feature-shot" data-reveal>
+                <figcaption class="feature-shot-chrome">
+                  <span class="hero-mockup-dot hero-mockup-dot-red"></span>
+                  <span class="hero-mockup-dot hero-mockup-dot-yellow"></span>
+                  <span class="hero-mockup-dot hero-mockup-dot-green"></span>
+                </figcaption>
+                <img src="assets/screenshots/review-screen.png" alt="aplyx desktop app's Review queue screen, showing three pending applications with ATS scores and the selected entry's resume, URL, and fit-gate reasoning alongside Open, Mark applied, and Dismiss actions" loading="lazy" />
+              </figure>
+            </div>
+          </article>
+
+          <article class="feature-row" data-reveal>
+            <span class="feature-row-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2" /><path d="m22 6-10 7L2 6" /></svg>
+            </span>
+            <div>
+              <h3>Status tracking, straight from your inbox <span class="feature-badge">Planned</span></h3>
+              <p>Once an application goes out, aplyx watches the inbox on your profile for what happens next — a rejection, an assessment, an interview request, an offer — and updates that job's status automatically. Read-only, opt-in, off by default.</p>
+              <div class="status-demo" aria-hidden="true">
+                <span class="status-demo-glow"></span>
+                <span class="status-pill status-pill-applied">✓ Applied</span>
+                <span class="status-pill status-pill-oa">▤ OA sent</span>
+                <span class="status-pill status-pill-interview">◆ Interview requested</span>
+                <span class="status-pill status-pill-offer">★ Offer</span>
+                <span class="status-pill status-pill-rejected">✗ Rejected</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="feature-row" data-reveal>
+            <span class="feature-row-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" /><path d="M8 21h8M12 17v4" /></svg>
+            </span>
+            <div>
+              <h3>TUI and desktop, same core</h3>
+              <p>A terminal app for a fast, keyboard-first workflow, and a native desktop app for the same thing visually — both driven by the same local-first pipeline, so neither is a second-class surface.</p>
+            </div>
+            <span class="feature-row-peek" aria-hidden="true">
+              <img src="assets/screenshots/desktop-home.png" alt="" loading="lazy" />
+            </span>
+          </article>
+
+          <article class="feature-row" data-reveal>
+            <span class="feature-row-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
+            </span>
+            <div>
+              <h3>Discord updates, optional</h3>
+              <p>Get pinged as applications go out, need review, or fail — entirely opt-in, and off by default.</p>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <span>&copy; 2026 aplyx</span>
+      <div class="nav-actions">
+        <a href="privacy.html">Privacy</a>
+        <a href="changelog.html">Changelog</a>
+        <a href="https://github.com/keshm2/aplyx" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="site.js"></script>
+</body>
+</html>

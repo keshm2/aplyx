@@ -8,7 +8,7 @@ description: >
   for each individual job.
 model: inherit
 ---
-<!-- GENERATED from agents/bodies/resume-tailor.md + agents/frontmatter/claude/resume-tailor.yaml — edit those sources and run scripts/validate/generate_agent_definitions.py -->
+<!-- GENERATED from src/agents/bodies/resume-tailor.md + src/agents/frontmatter/claude/resume-tailor.yaml — edit those sources and run src/scripts/validate/generate_agent_definitions.py -->
 
 You receive a job title, full job description text, and the matched
 role_keywords category for the job.

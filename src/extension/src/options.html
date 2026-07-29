@@ -1,0 +1,64 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>aplyx — options</title>
+    <style>
+      body {
+        font: 14px/1.5 system-ui, sans-serif;
+        max-width: 560px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+        color: #1f2937;
+      }
+      h1 { font-size: 1.2rem; color: #7c3aed; }
+      label { display: block; margin-top: 1rem; font-weight: 600; }
+      input {
+        width: 100%;
+        padding: 0.4rem 0.5rem;
+        margin-top: 0.25rem;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font: inherit;
+        box-sizing: border-box;
+      }
+      button {
+        margin-top: 1.25rem;
+        margin-right: 0.5rem;
+        padding: 0.45rem 1rem;
+        border: none;
+        border-radius: 6px;
+        background: #7c3aed;
+        color: white;
+        font: inherit;
+        cursor: pointer;
+      }
+      button.secondary { background: #6b7280; }
+      #status { margin-top: 1rem; min-height: 1.5em; }
+      .ok { color: #0f6e2a; }
+      .err { color: #b91c1c; }
+      p.note { color: #6b7280; font-size: 0.85rem; }
+    </style>
+  </head>
+  <body>
+    <h1>aplyx — bridge connection</h1>
+    <p class="note">
+      The extension talks only to the local aplyx bridge
+      (<code>py -3 src/scripts/runtime/extension_bridge.py</code> on Windows,
+      <code>python3 src/scripts/runtime/extension_bridge.py</code> on macOS/Linux).
+      The token lives in <code>src/config/extension_bridge.json</code> in your
+      aplyx checkout — print it with the same command plus
+      <code>--show-token</code>.
+    </p>
+    <label for="bridgeUrl">Bridge URL</label>
+    <input id="bridgeUrl" type="url" placeholder="http://127.0.0.1:8377" />
+    <label for="token">Bridge token</label>
+    <input id="token" type="password" autocomplete="off" placeholder="paste the per-install token" />
+    <div>
+      <button id="save">Save</button>
+      <button id="test" class="secondary">Test connection</button>
+    </div>
+    <div id="status"></div>
+    <script src="options.js" type="module"></script>
+  </body>
+</html>

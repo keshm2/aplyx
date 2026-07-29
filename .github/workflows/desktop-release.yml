@@ -2,12 +2,12 @@
 # Windows on GitHub-hosted runners — which already carry the native build
 # tools (Xcode CLT, MSVC) — and uploads the bundles as assets on the
 # matching GitHub Release. This means an end user never needs Rust or any
-# OS-native build tools themselves: scripts/install/install_desktop.sh|ps1
+# OS-native build tools themselves: src/scripts/install/install_desktop.sh|ps1
 # download a prebuilt bundle from the release instead of compiling one
 # locally, falling back to a from-source build only if no matching asset
 # is found (e.g. an unreleased checkout, or a platform/arch with none).
 #
-# Triggers on any `v*` tag push (the same tags scripts/install/uninstall.py
+# Triggers on any `v*` tag push (the same tags src/scripts/install/uninstall.py
 # and the release process already use) and via workflow_dispatch so
 # existing tags can get assets attached retroactively.
 name: desktop-release
@@ -58,8 +58,8 @@ jobs:
         with:
           node-version: 22
 
-      # Root-level install so the npm workspace (packages/core, app,
-      # desktop) links correctly; packages/core has no build hook of its
+      # Root-level install so the npm workspace (src/core, src/tui,
+      # src/tauri) links correctly; src/core has no build hook of its
       # own (a gap fixed in the installer scripts too), so build it
       # explicitly before desktop's build runs.
       - run: npm ci
@@ -69,10 +69,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          projectPath: desktop
+          projectPath: src/tauri
           tagName: ${{ github.event.inputs.tag || github.ref_name }}
           releaseName: "aplyx ${{ github.event.inputs.tag || github.ref_name }}"
-          releaseBody: "Desktop app bundles for this release — see the GitHub Release notes for what's new. Installed automatically by scripts/install/install_desktop.sh|ps1, or download the file matching your OS/arch directly."
+          releaseBody: "Desktop app bundles for this release — see the GitHub Release notes for what's new. Installed automatically by src/scripts/install/install_desktop.sh|ps1, or download the file matching your OS/arch directly."
           releaseDraft: false
           prerelease: true
           args: ${{ matrix.args }}

@@ -8,7 +8,7 @@ description: >
   for each individual job.
 user-invocable: true
 ---
-<!-- GENERATED from agents/bodies/resume-tailor.md + agents/frontmatter/copilot/resume-tailor.yaml — edit those sources and run scripts/validate/generate_agent_definitions.py -->
+<!-- GENERATED from src/agents/bodies/resume-tailor.md + src/agents/frontmatter/copilot/resume-tailor.yaml — edit those sources and run src/scripts/validate/generate_agent_definitions.py -->
 
 You receive a job title, full job description text, and the matched
 role_keywords category for the job.

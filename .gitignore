@@ -1,29 +1,29 @@
 # Live config — contains secrets/PII. Copy the *.example.json files to start.
-/config/targets.json
-/config/discord_config.json
+/src/config/targets.json
+/src/config/discord_config.json
 
 # Phase 3: Google Sheets sync — live config + service-account key (secrets).
-/config/google_sheets_config.json
-/config/service-account-key.json
+/src/config/google_sheets_config.json
+/src/config/service-account-key.json
 
 # Phase 11: hosted Supabase backend — live project URL + anon key.
-/config/supabase.json
+/src/config/supabase.json
 
 # job_cache's own project — deliberately separate from the one above
-# (config/supabase.json is hosted auth/profile sync) so the two
+# (src/config/supabase.json is hosted auth/profile sync) so the two
 # workloads don't share one project's disk I/O budget. See
-# packages/core/src/supabaseConfig.ts's readJobCacheSupabaseConfig.
-/config/job_cache_supabase.json
+# src/core/src/supabaseConfig.ts's readJobCacheSupabaseConfig.
+/src/config/job_cache_supabase.json
 
 # job_cache's Redis warm layer (read-only token) — see
-# packages/core/src/redisConfig.ts's readJobCacheRedisConfig.
-/config/job_cache_redis.json
+# src/core/src/redisConfig.ts's readJobCacheRedisConfig.
+/src/config/job_cache_redis.json
 
 # Anthropic API key for the direct-API judgment calls (interest-letter,
-# resume-tailor) — see scripts/runtime/generate_interest_letter.py's
+# resume-tailor) — see src/scripts/runtime/generate_interest_letter.py's
 # read_anthropic_key. ANTHROPIC_API_KEY env var is checked first; this
 # file is the local-file fallback, same pattern as job_cache_redis.json.
-/config/anthropic_key.json
+/src/config/anthropic_key.json
 
 # Runtime state
 /data/applied_jobs.json
@@ -74,26 +74,26 @@ __pycache__/
 docs/PLAN.md
 system_architecture.md
 # Phase 13: TUI package build artifacts
-/app/node_modules/
-/app/dist/
+/src/tui/node_modules/
+/src/tui/dist/
 
-# Shared TS core package build artifacts (packages/core)
-/packages/core/node_modules/
-/packages/core/dist/
+# Shared TS core package build artifacts (src/core)
+/src/core/node_modules/
+/src/core/dist/
 
 # Phase 14: Tauri desktop app build artifacts
-/desktop/node_modules/
-/desktop/dist/
-/desktop/src-tauri/target/
+/src/tauri/node_modules/
+/src/tauri/dist/
+/src/tauri/src-tauri/target/
 
 # Phase 15: per-machine harness selection
-/config/harness.json
-/config/env.json
+/src/config/harness.json
+/src/config/env.json
 /.claude/settings.json
 
 # Phase 10: browser extension — build artifacts + per-install bridge token
-/extension/dist/
-/config/extension_bridge.json
+/src/extension/dist/
+/src/config/extension_bridge.json
 
 # Token-optimizer files (a Claude Code skill's local session-tracking
 # state, unrelated to aplyx — can land in any subdirectory depending
