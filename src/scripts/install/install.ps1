@@ -364,6 +364,15 @@ if (-not $py) { Fail "Python 3 is required. Install from https://www.python.org/
 # can never collide with a real Windows command.
 function Invoke-Python { param([string[]]$a) & $py[0] @($py[1..($py.Length-1)] + $a) }
 
+# --- 1b. Repair a stale pre-restructure layout (idempotent, always runs) -----
+# Same reasoning as install.sh's matching step: the automatic update path's
+# self-relaunch can target a script path cached before an update that moved
+# that very script (exactly what happened to every pre-existing install on
+# the 2026-07-29 src/ restructure). Re-running this installer is immune to
+# that since it is a brand-new process every time. No-op on an already-
+# current or genuinely fresh install.
+try { Invoke-Python @("src\scripts\install\update.py", "--repair-layout-only") } catch {}
+
 # --- 2. Live configs from examples -------------------------------------------
 if (Test-Path "src\config\targets.json") {
   Say "src/config/targets.json exists - keeping it."

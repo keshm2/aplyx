@@ -100,6 +100,7 @@ class FailOpen(Exception):
 def main(argv) -> int:
     auto = "--auto" in argv
     post_only = "--post-update-only" in argv
+    repair_only = "--repair-layout-only" in argv
     os.chdir(ROOT)
 
     def say(msg: str) -> None:
@@ -109,6 +110,35 @@ def main(argv) -> int:
     def fail_open(line: str) -> "int":
         print(line)
         raise FailOpen(line) if not auto else SystemExit(0)
+
+    if repair_only:
+        # Called by install.sh/install.ps1 on every run (fresh install or
+        # re-run), unconditionally and before any config/wizard step. This
+        # exists because the automatic update path (git pull / tarball
+        # overlay + a self-re-exec into a fresh child process) can fail to
+        # ever run _migrate_to_src_layout at all on an install whose
+        # currently-running code predates it: that re-exec targets
+        # os.path.abspath(__file__), cached before the pull/overlay, which
+        # can point at a file the update itself just relocated (exactly
+        # what the 2026-07-29 src/ restructure did to every pre-existing
+        # install). A git checkout: the pull deletes that path outright,
+        # so the child process fails to launch and the migration never
+        # runs. A tarball checkout: the stale old file is untouched by the
+        # overlay (nothing deletes it), so the child launches "successfully"
+        # but runs the OLD, migration-unaware _post_update, again never
+        # applying it — silently, with VERSION now reporting the new
+        # build, so no future auto-update ever retries either. Re-running
+        # the installer is the one recovery path immune to this: it is a
+        # brand-new process every single time, with no cached pre-update
+        # path to go stale. Deliberately narrower than --post-update-only
+        # (skips agent-def regen, config validation, and the npm rebuilds)
+        # since install.sh's own later steps already do all of that;
+        # running them twice here would just waste time on every install.
+        _migrate_to_src_layout(ROOT, say)
+        _refresh_wrapper_shim(ROOT, say)
+        _refresh_schedule_if_installed(say)
+        _refresh_desktop_app_if_stale(say)
+        return 0
 
     if post_only:
         # Invoked as a fresh child process from the git-pull/tarball-overlay
@@ -200,12 +230,38 @@ def main(argv) -> int:
             # invocation's own in-memory code is. Mirrors the identical
             # self-re-exec pattern run_job_agent.py's own pre-run
             # auto-update already uses, for the same reason.
-            child_argv = [sys.executable, os.path.abspath(__file__), "--post-update-only"]
+            #
+            # os.path.abspath(__file__) was resolved when THIS process
+            # started, before the pull/overlay above ran. If that update
+            # RELOCATED this very file (as the 2026-07-29 src/ restructure
+            # did for every pre-existing install — scripts/install/
+            # update.py -> src/scripts/install/update.py), that cached
+            # path can point at a file a git pull just deleted. Probe for
+            # the file actually existing before trusting it, falling back
+            # to the current, post-restructure canonical location — this
+            # is pure defense-in-depth for any FUTURE relocation; it
+            # cannot help an install already running a pre-restructure
+            # copy of THIS exact check, since that check doesn't exist in
+            # code already on disk. For those installs, re-running the
+            # installer (a fresh process every time, never affected by a
+            # stale cached path) is the reliable repair path — see
+            # install.sh/install.ps1's own post-update-only call.
+            child_script = os.path.abspath(__file__)
+            if not os.path.isfile(child_script):
+                fallback = os.path.join(ROOT, "src", "scripts", "install", "update.py")
+                if os.path.isfile(fallback):
+                    child_script = fallback
+            child_argv = [sys.executable, child_script, "--post-update-only"]
             if auto:
                 child_argv.append("--auto")
             r2 = subprocess.run(child_argv)
             if r2.returncode != 0:
-                say("WARNING: post-update steps failed in the freshly-updated code — re-run 'aplyx update' or see the output above")
+                say(
+                    "WARNING: post-update steps failed (rebuild/migration steps may be "
+                    "incomplete) — re-run the one-line installer from docs/SETUP.md "
+                    "section 0 to repair it (safe to re-run any time; never overwrites "
+                    "your config/data)."
+                )
 
             print(f"update: updated {local} -> {new}")
             return 0

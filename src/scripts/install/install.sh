@@ -326,6 +326,19 @@ fi
 command -v jq      >/dev/null 2>&1 || fail "jq is required and still missing — install it manually and re-run."
 command -v python3 >/dev/null 2>&1 || fail "python3 is required and still missing — install it manually and re-run."
 
+# --- 1b. Repair a stale pre-restructure layout (idempotent, always runs) ----
+# The automatic update path (aplyx update / the scheduled auto-update) can
+# fail to ever apply a directory-layout migration on an install whose
+# currently-running code predates that migration: its self-relaunch targets
+# a script path cached before the update, which the update itself may have
+# just moved (this is exactly what happened to every pre-existing install
+# on the 2026-07-29 src/ restructure — see update.py's --repair-layout-only
+# comment for the full mechanics). Re-running this installer is the one
+# path immune to that: it is a brand-new process every time, so there is no
+# stale cached path to go wrong. No-op (near-instant) on an already-current
+# install or a genuinely fresh one — safe to always run.
+python3 src/scripts/install/update.py --repair-layout-only || true
+
 # --- 2. Live configs from examples -------------------------------------------
 if [ -f "src/config/targets.json" ]; then
   say "src/config/targets.json exists — keeping it."

@@ -290,7 +290,26 @@ def main() -> int:
         if update_result.startswith("update: updated"):
             log(run_log, "re-executing updated runner")
             os.environ["APLYX_SKIP_UPDATE"] = "1"
-            os.execv(sys.executable, [sys.executable, os.path.abspath(__file__)])
+            # os.path.abspath(__file__) was resolved when THIS process
+            # started, before the update above ran — if that update moved
+            # this very script (as the 2026-07-29 src/ restructure did for
+            # every pre-existing install, moving scripts/ -> src/scripts/),
+            # this path may no longer exist on disk, and os.execv raises
+            # FileNotFoundError for a missing target. That must never
+            # crash an otherwise-successful scheduled run: catch it, log a
+            # clear pointer to the one reliable fix (re-running the
+            # installer, a fresh process every time and immune to this
+            # exact staleness problem), and fall through to finish this
+            # run with whatever code is already loaded in memory — the
+            # files on disk are already correctly updated; only this
+            # process's own re-exec of itself is what's stale.
+            try:
+                os.execv(sys.executable, [sys.executable, os.path.abspath(__file__)])
+            except OSError as exc:
+                log(run_log, f"WARNING: could not re-exec the updated runner ({exc}) — "
+                              "continuing this run with already-loaded code. If this "
+                              "keeps happening, re-run the installer to repair the install "
+                              "(see docs/SETUP.md).")
 
     # --- Single-flight lock --------------------------------------------------
     lock_dir = os.path.join(logs_dir, ".run_job_agent.lock")
