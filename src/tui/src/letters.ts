@@ -46,7 +46,7 @@ export function pendingLetters(root: string): LetterRequest[] {
 }
 
 function helper(root: string, args: string[], input?: string): { ok: boolean; output: string } {
-  const { cmd, args: full } = py([path.join("scripts", "state", "interest_letter.py"), ...args]);
+  const { cmd, args: full } = py([path.join("src", "scripts", "state", "interest_letter.py"), ...args]);
   const r = spawnSync(cmd, full, { cwd: root, input, encoding: "utf8" });
   const output = `${r.stdout ?? ""}${r.stderr ?? ""}`.trim();
   return { ok: r.status === 0, output };
@@ -73,7 +73,7 @@ export function discardLetter(root: string, jobKey: string) {
  *  the B1 migration). Synchronous + slow-ish (an LLM call, up to ~2 min),
  *  so callers must show a spinner; there is no partial output to stream. */
 export function generateLetter(root: string, jobKey: string): { ok: boolean; output: string } {
-  const { cmd, args } = py([path.join("scripts", "runtime", "generate_interest_letter.py"), jobKey]);
+  const { cmd, args } = py([path.join("src", "scripts", "runtime", "generate_interest_letter.py"), jobKey]);
   const r = spawnSync(cmd, args, { cwd: root, encoding: "utf8" });
   const raw = `${r.stdout ?? ""}${r.stderr ?? ""}`.trim();
   try {

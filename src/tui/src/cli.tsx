@@ -147,10 +147,10 @@ function installDesktopApp(root: string): void {
     process.platform === "win32"
       ? spawnSync(
           "powershell",
-          ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", path.join(root, "scripts", "install", "install_desktop.ps1")],
+          ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", path.join(root, "src", "scripts", "install", "install_desktop.ps1")],
           { cwd: root, stdio: "inherit" },
         )
-      : spawnSync("bash", [path.join(root, "scripts", "install", "install_desktop.sh")], { cwd: root, stdio: "inherit" });
+      : spawnSync("bash", [path.join(root, "src", "scripts", "install", "install_desktop.sh")], { cwd: root, stdio: "inherit" });
   if (r.status === 0) {
     console.log("Desktop app installed — open it from your applications menu; `aplyx` still works the same as before.\n");
   } else {
@@ -252,7 +252,7 @@ async function openApp(root: string, initialTab: Tab, updateVersion?: string): P
  * behaves exactly as before. */
 async function maybeRunOnboarding(root: string): Promise<void> {
   if (!process.stdin.isTTY || !process.stdout.isTTY) return;
-  const targetsPath = path.join(root, "config", "targets.json");
+  const targetsPath = path.join(root, "src", "config", "targets.json");
   let completed = false;
   if (fs.existsSync(targetsPath)) {
     try {

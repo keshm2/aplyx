@@ -42,7 +42,7 @@ import { ResumeStep } from "./ResumeStep.js";
 type Json = Record<string, unknown>;
 
 function targetsJsonPath(root: string): string {
-  return path.join(root, "config", "targets.json");
+  return path.join(root, "src", "config", "targets.json");
 }
 
 function readTargetsJsonFile(root: string): Json {
@@ -67,7 +67,7 @@ function ensureTargetsFile(root: string): void {
   const file = targetsJsonPath(root);
   if (fs.existsSync(file)) return;
   try {
-    fs.copyFileSync(path.join(root, "config", "targets.example.json"), file);
+    fs.copyFileSync(path.join(root, "src", "config", "targets.example.json"), file);
   } catch {
     // best-effort — subsequent reads/writes still degrade gracefully via
     // readTargetsJsonFile's own try/catch
@@ -78,7 +78,7 @@ function ensureTargetsFile(root: string): void {
  *  — the single source of truth — never hardcoded here as a duplicate. */
 function readExampleArray(root: string, key: string): string[] {
   try {
-    const parsed = JSON.parse(fs.readFileSync(path.join(root, "config", "targets.example.json"), "utf8"));
+    const parsed = JSON.parse(fs.readFileSync(path.join(root, "src", "config", "targets.example.json"), "utf8"));
     const value = (parsed as Json)[key];
     return Array.isArray(value) ? value.filter((s: unknown): s is string => typeof s === "string") : [];
   } catch {

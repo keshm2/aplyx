@@ -235,7 +235,7 @@ async function dispatch(command: string, args: Args): Promise<unknown> {
 
     case "openExtensionFolder": {
       const root = resolveRoot(args);
-      openPath(path.join(root, "extension"));
+      openPath(path.join(root, "src", "extension"));
       return { ok: true };
     }
 

@@ -7,7 +7,7 @@ exit codes match the shell version.
 
 Usage:
   validate_local_config.py [project_root]
-  (project_root defaults to the repo root, two levels above this script)
+  (project_root defaults to the repo root, three levels above this script)
 
 Exit codes:
   0  config valid (may include warnings)
@@ -61,7 +61,7 @@ def load_json(path: str):
 
 
 def main(argv: list) -> None:
-    project_root = argv[0] if argv else os.path.dirname(os.path.dirname(SCRIPT_DIR))
+    project_root = argv[0] if argv else os.path.dirname(os.path.dirname(os.path.dirname(SCRIPT_DIR)))
     targets_path = os.path.join(project_root, "src", "config", "targets.json")
     discord_path = os.path.join(project_root, "src", "config", "discord_config.json")
 
