@@ -518,7 +518,7 @@
 }
 
 /* Font preference (Settings → Appearance). Each option swaps the whole
- * UI — body, headlines, and (where the family ships one) mono — onto its
+ * UI, body, headlines, and (where the family ships one) mono, onto its
  * bundled variable face (see base.css @font-face); default is the system
  * stack above. The other three are the remaining directions from
  * docs/ui-development-plan.md's Priority 4: Inter (dense/tabular product

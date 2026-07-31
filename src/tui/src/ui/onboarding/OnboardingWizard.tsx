@@ -80,8 +80,8 @@ function ensureTargetsFile(root: string): void {
   }
 }
 
-/** Roles/locations default lists are read live from targets.example.json
- *  — the single source of truth — never hardcoded here as a duplicate. */
+/** Roles/locations default lists are read live from targets.example.json,
+ *  the single source of truth, never hardcoded here as a duplicate. */
 function readExampleArray(root: string, key: string): string[] {
   try {
     const parsed = JSON.parse(fs.readFileSync(path.join(root, "src", "config", "targets.example.json"), "utf8"));
@@ -263,7 +263,7 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
    *
    * Called on every way of *leaving* a field (tab, up/down, page change).
    * Drafts used to live only in `draftText`/`addedItems` and were folded
-   * into `values` solely by commitAndAdvance — i.e. only on Enter — so
+   * into `values` solely by commitAndAdvance (only on Enter), so
    * `loadDraftForField` would overwrite them the moment focus moved.
    * Typing your target companies or roles and then tabbing away silently
    * threw them out; that is the "target jobs during install is not saved"
@@ -430,7 +430,7 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
    *
    * Previously this was `suggestions[suggestionIndex] ?? typed`, which
    * blindly took the top fuzzy match: typing a city that isn't in
-   * US_CITIES — "Marysville, WA", "Lynnwood, WA" — but that fuzzy-matches
+   * US_CITIES ("Marysville, WA", "Lynnwood, WA") but that fuzzy-matches
    * some unrelated entry would silently commit the wrong city. Freehand is
    * always allowed; US_CITIES only offers suggestions, it is not an enum.
    */
