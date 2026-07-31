@@ -21,14 +21,25 @@
  * its own project, deliberately separate from src/config/supabase.json
  * (hosted auth/profile sync). Split apart 2026-07-23: the two workloads
  * were sharing one project's disk I/O budget, and job_cache's own write
- * volume (~14k rows across 47 companies, refreshed hourly) pushed it
- * toward the free-tier limit, producing Cloudflare 522s on unrelated
- * requests. See supabaseConfig.ts's readJobCacheSupabaseConfig for the
- * full reasoning. In CI (.github/workflows/refresh-job-cache.yml, hourly
- * — under job_cache's 2h TTL) that file doesn't exist on a fresh
+ * volume (~14k rows across 47 companies, refreshed hourly at the time)
+ * pushed it toward the free-tier limit, producing Cloudflare 522s on
+ * unrelated requests. See supabaseConfig.ts's readJobCacheSupabaseConfig
+ * for the full reasoning — and note the move to a daily cadence
+ * (2026-07-30) cut that write volume by ~24x on its own, which is the
+ * single biggest thing keeping this workload inside the free tier. In CI
+ * (.github/workflows/refresh-job-cache.yml, daily — well under
+ * job_cache's 7-day retention window) that file doesn't exist on a fresh
  * checkout, so SUPABASE_URL is read as a direct override first — not
  * secret, just the project's own URL, stored as a plain repo secret
  * alongside SUPABASE_SECRET_KEY for convenience.
+ *
+ * This refresh is strictly ADDITIVE and must stay that way. Every run
+ * inserts postings it has not seen before and pushes the retention
+ * window out on ones it sees again; it never deletes, never truncates,
+ * and never rewrites an existing row's original discovery timestamp (see
+ * jobCacheRow's note on the deliberately-omitted fetched_at). A run that
+ * fetches fewer postings than the last one therefore SHRINKS nothing —
+ * previously-cached jobs stay readable until their own window lapses.
  *
  * Refreshes the four sources that support a full, unfiltered board fetch
  * — Ashby, Lever, Greenhouse, SmartRecruiters — using
@@ -70,16 +81,46 @@ import { UNFILTERED_PER_COMPANY_LIMIT } from "./jobCache.js";
 import { redisSetJobs } from "./jobCacheRedis.js";
 import type { SearchJob, JobSource } from "./jobsSort.js";
 
-const CACHE_TTL_MS = 2 * 60 * 60 * 1000; // matches job_cache's own column default (2h) — kept explicit here so upserts refresh it, not just inserts.
+// 7 days — a *retention window measured from each posting's last
+// sighting*, not a "how stale may this be" freshness bound. Was 2h,
+// matching migration 0003's column default, back when this ran hourly.
+//
+// Two things forced it up together (2026-07-30):
+//
+// 1. The refresh moved to daily (see .github/workflows/refresh-job-cache.yml
+//    — job boards don't post often enough to justify hourly, and hourly
+//    scheduled runs were being throttled to 2-3h apart by GitHub anyway,
+//    which meant a 2h TTL was already letting the cache go fully cold
+//    between real runs). A TTL at or near the cadence means the table
+//    reads as empty for most of the interval; 7 days is 7 consecutive
+//    missed daily runs of margin before a single row drops out.
+//
+// 2. The refresh is deliberately ADDITIVE — every run only ever adds
+//    newly-discovered postings and extends the window on ones it sees
+//    again. Nothing is ever deleted (there is no delete path against
+//    job_cache anywhere in this codebase, by design). expires_at is
+//    therefore the ONLY mechanism that retires a posting, and it now
+//    means "last seen on a board 7 days ago" — a posting that comes
+//    down still lingers a week, which is the intended tradeoff: a
+//    stale-but-visible listing is a far better failure mode than
+//    silently dropping thousands of live jobs the moment one board
+//    fetch hiccups.
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
-// 75 minutes: just past the hourly refresh cadence (15min grace so one
-// slow/failed CI run doesn't let the warm entry go fully cold before
-// the next one lands), while staying well under job_cache's own 2h
-// Postgres expires_at — a served-at-expiry Redis entry can never be
-// staler than Postgres would already allow. Shorter buys no real
-// freshness (the underlying data only changes once an hour anyway) and
-// only throws away hit rate.
-const REDIS_WARM_TTL_SECONDS = 75 * 60;
+// 25 hours: just past the daily refresh cadence (1h grace so one
+// slow/late CI run doesn't let the warm entry go cold before the next
+// one lands), and far under job_cache's own 7-day Postgres expires_at —
+// a served-at-expiry Redis entry can never be staler than Postgres
+// would already allow. Shorter buys no real freshness (the underlying
+// data only changes once a day now) and only throws away hit rate.
+//
+// Note this entry holds only what the CURRENT run fetched live, while
+// Postgres additionally retains everything seen in the last 7 days. The
+// divergence is deliberate and safe in that direction: Redis serves the
+// capped (UNFILTERED_PER_COMPANY_LIMIT) browse-all case, so it returns a
+// *fresher subset*, and any real query falls through to the fuller
+// Postgres set anyway (see jobCache.ts's readFromRedisOrPostgres).
+const REDIS_WARM_TTL_SECONDS = 25 * 60 * 60;
 
 interface JobCacheTargets {
   ashby_company_slugs?: string[];
@@ -115,9 +156,56 @@ function jobCacheRow(source: JobSource, slug: string, query: string, job: Search
     ats_system: source,
     posted_at: job.posted_at ?? null,
     jd_text: job.jd_text ?? null,
-    fetched_at: now.toISOString(),
+    // fetched_at is deliberately ABSENT from this payload. PostgREST's
+    // resolution=merge-duplicates generates DO UPDATE SET only for the
+    // columns actually present in the body, so omitting it means: a
+    // brand-new row gets the column's own `default now()` (migration
+    // 0003), and a row we've seen before keeps the timestamp it was
+    // FIRST discovered at, forever. Including it would silently rewrite
+    // every existing row's discovery time on every run — exactly the
+    // "overwrite what's already there" behavior this refresh is not
+    // supposed to have. Last-seen isn't lost by this: it's recoverable
+    // as (expires_at - CACHE_TTL_MS), since expires_at IS sent below.
+    // Nothing in the app reads fetched_at today (the RPC in migrations
+    // 0004/0005 selects neither), so this is a strict information gain.
     expires_at: new Date(now.getTime() + CACHE_TTL_MS).toISOString(),
   };
+}
+
+// Postgres's ON CONFLICT DO UPDATE (this upsert's on_conflict=source,
+// company_slug,query,job_key) hard-errors — "cannot affect row a second
+// time" — if a single statement's input rows collide on that key, so a
+// duplicate here isn't just wasted work, it fails the whole chunk (and
+// after 3 retries of the same unchanged rows, the whole run). Confirmed
+// live 2026-07-30: SmartRecruiters' offset-paginated /postings endpoint
+// (fetchSmartRecruitersCompany in jobs.ts) re-served an already-seen
+// Dominos posting across the offset=0/offset=100 page boundary — Dominos
+// carries 24k+ constantly opening/closing store-level postings, so the
+// board's default sort can shift between two sequential page requests,
+// letting a posting cross from one page into the next. That's a live-data
+// race, not a fixed bug in one company's data — any high-volume board on
+// any source is equally exposed. Deduping here, on the same key Postgres
+// uses for conflict resolution, closes the failure class regardless of
+// which upstream API or company produces the collision.
+//
+// Keyed on all four arbiter columns, not just the two that vary within a
+// single source's batch. source and query are in fact constant per call
+// today (one source per loop iteration, query always ''), so this is
+// currently equivalent — but it is equivalent by coincidence of the
+// caller, not by construction. Keying on exactly what Postgres keys on
+// means this stays correct if a later change ever batches two sources,
+// or seeds a query-parameterized source (Amazon/Oracle/Workday — see
+// this file's header) into the same upsert.
+function dedupeRows<T extends { source: string; company_slug: string; query: string; job_key: string }>(rows: T[]): T[] {
+  const seen = new Set<string>();
+  const deduped: T[] = [];
+  for (const row of rows) {
+    const key = JSON.stringify([row.source, row.company_slug, row.query, row.job_key]);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(row);
+  }
+  return deduped;
 }
 
 // A single source's rows can be huge — measured live, 20 greenhouse
@@ -257,6 +345,20 @@ async function warmRedisBrowseAll(source: JobSource, jobs: SearchJob[]): Promise
     console.log(`${source}: UPSTASH_REDIS_REST_URL/UPSTASH_REDIS_WRITE_TOKEN not set — skipping Redis warm`);
     return;
   }
+  // Never overwrite a good warm entry with an empty one. A board
+  // returning zero postings is far more likely an upstream outage or a
+  // silently-changed API than a company genuinely closing every req, and
+  // SET with an empty array would throw away the last known-good entry
+  // for the whole REDIS_WARM_TTL_SECONDS window. Leaving the previous
+  // value in place lets it age out naturally instead. (redisGetJobs
+  // already treats an empty array as a miss, so this was never able to
+  // serve "zero jobs" as an answer — but at the old 75min TTL the cost
+  // of the mistake was an hour of lost hit rate; at 25h it would be a
+  // full day of every browse-all paying the Postgres path.)
+  if (jobs.length === 0) {
+    console.log(`${source}: fetch returned 0 postings — leaving the existing Redis entry alone rather than blanking it`);
+    return;
+  }
   const rows = browseAllRows(jobs);
   await redisSetJobs(url, writeToken, source, rows, REDIS_WARM_TTL_SECONDS);
   console.log(`${source}: warmed Redis browse-all cache with ${rows.length} postings`);
@@ -309,20 +411,44 @@ async function main(): Promise<void> {
   ];
 
   const now = new Date();
+  // Per-source isolation: one source's failure must not cost the other
+  // three their refresh. This mattered much less hourly (the next
+  // attempt was 60 minutes away); on a daily cadence, letting an Ashby
+  // outage abort the run before Greenhouse is even attempted means
+  // Greenhouse goes a full 24h without a refresh for no reason of its
+  // own. Failures are collected and re-raised at the end instead of
+  // swallowed, so the run still goes red in CI and nothing fails
+  // silently — it just fails AFTER everything that could succeed has.
+  const failures: string[] = [];
   for (const { source, slugs, fetch } of sources) {
     if (slugs.length === 0) {
       console.log(`${source}: no company slugs configured, skipping`);
       continue;
     }
-    const { jobs } = await fetch();
-    // job.company is the slug itself for these four sources (see jobs.ts's
-    // fetchAshby/fetchLever/fetchGreenhouse/fetchSmartRecruiters), so this
-    // groups fetched postings back by the slug they actually came from.
-    const rows = jobs.map((job) => jobCacheRow(source, job.company, "", job, now));
-    await upsert(url, secretKey, rows);
-    console.log(`${source}: cached ${rows.length} postings across ${slugs.length} companies`);
-    await warmRedisBrowseAll(source, jobs);
+    try {
+      const { jobs } = await fetch();
+      // job.company is the slug itself for these four sources (see jobs.ts's
+      // fetchAshby/fetchLever/fetchGreenhouse/fetchSmartRecruiters), so this
+      // groups fetched postings back by the slug they actually came from.
+      const rows = dedupeRows(jobs.map((job) => jobCacheRow(source, job.company, "", job, now)));
+      const droppedDupes = jobs.length - rows.length;
+      if (droppedDupes > 0) {
+        console.log(`${source}: dropped ${droppedDupes} duplicate posting(s) before upsert (same company + job key)`);
+      }
+      await upsert(url, secretKey, rows);
+      console.log(`${source}: cached ${rows.length} postings across ${slugs.length} companies`);
+      await warmRedisBrowseAll(source, jobs);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`${source}: FAILED — ${message}`);
+      failures.push(`${source}: ${message}`);
+    }
   }
+
+  if (failures.length > 0) {
+    throw new Error(`${failures.length}/${sources.length} source(s) failed:\n  - ${failures.join("\n  - ")}`);
+  }
+  console.log(`all ${sources.length} sources refreshed successfully`);
 }
 
 main().catch((err) => {

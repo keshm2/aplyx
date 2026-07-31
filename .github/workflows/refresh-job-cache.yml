@@ -2,10 +2,39 @@
 # src/core/src/refreshJobCache.ts for what this actually does and
 # why) so searchJobs()'s cache checks (src/core/src/jobCache.ts)
 # have fresh data to hit instead of always falling back to a live
-# per-source fetch. job_cache rows expire 2h after being written
-# (src/supabase/migrations/0003_job_cache.sql's default); 90 minutes keeps a
-# real margin under that so a slow/failed run doesn't let the cache go
-# fully stale before the next attempt.
+# per-source fetch.
+#
+# CADENCE: daily, not hourly (changed 2026-07-30). Two independent
+# reasons, either of which alone would justify it:
+#
+#  1. Job boards don't move that fast. Companies post in batches on
+#     business days; 24 consecutive fetches of a board that gained
+#     nothing is 24x the write volume for ~0 additional postings. That
+#     write volume is not free here — it is what pushed the previous
+#     Supabase project past its free-tier disk I/O budget and produced
+#     Cloudflare 522s on unrelated requests (see refreshJobCache.ts).
+#
+#  2. The hourly schedule was never actually hourly. GitHub explicitly
+#     does not guarantee scheduled-workflow start times and drops runs
+#     under load, and minute 0 of the hour is the single most contended
+#     slot on the platform. Measured against the real run history on
+#     2026-07-30, consecutive "hourly" runs landed 2-3 HOURS apart
+#     (00:08, 22:12, 20:18, 18:21, 16:40, 14:19, 11:13, 08:38, 05:48,
+#     02:50 UTC). With the old 2h row TTL that meant the cache was
+#     routinely expiring completely between runs — the schedule was
+#     lying, and the TTL was tuned against the lie. An explicitly daily
+#     cadence paired with a 7-day retention window (CACHE_TTL_MS) has 7
+#     consecutive missed runs of margin, so GitHub's scheduling jitter
+#     stops being able to affect correctness at all.
+#
+# 08:37 UTC, deliberately not on the hour: off-peak for GitHub's
+# scheduler (~1:30am US Pacific), so the run is far less likely to be
+# delayed or dropped, and the cache is fresh before the US workday.
+#
+# ADDITIVE ONLY: a run adds newly-seen postings and extends the
+# retention window on ones still live. It never deletes and never
+# overwrites an existing row's discovery timestamp, so a bad fetch can
+# never shrink the cache — see refreshJobCache.ts's header.
 #
 # Needs two repository secrets: SUPABASE_URL (the project's own URL —
 # not sensitive, just stored alongside the other one for convenience)
@@ -24,34 +53,48 @@
 # discipline as SUPABASE_SECRET_KEY). If either is unset, the warm step
 # logs and skips per source rather than failing the run — the Postgres
 # upsert above it already succeeded and is unaffected.
-#
-# Hourly, not every 90 minutes — cron's minute field only spans 0-59, so
-# a literal */90 there silently collapses to "minute 0 of every hour"
-# instead of the intended 90-minute cadence. Hourly is still a full 1h
-# of margin under the 2h TTL, comfortably covering a missed or failed
-# run before the cache would actually go stale.
 name: refresh-job-cache
 on:
   schedule:
-    - cron: "0 * * * *"
+    - cron: "37 8 * * *"
   workflow_dispatch: {}
+
+# This job is the only writer to job_cache, and a run takes ~20 minutes.
+# Two overlapping runs would interleave chunked upserts against the same
+# rows and double the write pressure on the exact resource (free-tier
+# disk I/O) that this whole file is already tuned around. cancel-in-progress
+# is false on purpose: an in-flight run is partway through writing real
+# data, so a manual dispatch should QUEUE behind it, never kill it.
+concurrency:
+  group: refresh-job-cache
+  cancel-in-progress: false
+
+# Read-only. This workflow talks to Supabase and Upstash via secrets; it
+# has no reason to be able to write to the repo.
+permissions:
+  contents: read
+
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    # Deliberately paced (50-row chunks, 1.5s between each — see
+    # Deliberately paced (25-row chunks, 1.5s between each — see
     # refreshJobCache.ts's UPSERT_INTER_CHUNK_DELAY_MS, added after the
-    # Supabase project hit its disk I/O limit) so ~14k rows across ~285
-    # chunks can realistically take 10+ minutes now. This is still a
-    # safety cap, not the expected floor — without it, a genuine hang
-    # burns CI minutes for hours instead of failing fast.
-    timeout-minutes: 30
+    # Supabase project hit its disk I/O limit) so ~14k rows across ~560
+    # chunks realistically takes 20-25 minutes; observed live at 18-25
+    # minutes across the run history. 60 is a safety cap well clear of
+    # that ceiling, not the expected floor — the old 30 left only ~5
+    # minutes of headroom over a normal run, so a single slow source
+    # could have tripped it and been misread as a hang. Without any cap,
+    # a genuine hang would burn CI minutes for hours instead of failing.
+    timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
+          cache: npm
       - run: npm ci
-      - run: npm run build --workspace=@aplyx/core
+      - run: npm run build:core
       - run: node src/core/dist/refreshJobCache.js
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}

@@ -1,0 +1,45 @@
+-- Widen job_cache's default retention window from 2 hours to 7 days.
+--
+-- NOT REQUIRED for the refresh job to work. src/core/src/refreshJobCache.ts
+-- always sends expires_at explicitly (CACHE_TTL_MS), so the column
+-- default only applies to a row inserted by hand in the SQL editor.
+-- This migration exists so the schema stops *documenting* a 2h cache
+-- that no longer describes how the table is actually used — a future
+-- reader trusting `interval '2 hours'` would draw exactly the wrong
+-- conclusion about how long a posting stays visible.
+--
+-- Why 7 days (see refreshJobCache.ts's CACHE_TTL_MS for the full note):
+-- the refresh moved from hourly to daily on 2026-07-30, and expires_at
+-- is no longer a freshness bound but a RETENTION WINDOW measured from
+-- each posting's last sighting on a board. The refresh is additive —
+-- nothing in this codebase ever deletes from job_cache — so this column
+-- is the only thing that retires a posting, and it needs enough margin
+-- (7 consecutive missed daily runs) that GitHub Actions' scheduling
+-- jitter can never empty the cache.
+--
+-- Safe on a live table: altering a column default does NOT rewrite
+-- existing rows. Rows already carrying a 2h expires_at keep it and are
+-- extended to 7 days the next time the refresh sees that posting on a
+-- board; anything already lapsed stays lapsed. Nothing is deleted here.
+--
+-- The read path is unchanged and needs no migration: the RLS policy
+-- (0003) and the job_cache_search RPC (0004/0005) both already gate on
+-- `expires_at > now()`, which stays correct at any window length.
+--
+-- Run this file via `supabase db push` or paste it into the Supabase SQL
+-- editor — NOT applied automatically as part of writing this migration.
+
+alter table public.job_cache
+  alter column expires_at set default (now() + interval '7 days');
+
+-- Note on table growth: because the refresh upserts on
+-- (source, company_slug, query, job_key), re-seeing a posting UPDATES
+-- its row rather than adding one. Row count therefore tracks the number
+-- of distinct postings ever observed, not the number of refresh runs,
+-- and a longer window does not by itself accelerate growth. Lapsed rows
+-- do linger (invisible to readers, since every read path filters on
+-- expires_at). If that ever needs reclaiming, prune deliberately and
+-- explicitly — e.g.
+--   delete from public.job_cache where expires_at < now() - interval '90 days';
+-- rather than adding a delete path to the refresh job, which is
+-- intentionally append-and-extend only.

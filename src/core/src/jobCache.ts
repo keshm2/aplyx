@@ -140,8 +140,13 @@ const inMemorySnapshots = new Map<JobSource, SearchJob[]>();
 let inMemoryRefreshTimer: ReturnType<typeof setInterval> | undefined;
 
 // 3 minutes: short enough that the daemon's snapshot never meaningfully
-// lags what Redis itself has (Redis is warmed hourly by CI, so anything
-// well under that just tracks it closely), long enough that this loop's
+// lags what the shared cache itself has (CI warms it daily as of
+// 2026-07-30, so anything on this order just tracks it closely — this
+// interval was already far tighter than the old hourly cadence and is
+// only more so now; it stays at 3 minutes because what it's really
+// bounding is how long a long-lived daemon can hold a snapshot from
+// BEFORE a refresh landed, not the refresh cadence itself), long enough
+// that this loop's
 // own Redis/Postgres reads are a rounding error against how long the
 // daemon process actually stays alive for (a whole app session, not a
 // few seconds) — this is a background refresh cost, not something a

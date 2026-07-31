@@ -24,7 +24,7 @@ export interface JobCacheRedisConfig {
  *
  * Deliberately read-only: Upstash tokens are scoped read-only or
  * full-access, not per-command, so there's no way to hand a client a
- * token that can GET but not FLUSHDB/DEL. Every write (the hourly
+ * token that can GET but not FLUSHDB/DEL. Every write (the daily
  * eager-warm in refreshJobCache.ts) uses a separate, CI-only,
  * write-capable token read from an env var — never written to a
  * config file, never shipped in a client bundle — exactly the same

@@ -46,7 +46,8 @@ export function readSupabaseConfig(root: string): SupabaseConfig {
  * from src/config/supabase.json's (hosted auth/profile sync). Split apart
  * 2026-07-23 after the auth project's disk I/O usage climbed toward its
  * free-tier limit (partly from job_cache's own write volume — ~14k rows
- * across 47 companies, refreshed hourly) and started producing Cloudflare
+ * across 47 companies, refreshed hourly at the time — daily since
+ * 2026-07-30) and started producing Cloudflare
  * 522s on unrelated requests; the two workloads no longer share one
  * project's resource ceiling. job_cache holds no personal data (see
  * supabase/migrations/0003_job_cache.sql's RLS comment), so this project

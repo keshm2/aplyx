@@ -18,7 +18,7 @@ documents on the TS side:
 
   1. Upstash Redis (src/config/job_cache_redis.json's read-only token) —
      the browse-all (`query=""`, no title words) entry only, warmed
-     hourly by refreshJobCache.ts. This module never writes Redis —
+     daily by refreshJobCache.ts. This module never writes Redis —
      writes need a write-capable token that must never leave CI (see
      refreshJobCache.ts's own header for why).
   2. The Postgres job_cache_search RPC (src/config/job_cache_supabase.json's
