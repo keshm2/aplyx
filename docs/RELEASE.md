@@ -1,155 +1,161 @@
-# Release notes — aplyx 0.9.945a
+# Release notes — aplyx 0.9.949a
 
-> **Build:** `0.9.945a` — alpha.
+> **Build:** `0.9.949a` — alpha.
 > **Branch:** `main`.
-> **TUI in-app marker:** `packages/core/src/version.ts` →
-> `BUILD_MARKER = "0.9.945a"` (re-exported from `app/src/theme.ts`,
+> **TUI in-app marker:** `src/core/src/version.ts` →
+> `BUILD_MARKER = "0.9.949a"` (re-exported from `src/tui/src/theme.ts`,
 > visible in the TUI side-panel footer, and also in the desktop app's
 > Settings screen — one shared constant, both surfaces agree).
-> **npm package:** `@keshm/aplyx` version `0.9.945-alpha.0`, published to
-> the default `latest` dist-tag — `npm install -g @keshm/aplyx` gets it.
-> The unscoped npm name `aplyx` belongs to an unrelated package — never
-> `npm install aplyx`.
+> **npm package:** `@keshm/aplyx` version `0.9.949-alpha.0` — built and
+> verified (`npm pack --dry-run` produces a clean 72.7 kB tarball
+> containing only `dist/cli.js` and `package.json`) but not yet
+> published; the registry's `latest` dist-tag is still
+> `0.9.947-alpha.0` (`0.9.948a` was never published either). Publishing
+> needs `npm login` on the publishing machine — this checkout currently
+> has no active npm session. The unscoped npm name `aplyx` belongs to
+> an unrelated package — never `npm install aplyx`.
 > **Desktop app:** 0.1.0 internally (Tauri app version, not tied to the
-> TUI's release cadence) — this release rebuilds it (three of the four
-> fixes below are desktop-app-only).
+> TUI's release cadence) — rebuilt and typechecked clean this release
+> after the `react-router-dom` v7 bump below.
 > **Browser extension:** unchanged in this build — `0.8.2` / `0.8.2a`.
-> **Previous releases:** `0.9.94a`, `0.9.93a`, `0.9.92a`, `0.9.91a`,
-> `0.9.90a`, `0.9.89a`, `0.9.88a`, `0.9.87a`, `0.9.85a`, `0.9.8a`,
-> `0.9.75a`, `0.9.7a`, `0.9.1a`, `0.9.0a`, `0.8.43a`, `0.8.42a`,
-> `0.8.041a`, `0.8.4a`, `0.8.3a`, `0.8.2a`, `0.7.8a`, and `0.5.5a` —
-> deep-dive notes live at this path under their git tags; the index is
-> [`CHANGELOG.md`](./CHANGELOG.md).
+> **Previous releases:** `0.9.948a`, `0.9.947a`, `0.9.946a`, `0.9.945a`,
+> `0.9.94a`, `0.9.93a`, `0.9.92a`, `0.9.91a`, `0.9.90a`, `0.9.89a`,
+> `0.9.88a`, `0.9.87a`, `0.9.85a`, `0.9.8a`, `0.9.75a`, `0.9.7a`,
+> `0.9.1a`, `0.9.0a`, `0.8.43a`, `0.8.42a`, `0.8.041a`, `0.8.4a`,
+> `0.8.3a`, `0.8.2a`, `0.7.8a`, and `0.5.5a` — deep-dive notes for
+> `0.9.945a` and earlier live at this path under their git tags.
+> `0.9.946a`–`0.9.948a` were never tagged and never got their own
+> deep-dive; this file sat stale describing `0.9.945a` for three
+> releases in a row. `CHANGELOG.md` has the summary for everything that
+> shipped in between — treat it as the source of truth for those three,
+> not this file. The index is [`CHANGELOG.md`](./CHANGELOG.md).
 
-## What's new in 0.9.945a
+## What's new in 0.9.949a
 
-Three Windows-reported bugs, each traced to a real structural cause
-rather than patched at the symptom, plus a new theme.
+A security-audit remediation pass (one confirmed injection bug fixed,
+file-permission hardening across every PII-bearing write path), a new
+subagent, a major frontend dependency bump, and a copy/motion pass on
+the marketing site.
 
-### Fixed: "update available" didn't actually update the desktop app
+### Fixed: spreadsheet formula injection in the Google Sheets tracker sync
 
-`aplyx update` (the TUI/core self-updater) only ever touches the
-checkout it runs from — `scripts/`, `packages/core`, `config/`. The
-desktop app's own binary and its bundled `core/bridge.js` resource are
-baked in at *build* time (`desktop/src-tauri/tauri.conf.json`'s
-`bundle.resources`) and never change after install, no matter how many
-times the core updates. Reported live: a crash fix shipped in
-`0.9.94a` "did nothing" for the desktop app until it was uninstalled
-and reinstalled by hand — because nothing had ever told the user the
-desktop app itself, specifically, was the thing out of date.
+`src/scripts/jobs/sync_internship_tracker.py` writes each successful
+application as a row in the user's own Google Sheet, with
+`valueInputOption` defaulting to `USER_ENTERED` — the setting that
+lets Sheets auto-parse `date_applied` into a real, sortable date
+instead of literal text. The trade-off: `USER_ENTERED` also parses any
+cell value starting with `=`, `+`, `-`, or `@` as a live formula. The
+`company`/`title` fields in that row come from a scraped, third-party
+job posting — anyone can name a company or listing anything — so a
+crafted posting title like
+`=HYPERLINK("http://evil.example/phish","details")` would become a
+live, clickable formula sitting in the user's own tracker sheet.
 
-Fixed two ways, covering both places a user might trigger "update":
+Fixed with a new `_defang_formula()` in `build_row()`: any of `title`,
+`company`, `internship_term`, or `notes` starting with a
+formula-trigger character gets a literal apostrophe prefix
+unconditionally, regardless of which `value_input_option` is
+configured — the standard, complete mitigation for this class of bug
+(CWE-1236), not something that only matters if `USER_ENTERED` stays
+the default. Verified against real payloads
+(`=HYPERLINK(...)`, `+cmd|"/c calc"!A1`, `-2+3`, `@SUM(A1:A10)`) — each
+comes out apostrophe-prefixed; a benign title/company round-trips
+byte-for-byte unchanged.
 
-- `app/src/cli.tsx`'s `installUpdate()` (what runs when the TUI's
-  update prompt is accepted, or `aplyx update` is run directly) now
-  compares the desktop app's recorded install version
-  (`~/.aplyx/desktop_installed`, written by `install_desktop.sh`/`.ps1`)
-  against the core's just-updated `VERSION`. If they differ, it
-  automatically re-runs `install_desktop.sh`/`.ps1` to refresh the
-  desktop app too — never unconditionally, since that script always
-  re-downloads and re-running it on every single `aplyx update` even
-  when nothing changed would waste bandwidth for no reason.
-- The desktop app's own Settings screen (new `desktop/src/lib/
-  updateCheck.ts`) now checks the public `VERSION` file directly —
-  a plain `fetch()`, no bridge/IPC needed — against its own bundled
-  `BUILD_MARKER`, and shows a real "Update available: vX — Get the
-  update" action when it's behind, linking to the GitHub Release. This
-  covers the case where someone updates *inside* the desktop app rather
-  than through the TUI, which previously had no update awareness of its
-  own at all.
+### Fixed: PII-bearing files no longer inherit the process umask
 
-### Fixed: Windows flashing console windows + multi-second page transitions
+Live config (`src/config/targets.json`, `discord_config.json`,
+`env.json`), the state registry/events files, and the onboarding
+wizard's writes previously relied on whatever umask happened to be
+active at install time to keep them from being world- or
+group-readable. All of these carry real PII — name, address, date of
+birth, webhook URLs. `src/core/src/bridge.ts`, `src/core/src/settings.ts`,
+`src/scripts/state/job_state.py`, `src/scripts/install/install.sh`, and
+`src/tui/src/ui/onboarding/OnboardingWizard.tsx` now `chmod 600`
+explicitly on every write instead of trusting the ambient umask.
+`src/scripts/install/update.py`'s config-migration path does the same
+when copying an old install's files forward — `shutil.copy2` preserves
+the *old* file's mode bits, which would otherwise carry a
+pre-hardening install's permissive mode straight through an update.
 
-Reported live, worst on the onboarding/Settings "Your info" pages:
-"a bunch of command prompts that open and close in the background in
-quick sub-second intervals" on every click, and pages taking several
-seconds to advance. Two compounding, independently-confirmed causes:
+### Added: `cover-letter-tailor` split into its own subagent
 
-1. `std::process::Command` on Windows allocates a **new, visible
-   console window** for a spawned console subprocess (`node.exe`) by
-   default when the parent (a GUI app) has none of its own to inherit —
-   documented Windows behavior, not opt-out by default. Fixed with the
-   `CREATE_NO_WINDOW` process creation flag in `run_bridge()`
-   (`desktop/src-tauri/src/lib.rs`), Windows-only, a no-op elsewhere.
-2. The onboarding `ProfileStep` and Settings' `ProfileScreen` fired
-   **one separate bridge call — one separate cold-started node
-   process — per field**, concurrently, both on page load (read) and on
-   "Next"/"Save" (write). `ProfileScreen` was worst: it read *every*
-   field across all 8 pages at once on mount. A page with 5 fields
-   meant roughly 10 process spawns per click; opening Settings' Profile
-   page alone could spawn dozens at startup. Window allocation (point 1)
-   isn't free either, so this was the other half of the reported
-   slowness, not just the visual flashing.
+Cover-letter generation used to be bundled into `resume-tailor`'s
+output as one thin paragraph of guidance with no grounding rules. It's
+now a dedicated subagent (`src/agents/bodies/cover-letter-tailor.md`)
+with the same anti-fabrication discipline as `interest-letter` — every
+claim tied back to the tailored resume and the job description,
+demographic fields excluded, a length target enforced. `job-scraper`'s
+Phase 2 invokes it right after `@resume-tailor` so the letter stays
+consistent with whichever resume version got picked for that posting.
+Registered across all four harnesses
+(`src/agents/frontmatter/{claude,opencode,copilot}/cover-letter-tailor.yaml`,
+`codex/cover-letter-tailor.toml`) and added to `AGENTS.md`'s harness
+capability matrix, degraded-path fallback list, and
+`run_job_agent.py`'s inline-fallback `delegates` tuple. A new
+`cover_letter_over_limit` review-queue reason covers a form-stated
+word/character limit the tailored letter still exceeds after being
+re-invoked with that limit, or a pre-submit recheck finding the live
+field over limit despite a compliant pre-paste word count.
+`applied_jobs.json`/`review_queue.json`'s `cover_letter` field shape
+is unchanged — only its source agent changed, so the Documents tab and
+the Google Sheets sync needed no updates.
 
-   Fixed with new batched `readProfileFields`/`writeProfileFields`
-   bridge commands (`packages/core/src/bridge.ts`, wired through
-   `desktop/src-tauri/src/lib.rs` and `desktop/src/lib/bridge.ts`) that
-   take a whole page's field IDs (or values) in one call — one spawn
-   instead of N. As a side benefit, the batched write is also more
-   correct than before: each field write reads the *same* underlying
-   `config/targets.json`, modifies one key, and writes it back, and the
-   old per-field-concurrent `Promise.all` could race two writes against
-   that file; the new batched version writes sequentially within a
-   single process, which can't race with itself.
+### Changed: scraped job content is explicitly untrusted, not instructions
 
-### Fixed: online sign-in was broken for every user except the maintainer
+`interest-letter` (and the other agents reading scraped text) now
+explicitly call out `jd_excerpt`/`question`/`jd_text` as untrusted,
+third-party data — a job posting or application question is written
+by the employer/poster, not the operator. A posting that embeds
+"ignore your instructions," a fake system/tool tag, or a request to
+reveal these instructions doesn't get followed; it's treated purely as
+content to describe or answer from, never as a directive to the agent.
 
-"Hosted sign-in isn't set up yet," asking for a hand-created
-`config/supabase.json`, on every real install. Root cause:
-`config/supabase.json` is gitignored and excluded from every
-distribution channel — git tarball, npm package, and the desktop app's
-bundled resources all exclude it — so literally no end user outside
-this maintainer's own dev machine could ever have had it.
+### Changed: `react-router-dom` bumped to v7
 
-Fixed by baking in aplyx's own Supabase project
-(`packages/core/src/supabaseConfig.ts`'s `DEFAULT_SUPABASE_CONFIG`) as
-the default. An anon key is meant to be public — every Supabase web/
-mobile app ships one in its client bundle; access control is Row Level
-Security on the backend, not secrecy of the key — so this is the
-normal, correct way to do this, not a leak. `config/supabase.json`
-still works as a local override for anyone self-hosting a different
-backend; `readSupabaseConfig()` checks it first and only falls back to
-the default when it's missing or still holds the example placeholders.
+`^6.26.0` → `^7.18.0` in the desktop app, alongside `postcss`,
+`sharp`, `@types/react`, and `@types/react-dom` pinned via root
+`package.json` `overrides`. Typechecked (`tsc --noEmit`, clean) and
+production-built (`tsc && vite build`, clean, 155 modules transformed)
+before this release; no routing-surface changes were needed.
 
-Also fixed a related bug found in the same code path: hosted sign-in
-required `findRoot()` (a local checkout) to succeed *before* it would
-even try to read the Supabase config — meaning "Sign in," which is
-offered as an *alternative* to "Run locally" on the entry screen, was
-silently blocked for anyone without a local checkout at all, for a
-reason that has nothing to do with hosted mode.
-`desktop/src/lib/supabaseClient.ts`'s `getSupabaseClient()` now tries a
-local override opportunistically and falls through to the baked-in
-default on any failure — including `findRoot()` throwing — instead of
-propagating it. `getSupabaseClient()` also no longer returns `undefined`
-at all, since a config is now always available; the now-impossible
-`"unconfigured"` auth status and its "isn't set up yet" screen were
-removed from `AuthContext.tsx`/`AuthScreen.tsx`.
+### Changed: marketing site copy and motion pass
 
-### Added: Ember Glow theme
+Humanized the site's copy across all six pages
+(`index`/`features`/`install`/`pricing`/`privacy`/`changelog`) —
+mainly trimming em-dash-heavy sentences into plainer commas, periods,
+and colons; same information, easier to read aloud. Separately,
+reviewed the CSS against a motion-design checklist (easing choice,
+duration, transform-origin, hover-state gating, reduced-motion
+handling) and found it already followed nearly all of it; the one real
+fix was the status-tracking demo's mouse-trailing glow, which used an
+entrance-style ease for what is actually continuous on-screen movement
+— switched to `--ease-standard` to match how the rest of the site
+already separates those two cases.
 
-A fifth desktop app theme family (Settings → Appearance, alongside
-Calm Cobalt, Sage Slate, Aplyx Classic, and Graphite Cyan): warm and
-inviting, a burnt orange-red accent on soft cream in light mode, a
-glowing amber accent on deep charcoal-ash in dark mode — coals in a
-fire rather than an open flame. Defined in `desktop/src/styles/
-tokens.css` following the existing four-family token contract
-(`--ground`/`--surface`/`--text`/`--accent`/etc, `good`/`warn`/`danger`
-semantic colors unchanged and shared across all families), wired into
-`desktop/src/lib/uiPrefs.ts`'s `ThemeFamily` type and both places that
-list the options (Settings and the onboarding Preferences step).
+### Fixed: broken install commands on the site itself
+
+Unrelated to the above, found while writing this file: `install.html`'s
+copy-pasteable macOS/Linux and Windows install commands still pointed
+at the pre-`src/`-restructure path
+(`.../main/scripts/install/install.sh`), which 404s — confirmed
+directly against the raw GitHub URL. Live and broken since the
+`0.9.948a` restructure landed on `main`. Both commands now point at
+`.../main/src/scripts/install/install.sh` (and `.ps1`), matching what
+`README.md` and `docs/SETUP.md` already had correct.
 
 ## Install / update / uninstall
 
 ```bash
 # install (one command; puts `aplyx` on your PATH):
-curl -fsSL https://raw.githubusercontent.com/keshm2/aplyx/main/scripts/install/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/keshm2/aplyx/main/src/scripts/install/install.sh | bash
 
 # or via npm:
 npm install -g @keshm/aplyx
 
 # optionally also install the desktop app (or from TUI Settings > Desktop app):
-bash scripts/install/install_desktop.sh        # macOS / Linux
-powershell -ExecutionPolicy Bypass -File scripts\install\install_desktop.ps1   # Windows
+bash src/scripts/install/install_desktop.sh        # macOS / Linux
+powershell -ExecutionPolicy Bypass -File src\scripts\install\install_desktop.ps1   # Windows
 
 # check the installed version:
 aplyx version
@@ -161,57 +167,65 @@ aplyx update
 aplyx uninstall          # add --keep-data to keep config/data/resumes
 ```
 
-Windows: `powershell -ExecutionPolicy Bypass -File scripts\install\install.ps1`
-(or `irm .../install.ps1 | iex`), native PowerShell, no WSL.
+Windows: `powershell -ExecutionPolicy Bypass -File src\scripts\install\install.ps1`
+(or `irm .../src/scripts/install/install.ps1 | iex`), native PowerShell, no WSL.
 
 ## Verification
 
-- `npm run build --workspace=@aplyx/core`, `npm run typecheck`/`build`/
-  `smoke` (`--workspace=app`), `npx tsc --noEmit` and `npm run build`
-  in `desktop/`, and `cargo check`/`cargo clippy` in
-  `desktop/src-tauri` are all clean.
-- The batched `readProfileFields`/`writeProfileFields` bridge commands
-  were exercised directly against the real compiled bridge
-  (`node packages/core/dist/bridge.js readProfileFields '{...}'` /
-  `writeProfileFields '{...}'`), not just typechecked: a multi-field
-  read against this checkout's own profile returned the correct values
-  in one call, and a write-then-readback round-trip against a throwaway
-  checkout confirmed persistence.
-- The hosted-auth fallback was verified directly against the compiled
-  module: `readSupabaseConfig()` against a real, nonexistent root path
-  correctly falls through to `DEFAULT_SUPABASE_CONFIG` rather than
-  throwing or returning nothing.
-- The Ember Glow palette was rendered and screenshotted (both light and
-  dark) via a real browser against the actual `tokens.css`, not just
-  written from computed contrast ratios — confirmed the accent reads
-  clearly against both grounds and body text is comfortably legible in
-  both modes.
-- The Windows-specific fixes (`CREATE_NO_WINDOW`, the
-  `node_binary_uncached` Windows branch, the `\\?\`-prefix stripping)
-  are `cargo check`/`clippy`-clean and reasoned through against
-  documented Windows/Node behavior, but — as with every release so
-  far — not run on an actual Windows machine; no such environment is
-  available here. Please confirm on the hardware that reported these.
+- `npm run build:core`, `npm run typecheck:app`, and `npm run
+  smoke:app` (root workspace scripts, which build `@aplyx/core` then
+  the TUI) are all clean; the smoke test's `node dist/cli.js status`
+  ran and returned real output against this checkout's own state.
+- `npx tsc --noEmit` and `npm run build` (`tsc && vite build`) in
+  `src/tauri/` are both clean after the `react-router-dom` v7 bump —
+  a full production build, not just a typecheck, specifically because
+  a major version bump can carry breaking changes typecheck alone
+  might not surface.
+- `python3 src/scripts/validate/generate_agent_definitions.py --check`
+  passes — the new `cover-letter-tailor` generated files across all
+  four harnesses match their `src/agents/bodies/` +
+  `src/agents/frontmatter/` sources exactly.
+- `bash src/scripts/validate/validate_local_config.sh` passes (`OK`);
+  its two warnings are this machine's own unconfigured placeholders,
+  not a code issue.
+- `bash -n` on every touched install/state shell script and
+  `python3 -m py_compile` on every touched Python script are clean.
+- The formula-injection fix was exercised against real malicious
+  payloads (see Fixed section above), not just read.
+- The marketing site was loaded in a real browser (not just visually
+  diffed): hero, features, and privacy pages all render correctly, the
+  privacy page's TL;DR/Fine Print toggle still works, and the
+  status-demo section renders with the corrected easing in place.
+- The two broken install-command URLs were confirmed 404 before the
+  fix and 200 after, directly against the raw GitHub URLs (not just
+  read as text).
 
 ## Release artifacts
 
-- Git tag `v0.9.945a` on `main`.
-- npm: `@keshm/aplyx@0.9.945-alpha.0` under the `latest` dist-tag
-  (`cd app && npm publish` — `publishConfig` sets `access: public` and
-  the tag). Publish requires `npm login` (and, on this account, an OTP
-  step in the browser).
+- Git tag `v0.9.949a` on `main` — **not yet created**; `0.9.946a`,
+  `0.9.947a`, and `0.9.948a` were never tagged either. Worth doing all
+  four in sequence if the tag history is meant to stay authoritative.
+- npm: `@keshm/aplyx@0.9.949-alpha.0` under the `latest` dist-tag
+  (`cd src/tui && npm publish` — `publishConfig` sets `access: public`
+  and the tag). **Not yet published** — pending explicit go-ahead and
+  an `npm login` on the publishing machine.
 - CI workflow `.github/workflows/tui.yml` runs on every push touching
   the TUI/core. `.github/workflows/desktop-release.yml` builds and
-  attaches desktop app bundles to the `v0.9.945a` tag.
+  attaches desktop app bundles to a tag when one exists — currently
+  nothing to attach to for this release.
 
 ## Known gaps
 
-- Everything carried forward from 0.9.90a's Known Gaps still applies —
-  see that entry in `CHANGELOG.md` for the full list (Automatic-run
-  gate/sidebar reports awaiting re-confirmation on a fresh build, the
-  80×20–22 terminal render glitch, Codex subagent registry-only status,
-  desktop hosted-sync, Workday review-only, desktop locations-only
-  filter).
-- All three Windows-specific fixes in this release are reasoned +
-  `cargo check`-verified but not confirmed on real Windows hardware,
-  same caveat as every release touching `desktop/src-tauri` so far.
+- Everything carried forward from `0.9.90a`'s Known Gaps still
+  applies — see that entry in `CHANGELOG.md` for the full list
+  (Automatic-run gate/sidebar reports awaiting re-confirmation on a
+  fresh build, the 80×20–22 terminal render glitch, Codex subagent
+  registry-only status, desktop hosted-sync, Workday review-only,
+  desktop locations-only filter).
+- `git tag`/`npm publish` are both outstanding for `0.9.946a` through
+  `0.9.949a` — this release notes file and the tag history had both
+  drifted out of sync with `main` for three releases before this one.
+- The Windows-specific fixes from earlier releases (`CREATE_NO_WINDOW`,
+  etc.) remain reasoned-through and `cargo check`/`clippy`-clean but
+  not run on real Windows hardware, same caveat as every release
+  touching `src/tauri/src-tauri` so far.
