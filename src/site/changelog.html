@@ -15,7 +15,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Changelog — aplyx</title>
   <meta name="description" content="What's new in aplyx." />
-  <link rel="icon" href="assets/logo-mark.png" />
+  <link rel="icon" href="favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" href="assets/favicon-32.png" sizes="32x32" />
+  <link rel="icon" type="image/png" href="assets/favicon-16.png" sizes="16x16" />
+  <link rel="icon" type="image/png" href="assets/logo-mark.png" sizes="483x483" />
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -53,24 +57,59 @@
   <header class="page-hero">
     <div class="wrap">
       <h1 data-reveal>Changelog</h1>
-      <p data-reveal>Every release is tagged and tracked on GitHub.</p>
+      <p data-reveal>Every release, straight from the repo — this page reads the changelog live off GitHub, so a push to <code>main</code> is a push to this page too.</p>
     </div>
   </header>
 
   <main>
     <section class="content">
       <div class="wrap">
-        <div class="prose">
-          <p data-reveal>
-            The full, current changelog lives in the repo and is kept up to date with every
-            release — rather than duplicating it here, where it would drift out of sync.
-          </p>
-          <p class="features-more" data-reveal>
-            <a class="btn btn-primary" href="https://github.com/keshm2/aplyx/blob/main/docs/CHANGELOG.md" target="_blank" rel="noopener">
-              View the changelog on GitHub &rarr;
-            </a>
-          </p>
+        <p class="changelog-sync-note">
+          Synced automatically from
+          <a class="link" href="https://github.com/keshm2/aplyx" target="_blank" rel="noopener">GitHub</a>
+          — no manual updates, no redeploy.
+          <span class="changelog-sync-time" data-changelog-sync-time></span>
+        </p>
+        <div id="changelog-root" aria-live="polite">
+          <div class="changelog-timeline changelog-skeleton" aria-hidden="true">
+            <div class="changelog-entry">
+              <div class="changelog-entry-marker"><span class="changelog-dot"></span></div>
+              <div class="changelog-entry-body">
+                <div class="skeleton-bar skeleton-bar-title"></div>
+                <div class="skeleton-bar" style="width: 92%"></div>
+                <div class="skeleton-bar" style="width: 78%"></div>
+              </div>
+            </div>
+            <div class="changelog-entry">
+              <div class="changelog-entry-marker"><span class="changelog-dot"></span></div>
+              <div class="changelog-entry-body">
+                <div class="skeleton-bar skeleton-bar-title"></div>
+                <div class="skeleton-bar" style="width: 85%"></div>
+                <div class="skeleton-bar" style="width: 60%"></div>
+              </div>
+            </div>
+            <div class="changelog-entry">
+              <div class="changelog-entry-marker"><span class="changelog-dot"></span></div>
+              <div class="changelog-entry-body">
+                <div class="skeleton-bar skeleton-bar-title"></div>
+                <div class="skeleton-bar" style="width: 70%"></div>
+              </div>
+            </div>
+          </div>
         </div>
+        <noscript>
+          <div class="prose">
+            <p>
+              This page renders the changelog with JavaScript. With it disabled, read the
+              current changelog directly on GitHub instead:
+            </p>
+            <p class="features-more">
+              <a class="btn btn-primary" href="https://github.com/keshm2/aplyx/blob/main/docs/CHANGELOG.md" target="_blank" rel="noopener">
+                View the changelog on GitHub &rarr;
+              </a>
+            </p>
+          </div>
+        </noscript>
       </div>
     </section>
   </main>
@@ -87,5 +126,6 @@
   </footer>
 
   <script src="site.js"></script>
+  <script src="changelog.js"></script>
 </body>
 </html>

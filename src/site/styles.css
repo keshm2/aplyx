@@ -413,7 +413,16 @@ button {
 .theme-toggle:hover {
   color: var(--text);
   border-color: var(--border-strong);
-  transform: translateY(-1px);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .theme-toggle:hover {
+    transform: translateY(-1px);
+  }
+}
+
+.theme-toggle:active {
+  transform: scale(0.92);
 }
 
 .theme-toggle svg {
@@ -459,6 +468,17 @@ button {
   background: var(--surface);
   flex-direction: column;
   gap: 4px;
+  transition: transform var(--duration-quick) var(--ease-out-expo), border-color var(--duration-quick) var(--ease-out-expo);
+}
+
+.nav-toggle:active {
+  transform: scale(0.92);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .nav-toggle:hover {
+    border-color: var(--border-strong);
+  }
 }
 
 .nav-toggle-bar {
@@ -927,8 +947,13 @@ button {
 
 .btn-primary:hover {
   background: var(--accent-strong);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lift);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lift);
+  }
 }
 
 .btn-secondary {
@@ -939,7 +964,19 @@ button {
 
 .btn-secondary:hover {
   border-color: var(--border-strong);
-  transform: translateY(-2px);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn-secondary:hover {
+    transform: translateY(-2px);
+  }
+}
+
+/* Comes after both hover blocks so equal-specificity cascade order lets
+   press feedback win over the hover-lift while a button is actively held
+   down, instead of the two transforms fighting silently. */
+.btn:active {
+  transform: scale(0.97);
 }
 
 /* --- Bento feature grid --- */
@@ -980,9 +1017,20 @@ button {
 }
 
 .bento-card:hover {
-  transform: translateY(-3px);
   border-color: var(--accent);
-  box-shadow: var(--shadow-lift);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  /* Scoped through the .bento parent (not just .bento-card:hover) so this
+     outranks [data-reveal].is-visible's own transform on specificity —
+     equal-specificity selectors otherwise let source order decide, and the
+     reveal rule sits later in this file, silently winning the `transform`
+     property and killing the hover-lift on every card once it's scrolled
+     into view. */
+  .bento .bento-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lift);
+  }
 }
 
 .bento-card-lead {
@@ -1116,9 +1164,17 @@ button {
 }
 
 .step:hover {
-  transform: translateY(-3px);
   border-color: var(--accent);
-  box-shadow: var(--shadow-lift);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  /* Scoped through .steps — see the .bento .bento-card:hover comment above
+     for why: without it, [data-reveal].is-visible's own transform wins the
+     cascade tie by source order and this lift never shows. */
+  .steps .step:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lift);
+  }
 }
 
 .step-number {
@@ -1268,6 +1324,92 @@ button {
   padding: 0.15em 0.4em;
 }
 
+/* Numbered subsections (1.1, 1.2, ...) inside the privacy page's legal
+   version — one step down from .prose h2's numbered top-level sections. */
+.prose h3 {
+  font-size: var(--text-base);
+  margin-top: var(--space-6);
+  color: var(--text);
+}
+
+/* TL;DR / Fine Print switcher (privacy page) — an iOS-style sliding
+   toggle rather than tabs: one switch, two flanking labels, the knob
+   slides and the track recolors on state change. Panel visibility itself
+   still reuses .os-panel's is-active/display mechanism (site.js). */
+.privacy-view-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+}
+
+.privacy-view-label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: color var(--duration-quick) var(--ease-out);
+}
+
+.privacy-view-label:hover {
+  color: var(--text-muted);
+}
+
+.privacy-view-label.is-active {
+  color: var(--text);
+}
+
+.apple-toggle {
+  position: relative;
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 1.5rem;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--border-strong);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+  transition: background var(--duration-normal) var(--ease-standard), transform var(--duration-quick) var(--ease-out-expo);
+}
+
+.apple-toggle[aria-checked="true"] {
+  background: var(--accent);
+}
+
+.apple-toggle:active {
+  transform: scale(0.94);
+}
+
+.apple-toggle-knob {
+  position: absolute;
+  top: 0.125rem;
+  left: 0.125rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  transition: transform var(--duration-normal) var(--ease-standard);
+}
+
+.apple-toggle[aria-checked="true"] .apple-toggle-knob {
+  transform: translateX(1.25rem);
+}
+
+/* Not-yet-attorney-reviewed disclaimer at the top of the legal version —
+   same honesty convention as .feature-badge: visible, not buried. */
+.legal-disclaimer {
+  margin-top: var(--space-5);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
 /* --- Feature rows (/features) --- */
 
 .feature-rows {
@@ -1292,9 +1434,17 @@ button {
 }
 
 .feature-row:hover {
-  transform: translateY(-2px);
   border-color: var(--accent);
-  box-shadow: var(--shadow-lift);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  /* Scoped through .feature-rows — see the .bento .bento-card:hover comment
+     above for why: without it, [data-reveal].is-visible's own transform
+     wins the cascade tie by source order and this lift never shows. */
+  .feature-rows .feature-row:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lift);
+  }
 }
 
 .feature-row-icon {
@@ -1488,11 +1638,18 @@ button {
   border-bottom: 2px solid transparent;
   transition:
     color var(--duration-quick) var(--ease-out-expo),
-    border-color var(--duration-quick) var(--ease-out-expo);
+    border-color var(--duration-quick) var(--ease-out-expo),
+    transform var(--duration-quick) var(--ease-out-expo);
 }
 
-.os-tab:hover {
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  .os-tab:hover {
+    color: var(--text);
+  }
+}
+
+.os-tab:active {
+  transform: scale(0.96);
 }
 
 .os-tab.is-active {
@@ -1681,9 +1838,17 @@ button {
 }
 
 .price-card:hover {
-  transform: translateY(-3px);
   border-color: var(--border-strong);
-  box-shadow: var(--shadow-lift);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  /* Scoped through .pricing-grid — see the .bento .bento-card:hover comment
+     above for why: without it, [data-reveal].is-visible's own transform
+     wins the cascade tie by source order and this lift never shows. */
+  .pricing-grid .price-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lift);
+  }
 }
 
 .price-card.is-featured {
@@ -1808,8 +1973,10 @@ button {
   animation: marquee-scroll 32s linear infinite;
 }
 
-.marquee:hover .marquee-track {
-  animation-play-state: paused;
+@media (hover: hover) and (pointer: fine) {
+  .marquee:hover .marquee-track {
+    animation-play-state: paused;
+  }
 }
 
 .marquee-group {
@@ -1905,6 +2072,359 @@ button {
 @media (prefers-reduced-motion: reduce) {
   .marquee-track {
     animation: none;
+  }
+}
+
+/* --- Changelog (/changelog) — renders docs/CHANGELOG.md live off GitHub's
+   raw content CDN (changelog.js), so a push to main is a push to this page.
+   A vertical timeline: one continuous rail (the container's own ::before)
+   threading through each release's dot, matching the sequential, dated
+   nature of the content itself rather than a generic card grid. --- */
+
+.changelog-sync-note {
+  max-width: 46rem;
+  margin: 0 auto var(--space-7);
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--text-faint);
+}
+
+.changelog-sync-time {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+}
+
+.changelog-timeline {
+  position: relative;
+  max-width: 46rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-7);
+}
+
+.changelog-timeline::before {
+  content: "";
+  position: absolute;
+  top: 0.4rem;
+  bottom: 0.4rem;
+  left: 0.9375rem;
+  width: 2px;
+  background: var(--border);
+}
+
+.changelog-entry {
+  position: relative;
+  display: flex;
+  gap: var(--space-5);
+  animation: changelog-entry-in var(--duration-slow) var(--ease-out) both;
+}
+
+.changelog-entry:nth-child(1) {
+  animation-delay: 0ms;
+}
+.changelog-entry:nth-child(2) {
+  animation-delay: 40ms;
+}
+.changelog-entry:nth-child(3) {
+  animation-delay: 80ms;
+}
+.changelog-entry:nth-child(4) {
+  animation-delay: 120ms;
+}
+.changelog-entry:nth-child(5) {
+  animation-delay: 160ms;
+}
+.changelog-entry:nth-child(6) {
+  animation-delay: 200ms;
+}
+
+@keyframes changelog-entry-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.changelog-entry-marker {
+  flex-shrink: 0;
+  width: 2rem;
+  display: flex;
+  justify-content: center;
+  padding-top: 0.3rem;
+}
+
+.changelog-dot {
+  position: relative;
+  z-index: 1;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 50%;
+  /* A ring in the page's own ground color knocks a gap out of the rail
+     behind it, so the line reads as passing behind each dot instead of
+     touching it edge-to-edge. */
+  box-shadow: 0 0 0 4px var(--ground);
+}
+
+/* The dot's actual fill lives on ::after, painted on top of ::before —
+   so the ping ring (::before, added below for .is-latest only) can sit
+   UNDERNEATH the solid dot at rest and only become visible once it
+   expands past the dot's own edge, instead of flashing on top of it. */
+.changelog-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* The "latest" release gets a soft white ring that pings outward and
+   fades — an ambient, always-on state indicator (not a response to any
+   user action), so it's allowed to run continuously and a little slower
+   than a typical UI transition. Scoped to .is-latest only: exactly one
+   entry ever has this, so it reads as "this one is live" rather than
+   decorating the whole timeline. */
+.changelog-entry.is-latest .changelog-dot::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: #fff;
+  animation: changelog-ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes changelog-ping {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(2.75);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The global reduced-motion rule (bottom of this file) collapses the
+     duration to ~0, but an `infinite` animation at near-zero duration is
+     still technically animating — explicit `animation: none` is the only
+     way to guarantee a genuinely static dot. */
+  .changelog-entry.is-latest .changelog-dot::before {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+.changelog-entry-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.changelog-entry-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.changelog-version {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.changelog-version-generic {
+  font-size: var(--text-lg);
+}
+
+.changelog-latest-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15em var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.changelog-date {
+  font-size: var(--text-sm);
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.changelog-tag {
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+.changelog-meta {
+  margin-top: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-faint);
+}
+
+.changelog-group {
+  margin-top: var(--space-5);
+}
+
+.changelog-group-title {
+  font-size: var(--text-base);
+  margin: 0;
+}
+
+.changelog-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25em var(--space-3);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.changelog-chip-good {
+  background: var(--good-soft);
+  color: var(--good);
+}
+.changelog-chip-info {
+  background: var(--info-soft);
+  color: var(--info);
+}
+.changelog-chip-special {
+  background: var(--special-soft);
+  color: var(--special);
+}
+.changelog-chip-danger {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.changelog-chip-neutral {
+  background: var(--surface-raised);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.changelog-group p {
+  margin-top: var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.changelog-list {
+  margin: var(--space-3) 0 0;
+  padding-left: 1.2em;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.changelog-list strong,
+.changelog-meta strong {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.changelog-list code,
+.changelog-meta code,
+.changelog-group p code {
+  font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  background: var(--surface-raised);
+  border-radius: var(--radius-sm);
+  padding: 0.15em 0.4em;
+}
+
+.changelog-quote {
+  margin: var(--space-3) 0 0;
+  padding: var(--space-3) var(--space-4);
+  border-left: 3px solid var(--border-strong);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--surface-raised);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.changelog-quote p {
+  margin: 0;
+}
+
+/* Loading skeleton — shown only until the first fetch (or cache read)
+   resolves; never a permanent state. */
+.changelog-skeleton .changelog-dot {
+  background: var(--border-strong);
+}
+
+.skeleton-bar {
+  height: 0.9em;
+  border-radius: var(--radius-sm);
+  background: var(--border);
+  animation: aplyx-skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+.skeleton-bar + .skeleton-bar {
+  margin-top: var(--space-2);
+}
+
+.skeleton-bar-title {
+  width: 40%;
+  height: 1.2em;
+  margin-bottom: var(--space-3);
+}
+
+@keyframes aplyx-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+.changelog-error {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: var(--space-6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  text-align: center;
+}
+
+.changelog-error p {
+  color: var(--text-muted);
+}
+
+.changelog-error-actions {
+  display: flex;
+  gap: var(--space-3);
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: var(--space-5);
+}
+
+@media (max-width: 30rem) {
+  .changelog-entry {
+    gap: var(--space-3);
+  }
+  .changelog-entry-marker {
+    width: 1.5rem;
+  }
+  .changelog-timeline::before {
+    left: 0.6875rem;
   }
 }
 

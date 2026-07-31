@@ -7,6 +7,146 @@ but trimmed to fit a small in-repo doc.
 > Per-`docs/RELEASE.md` is the canonical, deep-dive release
 > document for each tagged build. This file is the index.
 
+## [0.9.948a] — 2026-07-29
+
+npm package: `@keshm/aplyx` version `0.9.948-alpha.0`. `docs/RELEASE.md`
+was not updated for this build — still describes `0.9.945a`.
+
+### Changed
+
+- **Repository restructured under `src/`.** `app/`, `desktop/`,
+  `packages/core/`, `scripts/`, `agents/`, `extension/`, `config/`,
+  `site/`, and `supabase/` consolidated into `src/tui`, `src/tauri`,
+  `src/core`, `src/scripts`, `src/agents`, `src/extension`,
+  `src/config`, `src/site`, `src/supabase`. The repo root now holds
+  only README/LICENSE/the canonical behavioral docs and the harness
+  dot-directories (`.claude/`, `.opencode/`, `.github/`, `.codex/`) —
+  hardcoded lookup paths for their respective coding agents, so they
+  can't move. `data/`, `logs/`, and `docs/` stay at the root. Every
+  path reference across the install/update/scheduler scripts, agent
+  prompt bodies, the TUI/desktop/core TypeScript, CI workflows, and
+  docs was updated in lockstep. `update.py` gained self-healing
+  migration logic so existing installs repair themselves on the next
+  `aplyx update`: live config secrets copy from the old `config/` to
+  `src/config/` (copy-only, never overwriting a fresher file), stale
+  top-level directories rename to `*.pre-src-migration.bak` (never
+  deleted), and the installed `aplyx` wrapper is rewritten to point at
+  `src/tui/dist/cli.js`.
+
+### Added
+
+- **Google Careers adapter.** Google has no public API; its careers
+  search page server-renders results as an unlabeled positional array,
+  with the full job description embedded directly in the list
+  response — no separate detail fetch needed, unlike almost every
+  other adapter here. The most fragile adapter in the codebase (no
+  field names, only array indices), so every run validates the
+  response shape before trusting it, including a heuristic that
+  catches a silent field reorder a plain type check would miss.
+  Opt-in only, given the fragility.
+- **Gem adapter**, after an earlier "not viable" conclusion turned out
+  to be a wrong URL guess. The real endpoint needs no session, cookie,
+  or CSRF token. Follows the existing Ashby/Lever/Greenhouse
+  multi-company config pattern.
+
+### Fixed
+
+- **Critical: a fresh `aplyx update` on a pre-restructure install
+  could get permanently stuck running old code.** Git checkouts: the
+  post-update relaunch used a cached script path from before `git
+  pull` moved that very file, so it failed outright. Tarball/npm
+  installs: the update overlay never deletes the old `scripts/` tree,
+  so the stale relaunch silently ran restructure-unaware update logic
+  — with `VERSION` already reporting the new build, no future check
+  would ever retry. Fixed by having the relaunch verify its cached
+  path still exists (falling back to the new canonical one), and by
+  adding a `--repair-layout-only` step that the installers now run on
+  every invocation, so re-running the installer reliably repairs a
+  stuck install either way.
+- **The restructure's own verification sweep missed a class of path
+  bug**: `path.join()`/`os.path.join()` calls built from separate
+  arguments rather than one string literal. This crashed the TUI's
+  onboarding wizard with `ENOENT` on the first keystroke-and-Enter
+  into any setup field. Fixed across the onboarding wizard, `cli.tsx`,
+  the interest-letter script paths, and the extension-folder bridge
+  command.
+- **Onboarding wizard could get stuck on Continue or Skip setup** with
+  multiple coding agents detected. An unguarded `await` on a bridge
+  write meant any transient IPC hiccup silently stopped the wizard
+  with no error and no way forward. Fixed by failing open — a
+  background write failure no longer blocks navigation, and now shows
+  a small error banner instead of vanishing silently.
+
+## [0.9.947a] — 2026-07-25
+
+npm package: `@keshm/aplyx` version `0.9.947-alpha.0`.
+
+A version-number-only republish, not a feature release: npm's
+anti-abuse policy blocks republishing under a version number for 24h
+after any unpublish of that exact version, so this exists purely to
+get a clean number for the `0.9.946a` build rather than reusing
+`0.9.946-alpha.0`. The work that shipped alongside it is captured
+under `0.9.948a` above, since that's the release that closed out this
+stretch.
+
+## [0.9.946a] — 2026-07-25
+
+npm package: `@keshm/aplyx` version `0.9.946-alpha.0`. `docs/RELEASE.md`
+was not updated for this build — still describes `0.9.945a`.
+
+### Added
+
+- **Persistent search daemon.** An in-memory-cached bridge daemon
+  replaces the old spawn-per-search subprocess model for browse-all
+  queries, cutting repeat searches from 2s+ to tens of milliseconds;
+  desktop search's two phases now fire concurrently instead of
+  sequentially.
+- **ATS coverage expanded**: Microsoft (PCSX), Apple (HTML-parsed,
+  stdlib-only), and Stripe (HTML-parsed, dedup-by-listing-ID)
+  adapters; Oracle/Workday tenant expansion (American Express,
+  JPMorgan Chase, Salesforce, Nvidia).
+- **Interest-letter generation moved off the coding-agent CLI** to a
+  direct Anthropic API call with schema-enforced tool-use output and
+  two deterministic grounding checks, removing the fragile
+  transcript-scraping the old harness-based version needed.
+- **Redis warm-cache layer** in front of the shared job-postings
+  cache. Lookup timeout later widened 500ms → 900ms after live
+  measurement (5 cold runs: 232-265ms typical, one 435ms outlier) showed
+  the original budget left too little margin over ordinary jitter.
+- **Desktop: notification bell + top bar** (replacing the sidebar's
+  separate Settings entry), backed by a new changelog-driven
+  notification system surfacing what changed release to release.
+- **Multi-tenant Eightfold support**, generalized from the
+  Microsoft-only adapter after discovering Eightfold (Microsoft's
+  white-labeled ATS) also powers other employers under custom domains
+  — confirmed live: Netflix. Config-driven; tries both of the
+  platform's two search endpoints per tenant, since which one is
+  enabled varies. Also corrected an earlier finding: Microsoft does
+  have a working JD-detail endpoint after all, no Playwright required.
+- **Closed-posting tracking**: a posting is inferred closed after 3
+  consecutive misses (scoped to sources actually scraped that run),
+  and reopened if it reappears.
+
+### Fixed
+
+- **Critical: every fresh install via `curl | bash` (and the npm
+  bootstrap, which shells out to the same one-liner) silently died
+  right after printing "downloading aplyx."** `codeload.github.com`'s
+  tarball response has no `Content-Length` header, so the progress
+  bar's `grep` for it always found zero matches and exited 1 — with
+  `pipefail` set, that silently killed the whole installer before the
+  real download started. Fixed by folding the header match into a
+  single `awk` program instead of `grep|awk`.
+- **Desktop: sign-in could get stuck on the entry screen with no
+  feedback** whenever the onboarding-completed check failed (RLS,
+  network, schema mismatch) — errors were silently swallowed. Now
+  surfaces as a real, retryable error.
+- **Desktop: a scheduled-run-only install never self-updated.** The
+  staleness check only ran through the TUI's own `aplyx update` path;
+  the scheduler and the pre-run auto-update call `update.py` directly
+  and never touched it. Moved the check into `update.py`'s own
+  post-update step, the one place every path funnels through.
+
 ## [0.9.945a] — 2026-07-25
 
 npm package: `@keshm/aplyx` version `0.9.945-alpha.0`. Full notes:
