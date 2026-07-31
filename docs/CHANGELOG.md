@@ -7,6 +7,68 @@ but trimmed to fit a small in-repo doc.
 > Per-`docs/RELEASE.md` is the canonical, deep-dive release
 > document for each tagged build. This file is the index.
 
+## [0.9.949a] — 2026-07-31
+
+npm package: `@keshm/aplyx` version `0.9.949-alpha.0`. `docs/RELEASE.md`
+was not updated for this build — still describes `0.9.945a`.
+
+### Added
+
+- **`cover-letter-tailor` split into its own subagent.** Previously
+  bundled into `resume-tailor`'s output as one thin paragraph with no
+  grounding rules; now a dedicated agent
+  (`src/agents/bodies/cover-letter-tailor.md`) with the same
+  anti-fabrication discipline as `interest-letter` — every claim tied
+  to the tailored resume and job description, demographic fields
+  excluded, a length target enforced. Invoked by job-scraper's Phase 2
+  right after `@resume-tailor`, so the letter stays consistent with
+  whichever resume version was picked. Registered across all four
+  harnesses and added to `AGENTS.md`'s capability matrix, degraded-path
+  fallback list, and `run_job_agent.py`'s inline-fallback delegate
+  tuple. A new `cover_letter_over_limit` review-queue reason covers a
+  form-stated word/character limit the tailored letter still exceeds.
+  `applied_jobs.json`/`review_queue.json`'s `cover_letter` field shape
+  is unchanged, only its source agent changed.
+
+### Changed
+
+- **Prompt-injection hardening on scraped job content.** Job
+  descriptions and application questions are third-party text an
+  employer or job poster controls, not instructions. `interest-letter`
+  (and the other agents reading scraped text) now explicitly call out
+  `jd_excerpt`/`question`/`jd_text` as untrusted data — a job posting
+  that embeds "ignore your instructions" or a fake system tag doesn't
+  get followed.
+- **`react-router-dom` bumped `^6.26.0` → `^7.18.0`** in the desktop
+  app, plus `postcss`, `sharp`, `@types/react`, and `@types/react-dom`
+  pinned via root `package.json` `overrides`. Typechecked and
+  production-built clean before this release.
+- **Marketing site copy pass.** Trimmed em-dash-heavy sentences across
+  all six pages (`index`, `features`, `install`, `pricing`, `privacy`,
+  `changelog`) into plainer commas, periods, and colons — same
+  information, easier to read aloud. The status-tracking demo's
+  mouse-trailing glow switched from an entrance-style ease to
+  `--ease-standard` for its continuous trailing motion, matching how
+  the rest of the site already separates entrance/exit easing from
+  on-screen movement easing.
+
+### Fixed
+
+- **Spreadsheet formula injection in the Google Sheets tracker sync**
+  (CWE-1236). A scraped job posting's `company`/`title` could start
+  with `=`, `+`, `-`, or `@` and land in the user's tracker sheet as a
+  live formula under the default `USER_ENTERED` value-input option.
+  `sync_internship_tracker.py` now force-prefixes any of `title`,
+  `company`, `internship_term`, or `notes` with a leading apostrophe
+  when it starts with a formula-trigger character, unconditionally,
+  regardless of `value_input_option`.
+- **PII-bearing files no longer inherit the process umask.** Live
+  config (`targets.json`, `discord_config.json`, `env.json`),
+  registry/event state files, and the onboarding wizard's writes are
+  now `chmod 600` explicitly rather than relying on however permissive
+  the umask happened to be at install time — `update.py`'s config
+  migration does the same when copying an old install's files forward.
+
 ## [0.9.948a] — 2026-07-29
 
 npm package: `@keshm/aplyx` version `0.9.948-alpha.0`. `docs/RELEASE.md`
