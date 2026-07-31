@@ -87,7 +87,7 @@ interface JobCacheRow {
 
 /**
  * Reads cached postings from the shared Supabase job_cache table via the
- * job_cache_search RPC (supabase/migrations/0003_job_cache.sql,
+ * job_cache_search RPC (src/job_cache_supabase/supabase/migrations/0003_job_cache.sql,
  * 0004_job_cache_search_fn.sql) in place of a live per-source fetch.
  * Read-only, anon-key access — the RPC is `security invoker`, subject to
  * job_cache's own RLS policy, which allows public SELECT on unexpired

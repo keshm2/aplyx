@@ -1,0 +1,17 @@
+# Links this directory to aplyx's shared job_cache Supabase project
+# (public URL in src/config/job_cache_supabase.json) — deliberately
+# separate from the auth/profiles project (src/supabase/config.toml),
+# split apart 2026-07-23 so job_cache's own write volume couldn't hit
+# the auth project's free-tier disk I/O budget. See
+# src/core/src/refreshJobCache.ts's header for the full history.
+#
+# Minimal on purpose, same as src/supabase/config.toml: exists so the
+# GitHub integration (that project's own Project Settings ->
+# Integrations -> GitHub, "Working directory": src/job_cache_supabase)
+# recognizes this migrations/ folder as this project's history. Not set
+# up for local `supabase start`. Note this project's DATA writes
+# (job_cache rows) go through .github/workflows/refresh-job-cache.yml
+# using the service_role secret key, entirely separate from and
+# unaffected by this config — this file only governs SCHEMA/DDL
+# deploys via `supabase db push` / the GitHub integration.
+project_id = "sxxjwzuvplwxivbqtnsx"

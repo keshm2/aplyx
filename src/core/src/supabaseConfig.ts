@@ -50,7 +50,7 @@ export function readSupabaseConfig(root: string): SupabaseConfig {
  * 2026-07-30) and started producing Cloudflare
  * 522s on unrelated requests; the two workloads no longer share one
  * project's resource ceiling. job_cache holds no personal data (see
- * supabase/migrations/0003_job_cache.sql's RLS comment), so this project
+ * src/job_cache_supabase/supabase/migrations/0003_job_cache.sql's RLS comment), so this project
  * doesn't need to be the same one hosted auth uses — jobCache.ts and
  * refreshJobCache.ts are the only callers, both entirely independent of
  * the desktop app's SupabaseAdapter/auth flow, which still reads

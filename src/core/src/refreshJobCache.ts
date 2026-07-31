@@ -1,6 +1,6 @@
 /**
  * Populates the shared Supabase job_cache table (see
- * supabase/migrations/0003_job_cache.sql) so searchJobs()'s cache checks
+ * src/job_cache_supabase/supabase/migrations/0003_job_cache.sql) so searchJobs()'s cache checks
  * (jobCache.ts) actually have something to hit. NOT part of this
  * package's public export surface (see package.json's "exports" map —
  * this file is deliberately absent from it) and never imported by any

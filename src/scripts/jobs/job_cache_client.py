@@ -23,7 +23,7 @@ documents on the TS side:
      refreshJobCache.ts's own header for why).
   2. The Postgres job_cache_search RPC (src/config/job_cache_supabase.json's
      anon key) — same RPC the TS path calls, so the ILIKE title
-     pre-filter (supabase/migrations/0005) stays entirely server-side;
+     pre-filter (src/job_cache_supabase/supabase/migrations/0005) stays entirely server-side;
      this module never reimplements that prefix-matching logic, only
      passes p_title_words through.
 
