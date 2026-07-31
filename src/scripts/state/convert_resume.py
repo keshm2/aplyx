@@ -121,6 +121,7 @@ def write_meta_entry(resumes_dir: str, stem: str, description: str) -> None:
     with open(tmp_path, "w", encoding="utf-8") as fh:
         json.dump(meta, fh, indent=2, ensure_ascii=False)
         fh.write("\n")
+    os.chmod(tmp_path, 0o600)
     os.replace(tmp_path, meta_path)
 
 
@@ -171,6 +172,7 @@ def main(argv: "list[str] | None" = None) -> int:
     try:
         with open(tmp_path, "w", encoding="utf-8") as fh:
             fh.write(markdown)
+        os.chmod(tmp_path, 0o600)
         os.replace(tmp_path, md_path)
     except OSError as exc:
         try:

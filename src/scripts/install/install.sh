@@ -344,6 +344,7 @@ if [ -f "src/config/targets.json" ]; then
   say "src/config/targets.json exists — keeping it."
 else
   cp "src/config/targets.example.json" "src/config/targets.json"
+  chmod 600 "src/config/targets.json"
   say "created src/config/targets.json from the example — fill in the placeholders (or run 'aplyx setup')."
 fi
 
@@ -354,6 +355,7 @@ fi
 DISCORD_LIVE="src/config/discord_config.json"
 write_disabled_discord() {
   printf '{\n  "enabled": false,\n  "webhooks": {}\n}\n' > "$DISCORD_LIVE"
+  chmod 600 "$DISCORD_LIVE"
 }
 if [ -f "$DISCORD_LIVE" ]; then
   say "$DISCORD_LIVE exists — keeping it."
@@ -392,6 +394,7 @@ elif [ -t 0 ]; then
       jq -n --arg s "$U_SUCCESS" --arg r "$U_REVIEW" --arg f "$U_FAILED" --arg m "$U_SUMMARY" \
         '{enabled: true, webhooks: ({success: $s, needs_review: $r, failed: $f} + (if $m == "" then {} else {summary: $m} end))}' \
         > "$DISCORD_LIVE"
+      chmod 600 "$DISCORD_LIVE"
       say "wrote $DISCORD_LIVE (Discord enabled)."
     fi
   else

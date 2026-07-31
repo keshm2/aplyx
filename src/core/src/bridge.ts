@@ -230,6 +230,10 @@ async function dispatch(command: string, args: Args): Promise<unknown> {
       fs.mkdirSync(dir, { recursive: true });
       const dest = path.join(dir, `${stem}.pdf`);
       fs.copyFileSync(sourcePath, dest);
+      // Resumes carry the user's full PII (name, address, phone, education
+      // history) — don't rely on ambient umask for a file living outside
+      // data/'s otherwise-consistent handling.
+      fs.chmodSync(dest, 0o600);
       return { ok: true, path: dest };
     }
 

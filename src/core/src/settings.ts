@@ -22,6 +22,10 @@ function readJson(file: string): Json {
 
 function writeJson(file: string, data: Json): void {
   fs.writeFileSync(file, `${JSON.stringify(data, null, 2)}\n`, "utf8");
+  // targets.json/discord_config.json/env.json all carry PII (name, DOB,
+  // address, webhook URLs) — don't rely on ambient umask; writeFileSync's
+  // mode option only applies on create, so chmod explicitly every write.
+  fs.chmodSync(file, 0o600);
 }
 
 // --- Personal info (src/config/targets.json safe_fields) -----------------------
@@ -39,6 +43,7 @@ export function ensureTargetsFile(root: string): void {
   if (fs.existsSync(file)) return;
   try {
     fs.copyFileSync(path.join(root, "src", "config", "targets.example.json"), file);
+    fs.chmodSync(file, 0o600);
   } catch {
     // best-effort — subsequent reads/writes still degrade gracefully via
     // readJson's own try/catch

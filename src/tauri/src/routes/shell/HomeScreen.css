@@ -59,15 +59,19 @@
   background: var(--accent);
   color: var(--accent-ink);
   border-radius: var(--radius-md);
-  padding: var(--space-3) var(--space-5);
+  padding: var(--space-2) var(--space-5);
   font-size: var(--text-sm);
   font-weight: 600;
   white-space: nowrap;
-  transition: background var(--duration-quick) var(--ease-out);
+  transition: background var(--duration-quick) var(--ease-out), transform var(--duration-quick) var(--ease-out);
 }
 
 .home-next-cta:hover {
   background: var(--accent-strong);
+}
+
+.home-next-cta:active {
+  transform: scale(var(--scale-press));
 }
 
 @media (max-width: 640px) {

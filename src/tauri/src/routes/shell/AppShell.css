@@ -90,12 +90,12 @@
 @keyframes shell-route-in {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(8px) scale(0.99);
   }
 
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
@@ -103,8 +103,12 @@
   animation: shell-route-out var(--duration-quick) var(--ease-out) both;
 }
 
+/* The "in" phase uses --ease-glide (a longer deceleration tail than
+ * --ease-out) — this is the moment that should read as arriving/settling
+ * into place, not just fading in; the "out" phase stays on the snappier
+ * --ease-out since leaving should feel immediate. */
 .shell-route-in {
-  animation: shell-route-in var(--duration-normal) var(--ease-out) both;
+  animation: shell-route-in var(--duration-normal) var(--ease-glide) both;
 }
 
 /* Holds the main column's height while a lazy route chunk loads so the

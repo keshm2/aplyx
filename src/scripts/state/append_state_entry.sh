@@ -49,6 +49,7 @@ ensure_file() {
   local file="$1"
   if [ ! -e "$file" ]; then
     printf '[]\n' > "$file"
+    chmod 600 "$file"
   fi
   validate_array "$file"
 }
@@ -81,6 +82,7 @@ append_entry() {
     die "jq append failed for $file"
   fi
   validate_array "$tmp"
+  chmod 600 "$tmp"
   mv -f "$tmp" "$file"
 }
 

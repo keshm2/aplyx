@@ -151,6 +151,51 @@
       });
     });
 
+    // TL;DR / Fine Print switcher (/privacy) — one iOS-style toggle plus
+    // its two flanking labels, all driving the same [data-view-panel]
+    // visibility. Persists like the theme toggle so a returning visitor's
+    // choice is remembered. No-op on pages without [data-view-switch].
+    var viewSwitch = document.querySelector("[data-view-switch]");
+    if (viewSwitch) {
+      var VIEW_KEY = "aplyx.privacyView";
+      var viewLabels = document.querySelectorAll("[data-view-label]");
+      function applyView(view) {
+        viewSwitch.setAttribute("aria-checked", view === "legal" ? "true" : "false");
+        viewLabels.forEach(function (label) {
+          label.classList.toggle("is-active", label.getAttribute("data-view-label") === view);
+        });
+        document.querySelectorAll("[data-view-panel]").forEach(function (panel) {
+          panel.classList.toggle("is-active", panel.getAttribute("data-view-panel") === view);
+        });
+      }
+      function persistView(view) {
+        try {
+          localStorage.setItem(VIEW_KEY, view);
+        } catch (e) {
+          // still applies for this page load, just doesn't persist
+        }
+      }
+      var storedView = "plain";
+      try {
+        storedView = localStorage.getItem(VIEW_KEY) || "plain";
+      } catch (e) {
+        // localStorage unavailable — defaults to "plain" for this load
+      }
+      applyView(storedView);
+      viewSwitch.addEventListener("click", function () {
+        var next = viewSwitch.getAttribute("aria-checked") === "true" ? "plain" : "legal";
+        applyView(next);
+        persistView(next);
+      });
+      viewLabels.forEach(function (label) {
+        label.addEventListener("click", function () {
+          var view = label.getAttribute("data-view-label");
+          applyView(view);
+          persistView(view);
+        });
+      });
+    }
+
     // Status-tracking demo (/features) — the glow bar trails the mouse
     // across the row of status pills. Only the target position is set
     // here; the actual smoothing is a CSS transition on the glow's own

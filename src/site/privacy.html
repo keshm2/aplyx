@@ -14,7 +14,7 @@
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Privacy — aplyx</title>
-  <meta name="description" content="What aplyx stores, why, and where — for the local tool and for a hosted account — in plain language." />
+  <meta name="description" content="What aplyx stores, why, and where, for the local tool and for a hosted account, in plain language." />
   <link rel="icon" href="favicon.ico" sizes="any" />
   <link rel="icon" type="image/png" href="assets/favicon-32.png" sizes="32x32" />
   <link rel="icon" type="image/png" href="assets/favicon-16.png" sizes="16x16" />
@@ -57,7 +57,7 @@
   <header class="page-hero">
     <div class="wrap">
       <h1 data-reveal>Privacy</h1>
-      <p data-reveal>Plainly, not legally — what's collected, why, where it's stored, and what you can do about it.</p>
+      <p data-reveal>Plainly, not legally: what's collected, why, where it's stored, and what you can do about it.</p>
       <div class="privacy-view-toggle" data-reveal>
         <span class="privacy-view-label is-active" data-view-label="plain">TL;DR</span>
         <button type="button" class="apple-toggle" data-view-switch role="switch" aria-checked="false" aria-label="Show the fine print">
@@ -78,39 +78,39 @@
           <p>
             aplyx works two ways: fully local, with no account, or signed in to a hosted account
             that also keeps a copy of your profile and resumes in the cloud so you can pick up
-            from another machine. This page covers both — the "Local" and "Hosted account"
+            from another machine. This page covers both: the "Local" and "Hosted account"
             sections below tell you which parts apply to you.
           </p>
 
-          <h2>Local — nothing leaves your machine</h2>
+          <h2>Local: nothing leaves your machine</h2>
           <p>
             Running aplyx locally (the TUI or the desktop app with no account signed in) keeps
             your profile, resumes, and application history entirely on your own machine, in files
             under your own install directory. None of it is uploaded anywhere by aplyx itself.
           </p>
 
-          <h2>Hosted account — what's stored in the cloud</h2>
+          <h2>Hosted account: what's stored in the cloud</h2>
           <p>
             Signing in to a hosted account stores your profile (name, contact info, and the other
             fields you fill in during setup) and your resume file(s) in our cloud database, so
             they're not stuck on one machine.
           </p>
           <p>
-            A few fields — gender, ethnicity, and date of birth — are always optional. Some
+            A few fields (gender, ethnicity, and date of birth) are always optional. Some
             employers ask for these on voluntary self-identification forms; skip them if you'd
             rather not answer, and it won't affect anything else aplyx does.
           </p>
           <p>
             Your hosted data is scoped to your account: database access rules mean only requests
-            authenticated as you can read or write it — we can't browse across accounts, and
+            authenticated as you can read or write it. We can't browse across accounts, and
             neither can any other user.
           </p>
           <p>
             What hosted does <strong>not</strong> do yet: nobody but you runs the actual job
-            search, tailoring, or application steps — those still happen on your own machine,
+            search, tailoring, or application steps. Those still happen on your own machine,
             driven by your own coding agent, exactly like local mode. A fully server-run version
             (no machine required at all) is planned. If it ships, it gets its own explicit
-            heads-up and consent step here first — it won't be folded silently into today's hosted
+            heads-up and consent step here first. It won't be folded silently into today's hosted
             tier.
           </p>
 
@@ -118,22 +118,22 @@
           <p>
             aplyx drives whichever coding agent you have installed (opencode, Claude Code, and
             others). Resume tailoring and cover-letter drafting send the relevant job description
-            and your resume content to that provider's API to generate the tailored text — the
+            and your resume content to that provider's API to generate the tailored text, the
             same way using the coding agent directly would. This is inherent to how the tailoring
             step works, not something aplyx adds on top, and it's the same for local and hosted
             accounts.
           </p>
 
-          <h2>Discord and Google Sheets — both opt-in, both off by default</h2>
+          <h2>Discord and Google Sheets: both opt-in, both off by default</h2>
           <ul>
             <li>Discord status updates (applied / needs-review / failed) are opt-in during setup, and send only outcome-level information to a webhook URL you provide.</li>
-            <li>A Google Sheets internship tracker sync is available for successful applications, using only user-facing fields — never internal-only data.</li>
+            <li>A Google Sheets internship tracker sync is available for successful applications, using only user-facing fields, never internal-only data.</li>
           </ul>
 
           <h2>What this website stores in your browser</h2>
           <p>
             This marketing site (the pages you're reading right now) remembers your light/dark
-            theme choice, and — just for the current browser tab — which inline links you've
+            theme choice and, just for the current browser tab, which inline links you've
             clicked, so they look visited. Both stay entirely in your browser and are never sent
             to us. This site sets no cookies and loads no analytics, advertising, or third-party
             scripts of any kind.
@@ -141,15 +141,15 @@
 
           <h2>Billing</h2>
           <p>
-            aplyx doesn't charge for anything yet — there's no billing system live today, so no
+            aplyx doesn't charge for anything yet: there's no billing system live today, so no
             payment or billing information is collected. When paid hosted plans launch, this page
             will describe exactly what that adds, before it applies to you.
           </p>
 
           <h2>Security measures</h2>
           <p>
-            In transit, every connection aplyx makes — to your coding agent's provider, Discord,
-            Google Sheets, or hosted-account storage — uses HTTPS.
+            In transit, every connection aplyx makes (to your coding agent's provider, Discord,
+            Google Sheets, or hosted-account storage) uses HTTPS.
           </p>
           <p>
             At rest, hosted data sits in a database with per-account access rules and standard
@@ -158,25 +158,25 @@
           </p>
           <p>
             This website is served over GitHub Pages. The physical region for hosted-account
-            storage hasn't been finalized yet — this section will be updated with specifics once
+            storage hasn't been finalized yet. This section will be updated with specifics once
             it is.
           </p>
 
           <h2>Your data, your call</h2>
           <p>
             Locally, everything aplyx stores lives under your install directory's
-            <code>data/</code> and <code>src/config/</code> folders — delete the install directory
+            <code>data/</code> and <code>src/config/</code> folders. Delete the install directory
             and it's gone.
           </p>
           <p>
             For a hosted account, there's no self-serve delete button yet. Reach out (see
-            Questions below) and we'll delete your account data by hand — every request, handled
+            Questions below) and we'll delete your account data by hand, every request handled
             personally, until self-serve deletion exists.
           </p>
 
           <h2>How long we keep it</h2>
           <p>
-            Local data stays until you delete it yourself — aplyx never expires or removes it on
+            Local data stays until you delete it yourself. aplyx never expires or removes it on
             its own. Hosted data stays for as long as your account exists, or until you ask us to
             remove it.
           </p>
@@ -197,8 +197,8 @@
           <h2>Questions</h2>
           <p>
             Open an issue or discussion on
-            <a class="link" href="https://github.com/keshm2/aplyx" target="_blank" rel="noopener">GitHub</a>
-            — that's the fastest way to reach us about privacy or anything else.
+            <a class="link" href="https://github.com/keshm2/aplyx" target="_blank" rel="noopener">GitHub</a>.
+            That's the fastest way to reach us about privacy or anything else.
           </p>
         </div>
 
@@ -207,7 +207,7 @@
             This is the same information as the plain-language version above, written out
             formally and numbered for reference. It was written by aplyx's maintainer, not by an
             attorney, and hasn't had a legal review. aplyx is currently operated by an individual
-            (a sole proprietor, not yet a registered company) — see
+            (a sole proprietor, not yet a registered company); see
             <code>docs/legal.md</code> in the repository for that context. Nothing here should be
             read as a guarantee of compliance with any specific law; if that matters for your use
             case, consult your own counsel.
@@ -239,8 +239,8 @@
           <p>
             <strong>2.2.</strong> Information you provide, hosted accounts: if you create a hosted account, we
             collect your email address (via our authentication provider), the profile fields you
-            enter during onboarding — name, contact details, address, LinkedIn/GitHub usernames,
-            education details, and work-authorization status — and any resume file(s) you upload.
+            enter during onboarding (name, contact details, address, LinkedIn/GitHub usernames,
+            education details, and work-authorization status) and any resume file(s) you upload.
             Gender, ethnicity, and date of birth are also collected if you choose to provide them;
             these fields exist because some employers request them on voluntary
             self-identification forms, and providing them is always optional.
@@ -248,7 +248,7 @@
           <p>
             <strong>2.3.</strong> Information collected automatically: our marketing website stores a theme
             preference and, for the current browser tab only, which inline links you've clicked,
-            both in your browser's local storage — neither is transmitted to us. We do not use
+            both in your browser's local storage. Neither is transmitted to us. We do not use
             cookies, analytics, advertising, or crash-reporting tools anywhere in aplyx.
           </p>
           <p>
@@ -268,7 +268,7 @@
             <strong>3.2.</strong> Hosted accounts: we use your profile and resume data to make your job-search
             information available to you across devices. As of this policy's date, no
             infrastructure operated by us performs job searching, resume tailoring, or application
-            submission on your behalf — those actions still run on your own machine using your own
+            submission on your behalf. Those actions still run on your own machine using your own
             coding agent, for hosted accounts exactly as for local ones. If that changes, this
             policy will be updated first, and a separate consent step will apply before it affects
             you.
@@ -278,7 +278,7 @@
           <p><strong>4.1.</strong> We do not sell your personal information.</p>
           <p>
             <strong>4.2.</strong> We share information with the service providers listed in Section 5, only as
-            needed to provide a feature you've enabled — a Discord webhook you configure, a
+            needed to provide a feature you've enabled: a Discord webhook you configure, a
             Google Sheet you connect, or your coding agent's model provider generating tailored
             text on your behalf.
           </p>
@@ -289,11 +289,11 @@
           </p>
 
           <h2>5. Third-party services</h2>
-          <p><strong>5.1.</strong> Your coding agent's model provider — receives job-description and resume text to generate tailored application content, under that provider's own terms.</p>
-          <p><strong>5.2.</strong> Our authentication and database/storage provider — provides sign-in and storage for hosted accounts.</p>
-          <p><strong>5.3.</strong> Discord — if you opt in, receives outcome-level status messages via a webhook URL you provide.</p>
-          <p><strong>5.4.</strong> Google Sheets — if you opt in, receives the user-facing application-tracking fields you choose to sync.</p>
-          <p><strong>5.5.</strong> GitHub Pages — hosts this public website; no account or personal information passes through it beyond standard web-server access logs kept by GitHub, not by us.</p>
+          <p><strong>5.1.</strong> Your coding agent's model provider: receives job-description and resume text to generate tailored application content, under that provider's own terms.</p>
+          <p><strong>5.2.</strong> Our authentication and database/storage provider: provides sign-in and storage for hosted accounts.</p>
+          <p><strong>5.3.</strong> Discord: if you opt in, receives outcome-level status messages via a webhook URL you provide.</p>
+          <p><strong>5.4.</strong> Google Sheets: if you opt in, receives the user-facing application-tracking fields you choose to sync.</p>
+          <p><strong>5.5.</strong> GitHub Pages: hosts this public website; no account or personal information passes through it beyond standard web-server access logs kept by GitHub, not by us.</p>
           <p><strong>5.6.</strong> We do not use any analytics, advertising, or crash-reporting service.</p>
 
           <h2>6. Data retention</h2>
@@ -331,13 +331,13 @@
           <p><strong>9.1.</strong> You may access, correct, or request deletion of your hosted-account information at any time by contacting us (Section 12).</p>
           <p>
             <strong>9.2.</strong> If you are located in the European Economic Area, the United Kingdom, or a US
-            state with its own privacy law, you may have additional rights under those laws —
+            state with its own privacy law, you may have additional rights under those laws,
             including the right to know what's collected, to request deletion, and to not be
             discriminated against for exercising these rights. We intend to honor these rights for
             anyone who asks, regardless of location, even though we have not formally confirmed
             which specific laws apply to a project of this size.
           </p>
-          <p><strong>9.3.</strong> For local-mode use, since we never receive your data, these rights are already fully in your own hands — deleting the install directory is a complete deletion.</p>
+          <p><strong>9.3.</strong> For local-mode use, since we never receive your data, these rights are already fully in your own hands: deleting the install directory is a complete deletion.</p>
 
           <h2>10. Children's privacy</h2>
           <p>

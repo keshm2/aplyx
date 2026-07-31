@@ -68,7 +68,25 @@
   open-in-browser (TUI) / view + copy-to-clipboard (desktop), no new
   mutation path, `review_queue.json`'s append-only discipline untouched.
   Built via two parallel worktree subagents; the TUI one found and fixed
-  a real Ink bug (unwrapped overflow text corrupting the terminal frame).
+  a real Ink bug (unwrapped overflow text corrupting the terminal frame);
+  **cover-letter generation split into its own `cover-letter-tailor`
+  agent** (2026-07-29, operator-directed, out of band from the phase
+  sequence): previously bundled into `resume-tailor`'s output (one thin
+  paragraph of guidance, no grounding rules); now a dedicated subagent
+  (`src/agents/bodies/cover-letter-tailor.md`) with the same
+  anti-fabrication rigor as `interest-letter` (grounding rules tying
+  every claim to the tailored resume/JD, demographic-field exclusion, a
+  length target), invoked by job-scraper's Phase 2 right after
+  `@resume-tailor` so the letter stays consistent with whichever resume
+  version was selected. `resume-tailor.md` no longer returns
+  `cover_letter`. Registered across all four harnesses
+  (`src/agents/frontmatter/{claude,opencode,copilot}/cover-letter-tailor.yaml`,
+  `codex/cover-letter-tailor.toml`) and added to this file's harness
+  capability matrix, degraded-path fallback list, and
+  `run_job_agent.py`'s inline-fallback `delegates` tuple.
+  `applied_jobs.json`/`review_queue.json`'s `cover_letter` field shape is
+  unchanged — only its source agent changed, so the Documents tab and
+  Google Sheets sync need no updates.
 - **Partially done:** phase 13 (TUI/provider/setup/publish work still open),
   phase 15 (full real-run parity check still operator-verified, though
   conformance signals exist).
@@ -270,7 +288,7 @@ the helpers or prompts.
 
 | Capability | opencode | Claude Code | Codex CLI | Copilot CLI |
 | --- | --- | --- | --- | --- |
-| Subagent registry (`@resume-tailor`, `@discord-reporter`, `@interest-letter`) | yes (`.opencode/agents/`) | yes (`.claude/agents/`) | no → inline fallback (`.codex/agents/*.toml` generated for forward-compat, but `codex exec` cannot spawn a named subagent from it — [openai/codex#15250](https://github.com/openai/codex/issues/15250)) | conditional (`.github/agents/`, `copilot --agent <name>`) — probed at runtime (`_copilot_has_agent_flag`); an older CLI without `--agent` falls back to inline the same as Codex |
+| Subagent registry (`@resume-tailor`, `@cover-letter-tailor`, `@discord-reporter`, `@interest-letter`) | yes (`.opencode/agents/`) | yes (`.claude/agents/`) | no → inline fallback (`.codex/agents/*.toml` generated for forward-compat, but `codex exec` cannot spawn a named subagent from it — [openai/codex#15250](https://github.com/openai/codex/issues/15250)) | conditional (`.github/agents/`, `copilot --agent <name>`) — probed at runtime (`_copilot_has_agent_flag`); an older CLI without `--agent` falls back to inline the same as Codex |
 | Interest-letter drafting (pure text, no browser) | yes | yes | yes (inline) | yes (registry or inline, per the probe above) |
 | Browser automation (Playwright MCP) | yes (`opencode.jsonc`) | yes (`.mcp.json`) | no by default → API-boards path | no by default → API-boards path |
 | Shell / helper execution | yes | yes | yes (user's sandbox/approval config) | yes (`--allow-all-tools`) |
@@ -300,11 +318,11 @@ has just because the TOML files exist.
 **Degraded paths (mandatory when the capability is missing):**
 
 - **No subagent registry** — when the workflow delegates to
-  `@resume-tailor`, `@discord-reporter` or `@interest-letter`, read
-  `src/agents/bodies/<name>.md` and perform that role inline, following
-  it exactly. Helper calls, routing rules, and state writes are
-  unchanged. `harness_adapter.agent_command` builds this preamble
-  automatically for Codex, and for Copilot when the `--agent`
+  `@resume-tailor`, `@cover-letter-tailor`, `@discord-reporter` or
+  `@interest-letter`, read `src/agents/bodies/<name>.md` and perform that
+  role inline, following it exactly. Helper calls, routing rules, and
+  state writes are unchanged. `harness_adapter.agent_command` builds this
+  preamble automatically for Codex, and for Copilot when the `--agent`
   probe fails.
 - **No browser automation** — fetch and process **API-fed boards
   only** (Ashby, Lever, SimplifyJobs, Workday CXS). Any job whose
@@ -573,6 +591,12 @@ has just because the TOML files exist.
     threshold (60).
   - `unapproved_essay_answer` — a free-text motivation question has no
     user-approved interest letter yet (Phase 3 step 3, interest_letter.py).
+  - `cover_letter_over_limit` — the application form stated a word/
+    character limit on its cover-letter field and @cover-letter-tailor's
+    output still exceeds it even after being re-invoked with that limit
+    (Phase 3 step 5e), or a pre-submit recheck of the live field found it
+    over the limit despite the pre-paste word_count looking compliant
+    (Phase 3 step 6).
   - `captcha` — a CAPTCHA was detected on the board.
   - `credential_or_payment_request` — the form asks for a password, SSN, or
     payment info not present in `safe_fields`.

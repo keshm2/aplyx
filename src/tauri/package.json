@@ -27,7 +27,7 @@
     "geist": "^1.7.2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "react-router-dom": "^6.26.0"
+    "react-router-dom": "^7.18.0"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2",

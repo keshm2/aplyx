@@ -60,9 +60,12 @@
 }
 
 .auth-tab-active {
+  /* Background contrast against .auth-tabs' --ground is the whole
+   * indicator — no shadow needed (a hardcoded black shadow here used to
+   * vanish on dark backgrounds; --surface vs --ground already reads in
+   * both themes without one). */
   background: var(--surface);
   color: var(--text);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
 }
 
 .auth-google {
@@ -70,18 +73,25 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  border: 1px solid var(--border-strong);
-  background: var(--surface);
+  border: 1px solid var(--border);
+  background: transparent;
   border-radius: var(--radius-md);
   padding: var(--space-3);
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--text);
-  transition: border-color var(--duration-quick) var(--ease-standard);
+  transition: border-color var(--duration-quick) var(--ease-standard),
+    background-color var(--duration-quick) var(--ease-out), transform var(--duration-quick) var(--ease-out);
 }
 
 .auth-google:hover {
   border-color: var(--accent);
+  background: var(--accent-tint-bg);
+}
+
+.auth-google:active {
+  background: var(--accent-tint-bg-active);
+  transform: scale(var(--scale-press));
 }
 
 .auth-google-mark {
@@ -155,11 +165,15 @@
   padding: var(--space-3);
   font-size: var(--text-sm);
   font-weight: 600;
-  transition: background var(--duration-quick) var(--ease-standard);
+  transition: background var(--duration-quick) var(--ease-standard), transform var(--duration-quick) var(--ease-out);
 }
 
 .auth-submit:hover:not(:disabled) {
   background: var(--accent-strong);
+}
+
+.auth-submit:active:not(:disabled) {
+  transform: scale(var(--scale-press));
 }
 
 .auth-submit:disabled {
@@ -168,13 +182,25 @@
 }
 
 .auth-secondary {
-  border: 1px solid var(--border-strong);
-  background: var(--surface);
+  border: 1px solid var(--border);
+  background: transparent;
   border-radius: var(--radius-md);
   padding: var(--space-3);
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--text);
+  transition: border-color var(--duration-quick) var(--ease-standard),
+    background-color var(--duration-quick) var(--ease-out), transform var(--duration-quick) var(--ease-out);
+}
+
+.auth-secondary:hover {
+  border-color: var(--accent);
+  background: var(--accent-tint-bg);
+}
+
+.auth-secondary:active {
+  background: var(--accent-tint-bg-active);
+  transform: scale(var(--scale-press));
 }
 
 .auth-back {
@@ -183,8 +209,12 @@
   background: transparent;
   color: var(--text-faint);
   font-size: var(--text-xs);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  transition: background-color var(--duration-quick) var(--ease-out), color var(--duration-quick) var(--ease-out);
 }
 
 .auth-back:hover {
   color: var(--text-muted);
+  background: var(--ground);
 }

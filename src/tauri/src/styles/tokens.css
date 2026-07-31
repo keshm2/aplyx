@@ -114,8 +114,29 @@
   --duration-slow: 420ms;
   --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* A more pronounced deceleration ("snap-then-settle") for transitions that
+   * should read as arriving somewhere, not just fading in — route/step
+   * changes, not button feedback. Same family as --ease-out, just a longer
+   * tail. */
+  --ease-glide: cubic-bezier(0.16, 1, 0.3, 1);
+  /* The one shared press-down amount every clickable control scales to on
+   * :active — small enough to read as tactile, not springy. */
+  --scale-press: 0.97;
 
   --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+
+  /* Alpha-tinted button surfaces (the "ghost"/"soft" button convention from
+   * Radix Colors / Vercel Geist's gray-alpha scale / Supabase's alpha-opacity
+   * borders): a low-alpha wash of --accent instead of a solid fill, so a
+   * secondary or contextual action still visibly carries its color without
+   * competing with an actual primary CTA. Declared once here (not per theme
+   * family below) — color-mix resolves var(--accent) at used-value time per
+   * element, so these automatically pick up whichever family/mode is active
+   * without needing to be redeclared in every family's block. */
+  --accent-tint-bg: color-mix(in srgb, var(--accent) 10%, transparent);
+  --accent-tint-bg-hover: color-mix(in srgb, var(--accent) 16%, transparent);
+  --accent-tint-bg-active: color-mix(in srgb, var(--accent) 24%, transparent);
+  --accent-tint-border: color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
 @media (prefers-color-scheme: dark) {

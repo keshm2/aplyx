@@ -7,7 +7,10 @@
   gap: var(--space-6);
   text-align: center;
   padding: var(--space-7) var(--space-5);
-  animation: intro-splash-in var(--duration-slow) var(--ease-out) both;
+  /* Same "arrives and settles" easing as the wizard/route transitions
+   * (--ease-glide) — one consistent system, not three separately-tuned
+   * animations. Exit stays on the snappier --ease-out below. */
+  animation: intro-splash-in var(--duration-slow) var(--ease-glide) both;
 }
 
 .intro-splash-out {

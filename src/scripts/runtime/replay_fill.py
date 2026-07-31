@@ -108,18 +108,37 @@ def load_fill_record(entry, fill_records_dir):
     return fields
 
 
+def _within_resumes_dir(path):
+    """True if the resolved, real path is actually inside data/resumes/.
+    record_fill.py never validates the content of a fill record's
+    filled_value (see src/scripts/state/record_fill.py) — it only checks
+    field_name/source/verified/job_id — so a malformed or tampered fill
+    record could name any absolute path on disk. Without this check, a
+    resume_upload field would happily hand attach_resume() (and from there
+    the real, live job-site page) an arbitrary local file — e.g.
+    ~/.ssh/id_rsa or any other file the OS user can read — as a silent
+    exfiltration path. Anchoring to the resumes directory is the same
+    allowlist-not-denylist approach used for tenant hosts in the
+    Workday/Oracle job-board adapters."""
+    resumes_root = os.path.realpath(os.path.join(PROJECT_ROOT, DEFAULT_RESUMES_DIR))
+    real = os.path.realpath(path)
+    return os.path.commonpath([resumes_root, real]) == resumes_root
+
+
 def resolve_resume_path(filename):
     """fill records store the resume as whatever record_fill.py was given for
     a resume_upload field — normally a bare filename like
     'base_resume_swe.pdf' (see src/agents/bodies/job-scraper.md Phase 3 step 4).
-    Accept an absolute/relative path too, defensively."""
-    if os.path.isabs(filename) and os.path.exists(filename):
+    Accept an absolute/relative path too, defensively — but only ever return
+    a path that actually resolves inside data/resumes/ (see
+    _within_resumes_dir)."""
+    if os.path.isabs(filename) and os.path.exists(filename) and _within_resumes_dir(filename):
         return filename
     candidate = os.path.join(PROJECT_ROOT, DEFAULT_RESUMES_DIR, os.path.basename(filename))
-    if os.path.exists(candidate):
+    if os.path.exists(candidate) and _within_resumes_dir(candidate):
         return candidate
     candidate2 = os.path.join(PROJECT_ROOT, filename)
-    if os.path.exists(candidate2):
+    if os.path.exists(candidate2) and _within_resumes_dir(candidate2):
         return candidate2
     return None
 

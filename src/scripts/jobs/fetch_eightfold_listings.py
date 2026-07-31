@@ -58,6 +58,7 @@ from __future__ import annotations
 
 import argparse
 import html
+import ipaddress
 import json
 import os
 import re
@@ -83,11 +84,45 @@ def die(msg: str, code: int = 1) -> "int":
     sys.exit(code)
 
 
+_HOST_LABEL_RE = re.compile(r"^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?$")
+
+
+def _is_safe_host(host: str) -> bool:
+    """Reject anything that isn't a plausible public DNS hostname.
+
+    Unlike the Workday/Oracle adapters, this can't anchor to a single fixed
+    suffix — Eightfold tenants live on arbitrary employer-owned custom
+    domains (module docstring above: Microsoft's apply.careers.microsoft.com,
+    Netflix's explore.jobs.netflix.net, no shared suffix). This host comes
+    straight from src/config/targets.json's eightfold_tenants and is used
+    to build the literal request URL (f"https://{host}/api/..."), so instead
+    it rejects the SSRF-classic shapes: raw IP literals (including the
+    169.254.169.254 cloud-metadata address and loopback/private ranges),
+    bracketed/IPv6 forms, "localhost", and numeric-shorthand IPs like
+    "127.1" that some resolvers still expand to a loopback address — while
+    still accepting any real multi-label DNS hostname.
+    """
+    host = host.strip().lower()
+    if not host or host == "localhost" or "[" in host or "]" in host or ":" in host:
+        return False
+    try:
+        ipaddress.ip_address(host)
+        return False  # raw IP literal — reject regardless of scope
+    except ValueError:
+        pass
+    labels = host.split(".")
+    if len(labels) < 2:
+        return False
+    if labels[-1].isdigit():
+        return False  # no real TLD is all-numeric; blocks "127.1"-style shorthand
+    return all(_HOST_LABEL_RE.match(label) for label in labels)
+
+
 def parse_tenant(entry: str):
     """'<host>/<domain>' -> (host, domain) or None when malformed."""
     entry = entry.strip().removeprefix("https://").removeprefix("http://").rstrip("/")
     parts = entry.split("/")
-    if len(parts) != 2 or "." not in parts[0] or "." not in parts[1]:
+    if len(parts) != 2 or not _is_safe_host(parts[0]) or "." not in parts[1]:
         return None
     return parts[0], parts[1]
 

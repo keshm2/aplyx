@@ -17,13 +17,18 @@
   transition:
     background var(--duration-quick) var(--ease-out),
     color var(--duration-quick) var(--ease-out),
-    border-color var(--duration-quick) var(--ease-out);
+    border-color var(--duration-quick) var(--ease-out),
+    transform var(--duration-quick) var(--ease-out);
 }
 
 .notif-bell-btn:hover {
   background: var(--ground);
   color: var(--text);
   border-color: var(--border);
+}
+
+.notif-bell-btn:active {
+  transform: scale(var(--scale-press));
 }
 
 /* Settings gear: a slow, satisfying partial turn on hover — its own
@@ -139,11 +144,17 @@
   border: none;
   color: var(--text-muted);
   cursor: pointer;
+  transition: background var(--duration-quick) var(--ease-out), color var(--duration-quick) var(--ease-out),
+    transform var(--duration-quick) var(--ease-out);
 }
 
 .notif-icon-btn:hover {
   background: var(--ground);
   color: var(--accent);
+}
+
+.notif-icon-btn:active {
+  transform: scale(var(--scale-press));
 }
 
 .notif-tabs {
@@ -161,11 +172,16 @@
   background: transparent;
   border: none;
   cursor: pointer;
-  transition: background var(--duration-quick) var(--ease-out), color var(--duration-quick) var(--ease-out);
+  transition: background var(--duration-quick) var(--ease-out), color var(--duration-quick) var(--ease-out),
+    transform var(--duration-quick) var(--ease-out);
 }
 
 .notif-tab:hover {
   color: var(--text);
+}
+
+.notif-tab:active {
+  transform: scale(var(--scale-press));
 }
 
 .notif-tab-active {

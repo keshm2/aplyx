@@ -519,7 +519,7 @@ def _run(logs_dir: str, run_log: str) -> int:
     with open(session_log, "a", encoding="utf-8") as out:
         cmd = harness_adapter.agent_command(
             exe, harness, "job-scraper", run_prompt,
-            delegates=("resume-tailor", "discord-reporter"),
+            delegates=("resume-tailor", "cover-letter-tailor", "discord-reporter"),
             extra_preamble=(
                 "Unless browser-automation tools are actually available to you, apply the degraded "
                 "harness path from AGENTS.md 'Harness capability matrix': fetch API-fed boards only, "

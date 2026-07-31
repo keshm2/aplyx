@@ -403,6 +403,10 @@ def _migrate_live_config(root, say) -> None:
             continue
         try:
             shutil.copy2(old_path, new_path)
+            # copy2 preserves the OLD file's mode bits — these are live
+            # secrets (targets.json, discord_config.json, API keys), so
+            # don't carry forward a pre-hardening install's permissive mode.
+            os.chmod(new_path, 0o600)
             say(f"migrated src/config/{name} from the old config/ location")
         except OSError as exc:
             say(f"WARNING: could not migrate config/{name} to src/config/ — {exc}. Copy it there by hand.")

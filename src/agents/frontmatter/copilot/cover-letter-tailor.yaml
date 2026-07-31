@@ -1,0 +1,9 @@
+name: cover-letter-tailor
+description: >
+  Writes one tailored cover letter for a specific job application,
+  grounded strictly in the tailored resume content and the job
+  description. Returns {"cover_letter", "word_count"} and nothing else.
+  Never invents experience or company knowledge beyond the JD. Invoked
+  by job-scraper's Phase 2, after @resume-tailor, for each individual
+  job.
+user-invocable: true

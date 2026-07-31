@@ -1560,7 +1560,7 @@ button {
   border-radius: 50%;
   background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 22%, transparent), transparent 75%);
   transform: translate(-999px, 0);
-  transition: transform 550ms var(--ease-out);
+  transition: transform 550ms var(--ease-standard);
   pointer-events: none;
   z-index: 0;
 }

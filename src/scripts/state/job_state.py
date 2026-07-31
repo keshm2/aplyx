@@ -186,6 +186,7 @@ def save_json_array(path, data):
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
             f.write("\n")
+        os.chmod(tmp, 0o600)
         os.replace(tmp, path)
     except Exception as exc:
         try:
@@ -199,10 +200,13 @@ def append_jsonl(path, obj):
     """Append one JSON object as a line to a JSONL file."""
     d = os.path.dirname(path) or "."
     os.makedirs(d, exist_ok=True)
+    is_new = not os.path.exists(path)
     line = json.dumps(obj, ensure_ascii=False)
     try:
         with open(path, "a", encoding="utf-8") as f:
             f.write(line + "\n")
+        if is_new:
+            os.chmod(path, 0o600)
     except OSError as exc:
         die(f"could not append to {path}: {exc}")
 
@@ -702,6 +706,7 @@ def ensure_files(registry_path, events_path):
     os.makedirs(d, exist_ok=True)
     if not os.path.exists(events_path):
         open(events_path, "w", encoding="utf-8").close()
+        os.chmod(events_path, 0o600)
     else:
         with open(events_path, "r", encoding="utf-8") as f:
             for lineno, line in enumerate(f, 1):

@@ -116,6 +116,27 @@ def read_payload(arg):
     return obj
 
 
+# Leading characters Sheets (and Excel/CSV consumers generally) treat as a
+# formula/DDE trigger rather than literal text. company/title/internship_term
+# ultimately come from a scraped, third-party job posting — anyone can name a
+# job listing or company anything — so these are the one genuinely untrusted
+# input this script ever writes into a live spreadsheet cell.
+_FORMULA_TRIGGER_CHARS = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _defang_formula(value):
+    """Neutralize spreadsheet formula injection (CWE-1236): prefix a leading
+    apostrophe when the value starts with a formula-trigger character.
+    Sheets (like Excel) treats a leading `'` as "force this cell to plain
+    text" — the standard mitigation for this class, and applied here
+    unconditionally rather than relying solely on value_input_option, so a
+    config that opts back into "USER_ENTERED" for its date/number
+    auto-formatting doesn't silently reopen this."""
+    if value and value[0] in _FORMULA_TRIGGER_CHARS:
+        return "'" + value
+    return value
+
+
 def build_row(payload):
     """Map the payload to exactly one tracker row (8 visible columns).
 
@@ -136,14 +157,14 @@ def build_row(payload):
     notes = str(payload.get("notes") or "").strip()
 
     return [
-        title,                       # Role Name
-        company,                     # Company
-        date_applied,                 # Date Applied
-        DEFAULT_STATUS,              # Status
-        DEFAULT_RESPONSE_RECEIVED,   # Response Received
-        internship_term,             # Internship Term
-        "",                          # Date of Response (blank)
-        notes,                       # Notes (blank unless supplied)
+        _defang_formula(title),         # Role Name
+        _defang_formula(company),       # Company
+        date_applied,                    # Date Applied
+        DEFAULT_STATUS,                 # Status
+        DEFAULT_RESPONSE_RECEIVED,      # Response Received
+        _defang_formula(internship_term),  # Internship Term
+        "",                              # Date of Response (blank)
+        _defang_formula(notes),          # Notes (blank unless supplied)
     ]
 
 
@@ -189,6 +210,11 @@ def append_row(cfg, row):
     # (enabled/spreadsheet_id/worksheet_title/service_account_key_path)
     # still works without these fields.
     header_range = cfg.get("header_range", "A1:H")
+    # USER_ENTERED remains the default (gives Date Applied a real, sortable
+    # Sheets date type instead of literal text) — this is safe against
+    # formula injection specifically because _defang_formula above already
+    # neutralizes a leading =/+/-/@ with a forced-text apostrophe before any
+    # value reaches here, regardless of which valueInputOption is in effect.
     value_input_option = cfg.get("value_input_option", "USER_ENTERED")
     insert_data_option = cfg.get("insert_data_option", "INSERT_ROWS")
     # Escape single quotes in the sheet title for the A1 range literal.

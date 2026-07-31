@@ -223,23 +223,38 @@
   color: var(--accent-strong);
 }
 
+/* Neutral default — transparent, not a filled box, so the chrome recedes
+ * until you actually reach for it; a hairline border carries its shape at
+ * rest and the accent-tinted hover/press are what make it feel alive. */
 .btn {
-  border: 1px solid var(--border-strong);
-  background: var(--surface);
+  border: 1px solid var(--border);
+  background: transparent;
   border-radius: var(--radius-md);
   padding: var(--space-2) var(--space-4);
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--text);
+  transition: background-color var(--duration-quick) var(--ease-out),
+    border-color var(--duration-quick) var(--ease-out), transform var(--duration-quick) var(--ease-out);
 }
 
 .btn:hover {
   border-color: var(--accent);
+  background: var(--accent-tint-bg);
+}
+
+.btn:active {
+  background: var(--accent-tint-bg-active);
+  transform: scale(var(--scale-press));
 }
 
 .btn:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+.btn:disabled:active {
+  transform: none;
 }
 
 .btn-primary {
@@ -253,13 +268,22 @@
   border-color: var(--accent-strong);
 }
 
+.btn-primary:active {
+  background: var(--accent-strong);
+}
+
 .btn-danger {
   color: var(--danger);
-  border-color: var(--danger-soft);
+  border-color: color-mix(in srgb, var(--danger) 30%, transparent);
+  background: var(--danger-soft);
 }
 
 .btn-danger:hover {
   border-color: var(--danger);
+}
+
+.btn-danger:active {
+  background: color-mix(in srgb, var(--danger) 24%, var(--danger-soft));
 }
 
 .btn-sm {
