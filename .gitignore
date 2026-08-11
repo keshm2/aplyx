@@ -90,6 +90,10 @@ system_architecture.md
 /src/core/node_modules/
 /src/core/dist/
 
+# Phase 17: hosted worker package build artifacts (src/worker)
+/src/worker/node_modules/
+/src/worker/dist/
+
 # Phase 14: Tauri desktop app build artifacts
 /src/tauri/node_modules/
 /src/tauri/dist/

@@ -5,7 +5,7 @@ import { TopBar } from "../../components/TopBar";
 import "./AppShell.css";
 
 // Same route-level code-splitting reasoning as App.tsx: a user visiting
-// Home shouldn't have to wait on Jobs/Review/History/Resumes/Settings
+// Home shouldn't have to wait on Jobs/Review/Status/Resumes/Settings
 // (each with their own bridge calls, sort/filter logic, etc.) being
 // parsed too. Each tab's screen is its own chunk now, fetched on first
 // visit rather than all six upfront.
@@ -15,7 +15,12 @@ const ProfileScreen = lazy(() => import("./ProfileScreen").then((m) => ({ defaul
 const JobsScreen = lazy(() => import("./JobsScreen").then((m) => ({ default: m.JobsScreen })));
 const ReviewScreen = lazy(() => import("./ReviewScreen").then((m) => ({ default: m.ReviewScreen })));
 const DocumentsScreen = lazy(() => import("./DocumentsScreen").then((m) => ({ default: m.DocumentsScreen })));
-const HistoryScreen = lazy(() => import("./HistoryScreen").then((m) => ({ default: m.HistoryScreen })));
+// Was HistoryScreen — renamed to match the nav (Home is the "recent
+// activity" dashboard; this is the full per-job status list, every
+// applied job with its outcome badge — see the operator's 2026-08-10
+// clarification). Same component, same data (state.applied), just named
+// for what it actually is instead of "History".
+const StatusScreen = lazy(() => import("./StatusScreen").then((m) => ({ default: m.StatusScreen })));
 const ResumesScreen = lazy(() => import("./ResumesScreen").then((m) => ({ default: m.ResumesScreen })));
 
 // Settings used to be a nav entry here too — it's the gear icon in TopBar
@@ -26,7 +31,7 @@ const NAV = [
   { to: "/app/jobs", label: "Jobs" },
   { to: "/app/review", label: "Review queue" },
   { to: "/app/documents", label: "Documents" },
-  { to: "/app/history", label: "History" },
+  { to: "/app/status", label: "Status" },
   { to: "/app/resumes", label: "Resumes" },
   { to: "/app/profile", label: "Profile" },
 ];
@@ -45,7 +50,7 @@ const PREFETCH = [
   () => import("./JobsScreen"),
   () => import("./ReviewScreen"),
   () => import("./DocumentsScreen"),
-  () => import("./HistoryScreen"),
+  () => import("./StatusScreen"),
   () => import("./ResumesScreen"),
   () => import("./SettingsScreen"),
   () => import("./ProfileScreen"),
@@ -129,7 +134,7 @@ export function AppShell() {
               <Route path="jobs" element={<JobsScreen />} />
               <Route path="review" element={<ReviewScreen />} />
               <Route path="documents" element={<DocumentsScreen />} />
-              <Route path="history" element={<HistoryScreen />} />
+              <Route path="status" element={<StatusScreen />} />
               <Route path="resumes" element={<ResumesScreen />} />
               <Route path="profile" element={<ProfileScreen />} />
               <Route path="settings" element={<SettingsScreen />} />

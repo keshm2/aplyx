@@ -27,11 +27,13 @@ const SOURCE_LABEL: Record<JobSource, string> = {
   lever: "Lever",
   greenhouse: "Greenhouse",
   smartrecruiters: "SmartRecruiters",
+  workable: "Workable",
   amazon: "Amazon",
   oracle: "Oracle",
   workday: "Workday",
+  muse: "The Muse",
 };
-const SOURCES: JobSource[] = ["ashbyhq", "lever", "greenhouse", "smartrecruiters", "amazon", "oracle", "workday"];
+const SOURCES: JobSource[] = ["ashbyhq", "lever", "greenhouse", "smartrecruiters", "workable", "amazon", "oracle", "workday", "muse"];
 
 type Action = "idle" | "searching" | "fitting" | "saving";
 
@@ -147,9 +149,11 @@ export function SearchScreen({
     lever: true,
     greenhouse: true,
     smartrecruiters: true,
+    workable: true,
     amazon: true,
     oracle: true,
     workday: true,
+    muse: true,
   });
   const [sourceFocused, setSourceFocused] = useState(false);
   const [sourceCursor, setSourceCursor] = useState(0);

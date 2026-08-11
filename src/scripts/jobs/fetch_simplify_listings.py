@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
-"""fetch_simplify_listings.py — SimplifyJobs ingestion (Phase 5).
+"""fetch_simplify_listings.py — community listing-tracker ingestion (Phase 5,
+extended Phase 16B).
 
-Fetches the project-owned SimplifyJobs listing feeds (raw GitHub JSON —
+Fetches project-owned community listing-tracker feeds (raw GitHub JSON —
 no auth, no scraping), filters to active + visible postings, and emits
 one raw-job JSON object per line on stdout, shaped for
-`src/scripts/state/job_state.py canonicalize`.
+`src/scripts/state/job_state.py canonicalize`. Despite the filename this
+is no longer SimplifyJobs-only — vanshb03's independently-scraped feeds
+share the same listings.json schema and are registered the same way (see
+FEEDS below); each raw job's "source" field reflects which tracker it
+actually came from.
 
 Feeds are configured in src/config/targets.json:
 
-  "simplify_feeds": ["summer_internships", "new_grad"]
+  "simplify_feeds": ["summer_internships", "new_grad", "vanshb03_summer_internships", "vanshb03_new_grad"]
 
 Skip behavior mirrors the other optional boards: a missing, empty, or
 placeholder-only ("REPLACE_ME") simplify_feeds array means the board is
@@ -46,17 +51,32 @@ import urllib.request
 
 DEFAULT_TARGETS = "src/config/targets.json"
 PLACEHOLDER = "replace_me"
-USER_AGENT = "aplyx-job-agent/phase5 (+https://github.com/SimplifyJobs)"
+USER_AGENT = "aplyx-job-agent/phase16b (+https://github.com/keshm2/aplyx)"
 
 # Project-owned feed map. Adding a feed here is a code change reviewed in
 # a PR — feeds are never taken from remote config at run time.
+#
+# Every repo in this ecosystem gets renamed to the next hiring cycle each
+# year (Summer2026-Internships -> Summer2027-Internships, New-Grad-2026 ->
+# New-Grad-2027, ...). GitHub redirects the old raw.githubusercontent.com
+# path to the renamed repo, so a stale name here wouldn't break outright —
+# but it's still worth pointing at the current canonical name rather than
+# leaning on a redirect indefinitely. Confirmed 2026-08-09: SimplifyJobs/
+# Summer2026-Internships (repo id 794545597 at the time) was renamed to
+# Summer2027-Internships; SimplifyJobs/New-Grad-Positions was NOT renamed
+# (no year in its name). "source" is distinct per feed (not always
+# "simplify") so downstream provenance/debugging can tell which tracker a
+# job actually came from — see AGENTS.md and docs/ATS.md's own stated
+# principle that every source should carry enough provenance to know how
+# much to trust it.
 FEEDS = {
     "summer_internships": {
         "url": (
             "https://raw.githubusercontent.com/SimplifyJobs/"
-            "Summer2026-Internships/dev/.github/scripts/listings.json"
+            "Summer2027-Internships/dev/.github/scripts/listings.json"
         ),
         "role_type": "internship",
+        "source": "simplify",
     },
     "new_grad": {
         "url": (
@@ -64,6 +84,28 @@ FEEDS = {
             "New-Grad-Positions/dev/.github/scripts/listings.json"
         ),
         "role_type": "new_grad",
+        "source": "simplify",
+    },
+    # vanshb03's trackers share the SimplifyJobs listings.json schema (a
+    # de facto shared convention across this whole community-tracker
+    # ecosystem) but are independently scraped/curated — confirmed live
+    # 2026-08-09 with different entry counts than the SimplifyJobs feeds
+    # above, so this is real incremental coverage, not a duplicate.
+    "vanshb03_summer_internships": {
+        "url": (
+            "https://raw.githubusercontent.com/vanshb03/"
+            "Summer2027-Internships/dev/.github/scripts/listings.json"
+        ),
+        "role_type": "internship",
+        "source": "vanshb03",
+    },
+    "vanshb03_new_grad": {
+        "url": (
+            "https://raw.githubusercontent.com/vanshb03/"
+            "New-Grad-2027/dev/.github/scripts/listings.json"
+        ),
+        "role_type": "new_grad",
+        "source": "vanshb03",
     },
 }
 
@@ -120,8 +162,8 @@ def fetch_feed(url: str, timeout: int) -> list:
     return data
 
 
-def to_raw_job(listing: dict, role_type: str) -> dict:
-    """Map one SimplifyJobs listing to the raw-job shape canonicalize expects."""
+def to_raw_job(listing: dict, role_type: str, source: str) -> dict:
+    """Map one listing (SimplifyJobs-schema feed) to the raw-job shape canonicalize expects."""
     locations = [
         str(loc).strip()
         for loc in (listing.get("locations") or [])
@@ -133,7 +175,7 @@ def to_raw_job(listing: dict, role_type: str) -> dict:
         if str(t).strip() and str(t).strip().upper() != "N/A"
     ]
     return {
-        "source": "simplify",
+        "source": source,
         "company": str(listing.get("company_name", "")).strip(),
         "title": str(listing.get("title", "")).strip(),
         "url": str(listing.get("url", "")).strip(),
@@ -202,7 +244,7 @@ def main(argv=None) -> int:
                 continue
             if not (listing.get("active") is True and listing.get("is_visible") is True):
                 continue
-            raw = to_raw_job(listing, spec["role_type"])
+            raw = to_raw_job(listing, spec["role_type"], spec["source"])
             if not (raw["company"] and raw["title"] and raw["url"]):
                 continue
             jobs.append(raw)

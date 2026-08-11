@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import type { AplyxState, AppliedJob } from "@aplyx/core/state.js";
-import { findRoot, loadLocalState } from "../../lib/bridge";
+import type { AppliedJob } from "@aplyx/core/state.js";
+import { useAplyxState } from "../../lib/useAplyxState";
+import { SkeletonRows } from "../../components/Skeleton";
 import "../../components/formFields.css";
 import "../../components/dataList.css";
+import "../../components/Skeleton.css";
 
 const STATUS_BADGE: Record<string, string> = {
   applied: "status-badge-good",
@@ -17,18 +19,10 @@ const STATUS_LABEL: Record<string, string> = {
   failed: "Failed",
 };
 
-export function HistoryScreen() {
-  const [state, setState] = useState<AplyxState | undefined>(undefined);
-  const [loaded, setLoaded] = useState(false);
+export function StatusScreen() {
+  const { state, loaded } = useAplyxState();
   const [selected, setSelected] = useState<string | undefined>(undefined);
   const [message, setMessage] = useState<{ text: string; error?: boolean } | undefined>(undefined);
-
-  useEffect(() => {
-    findRoot()
-      .then(async (root) => setState((await loadLocalState(root)) as AplyxState))
-      .catch(() => setState(undefined))
-      .finally(() => setLoaded(true));
-  }, []);
 
   const jobs = useMemo(() => [...(state?.applied ?? [])].reverse(), [state]);
   const totals = { applied: 0, needs_review: 0, failed: 0 };
@@ -54,7 +48,7 @@ export function HistoryScreen() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
       <div>
-        <h1 style={{ fontSize: "var(--text-3xl)", marginBottom: "var(--space-2)" }}>History</h1>
+        <h1 style={{ fontSize: "var(--text-3xl)", marginBottom: "var(--space-2)" }}>Status</h1>
         <div className="data-toolbar">
           <span style={{ color: "var(--text-muted)", fontSize: "var(--text-sm)" }}>
             {jobs.length} outcome{jobs.length === 1 ? "" : "s"}, newest first
@@ -76,7 +70,7 @@ export function HistoryScreen() {
       <div className="data-screen">
         <div className="data-list-col">
           {!loaded ? (
-            <div className="data-empty">Loading…</div>
+            <SkeletonRows />
           ) : jobs.length === 0 ? (
             <div className="data-empty">No applications recorded yet — outcomes from runs appear here.</div>
           ) : (

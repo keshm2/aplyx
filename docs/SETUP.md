@@ -4,7 +4,7 @@ The live configs (`src/config/targets.json`, `src/config/discord_config.json`) a
 gitignored — they hold personal data and secrets. Start from the shipped
 examples before running the agent.
 
-> **Build:** this document ships with release `0.9.85a`. Full release
+> **Build:** this document ships with release `0.9.949a`. Full release
 > notes: [`RELEASE.md`](./RELEASE.md). Changelog: [`CHANGELOG.md`](./CHANGELOG.md).
 
 ## 0. Universal install (recommended)
@@ -112,15 +112,30 @@ hand-editing `src/config/targets.json` directly? `src/config/targets.example.jso
 carries an inert `_help` object with doc strings for the less obvious
 fields, right next to the fields themselves.
 
-**Resumes.** Drop any file into `data/resumes/` — no required filename
-anymore. The TUI's **Resumes** screen (`aplyx resumes`, or press `5`)
-lists everything and converts a PDF to markdown on the spot (press
-`c`), prompting for an optional short description so non-standard
-resumes stay distinguishable later. `resume-tailor.md`'s category
-matcher still auto-recognizes five conventional base-resume names plus
-a cover-letter reference file; anything else just needs a description.
-Extraction is text-only, not OCR — a scanned PDF with no text layer
-needs a hand-written `.md`.
+**Resumes.** Drop any file into `data/resumes/` — no required filename.
+The TUI's **Resumes** screen (`aplyx resumes`, or press `5`) lists
+everything, converts a PDF to markdown on the spot (press `c`), and
+lets you set or edit **what roles a resume targets** at any time (press
+`d`) — independent of conversion, so two already-converted resumes
+under generic names (say, uploaded straight from a laptop with no
+renaming) can each get a one-line description ("backend + cloud infra
+roles", "security / SOC internships") without needing to touch the file
+itself. This is optional but genuinely worth doing for any non-standard
+name — it's the strongest signal `resolve_resume.py` has once the
+filename alone doesn't say enough, and `resume-tailor.md` also applies
+its own judgment across every description on hand when the mechanical
+match is weak, so a well-written one materially improves which resume
+actually gets picked. Category matching (`src/scripts/state/
+resolve_resume.py`, called by `resume-tailor.md`/`job-scraper.md`/
+`cover-letter-tailor.md`) tries the five conventional base-resume names
+plus the cover-letter reference file first, then falls back to matching
+a category keyword against the actual filename, then against that
+description, then to the tailoring agent's own judgment across every
+description on hand — genuinely dynamic, not name-locked; renaming a
+file doesn't silently break tailoring as long as the new name or its
+description still says roughly what the resume is for. Extraction is
+text-only, not OCR — a scanned PDF with no text layer needs a
+hand-written `.md`.
 
 **Discord is optional.** The installer asks whether you want status
 updates; declining leaves every outcome local. Opting in, choose one
@@ -165,6 +180,7 @@ writes state JSON directly — every mutation goes through the repo's
 helpers.
 
 ```bash
+npm install --workspace=src/core && npm run build:core   # from the repo root — src/tui imports @aplyx/core's built dist/, which doesn't exist yet on a fresh clone
 cd src/tui
 npm install
 npm run build

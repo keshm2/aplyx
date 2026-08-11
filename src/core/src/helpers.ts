@@ -234,6 +234,41 @@ export function convertResumePdf(root: string, stem: string, description = "", f
   };
 }
 
+export interface SetResumeDescriptionResult {
+  ok: boolean;
+  stem: string;
+  description?: string;
+  error?: string;
+}
+
+/** Set/update a resume's .resume_meta.json description without converting
+ *  anything — for a resume that already has its .md (so convertResumePdf's
+ *  conversion flow never runs) but still needs a description so
+ *  resolve_resume.py's dynamic matching has something to go on for a
+ *  non-conventional filename. Requires the stem to already have a .md or
+ *  .pdf in data/resumes/ — never throws; failures come back as
+ *  { ok: false, error }. */
+export function setResumeDescription(root: string, stem: string, description: string): SetResumeDescriptionResult {
+  const args = ["src/scripts/state/convert_resume.py", stem, "--describe-only", "--description", description];
+  const conv = py(args);
+  const res = spawnSync(conv.cmd, conv.args, { cwd: root, encoding: "utf8" });
+  const stdout = (res.stdout ?? "").trim();
+  let parsed: { ok?: boolean; description?: string; error?: string } = {};
+  try {
+    parsed = stdout ? JSON.parse(stdout) : {};
+  } catch {
+    // non-JSON stdout — fall through to the generic failure path
+  }
+  if (res.status === 0 && parsed.ok) {
+    return { ok: true, stem, description: parsed.description };
+  }
+  return {
+    ok: false,
+    stem,
+    error: parsed.error ?? (res.stderr ?? "").trim() ?? `exit ${res.status}`,
+  };
+}
+
 /** Message from a failed helper invocation, trimmed for display. */
 export function helperError(err: unknown): string {
   if (err && typeof err === "object" && "stderr" in err) {

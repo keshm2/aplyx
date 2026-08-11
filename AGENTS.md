@@ -1,102 +1,76 @@
 # aplyx — Job Application Agent — Core Rules
 
 ## Phase status (keep in sync with docs/PLAN.md's Phase Status Pointer)
-- **Current phase:** Phase 16B (ATS/source expansion) is **IN PROGRESS**.
-  SmartRecruiters, Amazon, and Oracle are shipped; Google was researched and
-  explicitly not implemented because the observable data path was too
-  fragile. Workable, BambooHR, Jobvite, Rippling, iCIMS, and
-  Taleo/Oracle-legacy remain deferred until a real tenant/feed path is
-  verified.
-- **Recently completed (out of band from 16B):** Phase 16C — trustworthy
-  apply / pre-filled review handoff — is **DONE** (2026-07-29). Part A
-  (doubt taxonomy + fill records), Part B (`src/scripts/runtime/replay_fill.py`,
-  a deterministic, no-LLM reopen-and-replay script driving the user's real
-  Chrome — see docs/SETUP.md §3.4), and Part C (`ReviewScreen`'s "Open"
-  action in both the TUI and desktop now reopens pre-filled via
-  `reopenApplicationFilled()` when a `fill_record_path` exists, falling
-  back to the original bare-URL open otherwise) all shipped. See "Doubt
-  signals" and "Fill records" above and docs/PLAN.md's Phase Status
-  Pointer for the full write-up.
-- **Last completed phase:** Phase 14C (Desktop UI refinement and
-  theming) is **DONE** (2026-07-22). Priority 1 (shell route transitions,
-  loading-state layout hold) was already done by the prior motion-polish
-  pass. This pass shipped the Home dashboard hierarchy
-  (`src/tauri/src/routes/shell/HomeScreen.tsx`/`.css` — stat cards + a
-  single derived "next action" card instead of a flat checklist), all of
-  Priority 2 (a 4-family theme system —
-  `src/tauri/src/styles/tokens.css`, `src/tauri/src/lib/uiPrefs.ts` —
-  **Calm Cobalt** ships as the default, **Sage Slate**/**Graphite Cyan**
-  are new alternates, the original palette is preserved verbatim as
-  **Aplyx Classic** via `data-theme-family="legacy"`; mode and family are
-  independent axes, every family carries the full token contract), and
-  Priority 3 (per-screen polish): Resumes moved from a flat inline-action
-  list to the same list+detail split as Jobs/Review/History
-  (`ResumesScreen.tsx`), Review and History now auto-advance to the
-  first pending / newest item instead of landing on a blank detail pane,
-  and Settings gained the theme-family picker. Also fixed a real bug
-  found while visually verifying the nav rail in a browser: no stylesheet
-  anywhere reset `text-decoration` on `<a>`, so the nav rail and every
-  other in-app link rendered with the browser-default underline —
-  `text-decoration: none` added to the global `a` rule in
-  `src/tauri/src/styles/base.css`. Priority 4 (typography) has since shipped
-  too, on explicit operator request: the other three font directions from
-  the plan — **Inter**, **IBM Plex Sans** (paired with **IBM Plex Mono**),
-  and **Atkinson Hyperlegible Next** — are now bundled the same way as
-  Geist (OFL-licensed, self-hosted via `@fontsource`/`@fontsource-variable`,
-  no CDN fetch, latin-subset woff2 in `src/tauri/src/assets/fonts/`,
-  `@font-face` in `base.css`, `data-font="inter"|"plex"|"atkinson"` blocks
-  in `tokens.css`) and selectable in Settings alongside System/Geist
-  (`src/tauri/src/lib/uiPrefs.ts`'s `FontPref`/`FONT_LABELS`,
-  `SettingsScreen.tsx`'s `FONT_OPTIONS`). System font stays the default —
-  this only adds options. Verified in both `npm run dev` and `npm run
-  build` (all six font files bundle and hash correctly).
-- **Recent completed work items:** desktop release-build fix (release vs
-  debug); desktop route-level code-splitting; shared search latency fixes;
-  desktop two-phase search + stale-search protection; desktop route/motion
-  polish; native Windows install/update/runtime parity; hosted backend +
-  desktop shell; interest-letter parking flow; rebrand applyr → aplyx
-  (repo, npm package, install/update scripts, working directory);
-  **tailored-content persistence + read-only Documents review tab**
-  (2026-07-28, operator-directed, out of band from the phase sequence):
-  `tailored_bullets`/`cover_letter`/`missing_keywords` — previously
-  computed by resume-tailor and discarded after the live form-fill — are
-  now persisted on `applied_jobs.json`/`review_queue.json` entries
-  (`src/core/src/stateDerive.ts`, `src/agents/bodies/job-scraper.md`,
-  regenerated agent defs); new read-only "Documents" tab/screen in both
-  the TUI (`src/tui/src/ui/DocumentsScreen.tsx`) and desktop
-  (`src/tauri/src/routes/shell/DocumentsScreen.tsx`) surfaces it — view +
-  open-in-browser (TUI) / view + copy-to-clipboard (desktop), no new
-  mutation path, `review_queue.json`'s append-only discipline untouched.
-  Built via two parallel worktree subagents; the TUI one found and fixed
-  a real Ink bug (unwrapped overflow text corrupting the terminal frame);
-  **cover-letter generation split into its own `cover-letter-tailor`
-  agent** (2026-07-29, operator-directed, out of band from the phase
-  sequence): previously bundled into `resume-tailor`'s output (one thin
-  paragraph of guidance, no grounding rules); now a dedicated subagent
-  (`src/agents/bodies/cover-letter-tailor.md`) with the same
-  anti-fabrication rigor as `interest-letter` (grounding rules tying
-  every claim to the tailored resume/JD, demographic-field exclusion, a
-  length target), invoked by job-scraper's Phase 2 right after
-  `@resume-tailor` so the letter stays consistent with whichever resume
-  version was selected. `resume-tailor.md` no longer returns
-  `cover_letter`. Registered across all four harnesses
-  (`src/agents/frontmatter/{claude,opencode,copilot}/cover-letter-tailor.yaml`,
-  `codex/cover-letter-tailor.toml`) and added to this file's harness
-  capability matrix, degraded-path fallback list, and
-  `run_job_agent.py`'s inline-fallback `delegates` tuple.
-  `applied_jobs.json`/`review_queue.json`'s `cover_letter` field shape is
-  unchanged — only its source agent changed, so the Documents tab and
-  Google Sheets sync need no updates.
-- **Partially done:** phase 13 (TUI/provider/setup/publish work still open),
-  phase 15 (full real-run parity check still operator-verified, though
-  conformance signals exist).
-- **Implement next:** Phase 16B (ATS/source expansion, see above) is the
-  open in-progress phase now that 14C is closed. After that: the real
-  rebrand positioning work (`docs/product-positioning-and-rebrand-plan.md`),
-  then phase 12 cost tiering. Each still needs explicit operator go-ahead
-  before starting.
-- **Rule:** whoever closes a phase or work item must update this block and the
-  matching pointer in `docs/PLAN.md` before stopping.
+
+**Compressed 2026-08-10** — see `docs/PLAN.md`'s Phase Status Pointer
+for the fuller version and the reasoning behind each item; this block
+mirrors it, kept short on purpose. Detailed shipped-work history lives
+in each phase's own `docs/PLAN.md` §3.x section, not here.
+
+- **Current phase: 17 (hosted `review_only` service) — IN PROGRESS.**
+  First increment built and locally verified against the real
+  `aplyx-users` Supabase project (2026-08-10): `hosted_runs` work queue
+  (migration `0004`), `src/worker/` scheduled-worker package, two
+  hosted-context tailoring scripts, new `SupabaseAdapter` write
+  methods, `.github/workflows/hosted-worker.yml` (not yet relied
+  upon — verified locally first, per plan). Live-verified against a
+  real test account: 16,593 real postings fetched, 4,979
+  `skipped_unfit` + 13 `needs_review` correctly written through to
+  `review_queue`/`applied_jobs`/`job_events`/`jobs` and read back via
+  the same `SupabaseAdapter.loadState()` the desktop Review screen
+  uses. A real bug (nonzero-exit Python output being silently dropped
+  instead of read) was found and fixed during this verification.
+  **Not yet verified live: a successfully tailored job with real
+  content** — the test run's Anthropic key had no usage credit, so
+  every tailoring call correctly degraded to a `needs_review` row
+  rather than producing tailored content; this is a real gap, not a
+  formality. **Two more real bugs found and fixed via live
+  re-verification (2026-08-11):** per-job subprocess spawning was the
+  actual bottleneck at scale (added batched `canonicalize-batch`/
+  `evaluate_job_fit.py --batch` subcommands, cut 16,590 jobs from the
+  dominant cost to 2.7s), and `SupabaseAdapter.loadState()` never
+  paginated past PostgREST's 1,000-row default — a **pre-existing bug
+  in already-shipped code**, exposed once this test account's registry
+  passed 1,000 rows, that had already produced one real duplicate
+  `review_queue` row before being caught and fixed (`fetchAllRows` now
+  pages properly for all three tables). Full details, scope cuts, and
+  what's still missing before real users: `docs/PLAN.md` §3.18.
+- **Previous phase: 16B (ATS/source expansion) — reached a natural
+  pause.** Shipped:
+  Greenhouse, Lever, Ashby, Workday (review-only), SmartRecruiters,
+  **Workable (2026-08-10)**, **JazzHR (2026-08-10)**, Amazon, Oracle
+  Recruiting Cloud, Eightfold, Apple, Google, Stripe, Gem, The Muse.
+  **BambooHR — spiked 2026-08-10, deferred (operator-directed).** Its
+  listing endpoint was real and stable; its JD-detail endpoint had no
+  deterministic access path — moot either way, since BambooHR's own
+  ToS §4.2 prohibits automated access outright (no public-content
+  carve-out), same category of finding as the Workday ToS conflict
+  below. Not revisitable without a real partner/API relationship.
+  iCIMS/Jobvite/Rippling/Breezy are deferred behind real structural
+  gates (partner-only APIs, no public API at all), not a research gap.
+  Every originally-scoped platform is now shipped or deferred-for-cause;
+  there is no queued "next adapter" right now. Full research:
+  `docs/ATS.md`'s 2026-08-10 section.
+- **Workday stays review-only — re-confirmed 2026-08-10, not a gap.**
+  Workday's own ToS prohibits automated submission, candidate accounts
+  are per-tenant with no shared identity, and even the best-resourced
+  competitors researched stop at autofill-then-human-submits. Do not
+  build full auto-submit for Workday.
+- **Queued up**, each needing its own explicit go-ahead: the rest of
+  Phase 17 itself (real hosted onboarding, quotas/abuse controls,
+  encryption-at-rest + deletion path, wiring the GitHub Actions
+  schedule for real), the paid-tier/`auto_apply`/cheaper-tier design
+  docs (`docs/hosted-paid-tier-plan.md`, `docs/hosted-auto-apply-plan.md`,
+  `docs/hosted-no-agent-tiers-plan.md`), Phase 12 (cost tiering),
+  Phase 18 (security audit, beta ship gate), Phase 19 (opt-in email
+  status tracking, scoped, not started). None have started.
+- **Positioning research, ready when wanted:** `docs/beating-competitors.md`
+  — evidence-graded competitive analysis (Tsenta and 20+ other
+  auto-apply tools), concrete sourced differentiators. Read before any
+  beta positioning/marketing work.
+- **Rule:** whoever closes a phase or work item updates this block
+  (keep it short) and the matching pointer in `docs/PLAN.md` before
+  stopping.
 
 ## Single-user deployment (phase 9)
 
@@ -611,8 +585,8 @@ has just because the TOML files exist.
 - applied_jobs.json entries must include: job_id, company, title, url,
   apply_url, date_applied, status (applied|failed|needs_review), role_type
   (internship|new_grad), source (linkedin|indeed|greenhouse|lever|
-  wellfound|handshake|ashbyhq|simplify|workday|smartrecruiters|amazon|
-  oracle), resume_used
+  wellfound|handshake|ashbyhq|simplify|workday|smartrecruiters|workable|
+  jazzhr|amazon|oracle), resume_used
   (swe|ai_ml|balanced|cyber|networking_cyber),
   ats_score (number), location_tier (preferred|fallback),
   cover_letter_used (bool). review_queue.json entries must also include

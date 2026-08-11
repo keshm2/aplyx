@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import type { ResumeFile } from "@aplyx/core/resumes.js";
-import { findRoot, listResumeDetails, openResumesFolder, convertResume } from "../../lib/bridge";
+import { findRoot, listResumeDetails, openResumesFolder, convertResume, setResumeDescription } from "../../lib/bridge";
+import { SkeletonRows } from "../../components/Skeleton";
 import "../../components/formFields.css";
 import "../../components/dataList.css";
+import "../../components/Skeleton.css";
 
 export function ResumesScreen() {
   const [root, setRoot] = useState<string | undefined>(undefined);
@@ -10,6 +12,7 @@ export function ResumesScreen() {
   const [loaded, setLoaded] = useState(false);
   const [selected, setSelected] = useState<string | undefined>(undefined);
   const [converting, setConverting] = useState<string | undefined>(undefined);
+  const [describing, setDescribing] = useState<string | undefined>(undefined);
   const [description, setDescription] = useState("");
   const [message, setMessage] = useState<{ text: string; error?: boolean } | undefined>(undefined);
 
@@ -45,6 +48,7 @@ export function ResumesScreen() {
   };
 
   const startConvert = (stem: string) => {
+    setDescribing(undefined);
     setConverting(stem);
     setDescription("");
     setMessage(undefined);
@@ -60,6 +64,26 @@ export function ResumesScreen() {
       setMessage({ text: `Converted — wrote ${stem}.md.` });
     } else {
       setMessage({ text: `Conversion failed: ${result.error}`, error: true });
+    }
+    await refresh(root);
+  };
+
+  const startDescribe = (stem: string, existing: string | undefined) => {
+    setConverting(undefined);
+    setDescribing(stem);
+    setDescription(existing ?? "");
+    setMessage(undefined);
+  };
+
+  const runSetDescription = async () => {
+    if (!root || !describing) return;
+    const stem = describing;
+    setDescribing(undefined);
+    const result = await setResumeDescription(root, stem, description.trim());
+    if (result.ok) {
+      setMessage({ text: description.trim() ? `Saved: "${description.trim()}"` : `Cleared description for ${stem}.` });
+    } else {
+      setMessage({ text: `Could not save description: ${result.error}`, error: true });
     }
     await refresh(root);
   };
@@ -94,7 +118,7 @@ export function ResumesScreen() {
       <div className="data-screen">
         <div className="data-list-col">
           {!loaded ? (
-            <div className="data-empty">Loading…</div>
+            <SkeletonRows />
           ) : files.length === 0 ? (
             <div className="data-empty">No resumes found — add a PDF to data/resumes/ to get started.</div>
           ) : (
@@ -109,6 +133,7 @@ export function ResumesScreen() {
                     onClick={() => {
                       setSelected(f.stem);
                       if (converting && converting !== f.stem) setConverting(undefined);
+                      if (describing && describing !== f.stem) setDescribing(undefined);
                     }}
                   >
                     <div className="data-row-main">
@@ -141,7 +166,8 @@ export function ResumesScreen() {
             {converting === selectedFile.stem ? (
               <>
                 <p className="field-help">
-                  What's this resume for? Optional — helps tell arbitrarily-named resumes apart later.
+                  What roles is this resume best for? Optional, but recommended for a non-standard filename —
+                  aplyx matches on this when the name alone doesn't say enough.
                 </p>
                 <div className="field">
                   <input
@@ -149,7 +175,7 @@ export function ResumesScreen() {
                     autoFocus
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    placeholder="e.g. Backend-focused"
+                    placeholder='e.g. "backend + cloud infra roles"'
                     onKeyDown={(e) => {
                       if (e.key === "Enter") void runConvert();
                       if (e.key === "Escape") setConverting(undefined);
@@ -165,13 +191,51 @@ export function ResumesScreen() {
                   </button>
                 </div>
               </>
+            ) : describing === selectedFile.stem ? (
+              <>
+                <p className="field-help">
+                  What roles is this resume best for? Optional, but recommended for a non-standard filename —
+                  aplyx matches on this when the name alone doesn't say enough.
+                </p>
+                <div className="field">
+                  <input
+                    type="text"
+                    autoFocus
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder='e.g. "security / SOC internships"'
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") void runSetDescription();
+                      if (e.key === "Escape") setDescribing(undefined);
+                    }}
+                  />
+                </div>
+                <div className="detail-actions">
+                  <button type="button" className="btn btn-primary btn-sm" onClick={() => void runSetDescription()}>
+                    Save
+                  </button>
+                  <button type="button" className="btn btn-sm" onClick={() => setDescribing(undefined)}>
+                    Cancel
+                  </button>
+                </div>
+              </>
             ) : (
               <div className="detail-actions">
                 {selectedFile.needsConversion ? (
                   <button type="button" className="btn btn-primary btn-sm" onClick={() => startConvert(selectedFile.stem)}>
                     Convert to markdown
                   </button>
-                ) : selectedFile.hasMarkdown ? (
+                ) : null}
+                {selectedFile.hasMarkdown || selectedFile.hasPdf ? (
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    onClick={() => startDescribe(selectedFile.stem, selectedFile.description)}
+                  >
+                    {selectedFile.description ? "Edit description" : "Set description"}
+                  </button>
+                ) : null}
+                {selectedFile.hasMarkdown && selectedFile.hasPdf ? (
                   <button type="button" className="btn btn-sm" onClick={() => startConvert(selectedFile.stem)}>
                     Re-convert
                   </button>

@@ -9,8 +9,10 @@ import {
   isPreferredLocation,
 } from "@aplyx/core/jobsSort.js";
 import { findRoot, searchJobs, checkJobFit, saveJobForReview, readProfileField } from "../../lib/bridge";
+import { SkeletonRows } from "../../components/Skeleton";
 import "../../components/formFields.css";
 import "../../components/dataList.css";
+import "../../components/Skeleton.css";
 
 // Client-side pagination over whatever searchJobs() already returned
 // (now up to MAX_PAGE_SIZE=300, see jobs.ts) — no re-fetch per page,
@@ -32,17 +34,19 @@ const SOURCE_LABEL: Record<JobSource, string> = {
   lever: "Lever",
   greenhouse: "Greenhouse",
   smartrecruiters: "SmartRecruiters",
+  workable: "Workable",
   amazon: "Amazon",
   oracle: "Oracle",
   workday: "Workday",
+  muse: "The Muse",
 };
-const SOURCES: JobSource[] = ["ashbyhq", "lever", "greenhouse", "smartrecruiters", "amazon", "oracle", "workday"];
+const SOURCES: JobSource[] = ["ashbyhq", "lever", "greenhouse", "smartrecruiters", "workable", "amazon", "oracle", "workday", "muse"];
 
 /** Pure fetch()-based sources (no Python subprocess startup) — shown first
  *  in a two-phase search so useful results appear before the slower
- *  Python-backed sources (Amazon/Oracle/Workday) finish. */
-const FAST_SOURCES: JobSource[] = ["ashbyhq", "lever", "greenhouse", "smartrecruiters"];
-const SLOW_SOURCES: JobSource[] = ["amazon", "oracle", "workday"];
+ *  Python-backed sources (Amazon/Oracle/Workday/The Muse) finish. */
+const FAST_SOURCES: JobSource[] = ["ashbyhq", "lever", "greenhouse", "smartrecruiters", "workable"];
+const SLOW_SOURCES: JobSource[] = ["amazon", "oracle", "workday", "muse"];
 
 type SortMode = "preferred" | "recent" | "company" | "title";
 
@@ -92,9 +96,11 @@ export function JobsScreen() {
     lever: true,
     greenhouse: true,
     smartrecruiters: true,
+    workable: true,
     amazon: true,
     oracle: true,
     workday: true,
+    muse: true,
   });
   const [jobs, setJobs] = useState<SearchJob[]>([]);
   const [sources, setSources] = useState<Partial<Record<JobSource, SourceResult>>>({});
@@ -382,13 +388,15 @@ export function JobsScreen() {
       <div className="data-screen">
         <div className="data-list-col">
           {displayedJobs.length === 0 ? (
-            <div className="data-empty">
-              {searching
-                ? "Fetching postings…"
-                : jobs.length > 0
+            searching ? (
+              <SkeletonRows count={6} />
+            ) : (
+              <div className="data-empty">
+                {jobs.length > 0
                   ? "No postings match “Preferred locations only” — turn it off to see everything again."
                   : "Type a title query and press Search to browse the live boards."}
-            </div>
+              </div>
+            )
           ) : (
             <>
               <div className="data-list">

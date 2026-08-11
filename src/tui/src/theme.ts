@@ -28,13 +28,14 @@ import { effectiveEnv } from "@aplyx/core/settings.js";
 // original Dark/Light distinction (avoiding e.g. unreadable named
 // "yellow" on white) still matters and is still handled per palette,
 // just no longer conflated with the palette's actual color identity.
-export type ThemeMode = "aplyx-default" | "cloud-surf" | "ember-dusk" | "mint-frost";
+export type ThemeMode = "aplyx-default" | "cloud-surf" | "ember-dusk" | "mint-frost" | "volt-noir";
 
 export const THEME_NAMES: Record<ThemeMode, string> = {
   "aplyx-default": "Aplyx Default",
   "cloud-surf": "Cloud Surf",
   "ember-dusk": "Ember Dusk",
   "mint-frost": "Mint Frost",
+  "volt-noir": "Volt Noir",
 };
 
 function isThemeMode(value: string): value is ThemeMode {
@@ -111,11 +112,30 @@ const MINT_FROST_PALETTE: Palette = {
   glow: "#134E4A", // deep teal — dark-on-light glow, not white-on-light
 };
 
+// Dark-terminal assumption like Aplyx Default/Ember Dusk above (named ANSI
+// good/warn/danger are fine there) — true green in place of violet/amber,
+// the terminal counterpart to the desktop app's "Volt Noir" theme family
+// (src/tauri/src/styles/tokens.css). Corrected on explicit feedback: the
+// first pass's #B6FF3C leaned yellow (hue ~82°); this is a real green
+// (hue ~117°). rule uses a dimmer, more forest-toned green than accent —
+// same "bright accent, muted rule" relationship every dark palette here
+// keeps, so the sidebar/pane border reads as structure, not a second
+// accent competing with the real one.
+const VOLT_NOIR_PALETTE: Palette = {
+  accent: "#3DEB34",
+  rule: "#2E8A28",
+  good: "green",
+  warn: "yellow",
+  danger: "red",
+  glow: "#FFFFFF",
+};
+
 const PALETTES: Record<ThemeMode, Palette> = {
   "aplyx-default": APLYX_DEFAULT_PALETTE,
   "cloud-surf": CLOUD_SURF_PALETTE,
   "ember-dusk": EMBER_DUSK_PALETTE,
   "mint-frost": MINT_FROST_PALETTE,
+  "volt-noir": VOLT_NOIR_PALETTE,
 };
 
 export const theme: Palette = { ...APLYX_DEFAULT_PALETTE };
@@ -344,11 +364,25 @@ const BANNER_GRADIENT_MINT_FROST = [
   "#CCFBF1", // teal-100 — fades toward white
 ] as const;
 
+// Volt Noir: pale green → true green → near-black, the dark-background
+// shape (light-to-dark, like Aplyx Default/Ember Dusk) but ending at black
+// itself rather than a deep shade of the hue — "noir" is the point, not
+// just a dark tint of green.
+const BANNER_GRADIENT_VOLT_NOIR = [
+  "#A8F5A0", // pale green
+  "#3DEB34", // green — same hex as VOLT_NOIR_PALETTE.accent
+  "#2CC224",
+  "#1E8E19",
+  "#14580F",
+  "#0A2308", // near-black, green-tinted
+] as const;
+
 const BANNER_GRADIENTS: Record<ThemeMode, readonly string[]> = {
   "aplyx-default": BANNER_GRADIENT_APLYX_DEFAULT,
   "cloud-surf": BANNER_GRADIENT_CLOUD_SURF,
   "ember-dusk": BANNER_GRADIENT_EMBER_DUSK,
   "mint-frost": BANNER_GRADIENT_MINT_FROST,
+  "volt-noir": BANNER_GRADIENT_VOLT_NOIR,
 };
 
 /** The current theme's banner gradient — a function, not a constant, for

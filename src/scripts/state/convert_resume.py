@@ -12,12 +12,20 @@ Usage:
   python3 src/scripts/state/convert_resume.py <stem>
   python3 src/scripts/state/convert_resume.py <stem> --force
   python3 src/scripts/state/convert_resume.py <stem> --resumes-dir data/resumes
+  python3 src/scripts/state/convert_resume.py <stem> --describe-only --description "..."
 
   <stem> is the filename without extension, e.g. "base_resume_swe" for
   data/resumes/base_resume_swe.pdf -> data/resumes/base_resume_swe.md.
 
+  --describe-only sets/updates a resume's .resume_meta.json description
+  without converting anything — for a resume that already has its .md
+  (nothing to convert) but was uploaded under a generic name and still
+  needs a description so resolve_resume.py's dynamic matching (see
+  src/scripts/state/resolve_resume.py) has something to go on. Requires
+  at least one of <stem>.md / <stem>.pdf to already exist.
+
 Exit codes:
-  0  converted (JSON: {"ok": true, "stem", "pdf_path", "md_path", "chars"})
+  0  converted, or description set (JSON varies by mode — see below)
   1  usage / missing file / extraction / dependency error
      (JSON: {"ok": false, "error"})
 """
@@ -115,7 +123,10 @@ def write_meta_entry(resumes_dir: str, stem: str, description: str) -> None:
     meta = load_meta(meta_path)
     meta[stem] = {
         "description": description,
-        "converted_at": datetime.now(timezone.utc).isoformat(),
+        # Written on every call, not just a real conversion — describe-only
+        # updates (no PDF conversion involved) go through this same
+        # function, so "converted_at" would be misleading here.
+        "updated_at": datetime.now(timezone.utc).isoformat(),
     }
     tmp_path = f"{meta_path}.tmp"
     with open(tmp_path, "w", encoding="utf-8") as fh:
@@ -138,7 +149,13 @@ def main(argv: "list[str] | None" = None) -> int:
         "--force", action="store_true", help="overwrite an existing .md file"
     )
     parser.add_argument(
-        "--description", default="", help="short human label for this resume, e.g. \"SWE internships\""
+        "--description", default="",
+        help="what roles this resume targets, e.g. \"backend + cloud infra roles\" "
+             "(used by resolve_resume.py's dynamic matching — see its own docstring)",
+    )
+    parser.add_argument(
+        "--describe-only", action="store_true",
+        help="set/update the description without converting anything (the resume already has its .md)",
     )
     args = parser.parse_args(argv)
 
@@ -149,6 +166,16 @@ def main(argv: "list[str] | None" = None) -> int:
 
     pdf_path = os.path.join(args.resumes_dir, f"{stem}.pdf")
     md_path = os.path.join(args.resumes_dir, f"{stem}.md")
+
+    if args.describe_only:
+        if not os.path.isfile(pdf_path) and not os.path.isfile(md_path):
+            return error(f"neither {pdf_path} nor {md_path} exists — add the resume file first")
+        try:
+            write_meta_entry(args.resumes_dir, stem, description)
+        except OSError as exc:
+            return error(f"could not write resume metadata: {exc}")
+        emit({"ok": True, "stem": stem, "description": description})
+        return 0
 
     if not os.path.isfile(pdf_path):
         return error(f"PDF not found: {pdf_path}")

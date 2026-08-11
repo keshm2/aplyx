@@ -90,9 +90,16 @@ a cover-letter form field or attachment, not through further editing.
 
 ## Style
 
-- Use `data/resumes/base_cover_letter.md` as the voice and structure
-  reference — same tone, same overall shape — but never copy its opening
-  line verbatim.
+- Resolve the voice/structure reference file dynamically — never assume
+  the literal filename `base_cover_letter.md`, since the operator can
+  rename it: `python3 src/scripts/state/resolve_resume.py --category cover_letter`
+  and read the file at `md_path` (fall back to `pdf_path` only if
+  `md_path` is null). `confidence: "none"` means no reference file
+  exists at all — write without a voice/structure reference rather than
+  blocking the letter on it (unlike the resume itself, a missing
+  cover-letter reference isn't a hard blocker; see job-scraper.md's own
+  treatment of the two differently). Match this reference's tone and
+  overall shape — but never copy its opening line verbatim.
 - Open with a specific line about the company's product or mission, not
   a generic "I am excited to apply" opener. For internships, reference a
   specific team or project named in the JD if one exists.

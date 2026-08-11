@@ -1,15 +1,31 @@
 import { useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
-import { listResumes, importResumeFile, convertResume } from "../../../lib/bridge";
+import type { ResumeFile } from "@aplyx/core/resumes.js";
+import { listResumeDetails, importResumeFile, convertResume, setResumeDescription } from "../../../lib/bridge";
 import "../../../components/formFields.css";
 
+/** Descriptions are keyed by stem, saved on blur (or Enter) via
+ *  setResumeDescription — a plain, best-effort "what roles does this
+ *  target" label. Most useful right here: a freshly-imported PDF's stem
+ *  comes straight from its original filename (sanitized), so uploading
+ *  two generically-named resumes ("resume.pdf", "resume (1).pdf") gives
+ *  resolve_resume.py nothing to go on by name alone — see
+ *  src/scripts/state/resolve_resume.py's own docstring for how it uses
+ *  this description once resume-tailor.md asks it to resolve a category. */
 export function ResumesStep({ root }: { root: string }) {
-  const [files, setFiles] = useState<string[]>([]);
+  const [files, setFiles] = useState<ResumeFile[]>([]);
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
 
   async function refresh() {
-    setFiles(await listResumes(root));
+    const details = await listResumeDetails(root);
+    setFiles(details);
+    setDrafts((prev) => {
+      const next = { ...prev };
+      for (const f of details) if (!(f.stem in next)) next[f.stem] = f.description ?? "";
+      return next;
+    });
   }
 
   useEffect(() => {
@@ -39,6 +55,13 @@ export function ResumesStep({ root }: { root: string }) {
     }
   }
 
+  async function saveDescription(stem: string) {
+    const description = (drafts[stem] ?? "").trim();
+    if (description === (files.find((f) => f.stem === stem)?.description ?? "")) return;
+    await setResumeDescription(root, stem, description);
+    await refresh();
+  }
+
   return (
     <div>
       <p>
@@ -46,10 +69,21 @@ export function ResumesStep({ root }: { root: string }) {
         best; you can add more (per role type) any time from Resumes in Settings.
       </p>
       {files.length > 0 && (
-        <ul style={{ margin: "1rem 0", paddingLeft: "1.25rem" }}>
+        <ul style={{ margin: "1rem 0", paddingLeft: 0, listStyle: "none" }}>
           {files.map((f) => (
-            <li key={f} className="check-detail">
-              {f}
+            <li key={f.stem} className="check-detail" style={{ marginBottom: "0.6rem" }}>
+              <div>{f.stem}</div>
+              <input
+                type="text"
+                value={drafts[f.stem] ?? ""}
+                onChange={(e) => setDrafts((d) => ({ ...d, [f.stem]: e.target.value }))}
+                onBlur={() => void saveDescription(f.stem)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void saveDescription(f.stem);
+                }}
+                placeholder='What roles is this for? Optional — e.g. "backend + cloud infra roles"'
+                style={{ marginTop: "0.25rem", width: "100%" }}
+              />
             </li>
           ))}
         </ul>

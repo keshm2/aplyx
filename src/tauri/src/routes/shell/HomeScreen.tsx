@@ -4,10 +4,12 @@ import type { AplyxState, AppliedJob, QueueEntry } from "@aplyx/core/state.js";
 import { isResolved } from "@aplyx/core/stateDerive.js";
 import { SupabaseAdapter } from "@aplyx/core/adapters/supabase.js";
 import { useAuth } from "../../lib/AuthContext";
-import { getSupabaseClient } from "../../lib/supabaseClient";
-import { findRoot, loadLocalState, hasLocalInstall, readProfileField } from "../../lib/bridge";
+import { readProfileField } from "../../lib/bridge";
+import { useAplyxState, type StateSource } from "../../lib/useAplyxState";
+import { SkeletonStatCards, SkeletonNextCard, SkeletonRows } from "../../components/Skeleton";
 import "../../components/formFields.css";
 import "../../components/dataList.css";
+import "../../components/Skeleton.css";
 import "./HomeScreen.css";
 
 const STATUS_BADGE: Record<string, string> = {
@@ -46,7 +48,7 @@ function recentActivity(state: AplyxState): ActivityRow[] {
     date: job.date_applied ?? "",
     badgeClass: STATUS_BADGE[job.status] ?? "status-badge-muted",
     badgeLabel: STATUS_LABEL[job.status] ?? job.status,
-    to: "/app/history",
+    to: "/app/status",
   }));
   const pending: ActivityRow[] = state.queue
     .filter((entry: QueueEntry) => !isResolved(state, entry))
@@ -62,24 +64,27 @@ function recentActivity(state: AplyxState): ActivityRow[] {
   return [...applied, ...pending].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6);
 }
 
-/** The single most useful thing to do right now, derived from local state
- *  alone (no new backend surface — Phase 14C is a layout/motion pass, not
- *  a data-plumbing one). Priority: an unreviewed queue always wins (it's
- *  time-sensitive), then connecting a local install, then a first search,
- *  then a quiet "you're caught up". */
+/** The single most useful thing to do right now. Priority: an unreviewed
+ *  queue always wins (it's time-sensitive, and both local and hosted
+ *  review-queue triage are real now — see ReviewScreen), then connecting a
+ *  local install for a hosted-only session (job search/applying still run
+ *  through a local install, unaffected by hosted pipeline-state sync),
+ *  then a first search, then a quiet "you're caught up" — the last two
+ *  are local-only states since a hosted-only session's "connect a local
+ *  install" case already covers it. */
 function nextAction(
-  hosted: boolean,
-  local: AplyxState | undefined,
+  source: StateSource,
+  display: AplyxState | undefined,
 ): { title: string; detail: string; cta: string; to: string } | undefined {
-  if (local && local.queue.length > 0) {
+  if (display && display.queue.length > 0) {
     return {
-      title: `${local.queue.length} waiting for review`,
+      title: `${display.queue.length} waiting for review`,
       detail: "Applications that need a manual decision before they go out.",
       cta: "Open review queue",
       to: "/app/review",
     };
   }
-  if (hosted && !local) {
+  if (source === "hosted") {
     return {
       title: "Connect your local install",
       detail: "Job search and applying run through a local install on this machine.",
@@ -87,7 +92,7 @@ function nextAction(
       to: "/app/settings",
     };
   }
-  if (local && local.applied.length === 0) {
+  if (source === "local" && display && display.applied.length === 0) {
     return {
       title: "Start your first search",
       detail: "Browse live postings and fit-check them against your profile.",
@@ -95,7 +100,7 @@ function nextAction(
       to: "/app/jobs",
     };
   }
-  if (local) {
+  if (source === "local") {
     return {
       title: "You're caught up",
       detail: "Nothing waiting on you right now — search again whenever you're ready.",
@@ -109,37 +114,30 @@ function nextAction(
 export function HomeScreen() {
   const { status, session } = useAuth();
   const navigate = useNavigate();
-  const [local, setLocal] = useState<AplyxState | undefined>(undefined);
-  const [checkedLocal, setCheckedLocal] = useState(false);
+  const { state, loaded, source, root, hosted } = useAplyxState();
   const [preferredName, setPreferredName] = useState<string | undefined>(undefined);
+  const signedIn = status === "signed-in";
 
   useEffect(() => {
-    hasLocalInstall()
-      .then(async (has) => {
-        if (has) {
-          const root = await findRoot();
-          const state = (await loadLocalState(root)) as AplyxState | null;
-          setLocal(state ?? undefined);
-          const name = await readProfileField(root, "preferred_name");
-          if (typeof name === "string" && name.trim()) setPreferredName(name.trim());
-        }
+    if (source !== "local" || !root) return;
+    readProfileField(root, "preferred_name")
+      .then((name) => {
+        if (typeof name === "string" && name.trim()) setPreferredName(name.trim());
       })
-      // A bridge failure reads the same as "no local activity" — the
-      // no-activity copy below already covers that case.
-      .finally(() => setCheckedLocal(true));
-  }, []);
-
-  const hosted = status === "signed-in";
+      // A bridge failure just leaves the greeting name-less — the
+      // no-name copy below already covers that case.
+      .catch(() => {});
+  }, [source, root]);
 
   // Hosted-profile fallback for the greeting name: only consulted when no
   // local install already supplied one above, so a user with both a local
   // install and a hosted sign-in isn't sent on a second, redundant lookup.
   useEffect(() => {
-    if (preferredName || !hosted || !session) return;
+    if (preferredName || source !== "hosted" || !hosted) return;
     let cancelled = false;
-    getSupabaseClient()
-      .then(async (client) => {
-        const value = await new SupabaseAdapter(client, session.user.id).readProfileField("preferred_name");
+    new SupabaseAdapter(hosted.client, hosted.userId)
+      .readProfileField("preferred_name")
+      .then((value) => {
         if (!cancelled && typeof value === "string" && value.trim()) setPreferredName(value.trim());
       })
       .catch(() => {
@@ -149,11 +147,11 @@ export function HomeScreen() {
     return () => {
       cancelled = true;
     };
-  }, [hosted, session, preferredName]);
+  }, [source, hosted, preferredName]);
 
-  const next = checkedLocal ? nextAction(hosted, local) : undefined;
-  const activity = useMemo(() => (local ? recentActivity(local) : []), [local]);
-  const greeting = local?.applied?.length
+  const next = loaded ? nextAction(source, state) : undefined;
+  const activity = useMemo(() => (state ? recentActivity(state) : []), [state]);
+  const greeting = state?.applied?.length
     ? preferredName
       ? `Welcome back, ${preferredName}`
       : "Welcome back"
@@ -172,7 +170,7 @@ export function HomeScreen() {
            that box*, but the box itself wasn't centered under the
            heading. */}
         <p style={{ color: "var(--text-muted)", fontSize: "var(--text-sm)", margin: "0 auto" }}>
-          {hosted ? (
+          {signedIn ? (
             <>
               Signed in as <strong>{session?.user.email}</strong>.
             </>
@@ -182,22 +180,30 @@ export function HomeScreen() {
         </p>
       </div>
 
-      {checkedLocal && local && (
-        <div className="home-stats aplyx-fade-in">
-          <div className="home-stat-card">
+      {!loaded && (
+        <>
+          <SkeletonStatCards />
+          <SkeletonNextCard />
+          <SkeletonRows count={3} />
+        </>
+      )}
+
+      {loaded && state && (
+        <div className="home-stats">
+          <div className="home-stat-card aplyx-fade-rise">
             <span className="home-stat-value" style={{ color: "var(--good)" }}>
-              {local.applied.length}
+              {state.applied.length}
             </span>
             <span className="home-stat-label">Applications sent</span>
           </div>
-          <div className="home-stat-card">
-            <span className="home-stat-value" style={{ color: local.queue.length > 0 ? "var(--warn)" : "var(--text)" }}>
-              {local.queue.length}
+          <div className="home-stat-card aplyx-fade-rise">
+            <span className="home-stat-value" style={{ color: state.queue.length > 0 ? "var(--warn)" : "var(--text)" }}>
+              {state.queue.length}
             </span>
             <span className="home-stat-label">Waiting in review queue</span>
           </div>
-          <div className="home-stat-card">
-            <span className="home-stat-value">{local.registry.length}</span>
+          <div className="home-stat-card aplyx-fade-rise">
+            <span className="home-stat-value">{state.registry.length}</span>
             <span className="home-stat-label">Jobs seen</span>
           </div>
         </div>
@@ -234,7 +240,7 @@ export function HomeScreen() {
         </div>
       )}
 
-      {checkedLocal && !local && !hosted && (
+      {loaded && source === "none" && (
         <p className="field-help aplyx-fade-in">No activity yet — head to Jobs to start searching.</p>
       )}
     </div>

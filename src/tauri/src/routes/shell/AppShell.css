@@ -49,21 +49,43 @@
   font-weight: 500;
   color: var(--text-muted);
   transition:
-    background var(--duration-quick) var(--ease-out),
-    color var(--duration-quick) var(--ease-out),
-    transform var(--duration-quick) var(--ease-out);
+    background var(--duration-quick) var(--ease-snap),
+    color var(--duration-quick) var(--ease-snap),
+    transform var(--duration-quick) var(--ease-snap);
 }
 
-.shell-nav-item:hover {
-  background: var(--ground);
-  color: var(--text);
-  transform: translateX(2px);
+@media (hover: hover) and (pointer: fine) {
+  .shell-nav-item:hover {
+    background: var(--ground);
+    color: var(--text);
+    transform: translateX(2px);
+  }
+}
+
+/* NavLinks are anchors, not buttons — base.css only resets native button
+ * chrome, so this is the one place a pressable rail item needs its own
+ * tactile feedback (same scale-press every button in the app already
+ * gets on click). */
+.shell-nav-item:active {
+  transform: scale(var(--scale-press));
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .shell-nav-item:hover:active {
+    transform: translateX(2px) scale(var(--scale-press));
+  }
 }
 
 .shell-nav-item-active {
   background: var(--accent-soft);
   color: var(--accent-strong);
   font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell-nav-item:hover {
+    transform: none;
+  }
 }
 
 .shell-main {

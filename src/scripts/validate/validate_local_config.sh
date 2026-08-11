@@ -108,6 +108,8 @@ check_array_or_absent "$TARGETS" ashby_company_slugs
 check_array_or_absent "$TARGETS" lever_company_slugs
 check_array_or_absent "$TARGETS" greenhouse_company_slugs
 check_array_or_absent "$TARGETS" smartrecruiters_company_slugs
+check_array_or_absent "$TARGETS" workable_company_slugs
+check_array_or_absent "$TARGETS" jazzhr_company_slugs
 check_array_or_absent "$TARGETS" simplify_feeds
 check_array_or_absent "$TARGETS" workday_tenants
 check_array_or_absent "$TARGETS" oracle_tenants
@@ -195,6 +197,8 @@ ASHBY_PLACEHOLDER="$(placeholder_slugs "$TARGETS" ashby_company_slugs)"
 LEVER_PLACEHOLDER="$(placeholder_slugs "$TARGETS" lever_company_slugs)"
 GREENHOUSE_PLACEHOLDER="$(placeholder_slugs "$TARGETS" greenhouse_company_slugs)"
 SMARTRECRUITERS_PLACEHOLDER="$(placeholder_slugs "$TARGETS" smartrecruiters_company_slugs)"
+WORKABLE_PLACEHOLDER="$(placeholder_slugs "$TARGETS" workable_company_slugs)"
+JAZZHR_PLACEHOLDER="$(placeholder_slugs "$TARGETS" jazzhr_company_slugs)"
 
 if key_absent "$TARGETS" ashby_company_slugs; then
   warn "ashby_company_slugs is not configured — Ashby board will be skipped this run"
@@ -215,6 +219,16 @@ if key_absent "$TARGETS" smartrecruiters_company_slugs; then
   warn "smartrecruiters_company_slugs is not configured — SmartRecruiters board will be skipped this run"
 elif [ -n "$SMARTRECRUITERS_PLACEHOLDER" ]; then
   warn "smartrecruiters_company_slugs contains placeholder value(s): $SMARTRECRUITERS_PLACEHOLDER — SmartRecruiters board will be skipped this run"
+fi
+if key_absent "$TARGETS" workable_company_slugs; then
+  warn "workable_company_slugs is not configured — Workable board will be skipped this run"
+elif [ -n "$WORKABLE_PLACEHOLDER" ]; then
+  warn "workable_company_slugs contains placeholder value(s): $WORKABLE_PLACEHOLDER — Workable board will be skipped this run"
+fi
+if key_absent "$TARGETS" jazzhr_company_slugs; then
+  warn "jazzhr_company_slugs is not configured — JazzHR board will be skipped this run"
+elif [ -n "$JAZZHR_PLACEHOLDER" ]; then
+  warn "jazzhr_company_slugs contains placeholder value(s): $JAZZHR_PLACEHOLDER — JazzHR board will be skipped this run"
 fi
 
 # SimplifyJobs feeds (phase 5): same warn-and-skip contract as the slug

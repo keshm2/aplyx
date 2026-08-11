@@ -56,7 +56,7 @@ function buildGeneralNotifications(): NotificationItem[] {
 }
 
 /** Caps at the most recent 25 outcomes — this is a notification feed, not
- *  a full history browser (History already exists for that). */
+ *  a full status browser (the Status tab already exists for that). */
 function buildJobNotifications(local: AplyxState | undefined): NotificationItem[] {
   if (!local) return [];
   return local.applied

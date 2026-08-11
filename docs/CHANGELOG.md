@@ -7,6 +7,87 @@ but trimmed to fit a small in-repo doc.
 > Per-`docs/RELEASE.md` is the canonical, deep-dive release
 > document for each tagged build. This file is the index.
 
+## [0.9.950a] — 2026-08-11
+
+npm package: `@keshm/aplyx` version `0.9.950-alpha.0`. `docs/RELEASE.md`
+was not updated for this build — still describes `0.9.945a`.
+
+### Added
+
+- **Workable and JazzHR ATS adapters, shipped end to end.** New
+  deterministic fetchers (`src/scripts/jobs/fetch_workable_listings.py`,
+  `fetch_jazzhr_listings.py`), `ats_system`/source-map/external-id
+  wiring in `job_state.py`, vetted-slug config files, validator
+  coverage, and job-scraper agent steps. Workable also got a direct
+  TypeScript fetch path (`fetchWorkable` in `jobs.ts`) so it's available
+  from the manual Search screen, not just the automated agent — full
+  JD text ships in Workable's list response, no per-job detail fetch
+  needed. JazzHR is HTML-parsed (no public API) and deliberately left
+  out of manual search, matching how Apple's source is already handled.
+  BambooHR and iCIMS were investigated and deferred for cause (ToS
+  conflicts / no accessible data, not a research gap) — see `docs/ATS.md`.
+- **Hosted Supabase read+write sync, wired into the desktop app.**
+  `SupabaseAdapter.loadState()` went from a stub to a real read path;
+  `markQueueEntryApplied()`/`dismissQueueEntry()` are hosted mirrors of
+  the local review-queue actions. A new `useAplyxState` hook
+  (`src/tauri/src/lib/`) resolves "local install wins, hosted session
+  is the fallback" once instead of four screens re-deriving it —
+  `HomeScreen`, `ReviewScreen`, `StatusScreen`, and `DocumentsScreen`
+  all use it now, so a hosted-only session gets a real dashboard,
+  review queue, and status views instead of a placeholder.
+  `HistoryScreen.tsx` was removed as part of this consolidation.
+  Migration `0003_document_fields.sql` closed a schema gap (tailored
+  resume bullets, cover letter text, missing keywords, doubt signals,
+  fill records existed locally but were never on the hosted tables).
+- **Phase 17 (hosted `review_only` service), first working increment.**
+  A real, scheduled, server-side pipeline — fetch → canonicalize →
+  fit-gate → tailor → land in a hosted review queue — for signed-in
+  users with no local install, built on a new `hosted_runs` work queue
+  (migration `0004`) and a new `src/worker/` npm workspace
+  (`node src/worker/dist/run.js`, mirroring `refresh-job-cache.yml`'s
+  scheduled-GitHub-Actions-worker pattern). Two new tailoring scripts
+  (`tailor_resume_hosted.py`, `tailor_cover_letter_hosted.py`) call
+  Anthropic directly with forced tool-use, same reliability pattern as
+  `generate_interest_letter.py`. `.github/workflows/hosted-worker.yml`
+  exists but is **not yet wired into the live schedule** — verified by
+  running the worker locally against the real project first. Verified
+  live against a real test hosted account (profile + an uploaded
+  résumé): a real run fetched over 16,000 live postings and wrote
+  correctly fit-gated/queued results through to the hosted tables,
+  read back through the exact adapter call the desktop app's Review
+  screen uses. Successfully tailored content (the Anthropic call path
+  itself) was exercised against a real, intentionally credit-less test
+  key — confirmed the request is built correctly, not yet confirmed
+  against a funded key. Two real bugs were found and fixed via this
+  live verification, not just typechecked: a nonzero-exit Python
+  script's own `{"ok": false, "error": ...}` output was being silently
+  discarded instead of read (so a handled failure looked identical to
+  a hard crash and was dropped instead of degrading gracefully), and
+  `SupabaseAdapter.loadState()` — pre-existing, shipped code — never
+  paginated past PostgREST's 1,000-row default, silently truncating
+  any table past that size; the second one had already produced one
+  real duplicate `review_queue` row before being caught and fixed.
+  Full detail: `docs/PLAN.md` §3.18.
+- **Skeleton loading rows and a shared `Dropdown` component** in the
+  desktop app — replaces plain "Loading…" text on Jobs/Review/Status/
+  Resumes/Documents with shimmering placeholder rows, and a reusable
+  accessible dropdown used across onboarding/settings.
+- **Copy-to-clipboard buttons on the install page's shell commands**
+  (marketing site).
+
+### Fixed
+
+- **Fresh-clone installs could fail the core build outright** (`sh:
+  tsc: command not found`) — `install.sh`'s `npm run build:core` step
+  assumed `src/core/node_modules` already existed, true on a machine
+  that had built before but never true on a genuinely fresh checkout.
+  Now runs a scoped `npm install --workspace=src/core` first, same
+  pattern already used for the TUI/extension builds.
+- **ATS search timeouts.** A shared 2.2-second fetch deadline, tuned
+  for `fetch()`-based sources, was being applied to Python-subprocess
+  sources (Amazon, Oracle, Workday, The Muse) that inherently take
+  longer. Split into a separate, longer `PYTHON_SOURCE_DEADLINE_MS`.
+
 ## [0.9.949a] — 2026-07-31
 
 npm package: `@keshm/aplyx` version `0.9.949-alpha.0`. `docs/RELEASE.md`

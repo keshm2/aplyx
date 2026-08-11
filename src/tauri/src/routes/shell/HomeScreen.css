@@ -19,12 +19,39 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+  transition: transform var(--duration-quick) var(--ease-snap), box-shadow var(--duration-quick) var(--ease-snap),
+    border-color var(--duration-quick) var(--ease-snap);
+}
+
+/* Cards arrive one after another rather than all at once — each reuses
+ * the shared aplyx-fade-rise keyframe (see HomeScreen.tsx), this just
+ * layers a short stagger on top so the row reads as a cascade. Delay is
+ * a longhand override on the same property the shorthand animation
+ * already sets, so it wins by source order without fighting specificity;
+ * still fully covered by motion.css's reduced-motion guard on the class
+ * itself. */
+.home-stat-card:nth-child(2) {
+  animation-delay: 60ms;
+}
+.home-stat-card:nth-child(3) {
+  animation-delay: 120ms;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .home-stat-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-lift);
+  }
 }
 
 .home-stat-value {
+  font-family: var(--font-mono);
   font-size: var(--text-3xl);
-  font-weight: 650;
+  font-weight: 600;
   line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  font-variant-numeric: tabular-nums;
 }
 
 .home-stat-label {
@@ -41,6 +68,14 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-5);
+  transition: transform var(--duration-quick) var(--ease-snap), box-shadow var(--duration-quick) var(--ease-snap);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .home-next:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lift);
+  }
 }
 
 .home-next-copy h2 {
@@ -63,7 +98,7 @@
   font-size: var(--text-sm);
   font-weight: 600;
   white-space: nowrap;
-  transition: background var(--duration-quick) var(--ease-out), transform var(--duration-quick) var(--ease-out);
+  transition: background var(--duration-quick) var(--ease-snap), transform var(--duration-quick) var(--ease-snap);
 }
 
 .home-next-cta:hover {
@@ -82,5 +117,12 @@
     flex-direction: column;
     align-items: stretch;
     text-align: left;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-stat-card:hover,
+  .home-next:hover {
+    transform: none;
   }
 }

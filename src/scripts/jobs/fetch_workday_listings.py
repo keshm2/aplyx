@@ -44,6 +44,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import html
 import json
 import os
@@ -54,6 +55,7 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 
 DEFAULT_TARGETS = "src/config/targets.json"
+DEFAULT_DISCOVERED = "src/config/discovered_companies.json"
 PLACEHOLDER = "replace_me"
 USER_AGENT = "aplyx-job-agent/phase7"
 PAGE_SIZE = 20  # CXS maximum per request
@@ -107,6 +109,26 @@ def load_configured_tenants(targets_path: str) -> list:
     return tenants
 
 
+def load_tenant_company_names(discovered_path: str) -> dict:
+    """'<host>/<site>' (lowercased) -> human company name, from
+    discovered_companies.json's discovered_tenants — see the identical
+    helper (and its full doc comment) in fetch_oracle_listings.py."""
+    try:
+        with open(discovered_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return {}
+    names: dict = {}
+    for entry in data.get("discovered_tenants") or []:
+        if not isinstance(entry, dict):
+            continue
+        tenant = str(entry.get("tenant", "")).strip().lower()
+        name = str(entry.get("company_name", "")).strip()
+        if tenant and name and tenant not in names:
+            names[tenant] = name
+    return names
+
+
 def cxs_post(host: str, tenant: str, site: str, payload: dict, timeout: int) -> dict:
     req = urllib.request.Request(
         f"https://{host}/wday/cxs/{tenant}/{site}/jobs",
@@ -144,13 +166,13 @@ def parse_posted_on(text: str):
     return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def to_raw_job(posting: dict, host: str, tenant: str, site: str) -> dict:
+def to_raw_job(posting: dict, host: str, tenant: str, site: str, company_name: str) -> dict:
     path = str(posting.get("externalPath", "")).strip()
     bullet = posting.get("bulletFields") or []
     external_id = str(bullet[0]).strip() if bullet else path.rsplit("_", 1)[-1]
     job = {
         "source": "workday",
-        "company": tenant,
+        "company": company_name or tenant,
         "title": str(posting.get("title", "")).strip(),
         "url": f"https://{host}/{site}{path}",
         "external_job_id": external_id,
@@ -165,13 +187,14 @@ def to_raw_job(posting: dict, host: str, tenant: str, site: str) -> dict:
     return job
 
 
-def fetch_jd(url: str, timeout: int) -> dict:
+def fetch_jd(url: str, timeout: int, discovered_path: str) -> dict:
     """Posting URL -> JD JSON via the CXS job-detail endpoint."""
     m = re.match(r"https?://([^/]+)/([^/]+)(/job/.+)$", url.strip())
     if m is None:
         die(f"unrecognized Workday posting URL shape: {url}")
     host, site, path = m.group(1), m.group(2), m.group(3)
     tenant = host.split(".")[0]
+    company_name = load_tenant_company_names(discovered_path).get(f"{host}/{site}".lower(), "")
     req = urllib.request.Request(
         f"https://{host}/wday/cxs/{tenant}/{site}{path}",
         headers={"User-Agent": USER_AGENT},
@@ -180,7 +203,7 @@ def fetch_jd(url: str, timeout: int) -> dict:
         info = json.load(resp).get("jobPostingInfo", {})
     return {
         "source": "workday",
-        "company": tenant,
+        "company": company_name or tenant,
         "title": str(info.get("title", "")).strip(),
         "location": str(info.get("location", "")).strip(),
         "url": str(info.get("canonicalPositionUrl") or url).strip(),
@@ -189,12 +212,55 @@ def fetch_jd(url: str, timeout: int) -> dict:
     }
 
 
+def _fetch_one_tenant(host: str, tenant: str, site: str, company_name: str, args) -> tuple[list, str | None]:
+    """One tenant's full paginated fetch. Returns (jobs, error_message_or_None)."""
+    jobs = []
+    offset = 0
+    count = 0
+    try:
+        while True:
+            data = cxs_post(
+                host,
+                tenant,
+                site,
+                {
+                    "appliedFacets": {},
+                    "limit": PAGE_SIZE,
+                    "offset": offset,
+                    "searchText": args.search,
+                },
+                args.timeout,
+            )
+            postings = data.get("jobPostings") or []
+            for posting in postings:
+                if not isinstance(posting, dict):
+                    continue
+                raw = to_raw_job(posting, host, tenant, site, company_name)
+                if raw["title"] and raw["url"]:
+                    jobs.append(raw)
+                    count += 1
+                if args.limit and count >= args.limit:
+                    break
+            offset += PAGE_SIZE
+            if (
+                not postings
+                or (args.limit and count >= args.limit)
+                or offset >= int(data.get("total", 0))
+            ):
+                break
+    except (urllib.error.URLError, ValueError, json.JSONDecodeError, OSError) as exc:
+        return jobs, str(exc)
+    return jobs, None
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         prog="fetch_workday_listings.py",
         description="Fetch Workday tenant postings via public CXS JSON (Phase 7, review-only).",
     )
     parser.add_argument("--targets", default=DEFAULT_TARGETS)
+    parser.add_argument("--discovered", default=DEFAULT_DISCOVERED,
+                         help="discovered_companies.json path, for tenant->company-name lookup (best-effort)")
     parser.add_argument(
         "--search", default="", help="CXS searchText to narrow the feed (e.g. 'intern')"
     )
@@ -209,7 +275,7 @@ def main(argv=None) -> int:
 
     if args.jd_url:
         try:
-            print(json.dumps(fetch_jd(args.jd_url, args.timeout), ensure_ascii=False))
+            print(json.dumps(fetch_jd(args.jd_url, args.timeout, args.discovered), ensure_ascii=False))
         except (urllib.error.URLError, ValueError, json.JSONDecodeError, OSError) as exc:
             die(f"JD fetch failed for {args.jd_url}: {exc}")
         return 0
@@ -222,47 +288,33 @@ def main(argv=None) -> int:
         )
         return 0
 
+    company_names = load_tenant_company_names(args.discovered)
+
     fetched = 0
     failed = 0
     jobs = []
-    for host, tenant, site in tenants:
-        offset = 0
-        count = 0
-        try:
-            while True:
-                data = cxs_post(
-                    host,
-                    tenant,
-                    site,
-                    {
-                        "appliedFacets": {},
-                        "limit": PAGE_SIZE,
-                        "offset": offset,
-                        "searchText": args.search,
-                    },
-                    args.timeout,
-                )
-                postings = data.get("jobPostings") or []
-                for posting in postings:
-                    if not isinstance(posting, dict):
-                        continue
-                    raw = to_raw_job(posting, host, tenant, site)
-                    if raw["title"] and raw["url"]:
-                        jobs.append(raw)
-                        count += 1
-                    if args.limit and count >= args.limit:
-                        break
-                offset += PAGE_SIZE
-                if (
-                    not postings
-                    or (args.limit and count >= args.limit)
-                    or offset >= int(data.get("total", 0))
-                ):
-                    break
-            fetched += 1
-        except (urllib.error.URLError, ValueError, json.JSONDecodeError, OSError) as exc:
-            warn(f"tenant '{tenant}' failed to fetch: {exc} — skipped")
-            failed += 1
+    # Tenants fetched concurrently, not one after another — see the
+    # matching comment in fetch_oracle_listings.py's main(). Same
+    # reasoning applies here: N sequential tenants each costing over a
+    # second means N tenants configured is N times more likely to blow
+    # the interactive search's per-source deadline than 1 tenant was.
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, len(tenants))) as executor:
+        future_to_tenant = {
+            executor.submit(
+                _fetch_one_tenant, host, tenant, site,
+                company_names.get(f"{host}/{site}".lower(), ""), args,
+            ): tenant
+            for host, tenant, site in tenants
+        }
+        for future in concurrent.futures.as_completed(future_to_tenant):
+            tenant = future_to_tenant[future]
+            tenant_jobs, error = future.result()
+            if error is not None:
+                warn(f"tenant '{tenant}' failed to fetch: {error} — skipped")
+                failed += 1
+            else:
+                fetched += 1
+            jobs.extend(tenant_jobs)
 
     jobs.sort(key=lambda j: (j["company"], j["title"].lower(), j["external_job_id"]))
     for job in jobs:

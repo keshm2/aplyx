@@ -136,6 +136,8 @@ def main(argv: list) -> None:
     check_array_or_absent("lever_company_slugs")
     check_array_or_absent("greenhouse_company_slugs")
     check_array_or_absent("smartrecruiters_company_slugs")
+    check_array_or_absent("workable_company_slugs")
+    check_array_or_absent("jazzhr_company_slugs")
     check_array_or_absent("simplify_feeds")
     check_array_or_absent("workday_tenants")
     check_array_or_absent("oracle_tenants")
@@ -199,6 +201,8 @@ def main(argv: list) -> None:
         ("lever_company_slugs", "Lever"),
         ("greenhouse_company_slugs", "Greenhouse"),
         ("smartrecruiters_company_slugs", "SmartRecruiters"),
+        ("workable_company_slugs", "Workable"),
+        ("jazzhr_company_slugs", "JazzHR"),
     ):
         if key_absent(key):
             warn(f"{key} is not configured — {board} board will be skipped this run")

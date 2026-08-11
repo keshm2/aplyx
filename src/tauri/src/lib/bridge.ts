@@ -196,6 +196,14 @@ export async function convertResume(root: string, stem: string, description = ""
   return invoke("convert_resume", { root, stem, description });
 }
 
+/** Set/update a resume's description without converting anything — for a
+ *  resume that already has its .md (convertResume's re-extraction would
+ *  otherwise be the only way to attach one). See setResumeDescription in
+ *  src/core/src/helpers.ts for the full reasoning. */
+export async function setResumeDescription(root: string, stem: string, description: string): Promise<{ ok: boolean; error?: string }> {
+  return invoke("set_resume_description", { root, stem, description });
+}
+
 export async function openExtensionFolder(root: string): Promise<void> {
   await invoke("open_extension_folder", { root });
 }

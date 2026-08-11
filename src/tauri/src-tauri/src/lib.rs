@@ -566,6 +566,15 @@ fn convert_resume(app: tauri::AppHandle, root: String, stem: String, description
 }
 
 #[tauri::command]
+fn set_resume_description(app: tauri::AppHandle, root: String, stem: String, description: Option<String>) -> Result<Value, String> {
+    run_bridge(
+        &app,
+        "setResumeDescription",
+        Some(serde_json::json!({ "root": root, "stem": stem, "description": description.unwrap_or_default() })),
+    )
+}
+
+#[tauri::command]
 fn import_resume_file(app: tauri::AppHandle, root: String, source_path: String, stem: String) -> Result<Value, String> {
     run_bridge(
         &app,
@@ -579,18 +588,45 @@ fn open_extension_folder(app: tauri::AppHandle, root: String) -> Result<Value, S
     run_bridge(&app, "openExtensionFolder", Some(serde_json::json!({ "root": root })))
 }
 
+// `async fn` here is load-bearing, not stylistic. A plain (non-async)
+// #[tauri::command] runs ON TAURI'S MAIN THREAD — see
+// https://v2.tauri.app/develop/calling-rust/: "Commands without the async
+// keyword are executed on the main thread unless defined with
+// #[tauri::command(async)]." Every command in this file used to be a
+// plain `fn`, which was fine for the sub-100ms profile/config reads, but
+// search_jobs's own blocking work (send_daemon_request's mpsc
+// recv_timeout, up to DAEMON_REQUEST_TIMEOUT=8s, or run_bridge's
+// synchronous subprocess `.output()` wait in the fallback path) froze
+// the entire native window — no repaint, no input, nothing — for the
+// full duration of every manual job search, regardless of how fast
+// Redis/Postgres caching made the underlying fetch (jobs.ts's own
+// deadlines bound the DATA fetch; nothing bounded the IPC dispatch
+// itself running synchronously on the main thread). This also silently
+// broke JobsScreen.tsx's two-phase search: its comment assumes
+// phase1Promise/phase2Promise (two concurrent invoke("search_jobs")
+// calls) run concurrently and cap total wait at max(phase1, phase2) —
+// but two plain-fn commands can't actually run concurrently on the same
+// main thread, so they serialized instead, closer to phase1 + phase2
+// back to back. Moving the actual blocking body onto a dedicated
+// blocking thread via spawn_blocking (matching Tauri's own guidance for
+// commands that do blocking I/O) fixes both: the main thread is free
+// immediately, and the two phases genuinely overlap now.
 #[tauri::command]
-fn search_jobs(app: tauri::AppHandle, root: String, query: String, sources: Value) -> Result<Value, String> {
-    let args = serde_json::json!({ "root": root, "query": query, "sources": sources });
-    // Daemon first — its whole point is an in-memory cache that only a
-    // long-lived process can hold — falling back to the always-correct
-    // one-shot path on any failure (spawn error, dead process, timeout,
-    // malformed response) so a daemon bug degrades to exactly today's
-    // behavior rather than breaking search.
-    match send_daemon_request(&app, "searchJobs", args.clone()) {
-        Ok(result) => Ok(result),
-        Err(_) => run_bridge(&app, "searchJobs", Some(args)),
-    }
+async fn search_jobs(app: tauri::AppHandle, root: String, query: String, sources: Value) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let args = serde_json::json!({ "root": root, "query": query, "sources": sources });
+        // Daemon first — its whole point is an in-memory cache that only a
+        // long-lived process can hold — falling back to the always-correct
+        // one-shot path on any failure (spawn error, dead process, timeout,
+        // malformed response) so a daemon bug degrades to exactly today's
+        // behavior rather than breaking search.
+        match send_daemon_request(&app, "searchJobs", args.clone()) {
+            Ok(result) => Ok(result),
+            Err(_) => run_bridge(&app, "searchJobs", Some(args)),
+        }
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("search task panicked: {e}")))
 }
 
 #[tauri::command]
@@ -694,6 +730,7 @@ pub fn run() {
             write_discord_config,
             list_resumes,
             convert_resume,
+            set_resume_description,
             import_resume_file,
             open_extension_folder,
             search_jobs,

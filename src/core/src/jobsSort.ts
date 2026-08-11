@@ -13,8 +13,10 @@ export type JobSource =
   | "workday"
   | "greenhouse"
   | "smartrecruiters"
+  | "workable"
   | "amazon"
-  | "oracle";
+  | "oracle"
+  | "muse";
 
 export interface SearchJob {
   source: JobSource;
@@ -142,4 +144,41 @@ export function titleMatchesQuery(title: string, query: string): boolean {
   const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
   if (terms.length === 0) return true;
   return terms.every((term) => termMatchesTitle(term, title));
+}
+
+// Legal-entity suffixes stripped when comparing company names for dedup —
+// "SpaceX" and "SpaceX Inc." are the same employer, not two postings.
+const COMPANY_SUFFIXES = new Set(["inc", "llc", "corp", "corporation", "co", "ltd", "plc", "company", "the"]);
+
+/**
+ * Cross-source dedup key for the manual Search screen.
+ *
+ * Different sources rarely agree on a URL for the exact same real
+ * posting: an aggregator (The Muse, Simplify, vanshb03) links its own
+ * landing/tracking page, not the employer's actual ATS URL, so the old
+ * `job.url` equality check let the same SpaceX internship show up once
+ * per source instead of once. This composes a normalized (company,
+ * title, location) triple instead — reusing `words()` so "Engineer,
+ * Backend" / "Engineer (Backend)" collapse the same way title search
+ * already does, stripping common legal suffixes from the company name,
+ * and sorting location tokens so "New York, NY; SF, CA" and "SF, CA;
+ * New York, NY" match.
+ *
+ * Deliberately exact-match, not fuzzy: this is a display-only
+ * convenience for the search results list, not the state-registry
+ * apply-dedup path (`job_state.py`'s `derive_job_key`, still URL-keyed,
+ * untouched here) — a false merge would just hide a result, which is a
+ * far cheaper mistake here than in the apply pipeline, but it's still
+ * not worth risking on a fuzzy/similarity match.
+ */
+export function dedupeKey(job: SearchJob): string {
+  const company = words(job.company).filter((w) => !COMPANY_SUFFIXES.has(w)).join(" ");
+  const title = words(job.title).join(" ");
+  const location = (job.location ?? "")
+    .split(/[,;]/)
+    .map((part) => part.trim().toLowerCase())
+    .filter(Boolean)
+    .sort()
+    .join("|");
+  return `${company}::${title}::${location}`;
 }

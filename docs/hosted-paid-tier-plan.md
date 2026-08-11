@@ -292,6 +292,29 @@ toggle exist now so that isn't a redesign later, but flipping it on for real
 users is a separate approval, consistent with this project's one-thing-at-
 a-time phase discipline.
 
+**That dedicated design pass is now written: see
+[`docs/hosted-auto-apply-plan.md`](./hosted-auto-apply-plan.md)
+(2026-08-10).** It resolves the narrow-forced-tool-use-vs-broad-browser-loop
+tension this section only flags, incorporates the completed Box spike's
+CAPTCHA finding (real Greenhouse postings universally carry it — a hard
+constraint, not an edge case), and proposes a staged confirm-before-submit
+rollout. Still not started, still needs its own operator go-ahead layered
+on top of `review_only`'s.
+
+**Cheaper on-ramp before either mode ships (2026-08-10).** Re-reading the
+local code with the question "does this actually need a coding agent"
+found two pieces that don't: job search over the shared cache
+(`jobCache.ts` is a plain anon-key `fetch()`, no Python) and the browser
+extension's hybrid autofill (`extension_bridge.py`'s three endpoints are
+confirmed deterministic, stdlib-only Python — no LLM call anywhere). Both
+are gated behind "local install" today as an implementation artifact, not
+a real requirement.
+[`docs/hosted-no-agent-tiers-plan.md`](./hosted-no-agent-tiers-plan.md)
+proposes shipping both as much cheaper, lower-risk tiers before this
+plan's worker or `auto_apply` — no LLM spend, no persistent browser, no
+CAPTCHA exposure, no Stripe/queue infra. Also planned, not started, needs
+its own operator go-ahead.
+
 ## Billing
 
 **Processor: Stripe.** Against the operator's stated criteria (lowest fees,

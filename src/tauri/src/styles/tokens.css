@@ -16,11 +16,15 @@
  * - **Ember Glow** — warm and inviting: a burnt orange-red accent on soft
  *   cream (light) or glowing amber on deep charcoal-ash (dark), like
  *   coals in a fire rather than an open flame.
+ * - **Volt Noir** — a true, saturated green accent (not yellow-leaning
+ *   lime) on true near-black (dark) or a deep forest-green accent on a
+ *   barely-tinted white (light); the one family whose light mode is the
+ *   compromise side, not the identity — this look is dark-first by nature.
  *
  * Mode (light/dark) and family are independent axes: `data-theme` on
  * <html> ("system" leaves it unset so the prefers-color-scheme media
  * query decides; "light"/"dark" force it) and `data-theme-family`
- * ("cobalt" | "sage" | "legacy" | "graphite" | "ember", src/lib/
+ * ("cobalt" | "sage" | "legacy" | "graphite" | "ember" | "volt", src/lib/
  * uiPrefs.ts). A family's `[data-theme-family="x"][data-theme="…"]`
  * block always wins over its own media-query block via specificity,
  * exactly like the bare-:root pattern below did before families
@@ -69,9 +73,19 @@
   --danger: #b03a4a;
   --danger-soft: #fbe8eb;
 
-  /* --- Type --- */
-  --font-display: ui-serif, Georgia, "Iowan Old Style", "Palatino Linotype", "URW Palladio L", serif;
-  --font-body: ui-sans-serif, -apple-system, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* --- Type ---
+   * Default pairing is Manrope (display) + Inter (body) — Supabase's own
+   * pairing (operator-directed, 2026-08-10), not the plain system stack
+   * this used to be. The system stack lives on as an explicit opt-in via
+   * [data-font="system"] below rather than disappearing — same
+   * bare-:root-doubles-as-default trick the theme families above use,
+   * just flipped: the *named* font option is now the one relying on
+   * attribute absence (see uiPrefs.ts's applyUiPrefs, which deletes the
+   * data-font attribute for "manrope" specifically, not "system"). */
+  --font-display: "Manrope", system-ui, -apple-system, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    sans-serif;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
 
   --text-xs: 0.75rem;
@@ -119,9 +133,18 @@
    * changes, not button feedback. Same family as --ease-out, just a longer
    * tail. */
   --ease-glide: cubic-bezier(0.16, 1, 0.3, 1);
+  /* A stronger, more decisive deceleration than --ease-out — reserved for
+   * the small, frequent hover/lift feedback this pass adds (stat cards,
+   * data rows, nav items). The built-in ease-out curves read as slightly
+   * "soft"; this one has more snap without crossing into a bounce. */
+  --ease-snap: cubic-bezier(0.23, 1, 0.32, 1);
   /* The one shared press-down amount every clickable control scales to on
    * :active — small enough to read as tactile, not springy. */
   --scale-press: 0.97;
+  /* Negative tracking for large numerals/headings (Apple's optical-sizing
+   * rule: big text reads as too loose at 0 tracking) — never applied to
+   * body copy or small labels. */
+  --tracking-tight: -0.02em;
 
   --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
 
@@ -517,14 +540,104 @@
   --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
+/* ================= Volt Noir ================= */
+/* Unlike the other four, this family's identity IS its dark mode — true
+ * near-black with a bright, true-green accent (hue ~117°, not the
+ * yellow-leaning ~82° lime the first pass shipped — corrected on explicit
+ * feedback). Light mode still has to exist (every family gets a real
+ * light/dark pair, same as the rest), so it keeps the same barely-tinted-
+ * white/deep-green shape those use, but it's the compromise side here
+ * rather than the point. */
+
+:root[data-theme-family="volt"] {
+  color-scheme: light;
+  --ground: #f5f7f0;
+  --surface: #ffffff;
+  --surface-raised: #eef2e2;
+  --border: #dbe4cb;
+  --border-strong: #bfcda3;
+  --text: #12140d;
+  --text-muted: #545c46;
+  --text-faint: #838c71;
+  --accent: #1c8a1a;
+  --accent-strong: #146a12;
+  --accent-soft: #e7f6e4;
+  --accent-ink: #ffffff;
+  --shadow-lift: 0 12px 32px -12px rgb(18 20 13 / 0.18);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme-family="volt"] {
+    color-scheme: dark;
+    --ground: #0a0f08;
+    --surface: #10160d;
+    --surface-raised: #161f12;
+    --border: #263420;
+    --border-strong: #37492c;
+    --text: #e9f2df;
+    --text-muted: #a6b89a;
+    --text-faint: #708066;
+    --accent: #3deb34;
+    --accent-strong: #74f26b;
+    --accent-soft: #16311a;
+    --accent-ink: #07130a;
+    --shadow-lift: 0 16px 40px -14px rgb(0 0 0 / 0.6);
+    --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+}
+
+:root[data-theme-family="volt"][data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #0a0f08;
+  --surface: #10160d;
+  --surface-raised: #161f12;
+  --border: #263420;
+  --border-strong: #37492c;
+  --text: #e9f2df;
+  --text-muted: #a6b89a;
+  --text-faint: #708066;
+  --accent: #3deb34;
+  --accent-strong: #74f26b;
+  --accent-soft: #16311a;
+  --accent-ink: #07130a;
+  --shadow-lift: 0 16px 40px -14px rgb(0 0 0 / 0.6);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+:root[data-theme-family="volt"][data-theme="light"] {
+  color-scheme: light;
+  --ground: #f5f7f0;
+  --surface: #ffffff;
+  --surface-raised: #eef2e2;
+  --border: #dbe4cb;
+  --border-strong: #bfcda3;
+  --text: #12140d;
+  --text-muted: #545c46;
+  --text-faint: #838c71;
+  --accent: #1c8a1a;
+  --accent-strong: #146a12;
+  --accent-soft: #e7f6e4;
+  --accent-ink: #ffffff;
+  --shadow-lift: 0 12px 32px -12px rgb(18 20 13 / 0.18);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
 /* Font preference (Settings → Appearance). Each option swaps the whole
  * UI, body, headlines, and (where the family ships one) mono, onto its
- * bundled variable face (see base.css @font-face); default is the system
- * stack above. The other three are the remaining directions from
- * docs/ui-development-plan.md's Priority 4: Inter (dense/tabular product
- * UI) and IBM Plex (enterprise/analytical tone) keep the system mono
- * stack except Plex, which pairs with its own IBM Plex Mono; Atkinson
- * Hyperlegible Next (accessibility/readability-first) does the same. */
+ * bundled variable face (see base.css @font-face); default is the
+ * Manrope + Inter pairing above (see that block's comment — "system" is
+ * now the opt-in here, not the default). The other four are the
+ * pre-existing directions from docs/ui-development-plan.md's Priority 4:
+ * Inter (dense/tabular product UI) and IBM Plex (enterprise/analytical
+ * tone) keep the system mono stack except Plex, which pairs with its own
+ * IBM Plex Mono; Atkinson Hyperlegible Next (accessibility/readability-
+ * first) does the same. */
+:root[data-font="system"] {
+  --font-display: ui-serif, Georgia, "Iowan Old Style", "Palatino Linotype", "URW Palladio L", serif;
+  --font-body: ui-sans-serif, -apple-system, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
 :root[data-font="geist"] {
   --font-display: "Geist", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-body: "Geist", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;

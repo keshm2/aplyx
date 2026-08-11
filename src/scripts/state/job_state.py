@@ -13,6 +13,17 @@ Local state files (relative to the current working directory):
 Subcommands:
   ensure-files                       Create/validate the registry + event files.
   canonicalize '<raw-job-json>'      Produce a canonical job record from raw input.
+  canonicalize-batch '<raw-jobs-json-array>' | -
+                                      Same canonicalize(), looped over a JSON array of raw
+                                      jobs in ONE process instead of one process per job —
+                                      identical output per item, just amortized startup cost.
+                                      Prints one canonical JSON object per line (JSONL).
+                                      Added for src/worker/'s hosted pipeline (Phase 17),
+                                      which was spawning one interpreter per fetched posting
+                                      at real scale (confirmed live: 16,593 postings = 16,593
+                                      spawns, the dominant cost of a run). Never used by the
+                                      local per-job job-scraper.md flow, which processes one
+                                      job at a time by design.
   upsert-job '<canonical-job-json>'  Insert or merge a canonical job into the registry.
   can-apply '<canonical-job-json>'   Pre-apply dedupe recheck (registry + applied_jobs).
   record-event '<event-json>'        Append an event to the log; update registry status.
@@ -57,6 +68,8 @@ ATS_URL_PATTERNS = [
     ("ashby", ("ashbyhq.com",)),
     ("workday", ("myworkdayjobs.com", "myworkdaysite.com")),
     ("smartrecruiters", ("smartrecruiters.com",)),
+    ("workable", ("workable.com",)),
+    ("jazzhr", ("applytojob.com",)),
     ("amazon", ("amazon.jobs",)),
     ("oracle", ("oraclecloud.com",)),
     ("apple", ("jobs.apple.com",)),
@@ -77,6 +90,8 @@ ATS_SOURCE_MAP = {
     "ashbyhq": "ashby",
     "ashby": "ashby",
     "smartrecruiters": "smartrecruiters",
+    "workable": "workable",
+    "jazzhr": "jazzhr",
     "amazon": "amazon",
     "oracle": "oracle",
     # No URL-pattern entry for Eightfold above — its hosts vary per
@@ -143,6 +158,19 @@ def parse_json_arg(arg, label):
         die(f"{label}: not valid JSON: {exc.msg}")
     if not isinstance(obj, dict):
         die(f"{label}: expected a JSON object, got {type(obj).__name__}")
+    return obj
+
+
+def parse_json_array_arg(arg, label):
+    """Same as parse_json_arg but for a JSON array — '-' reads stdin, same
+    convention evaluate_job_fit.py already uses for its single-object arg."""
+    raw = sys.stdin.read() if arg == "-" else arg
+    try:
+        obj = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        die(f"{label}: not valid JSON: {exc.msg}")
+    if not isinstance(obj, list):
+        die(f"{label}: expected a JSON array, got {type(obj).__name__}")
     return obj
 
 
@@ -278,6 +306,8 @@ _EXT_ID_PATTERNS = [
     re.compile(r"[?&]jk=(\w+)", re.I),
     re.compile(r"ashbyhq\.com/[^/]+/([0-9a-f-]+)", re.I),
     re.compile(r"smartrecruiters\.com/[^/]+/(\d+)", re.I),
+    re.compile(r"apply\.workable\.com/j/([0-9A-F]+)", re.I),
+    re.compile(r"applytojob\.com/apply/jobs/details/([^/?]+)", re.I),
     re.compile(r"amazon\.jobs/[a-z-]+/jobs/(\d+)", re.I),
     re.compile(r"oraclecloud\.com/hcmUI/CandidateExperience/[a-z-]+/sites/[^/]+/job/(\d+)", re.I),
 ]
@@ -299,6 +329,30 @@ def extract_external_id(url, raw):
 
 # --- Canonicalization ------------------------------------------------------
 
+# Legal-entity suffixes stripped when building the natural-key fallback —
+# "SpaceX" and "SpaceX Inc." would otherwise hash to two different keys
+# for what both TS's dedupeKey (src/core/src/jobsSort.ts) and this
+# function agree is the same employer.
+_COMPANY_SUFFIXES = frozenset({"inc", "llc", "corp", "corporation", "co", "ltd", "plc", "company", "the"})
+_WORD_RE = re.compile(r"[a-z0-9+#]+")
+
+
+def _words(text):
+    return _WORD_RE.findall(text.lower())
+
+
+def _normalize_company(company):
+    return " ".join(w for w in _words(company) if w not in _COMPANY_SUFFIXES)
+
+
+def _normalize_title(title):
+    return " ".join(_words(title))
+
+
+def _normalize_location(location):
+    parts = [p.strip().lower() for p in re.split(r"[,;]", location) if p.strip()]
+    return "|".join(sorted(parts))
+
 
 def derive_job_key(canonical):
     """Stable SHA-256 job key. Priority: apply URL, URL, source+ext id, natural key."""
@@ -313,9 +367,17 @@ def derive_job_key(canonical):
     elif ext and source:
         material = "src:" + source + ":" + ext
     else:
-        company = canonical.get("company", "").strip().lower()
-        title = canonical.get("title", "").strip().lower()
-        location = canonical.get("location", "").strip().lower()
+        # Normalized rather than a bare .strip().lower(): a legal suffix
+        # ("Inc.", "Corp"), word-order punctuation ("Engineer, Backend" vs
+        # "Engineer (Backend)"), or location list ordering shouldn't be
+        # enough to make the same real posting hash to two different keys
+        # when it reaches this fallback (no URL, no source+ext-id) from
+        # two different sources. Exact-match on the normalized form, not
+        # fuzzy — see jobsSort.ts's dedupeKey, the equivalent for the
+        # manual-search display path, for the same reasoning.
+        company = _normalize_company(canonical.get("company", ""))
+        title = _normalize_title(canonical.get("title", ""))
+        location = _normalize_location(canonical.get("location", ""))
         role_type = canonical.get("role_type", "").strip().lower()
         material = "nat:" + "|".join([company, title, location, role_type])
     return "jk:" + hashlib.sha256(material.encode("utf-8")).hexdigest()
@@ -398,6 +460,43 @@ def _find_record(registry, job_key):
     return None
 
 
+def _natural_key(canonical):
+    """Normalized (company, title, location, role_type) signature, used
+    ONLY to cross-check for a same-real-job-different-source duplicate —
+    see _find_record_by_natural_key. Returns None when company or title
+    is missing (not enough signal to safely match on)."""
+    company = _normalize_company(canonical.get("company", ""))
+    title = _normalize_title(canonical.get("title", ""))
+    if not (company and title):
+        return None
+    location = _normalize_location(canonical.get("location", ""))
+    role_type = canonical.get("role_type", "").strip().lower()
+    return "|".join([company, title, location, role_type])
+
+
+def _find_record_by_natural_key(registry, canonical):
+    """Cross-source duplicate check: a job_key is usually URL-based
+    (derive_job_key), and different sources for the SAME real posting
+    routinely carry different URLs — an aggregator (The Muse, Simplify,
+    vanshb03) links its own landing/tracking page, not the employer's
+    real ATS URL, so the exact same job can compute two different
+    job_keys depending on which source reached it first. Called only
+    when the primary job_key lookup (_find_record) already missed, so
+    this never overrides an exact match — it only stops a second
+    registry record (and a second, real, wasted application) from being
+    created for a job already tracked under a different job_key.
+    Exact-match on the normalized natural key, not fuzzy — see
+    jobsSort.ts's dedupeKey (the equivalent for the manual-search display
+    path) for the same reasoning applied there."""
+    nk = _natural_key(canonical)
+    if nk is None:
+        return None
+    for rec in registry:
+        if _natural_key(rec) == nk:
+            return rec
+    return None
+
+
 def _merge_sources(existing_sources, new_sources):
     """Merge new source records into existing ones by (source, url)."""
     for ns in new_sources:
@@ -458,6 +557,13 @@ def upsert_job(canonical, registry_path):
         canonical["job_id"] = derive_job_id(canonical)
     registry = load_json_array(registry_path)
     existing = _find_record(registry, canonical["job_key"])
+    if existing is None:
+        # No exact job_key match — cross-check by normalized natural key
+        # before deciding this is genuinely new (see
+        # _find_record_by_natural_key's own doc comment for why). The
+        # matched record's OWN job_key is left untouched; this only folds
+        # the new source's info into whichever record was seen first.
+        existing = _find_record_by_natural_key(registry, canonical)
     if existing is None:
         if not canonical.get("sources"):
             canonical["sources"] = [
@@ -576,6 +682,14 @@ def can_apply(canonical, registry_path, applied_path):
     #    candidate by any canonical identity field — job_key, job_id,
     #    normalized_url, or normalized_apply_url. job_key is checked first
     #    so the common single-record case produces a stable reason string.
+    #    natural_key is checked LAST and only as a fallback: two different
+    #    sources for the SAME real posting (an aggregator's own landing
+    #    page vs. the employer's real ATS link — The Muse, Simplify,
+    #    vanshb03 all do this) compute different job_keys/URLs for
+    #    identical company+title+location+role_type, which would
+    #    otherwise let the agent apply to the same real job twice across
+    #    two runs. See _find_record_by_natural_key's doc comment.
+    natural_key = _natural_key(canonical)
     for rec in load_json_array(registry_path):
         status = rec.get("latest_status", "")
         if status not in BLOCKING_STATUSES:
@@ -592,6 +706,8 @@ def can_apply(canonical, registry_path, applied_path):
             and rec.get("normalized_apply_url") == normalized_apply_url
         ):
             matched_field = "normalized_apply_url"
+        elif natural_key and _natural_key(rec) == natural_key:
+            matched_field = "natural_key"
         if matched_field:
             result.update(
                 can_apply=False,
@@ -738,6 +854,12 @@ def main(argv=None):
     p_canon = sub.add_parser("canonicalize", help="canonicalize a raw job JSON")
     p_canon.add_argument("raw_job_json")
 
+    p_canon_batch = sub.add_parser(
+        "canonicalize-batch",
+        help="canonicalize a JSON array of raw jobs in one process (JSONL output)",
+    )
+    p_canon_batch.add_argument("raw_jobs_json", help="JSON array, or '-' for stdin")
+
     p_upsert = sub.add_parser(
         "upsert-job", help="insert or merge a canonical job into the registry"
     )
@@ -780,6 +902,26 @@ def main(argv=None):
         raw = parse_json_arg(args.raw_job_json, "canonicalize")
         canonical = canonicalize(raw)
         print(json.dumps(canonical, ensure_ascii=False, indent=2))
+        return 0
+
+    if args.command == "canonicalize-batch":
+        raws = parse_json_array_arg(args.raw_jobs_json, "canonicalize-batch")
+        # Per-item errors don't abort the batch — one malformed raw job
+        # shouldn't cost every other job in the same fetch its
+        # canonicalization. Reported on stderr, keyed by index, so the
+        # caller can tell "N canonicalized, M skipped" apart from a
+        # silent undercount.
+        skipped = 0
+        for i, raw in enumerate(raws):
+            try:
+                canonical = canonicalize(raw)
+            except SystemExit:
+                skipped += 1
+                print(f"job_state: canonicalize-batch: skipped index {i}: {raw!r}", file=sys.stderr)
+                continue
+            print(json.dumps(canonical, ensure_ascii=False))
+        if skipped:
+            print(f"job_state: canonicalize-batch: {skipped}/{len(raws)} item(s) skipped", file=sys.stderr)
         return 0
 
     if args.command == "upsert-job":

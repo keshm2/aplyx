@@ -9,21 +9,23 @@ import { useEffect, useState } from "react";
  *   the media query in both directions.
  * - themeFamily: which palette (data-theme-family) — independent of
  *   mode; every family defines its own light/dark pair (tokens.css).
- * - font: "system" (default stack) or one of the bundled variable faces
- *   (see base.css @font-face and this file's FONT_LABELS).
+ * - font: "manrope" (default pairing — Manrope display + Inter body,
+ *   matching Supabase's own pairing) or one of the other bundled variable
+ *   faces, or "system" to opt back into the OS's native UI font (see
+ *   base.css @font-face and this file's FONT_LABELS).
  * Purely a webview concern — nothing here touches the Python-owned state.
  */
 
 export type ThemePref = "system" | "light" | "dark";
-export type ThemeFamily = "cobalt" | "sage" | "legacy" | "graphite" | "ember";
-export type FontPref = "system" | "geist" | "inter" | "plex" | "atkinson";
+export type ThemeFamily = "cobalt" | "sage" | "legacy" | "graphite" | "ember" | "volt";
+export type FontPref = "manrope" | "system" | "geist" | "inter" | "plex" | "atkinson";
 
 const THEME_KEY = "aplyx.theme";
 const THEME_FAMILY_KEY = "aplyx.themeFamily";
 const FONT_KEY = "aplyx.font";
 
-const THEME_FAMILIES: ThemeFamily[] = ["cobalt", "sage", "legacy", "graphite", "ember"];
-const FONTS: FontPref[] = ["system", "geist", "inter", "plex", "atkinson"];
+const THEME_FAMILIES: ThemeFamily[] = ["cobalt", "sage", "legacy", "graphite", "ember", "volt"];
+const FONTS: FontPref[] = ["manrope", "system", "geist", "inter", "plex", "atkinson"];
 
 export const THEME_FAMILY_LABELS: Record<ThemeFamily, string> = {
   cobalt: "Calm Cobalt",
@@ -31,9 +33,11 @@ export const THEME_FAMILY_LABELS: Record<ThemeFamily, string> = {
   legacy: "Aplyx Classic",
   graphite: "Graphite Cyan",
   ember: "Ember Glow",
+  volt: "Volt Noir",
 };
 
 export const FONT_LABELS: Record<FontPref, string> = {
+  manrope: "Manrope",
   system: "System",
   geist: "Geist",
   inter: "Inter",
@@ -53,7 +57,7 @@ export function loadThemeFamily(): ThemeFamily {
 
 export function loadFontPref(): FontPref {
   const raw = localStorage.getItem(FONT_KEY);
-  return (FONTS as string[]).includes(raw ?? "") ? (raw as FontPref) : "system";
+  return (FONTS as string[]).includes(raw ?? "") ? (raw as FontPref) : "manrope";
 }
 
 export function applyUiPrefs(
@@ -65,7 +69,11 @@ export function applyUiPrefs(
   if (theme === "system") delete root.dataset["theme"];
   else root.dataset["theme"] = theme;
   root.dataset["themeFamily"] = themeFamily;
-  if (font === "system") delete root.dataset["font"];
+  // "manrope" is the new default, so it's the one relying on attribute
+  // absence now (tokens.css's bare :root) — "system" (the old default)
+  // moved to an explicit [data-font="system"] rule instead, the opposite
+  // of how this worked before this pairing became the default.
+  if (font === "manrope") delete root.dataset["font"];
   else root.dataset["font"] = font;
 }
 

@@ -1657,28 +1657,49 @@ button {
   border-bottom-color: var(--accent);
 }
 
+/* Wraps the panel set only (not the tablist above it) so the absolute
+   positioning below resolves against this box, not the whole .os-tabs
+   column — otherwise an outgoing panel would jump up and overlap the
+   tabs instead of sitting exactly where the incoming one sits. Also used
+   by privacy.html's TL;DR/Fine-print pair, which reuses .os-panel as-is. */
+.os-panels {
+  position: relative;
+}
+
+/* Real crossfade, not a one-way fade-in: the outgoing panel stays put and
+   fades out while the incoming one fades in over it, instead of vanishing
+   via display:none the instant its class flips. The active panel is the
+   only one in normal flow (position: static), so it alone sets the
+   container's height — same height every switch, no jump between the
+   mac/win/npm panels' slightly different content lengths. Inactive panels
+   overlay via top/left/right only (no `bottom`), so each keeps its own
+   natural height instead of being stretched to match the active one's. */
 .os-panel {
-  display: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
   padding-top: var(--space-6);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity var(--duration-normal) var(--ease-standard),
+    visibility 0s linear var(--duration-normal);
 }
 
 .os-panel.is-active {
-  display: block;
-  animation: aplyx-fade-in var(--duration-normal) var(--ease-out) both;
-}
-
-@keyframes aplyx-fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  position: static;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity var(--duration-normal) var(--ease-standard);
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .os-panel,
   .os-panel.is-active {
-    animation: none;
+    transition: none;
   }
 }
 
@@ -1687,7 +1708,7 @@ button {
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: var(--surface-raised);
-  padding: var(--space-4) var(--space-5);
+  padding: var(--space-4) calc(var(--space-5) + 2.25rem) var(--space-4) var(--space-5);
   overflow-x: auto;
 }
 
@@ -1698,6 +1719,65 @@ button {
   color: var(--text);
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.copy-button {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  transition:
+    color var(--duration-quick) var(--ease-out-expo),
+    border-color var(--duration-quick) var(--ease-out-expo);
+}
+
+.copy-button:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+.copy-button:active {
+  transform: scale(0.92);
+}
+
+/* Icon swap: default shows the copy icon; a successful copy switches to
+   a checkmark for a couple seconds (.is-copied, toggled in site.js). Both
+   icons are stacked in the same spot (absolute + auto margins, centered
+   in the button's own box) and cross-fade with a small pop instead of
+   the old instant display:none/inline-flex swap. */
+.copy-button svg {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 1rem;
+  height: 1rem;
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity var(--duration-quick) var(--ease-out-expo), transform var(--duration-quick) var(--ease-out-expo);
+}
+
+.copy-button .icon-copy {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.copy-button.is-copied .icon-copy {
+  opacity: 0;
+  transform: scale(0.6);
+}
+
+.copy-button.is-copied .icon-check {
+  opacity: 1;
+  transform: scale(1);
+  color: var(--accent, var(--text));
 }
 
 /* --- Pricing --- */

@@ -9,6 +9,7 @@ const VENDOR_KEYS: Record<CompanyEntry["vendor"], string> = {
   ashby: "ashby_company_slugs",
   lever: "lever_company_slugs",
   greenhouse: "greenhouse_company_slugs",
+  smartrecruiters: "smartrecruiters_company_slugs",
 };
 
 /** Target companies aren't stored under one key — they're derived as the

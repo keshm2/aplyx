@@ -53,6 +53,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import html
 import json
 import os
@@ -63,6 +64,7 @@ import urllib.parse
 import urllib.request
 
 DEFAULT_TARGETS = "src/config/targets.json"
+DEFAULT_DISCOVERED = "src/config/discovered_companies.json"
 PLACEHOLDER = "replace_me"
 USER_AGENT = "aplyx-job-agent/phase16b"
 # The Fusion HCM REST API accepts at least limit=100 in one request
@@ -136,11 +138,33 @@ def job_url(host: str, site: str, job_id: str) -> str:
     return f"https://{host}/hcmUI/CandidateExperience/en/sites/{site}/job/{job_id}"
 
 
-def to_raw_job(req: dict, host: str, site: str) -> dict:
+def load_tenant_company_names(discovered_path: str) -> dict:
+    """'<host>/<site>' (lowercased) -> human company name, from
+    discovered_companies.json's discovered_tenants (see
+    build_discovered_companies.py) — best-effort: a missing/unreadable/
+    malformed file just yields an empty map, so a lookup miss falls back
+    to the tenant's own site id (today's behavior), never an error."""
+    try:
+        with open(discovered_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return {}
+    names: dict = {}
+    for entry in data.get("discovered_tenants") or []:
+        if not isinstance(entry, dict):
+            continue
+        tenant = str(entry.get("tenant", "")).strip().lower()
+        name = str(entry.get("company_name", "")).strip()
+        if tenant and name and tenant not in names:
+            names[tenant] = name
+    return names
+
+
+def to_raw_job(req: dict, host: str, site: str, company_name: str) -> dict:
     job_id = str(req.get("Id", "")).strip()
     return {
         "source": "oracle",
-        "company": site,
+        "company": company_name or site,
         "title": str(req.get("Title", "")).strip(),
         "url": job_url(host, site, job_id),
         "external_job_id": job_id,
@@ -152,7 +176,7 @@ def to_raw_job(req: dict, host: str, site: str) -> dict:
     }
 
 
-def fetch_jd(url: str, timeout: int) -> dict:
+def fetch_jd(url: str, timeout: int, discovered_path: str) -> dict:
     """Posting URL -> JD JSON via the requisition-detail endpoint."""
     m = re.match(
         r"https?://([^/]+)/hcmUI/CandidateExperience/en/sites/([^/]+)/job/(\d+)",
@@ -161,6 +185,7 @@ def fetch_jd(url: str, timeout: int) -> dict:
     if m is None:
         die(f"unrecognized Oracle posting URL shape: {url}")
     host, site, job_id = m.group(1), m.group(2), m.group(3)
+    company_name = load_tenant_company_names(discovered_path).get(f"{host}/{site}".lower(), "")
     finder = urllib.parse.quote(f'ById;Id="{job_id}",siteNumber={site}', safe="=;,")
     info = api_get(
         f"https://{host}/hcmRestApi/resources/latest/recruitingCEJobRequisitionDetails"
@@ -176,7 +201,7 @@ def fetch_jd(url: str, timeout: int) -> dict:
     ]
     return {
         "source": "oracle",
-        "company": site,
+        "company": company_name or site,
         "title": str(detail.get("Title", "")).strip(),
         "location": str(detail.get("PrimaryLocation", "")).strip(),
         "url": url,
@@ -185,12 +210,60 @@ def fetch_jd(url: str, timeout: int) -> dict:
     }
 
 
+def _fetch_one_tenant(host: str, site: str, company_name: str, args) -> tuple[list, str | None]:
+    """One tenant's full paginated fetch. Returns (jobs, error_message_or_None)."""
+    jobs = []
+    offset = 0
+    count = 0
+    try:
+        while True:
+            keyword_part = f',keyword="{args.search}"' if args.search else ""
+            finder = urllib.parse.quote(
+                f"findReqs;siteNumber={site},limit={PAGE_SIZE},offset={offset}"
+                f"{keyword_part},sortBy=POSTING_DATES_DESC",
+                safe="=;,\"",
+            )
+            # `expand=requisitionList` is required — without it the
+            # API returns search metadata only, no actual postings
+            # (confirmed live). Dropped the unused `.workLocation`
+            # sub-expand (to_raw_job below never reads it) — that
+            # part turned out not to affect latency (Oracle's
+            # ~1.9-2s here is the cost of populating requisitionList
+            # at all, expanded or not), but there's no reason to ask
+            # for data nothing uses.
+            data = api_get(
+                f"https://{host}/hcmRestApi/resources/latest/recruitingCEJobRequisitions"
+                f"?onlyData=true&expand=requisitionList&finder={finder}",
+                args.timeout,
+            )
+            items = data.get("items") or []
+            reqs = items[0].get("requisitionList") or [] if items else []
+            for req in reqs:
+                if not isinstance(req, dict):
+                    continue
+                raw = to_raw_job(req, host, site, company_name)
+                if raw["title"] and raw["external_job_id"]:
+                    jobs.append(raw)
+                    count += 1
+                if args.limit and count >= args.limit:
+                    break
+            offset += PAGE_SIZE
+            total = int(items[0].get("TotalJobsCount", 0)) if items else 0
+            if not reqs or (args.limit and count >= args.limit) or offset >= total:
+                break
+    except (urllib.error.URLError, ValueError, json.JSONDecodeError, OSError, IndexError) as exc:
+        return jobs, str(exc)
+    return jobs, None
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         prog="fetch_oracle_listings.py",
         description="Fetch Oracle Recruiting Cloud tenant postings via the public Fusion HCM REST API (Phase 16B).",
     )
     parser.add_argument("--targets", default=DEFAULT_TARGETS)
+    parser.add_argument("--discovered", default=DEFAULT_DISCOVERED,
+                         help="discovered_companies.json path, for tenant->company-name lookup (best-effort)")
     parser.add_argument("--search", default="", help="keyword to narrow the feed (e.g. 'intern')")
     parser.add_argument("--limit", type=int, default=200, help="max postings per tenant (0 = no cap)")
     parser.add_argument("--timeout", type=int, default=30)
@@ -199,7 +272,7 @@ def main(argv=None) -> int:
 
     if args.jd_url:
         try:
-            result = fetch_jd(args.jd_url, args.timeout)
+            result = fetch_jd(args.jd_url, args.timeout, args.discovered)
         except (urllib.error.URLError, ValueError, json.JSONDecodeError, OSError) as exc:
             die(f"JD fetch failed for {args.jd_url}: {exc}")
         else:
@@ -211,52 +284,37 @@ def main(argv=None) -> int:
         print("fetch_oracle_listings: complete tenants=0 jobs=0 failed=0", file=sys.stderr)
         return 0
 
+    company_names = load_tenant_company_names(args.discovered)
+
     fetched = 0
     failed = 0
     jobs = []
-    for host, site in tenants:
-        offset = 0
-        count = 0
-        try:
-            while True:
-                keyword_part = f',keyword="{args.search}"' if args.search else ""
-                finder = urllib.parse.quote(
-                    f"findReqs;siteNumber={site},limit={PAGE_SIZE},offset={offset}"
-                    f"{keyword_part},sortBy=POSTING_DATES_DESC",
-                    safe="=;,\"",
-                )
-                # `expand=requisitionList` is required — without it the
-                # API returns search metadata only, no actual postings
-                # (confirmed live). Dropped the unused `.workLocation`
-                # sub-expand (to_raw_job below never reads it) — that
-                # part turned out not to affect latency (Oracle's
-                # ~1.9-2s here is the cost of populating requisitionList
-                # at all, expanded or not), but there's no reason to ask
-                # for data nothing uses.
-                data = api_get(
-                    f"https://{host}/hcmRestApi/resources/latest/recruitingCEJobRequisitions"
-                    f"?onlyData=true&expand=requisitionList&finder={finder}",
-                    args.timeout,
-                )
-                items = data.get("items") or []
-                reqs = items[0].get("requisitionList") or [] if items else []
-                for req in reqs:
-                    if not isinstance(req, dict):
-                        continue
-                    raw = to_raw_job(req, host, site)
-                    if raw["title"] and raw["external_job_id"]:
-                        jobs.append(raw)
-                        count += 1
-                    if args.limit and count >= args.limit:
-                        break
-                offset += PAGE_SIZE
-                total = int(items[0].get("TotalJobsCount", 0)) if items else 0
-                if not reqs or (args.limit and count >= args.limit) or offset >= total:
-                    break
-            fetched += 1
-        except (urllib.error.URLError, ValueError, json.JSONDecodeError, OSError, IndexError) as exc:
-            warn(f"tenant '{site}' ({host}) failed to fetch: {exc} — skipped")
-            failed += 1
+    # Tenants fetched concurrently, not one after another: Oracle's own API
+    # costs ~1.9-2s per request regardless of tenant (see the comment on
+    # expand=requisitionList below), so N tenants in sequence is N*2s —
+    # confirmed live to blow past the interactive search's 2.2s per-source
+    # deadline (src/core/src/jobs.ts SOURCE_DEADLINE_MS) with as few as 2
+    # tenants configured. Each tenant call is independent I/O, so plain
+    # threads (stdlib concurrent.futures, no new dependency) are enough —
+    # no shared state to race on, each thread only appends to its own
+    # tenant_jobs list.
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, len(tenants))) as executor:
+        future_to_tenant = {
+            executor.submit(
+                _fetch_one_tenant, host, site,
+                company_names.get(f"{host}/{site}".lower(), ""), args,
+            ): (host, site)
+            for host, site in tenants
+        }
+        for future in concurrent.futures.as_completed(future_to_tenant):
+            host, site = future_to_tenant[future]
+            tenant_jobs, error = future.result()
+            if error is not None:
+                warn(f"tenant '{site}' ({host}) failed to fetch: {error} — skipped")
+                failed += 1
+            else:
+                fetched += 1
+            jobs.extend(tenant_jobs)
 
     jobs.sort(key=lambda j: (j["company"], j["title"].lower(), j["external_job_id"]))
     for job in jobs:

@@ -269,12 +269,19 @@ Box/Fly.io bake-off in `docs/online-hosting.md`:
   needs a real answer before `auto_apply` ships, not just for anti-bot
   UX reasons but because a major ATS vendor has now publicly confirmed it
   checks for exactly this.
-- LinkedIn's explicit ban/suspend policy is moot for aplyx today (it
-  doesn't scrape LinkedIn — Ashby/Lever/Greenhouse/Workday/
-  SmartRecruiters/Amazon/Oracle only), which is a real, already-existing
-  structural advantage worth stating plainly rather than leaving implicit:
-  aplyx isn't exposed to the single most aggressively-enforced platform
-  ban in this whole research pass.
+- ~~LinkedIn's explicit ban/suspend policy is moot for aplyx today (it
+  doesn't scrape LinkedIn...)~~ **Correction, 2026-08-10: this was wrong.**
+  `AGENTS.md` explicitly lists LinkedIn among the Playwright-scraped
+  boards ("LinkedIn, Indeed, Handshake, Greenhouse, Wellfound: use
+  Playwright MCP for browser-based scraping"), and `linkedin` is a live
+  value in the `source` enum. aplyx **is** exposed to exactly this risk
+  today, not exempt from it — do not publish the original claim above
+  anywhere; it was a research-pass error, not a verified fact. This
+  doesn't change the underlying constraint this bullet was trying to
+  name (application-timing/velocity patterns matter for the hosted
+  worker) — it just means aplyx doesn't get a free pass on it via
+  LinkedIn specifically, and that's worth its own look before hosted
+  `auto_apply` ships.
 - Application-timing/velocity signals (near-simultaneous submissions,
   identical cover-letter structure across many applications) are cited
   industry-wide as detection heuristics. Since aplyx already tailors per
@@ -317,3 +324,250 @@ resolve the still-open egress-IP and quota-reconciliation questions
 flagged in `docs/online-hosting.md` and `docs/website.md` — it adds one
 more concrete reason (Greenhouse's published fraud detection) to prioritize
 answering them before `auto_apply` ships.
+
+---
+
+## 2026-08-10 update — Tsenta added, a new confirmed gap, and corroborating sources
+
+Operator-directed: benchmark specifically against Tsenta (a competitor
+this document's 2026-07-28 pass predates — Tsenta is a YC S26 company)
+and find at least 2-3 concrete, evidence-backed things aplyx can do
+better. Three research agents ran in parallel: real user complaints
+across the named competitor list, the recruiter-backlash trend with
+fresh 2026 sourcing, and a direct feature comparison (audit trail, essay-
+question handling, pricing model, privacy, open-source) against 10 named
+tools including Tsenta specifically.
+
+**One correction to the 2026-07-28 pass, above: the "aplyx doesn't scrape
+LinkedIn" claim was wrong** — struck through and corrected in place
+rather than left to stand. Do not carry that claim into any positioning
+copy.
+
+### Tsenta, specifically
+
+Real, funded (YC S26, $500K), ~45,000 users claimed. Runs primarily
+**on-device** (their own stated architecture choice, framed explicitly as
+both a privacy and anti-bot-detection strategy) with a hybrid
+"live overlay or headless replay" model, and — per their own privacy
+policy — is built on **Anthropic (Claude) and OpenAI's standard APIs**,
+not a custom-trained model. Two things worth naming precisely:
+
+- **Tsenta auto-generates answers to open-ended essay questions** ("in
+  your voice"), with a diff-view approval gate before send. aplyx's
+  existing policy is stricter: never generate one at all — park the
+  application and require the user's own pre-approved text
+  (`interest_letter.py`). Framed against today's fabrication-complaint
+  research below, this is a deliberate, defensible difference, not
+  something to soften to match Tsenta.
+- **Tsenta claims something close to aplyx's fill-record audit trail** (a
+  "receipt": exact fields filled, answers given, documents sent, ATS
+  confirmation) — the one competitor of 10 checked today that isn't a
+  clean gap on this specific point. aplyx's edge over even Tsenta's
+  claim specifically is the **verified** part: every filled value is
+  read back from the live DOM and confirmed against the intended value
+  before submit (`job-scraper.md` Phase 3 step 3e), which Tsenta's own
+  stated description doesn't claim to do. A receipt of what was sent is
+  not the same claim as proof it was checked before sending.
+
+### New, independently confirmed gap: bring-your-own-AI pricing
+
+Checked directly against Simplify, Teal, LazyApply, Careerflow, Huntr,
+Jobright, JobCopilot, LoopCV, Sonara, and Tsenta — **none offer a
+bring-your-own-API-key/subscription option; every one bundles AI cost
+into a flat-fee or credit-capped subscription.** aplyx's model (the user
+supplies their own Claude Code/opencode subscription or API key; the
+hosted plan's own worker calls Anthropic directly at cost, per
+`docs/hosted-paid-tier-plan.md`) has no equivalent among any competitor
+checked. This lines up directly with a second finding from today's
+complaint research: **deceptive/opaque billing is a rampant, validated
+complaint across this exact list** — LazyApply (annual-only, no monthly
+option, ignored refund requests), LoopCV ("unlimited" framing undercut by
+real per-day caps), Simplify (no free trial, no refund after activation),
+Huntr (refunds capped at two invoices). A transparent, no-markup pricing
+model is a direct, evidenced answer to a real, validated pain point, not
+an assumed nice-to-have.
+
+### Fresh corroboration for Part 1's "market is genuinely breaking" finding
+
+Independent of the 2026-07-28 pass's Fortune/CNBC/Greenhouse sourcing,
+today's research turned up further corroboration from different outlets
+and dates — worth having as backup sourcing, not a new finding on its
+own: Greenhouse's own 2025 AI in Hiring Report (recruiters spend up to
+half their week filtering spam, 91% have caught candidate deception, only
+8% of job seekers think AI screening is fair — same 8% figure as the
+original pass, independently re-surfaced); Robert Half's Nov-2025 survey
+(67% of hiring managers say AI-generated applications have slowed
+hiring); Monster's Mar-2026 survey (48% of job seekers self-describe as
+"spray and pray," 45% blame ATS/Easy Apply for encouraging it); Bloomberg,
+Jul 30 2026 (employers moving to biometric/identity verification because
+of the flood). **Calibration note, carried over honestly from the
+research**: content-based AI-resume detection by ATS platforms is *not*
+well evidenced (one source interviewing 25 recruiters found none using
+it; text-based AI detectors remain only ~60-70% accurate) — only
+LinkedIn's velocity/behavioral automation detection is confirmed and
+enforced. Don't overstate "the ATS can tell" beyond what's actually
+documented.
+
+### Rampant, validated fabrication/accuracy complaints (new specifics)
+
+Extends Part 2's table with concrete complaint evidence found today,
+useful as supporting citations for the "no real quality gate" and "no
+verified audit trail" gaps already identified in Parts 1 and 4:
+LazyApply (Trustpilot ~2.1-2.4/5, ~56% one-star reviews; wrong first/last
+name on early applications); Simplify (independent field testing found
+autofill accuracy dropping by ATS platform — ~90% Greenhouse, ~70%
+Workday, ~50% iCIMS, ~40% Taleo — meaning roughly half or more of fields
+land wrong on the harder platforms); Careerflow (introduces incorrect
+resume info per user reports); Jobright (hallucinated metrics/invented
+skills in generated bullets, users unable to verify what its full
+auto-apply "Agent" actually submitted). The "unable to verify what was
+submitted" pattern specifically is the direct gap aplyx's fill-record
+audit trail already closes.
+
+### Round two — precision/reliability failures specifically (operator pushback: "there has to be more," zero tolerance for sloppy claims)
+
+The operator asked for more, explicitly framed around precision and the
+real stakes of a mishandled application. Two further research agents
+targeted specific failure *mechanisms*, not general sentiment — one on
+duplicate/misdirected applications and pre-submit rechecking, one on
+EEO/work-authorization field handling, document mismatches, and vendor
+compliance framing. Findings below are graded by evidence strength
+explicitly — this section states plainly where sourcing is thin rather
+than smoothing it over, per the operator's own stated bar.
+
+**Confirmed, strong, multi-source — the sharpest new finding.** No tool
+among 14 researched (Simplify, Teal, Careerflow, LazyApply, Sonara,
+JobCopilot, Huntr, Jobright, LoopCV, Tsenta, AIHawk, FastApply, KleoKlaw,
+AIApply) re-verifies fit/eligibility/dedup status **immediately before
+actually submitting** — every one matches once at discovery time and
+never rechecks. aplyx already does exactly this: `job-scraper.md` Phase 3
+step 1b re-runs the fit gate and the `can-apply` dedupe/eligibility check
+right before applying, explicitly because "another run may have applied
+in the meantime." This is a real, structural gap the whole researched
+market shares, and aplyx already closes it — worth naming precisely as
+"we re-check right before we act, not just when we first saw the job,"
+not just "we have a fit gate."
+
+**Confirmed, strong, multi-source — fabrication in *tailored resume
+content* specifically, not just cover letters.** Four independent,
+credible incidents, not one: **JobCopilot** (vendor-acknowledged —
+generated false job titles/experience the user never had, JobCopilot's
+own response confirmed the behavior and added an opt-out toggle rather
+than fixing the root cause); **Jobright** (multiple independent reviewers
+report hallucinated skills/metrics); **Huntr** (one review found a
+fabricated "$12 million in revenue" figure inserted with no basis in the
+original resume); **Teal** (Trustpilot, Mar 2026, hallucinated skills
+from job descriptions). aplyx's `generate_interest_letter.py` already has
+a deterministic grounding check for cover letters specifically (cross-
+references every other targeted company's name against the letter body,
+flags a self-reported-vs-actual word-count mismatch — see this session's
+own verification of `_grounding_flags`). **Stated precisely, not
+oversold: the equivalent guard for tailored resume *bullets*
+specifically — cross-checking every employer/skill named against the
+selected base resume — is a planned, not-yet-built backlog item
+(`docs/PLAN.md` §3.20, "Tailor-output validation"), not something already
+shipped.** The architecture is structurally less exposed either way
+(tailored content is stored in `review_queue`'s `tailored_bullets`/
+`cover_letter` fields and human-reviewable before/after, not
+fired-and-forgotten), but the specific automated cross-check for resume
+bullets is a real, honestly-flagged gap to close, not a claim to make
+today.
+
+**A genuine whitespace claim, not a "competitors get this wrong" claim
+— be precise about the difference.** No evidence was found of any
+researched tool auto-guessing an EEO/demographic answer (race, gender,
+veteran/disability status) or a work-authorization answer incorrectly —
+this is an evidence gap, not a confirmed competitor failure, and should
+never be stated as "competitors get EEO fields wrong." What **is**
+confirmed: **no competitor publicly states a policy of refusing to guess
+these fields** — no vendor documentation, marketing, or compliance
+framing found anywhere claims this as a designed safeguard. aplyx already
+has exactly this, explicitly, in `AGENTS.md`: for any fixed-choice field
+(work authorization, degree, gender, ethnicity), "a `safe_fields` value
+that is empty means the user declined — leave the field untouched if it
+is optional, and if it is required, route to needs_review... rather than
+picking a value for them." The honest, precise claim is "aplyx is the
+only one that says this out loud and has it built," not "we're more
+accurate than competitors here" — the second claim isn't evidenced by
+this research and shouldn't be made.
+
+**Real-world cost of not having the above — the concrete failure
+pattern, not abstract risk.** Best-evidenced category in this round:
+Sonara (a mechanical engineer found ~90% of applied jobs unrelated to
+their field; an IT manager kept receiving sales roles); JobCopilot
+(mismatched job-title alignment, conversion under 0.5% for senior/analyst
+roles, "filters occasionally misfire, sending U.S. applicants to jobs...
+outside U.S. territory"); **AIApply — the sharpest single example
+found**: reported to have auto-answered "Yes" to fluency-in-
+Polish/Ukrainian screening questions with no basis to answer them at all.
+This is the exact failure mode aplyx's "never guess an unmapped or
+unconfirmed field, route to needs_review instead" policy is built to
+prevent — cite this specific example when explaining *why* that policy
+exists, not just that it exists.
+
+**Weaker findings, correctly graded rather than discarded or inflated:**
+duplicate-application-to-the-same-posting reports exist (a talent
+leader's quote about 25 JobCopilot applicants sharing one fake email; a
+Sonara review claiming 15+ applications to one posting across cities) but
+trace only to competitor-authored review sites, not primary/verifiable
+sources — real signal, not proof. Ghost/expired-posting waste is
+structurally near-certain (81% of recruiters admit posting ghost jobs,
+industry-wide) but not pinned to a specific tool/incident. LazyApply's
+reported H-1B-sponsorship misstatement is repeated across several SEO
+blogs but the original primary source couldn't be independently
+retrieved — credible, not confirmed. Simplify has one specific, dated
+(Feb 2026), first-hand Trustpilot complaint alleging private support
+conversations were made public without consent and that a PII-removal
+request was refused — a real, named allegation worth knowing, but
+single-sourced, not broadly corroborated; don't overstate it as a
+pattern. **No lawsuits exist against any job-seeker-side auto-apply
+tool** — the AI-hiring lawsuits that do exist (Eightfold FCRA case,
+SiriusXM/HireVue EEOC cases) are against employer-side screening AI, a
+different category entirely; don't conflate them.
+
+### Net: the differentiators, consolidated and evidence-graded
+
+Combining both rounds with the 2026-07-28 findings (not replacing them).
+Graded by evidence strength, per the operator's own bar for precision:
+
+**Strong, multi-source, structural (the core pitch):**
+1. **A real, deterministic, non-adjustable fit gate before any tailoring
+   effort is spent** (2026-07-28) — JobCopilot's loosened-slider produced
+   an ~11% scam-contact rate as direct evidence of the cost of not having
+   one; this round adds Sonara/JobCopilot/AIApply's specific mismatched-
+   application failures as further concrete cost-of-not-having-this
+   evidence.
+2. **Pre-submit eligibility re-verification, not just discovery-time
+   matching** (new) — confirmed absent across all 14 competitors
+   researched across both rounds; aplyx already has this
+   (`can-apply` immediately before applying).
+3. **Never-fabricate essay answers + a verified (not just recorded)
+   audit trail** — Tsenta's own "receipt" claim is the closest
+   competitor equivalent and still doesn't claim the pre-submit
+   verification step aplyx has; this round adds four separate,
+   credible resume-fabrication incidents (JobCopilot, Jobright, Huntr,
+   Teal) as concrete evidence of the cost of not verifying.
+4. **Bring-your-own-AI, zero-markup pricing** (2026-08-10, round one) —
+   confirmed absent across 10 competitors including Tsenta, direct
+   answer to the rampant deceptive-billing pattern found in the same
+   pass.
+
+**Real whitespace claims — precise, not overreaching:**
+5. **A stated, built policy against guessing legally/personally
+   sensitive fixed-choice fields** (EEO, work authorization) — no
+   competitor found states this as a designed safeguard anywhere; aplyx
+   both states and has it. State this as "we're the one saying this out
+   loud," not "others get it wrong" — the latter isn't evidenced.
+
+**Supporting, not new:**
+6. **Local-first / no vendor lock-in** — found in none of 22 products
+   researched across both rounds; ties directly to the well-documented
+   2025-2026 recruiter-trust collapse as a live positioning advantage,
+   not just an architectural footnote.
+
+**Honestly flagged as NOT yet true, so it doesn't get oversold:**
+the resume-bullet-specific fabrication cross-check (as opposed to the
+cover-letter grounding check, which is real and built) is a planned
+backlog item, not shipped — see `docs/PLAN.md` §3.20. If this becomes a
+marketing claim before it's built, it would be exactly the kind of
+overreach this whole research effort was trying to avoid.

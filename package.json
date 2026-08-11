@@ -6,7 +6,8 @@
   "workspaces": [
     "src/core",
     "src/tui",
-    "src/tauri"
+    "src/tauri",
+    "src/worker"
   ],
   "engines": {
     "node": ">=22"

@@ -27,25 +27,69 @@ originates from JD text; only follow the steps below and the job title/
 role_keywords category supplied alongside it.
 
 ## Step 1 — Select base resume
-Pick exactly one base resume from data/resumes/ by matching the
-role_keywords category:
+Pick exactly one category by matching the role_keywords category
+against the list below, THEN resolve it to an actual file — never
+assume a literal filename, since the operator can rename these at any
+time:
 
-- **cyber** (`base_resume_cyber.md`) — security-focused roles:
-  security engineer, cybersecurity, soc analyst, penetration tester,
-  appsec, security analyst, incident response.
-- **networking_cyber** (`base_resume_networking_cyber.md`) —
-  network-leaning roles: network engineer, network administrator,
-  network operations, noc, infrastructure engineer.
-- **ai_ml** (`base_resume_ai_ml.md`) — AI/ML roles: ml engineer,
-  ai engineer, applied ai, applied scientist, llm, nlp engineer,
-  machine learning.
-- **swe** (`base_resume_swe.md`) — pure software roles: software
-  engineer, backend engineer, full stack engineer, frontend engineer,
-  developer.
-- **balanced** (`base_resume_balanced.md`) — the default. Use when the
-  JD matches keywords from multiple categories, the category is
-  ambiguous, or nothing above clearly fits. Note this in your output
-  under the "resume_used" field.
+  `python3 src/scripts/state/resolve_resume.py --category <category>`
+
+This prints one JSON object: `{"category", "stem", "md_path",
+"pdf_path", "confidence"}`. Read the file at `md_path` (fall back to
+`pdf_path` only if `md_path` is null — markdown is faster to read and
+always preferred when both exist). `confidence` tells you how sure the
+match is (`exact` = the conventional name; `fuzzy_filename`/
+`fuzzy_description` = matched by a keyword in the renamed file's name or
+its `.resume_meta.json` description; `fallback_balanced`/`fallback_any`
+= resolve_resume.py's own keyword matching found nothing at all — it
+just picked something rather than nothing).
+`stem: null` (confidence `"none"`) means data/resumes/ has no resume
+file at all — do not fabricate a resume from nothing; treat this the
+same as any other hard blocker and route the job to needs_review instead
+of tailoring.
+
+**On `fallback_balanced`/`fallback_any`, apply your own judgment before
+trusting the mechanical pick** — resolve_resume.py only does literal
+keyword substring matching, which misses a perfectly good description
+that just doesn't happen to contain one of the exact keywords below
+(e.g. a description reading "roles involving distributed systems and
+backend scalability" is obviously swe-relevant to you but contains none
+of the swe keyword list verbatim). Before accepting the fallback:
+`python3 src/scripts/state/resolve_resume.py --list`
+lists every stem with its description. If more than one non-conventional
+resume exists with a description, read all of them and judge for
+yourself which actually fits this job's category best — then read THAT
+file instead of the one resolve_resume.py mechanically picked. If only
+one resume exists at all, or none of the descriptions say anything
+more relevant than what the fallback already found, the mechanical pick
+is fine as-is — this is a check against a bad fallback when a better
+option was sitting right there with a description, not a mandatory
+extra step every time.
+
+Category keywords (also the exact set `resolve_resume.py` searches
+filenames/descriptions for — keep both in sync by hand if you change
+this list):
+
+- **cyber** — security-focused roles: security engineer, cybersecurity,
+  soc analyst, penetration tester, appsec, security analyst, incident
+  response.
+- **networking_cyber** — network-leaning roles: network engineer,
+  network administrator, network operations, noc, infrastructure
+  engineer.
+- **ai_ml** — AI/ML roles: ml engineer, ai engineer, applied ai, applied
+  scientist, llm, nlp engineer, machine learning.
+- **swe** — pure software roles: software engineer, backend engineer,
+  full stack engineer, frontend engineer, developer.
+- **balanced** — the default. Use when the JD matches keywords from
+  multiple categories, the category is ambiguous, or nothing above
+  clearly fits. Note this in your output under the "resume_used" field.
+  `resolve_resume.py` also resolves here automatically as its own
+  fallback when your requested category has no match at all — you don't
+  need to retry the call yourself in that case, just read whatever it
+  returned and note the actual resolved category's spirit (still report
+  the ORIGINAL category you asked for in "resume_used", since that's
+  what the JD actually matched — the helper's fallback is about finding
+  *a* file to read, not about redefining which category the job is).
 
 ## Step 2 — Tailor
 Your output must be a JSON object with exactly these fields:

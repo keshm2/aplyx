@@ -157,6 +157,18 @@ def load_json_arg(arg: str) -> dict:
     return obj
 
 
+def load_json_array_arg(arg: str) -> list:
+    """Same as load_json_arg but for a JSON array — used by --batch."""
+    raw = sys.stdin.read() if arg == "-" else arg
+    try:
+        obj = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        error(f"input is not valid JSON: {exc.msg}")
+    if not isinstance(obj, list):
+        error(f"expected a JSON array, got {type(obj).__name__}")
+    return obj
+
+
 def load_targets(path: str) -> dict:
     if not os.path.exists(path):
         error(f"targets config not found: {path}")
@@ -586,12 +598,42 @@ def main(argv: Optional[List[str]] = None) -> int:
         prog="evaluate_job_fit.py",
         description="Deterministic JD fit gate for internship/new-grad automation.",
     )
-    parser.add_argument("job_json", help="Canonical job JSON object (or '-' for stdin)")
+    parser.add_argument("job_json", help="Canonical job JSON object, or a JSON array with --batch (either, or '-' for stdin)")
     parser.add_argument("--targets", default=DEFAULT_TARGETS)
+    parser.add_argument(
+        "--batch", action="store_true",
+        help="job_json is a JSON array of canonical jobs; evaluate all of them in one "
+             "process (JSONL output, one result per line, in input order) instead of "
+             "one process per job — added for src/worker/'s hosted pipeline (Phase 17), "
+             "which was spawning one interpreter per candidate job at real scale.",
+    )
     args = parser.parse_args(argv)
 
-    job = load_json_arg(args.job_json)
     targets = load_targets(args.targets)
+
+    if args.batch:
+        jobs = load_json_array_arg(args.job_json)
+        for job in jobs:
+            if not isinstance(job, dict):
+                # One malformed item shouldn't cost the rest of the batch —
+                # emit an inline error result (same {"ok": False, "error"}
+                # shape a single-job error() call would print) and continue,
+                # rather than exiting the whole process.
+                print(json.dumps({"ok": False, "error": f"batch item is not an object, got {type(job).__name__}"}))
+                continue
+            try:
+                result = evaluate_fit(job, targets)
+            except SystemExit:
+                # evaluate_fit() itself calls error() (JSON + sys.exit) on a
+                # job missing title/company — same per-item tolerance as
+                # canonicalize-batch, so one bad item can't silently cost
+                # the whole batch's results.
+                print(json.dumps({"ok": False, "error": "evaluate_fit failed for this item (missing required field)"}))
+                continue
+            print(json.dumps(result, ensure_ascii=False))
+        return 0
+
+    job = load_json_arg(args.job_json)
     result = evaluate_fit(job, targets)
     emit(result)
     return 0

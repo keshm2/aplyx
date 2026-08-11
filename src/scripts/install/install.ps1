@@ -555,6 +555,14 @@ if (Get-Command npm -ErrorAction SilentlyContinue) {
   # never abort the rest of the installer.
   try {
     Spin -Message "building the shared core" -Block {
+      # `npm run build:core` alone assumes `tsc` is already resolvable in
+      # src/core/node_modules - true once something has installed it, but
+      # never true on a genuinely fresh clone. Scoped --workspace install
+      # first, same pattern Build-NodeSurface uses for the TUI/extension
+      # below (just without its Push-Location, since --workspace= already
+      # targets src/core from the repo root).
+      npm install --workspace=src/core --silent --no-progress
+      if ($LASTEXITCODE -ne 0) { throw "core npm install failed" }
       npm run build:core --silent
       if ($LASTEXITCODE -ne 0) { throw "core build failed" }
     }

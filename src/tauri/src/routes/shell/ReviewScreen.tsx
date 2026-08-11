@@ -1,33 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import type { AplyxState, QueueEntry } from "@aplyx/core/stateDerive.js";
+import type { QueueEntry } from "@aplyx/core/stateDerive.js";
 import { isResolved } from "@aplyx/core/stateDerive.js";
-import { findRoot, loadLocalState, markQueueEntryApplied, dismissQueueEntry, reopenApplicationFilled } from "../../lib/bridge";
+import { SupabaseAdapter } from "@aplyx/core/adapters/supabase.js";
+import { markQueueEntryApplied, dismissQueueEntry, reopenApplicationFilled } from "../../lib/bridge";
+import { useAplyxState } from "../../lib/useAplyxState";
+import { SkeletonRows } from "../../components/Skeleton";
 import "../../components/formFields.css";
 import "../../components/dataList.css";
+import "../../components/Skeleton.css";
 
 export function ReviewScreen() {
-  const [root, setRoot] = useState<string | undefined>(undefined);
-  const [state, setState] = useState<AplyxState | undefined>(undefined);
-  const [loaded, setLoaded] = useState(false);
+  const { state, loaded, source, root, hosted, refresh } = useAplyxState();
   const [showResolved, setShowResolved] = useState(false);
   const [selected, setSelected] = useState<string | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ text: string; error?: boolean } | undefined>(undefined);
-
-  const refresh = async (r: string) => {
-    setState((await loadLocalState(r)) as AplyxState);
-  };
-
-  useEffect(() => {
-    findRoot()
-      .then(async (r) => {
-        setRoot(r);
-        await refresh(r);
-      })
-      .catch(() => setState(undefined))
-      .finally(() => setLoaded(true));
-  }, []);
 
   const entries = useMemo(
     () => (state ? state.queue.filter((e) => showResolved || !isResolved(state, e)) : []),
@@ -46,13 +34,16 @@ export function ReviewScreen() {
   }, [entries, selected]);
 
   const open = async (entry: QueueEntry) => {
-    if (!root) return;
     // A fill record means this application was actually filled out (in
     // full or in part) before landing in review — reopen it pre-filled
     // (fields, resume, cover letter already in place) instead of a blank
-    // form. Entries with nothing to replay (e.g. Workday, which never
-    // reaches the fill step) fall back to the plain URL open below.
-    if (entry.fill_record_path) {
+    // form. Local-only: replaying a fill drives the user's real, already-
+    // installed Chrome via Playwright, which a hosted-only session (no
+    // local install on this machine) has no way to do — a hosted entry's
+    // fill_record (content, not a path — see stateDerive.ts) falls back to
+    // the plain URL open below, same as an entry with nothing to replay
+    // (e.g. Workday, which never reaches the fill step).
+    if (source === "local" && root && entry.fill_record_path) {
       setMessage({ text: "Opening pre-filled application…" });
       try {
         const result = await reopenApplicationFilled(root, entry.job_id);
@@ -71,12 +62,17 @@ export function ReviewScreen() {
   };
 
   const markApplied = async (entry: QueueEntry) => {
-    if (!root) return;
     setBusy(true);
     try {
-      const result = await markQueueEntryApplied(root, entry);
+      const result =
+        source === "local" && root
+          ? await markQueueEntryApplied(root, entry)
+          : source === "hosted" && hosted
+            ? await new SupabaseAdapter(hosted.client, hosted.userId).markQueueEntryApplied(entry)
+            : undefined;
+      if (!result) return;
       setMessage({ text: result.message });
-      await refresh(root);
+      await refresh();
     } catch (err) {
       setMessage({ text: err instanceof Error ? err.message : String(err), error: true });
     } finally {
@@ -85,12 +81,17 @@ export function ReviewScreen() {
   };
 
   const dismiss = async (entry: QueueEntry) => {
-    if (!root) return;
     setBusy(true);
     try {
-      const result = await dismissQueueEntry(root, entry);
+      const result =
+        source === "local" && root
+          ? await dismissQueueEntry(root, entry)
+          : source === "hosted" && hosted
+            ? await new SupabaseAdapter(hosted.client, hosted.userId).dismissQueueEntry(entry)
+            : undefined;
+      if (!result) return;
       setMessage({ text: result.message });
-      await refresh(root);
+      await refresh();
     } catch (err) {
       setMessage({ text: err instanceof Error ? err.message : String(err), error: true });
     } finally {
@@ -124,7 +125,7 @@ export function ReviewScreen() {
       <div className="data-screen">
         <div className="data-list-col">
           {!loaded ? (
-            <div className="data-empty">Loading…</div>
+            <SkeletonRows />
           ) : entries.length === 0 ? (
             <div className="data-empty">
               Nothing to review — {showResolved ? "the queue is empty" : "new items appear as the agent runs"}.

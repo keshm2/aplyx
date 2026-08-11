@@ -57,6 +57,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import html
 import ipaddress
 import json
@@ -255,6 +256,29 @@ def fetch_jd(url: str, targets_path: str, timeout: int) -> dict:
     }
 
 
+def _fetch_one_tenant(host: str, domain: str, args) -> tuple[list, str | None]:
+    """One tenant's full paginated fetch. Returns (jobs, error_message_or_None)."""
+    jobs = []
+    start = 0
+    count = 0
+    try:
+        while True:
+            positions, total, variant = search_page(host, domain, args.search, start, args.timeout)
+            for position in positions:
+                raw = to_raw_job(position, host, domain, variant)
+                if raw["title"] and raw["url"] and raw["external_job_id"]:
+                    jobs.append(raw)
+                    count += 1
+                if args.limit and count >= args.limit:
+                    break
+            start += len(positions) if positions else PAGE_SIZE
+            if not positions or start >= total or (args.limit and count >= args.limit):
+                break
+    except (urllib.error.URLError, ValueError, json.JSONDecodeError, OSError, RuntimeError) as exc:
+        return jobs, str(exc)
+    return jobs, None
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         prog="fetch_eightfold_listings.py",
@@ -284,26 +308,25 @@ def main(argv=None) -> int:
     fetched = 0
     failed = 0
     jobs = []
-    for host, domain in tenants:
-        start = 0
-        count = 0
-        try:
-            while True:
-                positions, total, variant = search_page(host, domain, args.search, start, args.timeout)
-                for position in positions:
-                    raw = to_raw_job(position, host, domain, variant)
-                    if raw["title"] and raw["url"] and raw["external_job_id"]:
-                        jobs.append(raw)
-                        count += 1
-                    if args.limit and count >= args.limit:
-                        break
-                start += len(positions) if positions else PAGE_SIZE
-                if not positions or start >= total or (args.limit and count >= args.limit):
-                    break
-            fetched += 1
-        except (urllib.error.URLError, ValueError, json.JSONDecodeError, OSError, RuntimeError) as exc:
-            warn(f"tenant '{host}/{domain}' failed to fetch: {exc} — skipped")
-            failed += 1
+    # Tenants fetched concurrently, not one after another — see the
+    # matching comment in fetch_oracle_listings.py's main(). Eightfold
+    # tenants also each try up to two endpoint variants per page (see
+    # search_page), so this matters even more per-tenant here than for
+    # Oracle/Workday.
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, len(tenants))) as executor:
+        future_to_tenant = {
+            executor.submit(_fetch_one_tenant, host, domain, args): (host, domain)
+            for host, domain in tenants
+        }
+        for future in concurrent.futures.as_completed(future_to_tenant):
+            host, domain = future_to_tenant[future]
+            tenant_jobs, error = future.result()
+            if error is not None:
+                warn(f"tenant '{host}/{domain}' failed to fetch: {error} — skipped")
+                failed += 1
+            else:
+                fetched += 1
+            jobs.extend(tenant_jobs)
 
     jobs.sort(key=lambda j: (j["company"], j["title"].lower(), j["external_job_id"]))
     for job in jobs:

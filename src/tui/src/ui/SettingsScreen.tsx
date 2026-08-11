@@ -284,7 +284,7 @@ const SECTIONS: Section[] = [
         kind: "env",
         key: "APLYX_TUI_THEME",
         label: "Theme",
-        explain: "Recolors aplyx's own accent/status text and the ASCII banner only — Aplyx Default and Ember Dusk are tuned for a dark terminal background; Cloud Surf and Mint Frost swap in darker accent/status colors tuned to stay readable if YOUR terminal's background is already light (named ANSI yellow in particular is hard to read on white). This does NOT change your terminal's background color itself — that's controlled by your terminal app's own color scheme/profile setting, outside aplyx. Takes effect immediately, no restart needed.",
+        explain: "Recolors aplyx's own accent/status text and the ASCII banner only — Aplyx Default, Ember Dusk, and Volt Noir are tuned for a dark terminal background; Cloud Surf and Mint Frost swap in darker accent/status colors tuned to stay readable if YOUR terminal's background is already light (named ANSI yellow in particular is hard to read on white). This does NOT change your terminal's background color itself — that's controlled by your terminal app's own color scheme/profile setting, outside aplyx. Takes effect immediately, no restart needed.",
         fallback: "aplyx-default",
         options: (Object.entries(THEME_NAMES) as [ThemeMode, string][]).map(([value, label]) => ({ label, value })),
       },

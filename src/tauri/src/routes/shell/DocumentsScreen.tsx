@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import type { AplyxState, QueueEntry } from "@aplyx/core/stateDerive.js";
+import type { QueueEntry } from "@aplyx/core/stateDerive.js";
 import { isResolved } from "@aplyx/core/stateDerive.js";
-import { findRoot, loadLocalState } from "../../lib/bridge";
+import { useAplyxState } from "../../lib/useAplyxState";
+import { SkeletonRows } from "../../components/Skeleton";
 import "../../components/formFields.css";
 import "../../components/dataList.css";
+import "../../components/Skeleton.css";
 
 // Read-only companion to ReviewScreen: same queue, same isResolved()
 // filtering, same list/detail layout — but scoped to entries that actually
@@ -19,20 +21,10 @@ function hasTailoredContent(entry: QueueEntry): boolean {
 }
 
 export function DocumentsScreen() {
-  const [state, setState] = useState<AplyxState | undefined>(undefined);
-  const [loaded, setLoaded] = useState(false);
+  const { state, loaded } = useAplyxState();
   const [showResolved, setShowResolved] = useState(false);
   const [selected, setSelected] = useState<string | undefined>(undefined);
   const [message, setMessage] = useState<{ text: string; error?: boolean } | undefined>(undefined);
-
-  useEffect(() => {
-    findRoot()
-      .then(async (r) => {
-        setState((await loadLocalState(r)) as AplyxState);
-      })
-      .catch(() => setState(undefined))
-      .finally(() => setLoaded(true));
-  }, []);
 
   const entries = useMemo(
     () =>
@@ -104,7 +96,7 @@ export function DocumentsScreen() {
       <div className="data-screen">
         <div className="data-list-col">
           {!loaded ? (
-            <div className="data-empty">Loading…</div>
+            <SkeletonRows />
           ) : entries.length === 0 ? (
             <div className="data-empty">
               No tailored documents yet — {showResolved ? "none have been produced" : "they appear once the agent tailors a resume for a posting"}.

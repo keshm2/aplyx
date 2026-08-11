@@ -151,6 +151,24 @@
       });
     });
 
+    // Copy-to-clipboard buttons on install commands (/install) — copies
+    // the sibling <pre>'s text and flips the icon to a checkmark briefly.
+    // No-op on pages without any [data-copy-button] elements.
+    document.querySelectorAll("[data-copy-button]").forEach(function (button) {
+      var resetTimer;
+      button.addEventListener("click", function () {
+        var pre = button.parentElement.querySelector("pre");
+        if (!pre || !navigator.clipboard) return;
+        navigator.clipboard.writeText(pre.textContent).then(function () {
+          button.classList.add("is-copied");
+          clearTimeout(resetTimer);
+          resetTimer = setTimeout(function () {
+            button.classList.remove("is-copied");
+          }, 1800);
+        });
+      });
+    });
+
     // TL;DR / Fine Print switcher (/privacy) — one iOS-style toggle plus
     // its two flanking labels, all driving the same [data-view-panel]
     // visibility. Persists like the theme toggle so a returning visitor's

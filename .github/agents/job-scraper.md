@@ -275,26 +275,23 @@ not optional narration, and never bundle them into a larger sentence.
      drop the posting with a logged warning (no Playwright fallback
      needed — the detail page is as reliably fetchable as the list
      page, same static HTML).
-3f. For Stripe (company-specific board, HTML-parsed — no public JSON
-   API): use the deterministic fetch helper — never scrape with
-   Playwright for the LIST:
+3f. For Stripe (company-specific board): use the deterministic fetch
+   helper — never scrape with Playwright:
    `python3 src/scripts/jobs/fetch_stripe_listings.py --search "<query>" --limit 200`
    Stripe is a single company, not a multi-tenant ATS — there is no
    per-company slug to configure; run this whenever "stripe" is present
    in src/config/targets.json "boards" (same convention as apple/microsoft/
    amazon/linkedin/indeed/wellfound/handshake). Prints one raw-job JSON
-   object per line (source "stripe") via HTML parsing of
-   stripe.com/jobs/search's server-rendered results — no separate
-   per-company config, and no pagination param exists (a full query's
-   results render in one page load).
-   - The list response carries only title/department/location, not the
-     JD. After role filtering (step 8) and BEFORE the fit gate
-     (step 10), fetch the JD per surviving candidate:
-     `python3 src/scripts/jobs/fetch_stripe_listings.py --jd-url '<posting-url>'`
-     then re-canonicalize and upsert with the fetched jd_text. Never
-     fit-gate a Stripe job with empty jd_text. If the JD fetch fails,
-     drop the posting with a logged warning (no Playwright fallback
-     needed — same static HTML reliability as the list page).
+   object per line (source "stripe") via the public Greenhouse Jobs API
+   (Stripe's careers site is, underneath its own branded front end, fully
+   served by Greenhouse — confirmed live 2026-08-10, same "Class 3"
+   pattern as Datadog/Palantir/OpenAI in docs/ATS.md) — no per-company
+   config needed, `source` stays "stripe" for backward compat even
+   though the ATS underneath is Greenhouse.
+   - The list response carries FULL JD text already (confirmed live) —
+     no separate per-posting detail fetch needed, same as Amazon/Google/
+     Muse. `--jd-url` still exists for backward compatibility with an
+     old-style saved posting URL, but a fresh fetch never needs it.
 3g. For Google (company-specific board — the most fragile source in
    this pipeline, treat it accordingly): use the deterministic fetch
    helper — never scrape with Playwright:
@@ -340,6 +337,82 @@ not optional narration, and never bundle them into a larger sentence.
      the posting with a logged warning (no Playwright fallback
      needed — the detail endpoint is as reliable as the list endpoint,
      same public API).
+3i. For The Muse (a company-agnostic aggregator across many employers
+   and many underlying ATSes — treat it like Simplify/vanshb03, not like
+   a single-company board): use the deterministic fetch helper — never
+   scrape with Playwright:
+   `python3 src/scripts/jobs/fetch_muse_listings.py --search "<query>" --limit 200`
+   Run this whenever "muse" is present in src/config/targets.json "boards"
+   (same convention as amazon/apple/stripe/google — a plain board-name
+   toggle, no per-company slug list). Prints one raw-job JSON object per
+   line (source "muse") via The Muse's public jobs API
+   (`themuse.com/api/public/jobs`), scoped to level=Internship across a
+   fixed set of tech-relevant categories (see the helper's own docstring
+   for why — level=Entry Level on this API is confirmed far too noisy to
+   use, and "IT"/"Data Science" are not real category values on it
+   despite appearing in some third-party docs).
+   - The list response carries FULL JD text already (confirmed live) —
+     no separate per-posting detail fetch needed, same as Amazon.
+   - A Muse job's `url` is Muse's own landing page, not the employer's
+     real ATS URL, so its `ats_system` stays unresolved after
+     canonicalize (same as "simplify"/"vanshb03" — this is expected, not
+     a bug). The generic Playwright-driven apply flow still works
+     against a Muse landing page the same way it works against any other
+     job's `url` — it just clicks through to whatever real form is on
+     the other end.
+   - On a non-zero exit, log one warning, skip the board, continue the
+     run.
+3j. For Workable companies (phase 16B): use the deterministic fetch
+   helper — never scrape with Playwright:
+   `python3 src/scripts/jobs/fetch_workable_listings.py --search "<query>" --limit 200`
+   It reads src/config/targets.json "workable_company_slugs" (account
+   slugs, e.g. "tarte-inc" from apply.workable.com/tarte-inc/j/...) and
+   prints one raw-job JSON object per line (source "workable") via
+   Workable's public widget API.
+   - If "workable_company_slugs" is missing, empty, or placeholder-only
+     ("REPLACE_ME"), the helper warns and exits 0 with no output — skip
+     the board and continue. On a non-zero exit (every company failed),
+     log one warning, skip the board, continue the run.
+   - **Never guess a Workable slug from a company's public name** —
+     confirmed live 2026-08-10 that several name-guessed slugs 404'd or
+     returned an account with a permanently empty jobs array. A real
+     slug is only trustworthy when found from an actual live posting
+     URL. Do not add an unverified guessed slug to
+     "workable_company_slugs" or to `src/config/workable_vetted_slugs.json`.
+   - The list response carries FULL JD text already (confirmed live) —
+     no separate per-posting detail fetch needed, same as Amazon/Stripe/
+     Google/Muse.
+3k. For JazzHR companies (phase 16B — HTML-parsed, no public API,
+   same class as Apple): use the deterministic fetch helper — never
+   scrape with Playwright:
+   `python3 src/scripts/jobs/fetch_jazzhr_listings.py --limit 200`
+   It reads src/config/targets.json "jazzhr_company_slugs" (account
+   subdomains, e.g. "empowerproject" from
+   empowerproject.applytojob.com/apply/jobs/details/...) and prints one
+   raw-job JSON object per line (source "jazzhr") via server-side HTML
+   parsing of `<slug>.applytojob.com/apply/jobs` (no JS execution
+   needed — the listing is plain server-rendered markup).
+   - If "jazzhr_company_slugs" is missing, empty, or placeholder-only
+     ("REPLACE_ME"), the helper warns and exits 0 with no output — skip
+     the board and continue. On a non-zero exit (every company failed),
+     log one warning, skip the board, continue the run.
+   - **Never guess a JazzHR slug from a company's public name** — same
+     rule as Workable. A real slug is only trustworthy when found from
+     an actual live posting URL. Do not add an unverified guessed slug
+     to "jazzhr_company_slugs" or to `src/config/jazzhr_vetted_slugs.json`.
+   - JazzHR listings carry NO JD text (confirmed live — only title,
+     optional department, and location). After role filtering (step 8)
+     and BEFORE the fit gate (step 10), fetch the JD per surviving
+     candidate:
+     `python3 src/scripts/jobs/fetch_jazzhr_listings.py --jd-url '<posting-url>'`
+     then re-canonicalize and upsert with the fetched jd_text. Never
+     fit-gate a JazzHR job with empty jd_text. If the JD fetch fails,
+     drop the posting with a logged warning.
+   - Some JazzHR tenants enable a reCAPTCHA on the actual apply form
+     (confirmed live, per-tenant, not universal) — this never blocks
+     reading the listing or JD (both plain server-rendered HTML); it
+     only matters at the apply step, already covered by the existing
+     generic CAPTCHA → needs_review rule (see "Error handling" below).
 4. For LinkedIn, Indeed, Handshake, Wellfound: use Playwright MCP to
    navigate to the board with role/location filters and scrape job
    listings, full JD text, and application URLs. (Greenhouse moved to
@@ -602,11 +675,21 @@ For each job with ats_score >= 60:
       precisely so the job stays applicable.
    e. The user writes or approves an answer in the TUI's Letters tab; the
       next run reaches step (a), gets exit code 0, and applies normally.
-4. Attach the matching resume PDF from data/resumes/
-   (base_resume_<resume_used>.pdf — e.g. base_resume_swe.pdf,
-   base_resume_ai_ml.pdf, base_resume_balanced.pdf,
-   base_resume_cyber.pdf, base_resume_networking_cyber.pdf —
-   matching resume_used from Phase 2).
+4. Attach the matching resume PDF — resolve it, never assume a literal
+   filename (the operator can rename files in data/resumes/ at any
+   time; @resume-tailor already resolved the same category this same
+   way in Phase 2, so this repeats the same deterministic lookup rather
+   than reconstructing a path by hand):
+   `python3 src/scripts/state/resolve_resume.py --category '<resume_used>'`
+   using `resume_used` from Phase 2's @resume-tailor output. Attach the
+   file at `pdf_path` (the upload field needs a PDF, not markdown — if
+   `pdf_path` is null but `md_path` isn't, that resume has no PDF
+   rendered yet; treat it the same as a doubt signal
+   `unrecognized_field` and route to needs_review rather than
+   uploading markdown or skipping the attachment silently).
+   `confidence: "none"` (no resume file exists at all) is the same
+   `unrecognized_field` case, total rather than partial — a hard
+   blocker, needs_review, do not apply without a resume attached.
 5. Paste tailored cover letter into the cover letter field if present:
    a. Before pasting, check the field for a stated word/character limit
       — a `maxlength` attribute, a visible label near the field ("500

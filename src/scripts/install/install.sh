@@ -566,7 +566,18 @@ if command -v npm >/dev/null 2>&1; then
   # src/tui/'s and src/tauri/'s own `tsc` builds both need its dist/ already
   # present to resolve `@aplyx/core/*` imports, which is never true on a
   # fresh clone. Build it first so both surfaces build clean below.
-  spin "building the shared core" npm run build:core --silent \
+  # `npm run build:core` alone assumes `tsc` is already resolvable in
+  # src/core/node_modules — true on this maintainer's machine (already
+  # installed once) but never true on a genuinely fresh clone, where
+  # `npm install` has not run anywhere yet: confirmed live, this failed
+  # outright with "sh: tsc: command not found" on a from-scratch checkout,
+  # which cascaded into the TUI/extension builds below also failing.
+  # Scoped `--workspace=src/core` install first, same pattern
+  # `_npm_install_and_build` already uses for the TUI/extension below (see
+  # its own comment on why a scoped install rather than a plain `npm
+  # install` from the root matters here).
+  spin "building the shared core" bash -c \
+    'npm install --workspace=src/core --silent --no-progress && npm run build:core --silent' \
     || warn "core build failed — the TUI build below will likely fail too. See docs/SETUP.md."
   build_node_surface src/tui "the TUI"
   build_node_surface src/extension "the browser extension"

@@ -1,0 +1,23 @@
+{
+  "name": "@aplyx/worker",
+  "version": "0.1.0",
+  "description": "Phase 17 hosted review_only pipeline: claims queued src/supabase hosted_runs rows and runs fetch -> canonicalize -> fit-gate -> tailor -> review_queue for one hosted user at a time. Scheduled by .github/workflows/hosted-worker.yml, mirroring refresh-job-cache.yml's service-role-secret pattern. Never imported by the TUI or desktop app — standalone, like refreshJobCache.js.",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@aplyx/core": "file:../core",
+    "@supabase/supabase-js": "^2.45.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0"
+  }
+}

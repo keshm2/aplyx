@@ -3,18 +3,21 @@ import path from "node:path";
 
 /**
  * Company-target autocomplete pool (onboarding wizard + Settings):
- * reads the project's vetted Ashby/Lever/Greenhouse slug lists at
- * runtime (same fs.readFileSync + JSON.parse pattern resumes.ts
+ * reads the project's vetted Ashby/Lever/Greenhouse/SmartRecruiters slug
+ * lists at runtime (same fs.readFileSync + JSON.parse pattern resumes.ts
  * already uses for data/resumes/.resume_meta.json), so there's one
  * source of truth instead of a separately-maintained company list.
- * workday_tenants / simplify_feeds stay Settings/hand-edit only —
- * Workday has no company-slug API (a full tenant host/site path is
- * needed per company) and is review-only besides, so it's out of
- * scope for this autocomplete-driven flow. */
+ * workday_tenants / oracle_tenants / eightfold_tenants / simplify_feeds
+ * stay Settings/hand-edit only — those systems have no company-slug API
+ * (a full tenant host/site path is needed per company, and Workday is
+ * review-only besides), so they're out of scope for this slug-only
+ * autocomplete-driven flow. build_discovered_companies.py's
+ * `discovered_tenants` output has host/site candidates for those three
+ * systems if this picker is ever extended to cover them. */
 
 export interface CompanyEntry {
   slug: string;
-  vendor: "ashby" | "lever" | "greenhouse";
+  vendor: "ashby" | "lever" | "greenhouse" | "smartrecruiters";
   display: string;
   /** "vetted" = one of the hand-verified starter companies (see the
    *  src/config/*_vetted_slugs.json provenance notes); "discovered" = pulled
@@ -54,11 +57,11 @@ interface DiscoveredCompaniesFile {
 
 interface DiscoveredCompanyRecord {
   company_name: string;
-  vendor: "ashby" | "lever" | "greenhouse";
+  vendor: "ashby" | "lever" | "greenhouse" | "smartrecruiters";
   slug: string;
 }
 
-const KNOWN_VENDORS = new Set(["ashby", "lever", "greenhouse"]);
+const KNOWN_VENDORS = new Set(["ashby", "lever", "greenhouse", "smartrecruiters"]);
 
 function isDiscoveredCompanyRecord(v: unknown): v is DiscoveredCompanyRecord {
   if (typeof v !== "object" || v === null) return false;
@@ -118,7 +121,13 @@ export function loadCompanyDirectory(root: string): CompanyEntry[] {
     display: displayFromSlug(slug),
     tier: "vetted",
   }));
-  const vetted = [...ashby, ...lever, ...greenhouse];
+  const smartrecruiters: CompanyEntry[] = readSlugs(root, "smartrecruiters_vetted_slugs.json").map((slug) => ({
+    slug,
+    vendor: "smartrecruiters",
+    display: displayFromSlug(slug),
+    tier: "vetted",
+  }));
+  const vetted = [...ashby, ...lever, ...greenhouse, ...smartrecruiters];
 
   // A discovered record whose (vendor, slug) matches a hand-vetted one
   // is the same company — skip it rather than showing the name twice,

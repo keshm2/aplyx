@@ -10,6 +10,7 @@ import { py } from "@aplyx/core/platform.js";
 import { loadState, isResolved, lastRunLine, latestSessionLog, readHeartbeat } from "@aplyx/core/state.js";
 import { App, type Tab } from "./ui/App.js";
 import { StatusScreen } from "./ui/StatusScreen.js";
+import { applyThemeMode, applyReducedMotion, resolveThemeMode, resolveReducedMotion } from "./theme.js";
 import { OnboardingWizard } from "./ui/onboarding/OnboardingWizard.js";
 import { runWizard } from "./wizard.js";
 import { runAgent } from "./run.js";
@@ -337,6 +338,13 @@ async function main(): Promise<number> {
     case "resumes":
       return openApp(root, "resumes");
     case "status": {
+      // Unlike "review"/"history"/"resumes"/"" (all routed through
+      // openApp -> <App>, which resolves theme/reduced-motion itself on
+      // mount), this case renders <StatusScreen> directly — without this,
+      // it always used the module-load default theme (Aplyx Default),
+      // silently ignoring the Settings "Theme"/"Reduced motion" fields.
+      applyThemeMode(resolveThemeMode(root));
+      applyReducedMotion(resolveReducedMotion(root));
       const state = loadState(root);
       const unresolved = state.queue.filter((e) => !isResolved(state, e)).length;
       const app = render(

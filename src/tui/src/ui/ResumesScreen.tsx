@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Box, Text, useInput } from "ink";
 import { listResumeFiles, resumesDir, type ResumeFile } from "../resumes.js";
-import { openPath, convertResumePdf, helperError } from "@aplyx/core/helpers.js";
+import { openPath, convertResumePdf, setResumeDescription, helperError } from "@aplyx/core/helpers.js";
 import { theme, statusGlyph } from "../theme.js";
 import { InlineTextInput, deleteBackward, insertAtCursor, moveCursorLeft, moveCursorRight } from "./TextInput.js";
 
@@ -12,6 +12,12 @@ import { InlineTextInput, deleteBackward, insertAtCursor, moveCursorLeft, moveCu
  * manager, and offers to convert a PDF that's missing its markdown
  * counterpart — the case that otherwise silently leaves the tailoring
  * agent unable to use a resume the user thinks they've already added.
+ *
+ * A resume under a non-conventional filename (two uploads both named
+ * generically, say) still gets picked correctly without a rename: press
+ * `d` to attach a short "what roles this targets" description at any
+ * time, independent of conversion — resolve_resume.py (see its own
+ * docstring) matches on it when the filename alone doesn't resolve.
  */
 export function ResumesScreen({
   root,
@@ -29,6 +35,7 @@ export function ResumesScreen({
   const [messageIsError, setMessageIsError] = useState(false);
   const [nonce, setNonce] = useState(0); // re-scan the folder after open/convert
   const [descPrompt, setDescPrompt] = useState(false);
+  const [descMode, setDescMode] = useState<"convert" | "describe">("convert");
   const [descStem, setDescStem] = useState<string | null>(null);
   const [descValue, setDescValue] = useState("");
   const [descCursor, setDescCursor] = useState(0);
@@ -73,12 +80,27 @@ export function ResumesScreen({
     setNonce((n) => n + 1);
   };
 
+  const runSetDescription = (stem: string, description: string) => {
+    const result = setResumeDescription(root, stem, description);
+    if (result.ok) {
+      setMessage(description ? `Saved: "${description}"` : `Cleared description for ${stem}.`);
+      setMessageIsError(false);
+    } else {
+      setMessage(`Could not save description: ${result.error}`);
+      setMessageIsError(true);
+    }
+    setNonce((n) => n + 1);
+  };
+
   useInput(
     (input, key) => {
       if (descPrompt) {
         if (key.return) {
           setDescPrompt(false);
-          if (descStem) runConversion(descStem, descValue.trim());
+          if (descStem) {
+            if (descMode === "convert") runConversion(descStem, descValue.trim());
+            else runSetDescription(descStem, descValue.trim());
+          }
         } else if (key.escape) {
           setDescPrompt(false);
           setMessage("Conversion cancelled.");
@@ -121,15 +143,29 @@ export function ResumesScreen({
         if (!selected.needsConversion) {
           setMessage(
             selected.hasMarkdown
-              ? `${selected.stem}.md already exists — nothing to convert.`
+              ? `${selected.stem}.md already exists — nothing to convert. Press d to set its description.`
               : `No PDF for ${selected.category ?? selected.stem} yet — add one to data/resumes/ first.`,
           );
           setMessageIsError(false);
           return;
         }
+        setDescMode("convert");
         setDescStem(selected.stem);
         setDescValue("");
         setDescCursor(0);
+        setDescPrompt(true);
+        setMessage("");
+      }
+      if (input === "d" && selected) {
+        if (!selected.hasMarkdown && !selected.hasPdf) {
+          setMessage(`No file for ${selected.category ?? selected.stem} yet — add one to data/resumes/ first.`);
+          setMessageIsError(false);
+          return;
+        }
+        setDescMode("describe");
+        setDescStem(selected.stem);
+        setDescValue(selected.description ?? "");
+        setDescCursor((selected.description ?? "").length);
         setDescPrompt(true);
         setMessage("");
       }
@@ -166,15 +202,20 @@ export function ResumesScreen({
         <Text dimColor>Folder: {resumesDir(root)}</Text>
         {selected && !selected.expected ? (
           <Text dimColor wrap="wrap">
-            "{selected.stem}" isn't one of resume-tailor's auto-matched filenames — give it a description when
-            converting to tell it apart later, or see docs/SETUP.md for the expected names.
+            "{selected.stem}" isn't one of resume-tailor's auto-matched filenames — press d to describe what roles
+            it targets (e.g. "backend + cloud roles") so it still gets picked correctly, or see docs/SETUP.md for
+            the expected names.
           </Text>
         ) : null}
       </Box>
 
       {descPrompt ? (
         <Box marginTop={1} flexDirection="column">
-          <Text color={theme.accent}>What's this resume for? (optional — enter to convert)</Text>
+          <Text color={theme.accent}>
+            What roles is this resume best for?{" "}
+            {descMode === "convert" ? "(optional — enter to convert)" : "(optional — enter to save)"}
+          </Text>
+          <Text dimColor>e.g. "backend + cloud infra roles", "security / SOC internships"</Text>
           <InlineTextInput
             value={descValue}
             cursor={descCursor}
@@ -196,5 +237,5 @@ export function ResumesScreen({
   );
 }
 
-export const RESUMES_HINTS = "↑↓ move · o open folder · c convert";
-export const RESUMES_PROMPT_HINTS = "type · enter convert · esc cancel · backspace erase";
+export const RESUMES_HINTS = "↑↓ move · o open folder · c convert · d describe";
+export const RESUMES_PROMPT_HINTS = "type · enter confirm · esc cancel · backspace erase";

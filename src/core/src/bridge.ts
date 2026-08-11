@@ -9,7 +9,7 @@ import {
   readOnboardingCompleted,
   writeOnboardingCompleted,
 } from "./settings.js";
-import { runValidator, convertResumePdf, openPath, reopenApplicationFilled } from "./helpers.js";
+import { runValidator, convertResumePdf, setResumeDescription, openPath, reopenApplicationFilled } from "./helpers.js";
 import { LocalAdapter } from "./adapters/local.js";
 import { readSupabaseConfig } from "./supabaseConfig.js";
 import { detectAllHarnessesOnPath, readHarnessConfig, writeHarnessConfig, isKnownHarness } from "./harness.js";
@@ -219,6 +219,14 @@ async function dispatch(command: string, args: Args): Promise<unknown> {
       if (!stem) throw new Error("convertResume requires { stem }");
       const description = String(args.description ?? "");
       return convertResumePdf(root, stem, description);
+    }
+
+    case "setResumeDescription": {
+      const root = resolveRoot(args);
+      const stem = String(args.stem ?? "");
+      if (!stem) throw new Error("setResumeDescription requires { stem }");
+      const description = String(args.description ?? "");
+      return setResumeDescription(root, stem, description);
     }
 
     case "importResumeFile": {

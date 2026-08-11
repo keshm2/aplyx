@@ -1,0 +1,72 @@
+# Phase 17 first increment — hosted review_only pipeline. Claims queued
+# src/supabase hosted_runs rows (mode='review_only' only — see
+# src/worker/src/run.ts's own claim query, which enforces this in code,
+# not just here) and runs fetch -> canonicalize -> fit-gate -> tailor ->
+# review_queue for one signed-in hosted user per claimed row.
+#
+# Mirrors refresh-job-cache.yml's scheduled-worker + service-role-secret
+# pattern (see that file's own header for the fuller rationale on why a
+# scheduled GitHub Actions job, not a persistent server, is this
+# project's existing answer to "how does server-side compute run").
+# Needs three repository secrets: SUPABASE_URL, SUPABASE_SECRET_KEY (both
+# already provisioned for refresh-job-cache.yml — same project,
+# aplyx-users) and ANTHROPIC_API_KEY (new — billed per-token, never
+# printed, never written to a file, only ever passed as an env var to the
+# one process that needs it).
+#
+# Every 30 minutes, matching the local agent's own scheduler.sh cadence
+# (CLAUDE.md) — deliberately more frequent than refresh-job-cache.yml's
+# daily cron because an idle run here is cheap (claimNextReviewOnlyRun
+# does one SELECT and returns immediately when the queue is empty; the
+# expensive fetch/canonicalize/fit-gate/tailor work only happens once a
+# real hosted_runs row exists to process), unlike a job-cache refresh
+# which always does real work.
+name: hosted-worker
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch: {}
+
+# One worker process at a time — src/worker/src/run.ts's claim query
+# (a conditional UPDATE ... WHERE status='queued') only guarantees no
+# double-claim under single-worker concurrency; two overlapping runs
+# would need real row-locking this doesn't implement. cancel-in-progress
+# is false on purpose, same reasoning as refresh-job-cache.yml: an
+# in-flight run may be partway through writing a user's review_queue
+# rows, so a later scheduled fire should queue behind it, never kill it.
+concurrency:
+  group: hosted-worker
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  work:
+    runs-on: ubuntu-latest
+    # RUN_BUDGET_MS in run.ts caps a run's own claim loop at 20 minutes;
+    # 30 leaves real margin for the fetch/build steps around it without
+    # letting a genuinely hung run block the next scheduled fire for long.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Only pypdf, not the full requirements.txt — convert_resume.py is
+      # this run's one Python dependency; requirements.txt's other
+      # entries (Google Sheets sync, Playwright) are local-mode-only and
+      # would slow this job down for nothing it uses.
+      - run: pip install "pypdf>=5.0.0"
+      - run: npm ci
+      - run: npm run build:core
+      - run: npm run build --workspace=@aplyx/worker
+      - run: node src/worker/dist/run.js
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

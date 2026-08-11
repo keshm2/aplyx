@@ -4,7 +4,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { py } from "./platform.js";
 import { effectiveEnv, readTargetsArrayList } from "./settings.js";
-import { sortByPreferredThenPosted, titleMatchesQuery } from "./jobsSort.js";
+import { sortByPreferredThenPosted, titleMatchesQuery, dedupeKey } from "./jobsSort.js";
 import type { JobSource, SearchJob } from "./jobsSort.js";
 import { readJobCache, sharedCacheSlugs } from "./jobCache.js";
 
@@ -34,6 +34,18 @@ const FETCH_TIMEOUT_MS = 6_000;
 // the Node subprocess alive and the Rust caller blocked on it regardless
 // of this race "winning" on the JS side.
 const SOURCE_DEADLINE_MS = 2_200;
+// Amazon/Oracle/Workday/Muse pay for a python3 process spawn plus a live
+// network round trip on top of that — cost a fetch()-based source (Ashby/
+// Lever/Greenhouse/SmartRecruiters) never has. Measured live with this
+// file's own real args (LIVE_SOURCE_FETCH_LIMIT=75, --timeout 8): Oracle
+// and Workday alone routinely take ~2.4-2.9s, already past
+// SOURCE_DEADLINE_MS before adding this race's own ~150-450ms IPC
+// overhead — not the "occasional" slow case the shared 2.2s deadline was
+// tuned for, but nearly every run, so Oracle/Workday showed "timed out"
+// almost always instead of actually finishing. These four get their own,
+// more generous deadline instead of racing against the tighter budget
+// meant for the cheaper in-process sources.
+const PYTHON_SOURCE_DEADLINE_MS = 5_000;
 
 /** Races a source fetch against a hard deadline; a slow/hung source
  *  degrades to a "timed out" warning instead of blocking the rest of the
@@ -45,13 +57,14 @@ const SOURCE_DEADLINE_MS = 2_200;
 function withDeadline(
   promise: Promise<{ jobs: SearchJob[]; source: SourceResult }>,
   label: string,
+  deadlineMs: number = SOURCE_DEADLINE_MS,
 ): Promise<{ jobs: SearchJob[]; source: SourceResult }> {
   return Promise.race([
     promise,
     new Promise<{ jobs: SearchJob[]; source: SourceResult }>((resolve) => {
       const timer = setTimeout(
         () => resolve({ jobs: [], source: { state: "warning", count: 0, detail: `${label} timed out` } }),
-        SOURCE_DEADLINE_MS,
+        deadlineMs,
       );
       timer.unref?.();
     }),
@@ -81,7 +94,7 @@ function withDeadline(
 // — it DOES mean a bigger live query for Amazon/Oracle/Workday, which
 // take this same number as their own fetch limit (see fetchAmazon/
 // fetchOracle/fetchWorkday below), bounded by each source's own
-// SOURCE_DEADLINE_MS regardless. 2000 is a safety ceiling against
+// PYTHON_SOURCE_DEADLINE_MS regardless. 2000 is a safety ceiling against
 // truly pathological cases (a one-word query against many configured
 // companies), not a value real usage should often reach.
 export const MIN_PAGE_SIZE = 10;
@@ -92,8 +105,8 @@ export const DEFAULT_PAGE_SIZE = 500;
 // "how many jobs" limits — found live, right after the DEFAULT_PAGE_SIZE
 // bump: fetchAmazon/fetchOracle/fetchWorkday take pageSize as their own
 // `--limit` argument to the live Python fetch, and asking Amazon/Oracle
-// for 500 within the same fixed SOURCE_DEADLINE_MS (2.2s) regularly blew
-// the deadline and turned a working source into "timed out, 0 results" —
+// for 500 within a fixed deadline regularly blew it and turned a working
+// source into "timed out, 0 results" —
 // a regression, not an improvement. pageSize governs how much of an
 // already-fetched-and-matched batch searchJobs() keeps (free to raise —
 // see its own comment); this governs how much these three specifically
@@ -152,6 +165,7 @@ export interface Targets {
   lever_company_slugs?: string[];
   greenhouse_company_slugs?: string[];
   smartrecruiters_company_slugs?: string[];
+  workable_company_slugs?: string[];
   preferred_locations?: string[];
 }
 
@@ -368,6 +382,46 @@ export async function fetchSmartRecruiters(slugs: string[], query: string): Prom
   return { jobs, source: sourceSummary(slugs.length, failedSlugs, jobs.length) };
 }
 
+async function fetchWorkableCompany(slug: string): Promise<SearchJob[]> {
+  // No pagination, no server-side query param on this endpoint (confirmed
+  // live 2026-08-10) — one GET returns a company's whole open-postings
+  // list, jd_text included, so title filtering happens client-side same
+  // as Amazon/Muse's own title match downstream in searchJobs().
+  const payload = (await fetchJson(
+    `https://apply.workable.com/api/v1/widget/accounts/${encodeURIComponent(slug)}?details=true`,
+  )) as { name?: string; jobs?: Array<Record<string, unknown>> };
+  const company = displayText(payload.name) || slug;
+  return (payload.jobs ?? []).flatMap((job): SearchJob[] => {
+    const title = displayText(job.title);
+    const url = webUrl(job.url ?? job.shortlink);
+    const externalId = displayText(job.shortcode);
+    if (!title || !url || !externalId) return [];
+    const locations = (job.locations as Array<Record<string, unknown>> | undefined) ?? [];
+    const loc = locations[0] ?? {};
+    const locationParts = [loc.city, loc.region, loc.country].map((v) => displayText(v)).filter(Boolean);
+    return [{
+      source: "workable",
+      company,
+      title,
+      url,
+      apply_url: webUrl(job.application_url) || undefined,
+      external_job_id: externalId,
+      location: locationParts.join(", ") || undefined,
+      // Full JD text ships in the list response (confirmed live) — no
+      // separate detail fetch needed, same as Amazon/Muse.
+      jd_text: String(job.description ?? "").replace(/<[^>]+>/g, " ").trim() || undefined,
+      posted_at: isoOrUndefined(job.published_on),
+    }];
+  });
+}
+
+export async function fetchWorkable(slugs: string[]): Promise<{ jobs: SearchJob[]; source: SourceResult }> {
+  const results = await Promise.allSettled(slugs.map((slug) => fetchWorkableCompany(slug)));
+  const jobs = results.flatMap((result) => (result.status === "fulfilled" ? result.value : []));
+  const failedSlugs = slugs.filter((_, i) => results[i].status === "rejected");
+  return { jobs, source: sourceSummary(slugs.length, failedSlugs, jobs.length) };
+}
+
 async function runJson(root: string, command: string, args: string[]): Promise<unknown> {
   const { stdout } = await execFileAsync(command, args, {
     cwd: root,
@@ -467,6 +521,39 @@ async function fetchOracle(root: string, query: string, pageSize: number): Promi
       jobs,
       source: skipped
         ? { state: "skipped", count: 0, detail: "not configured" }
+        : { state: "ready", count: jobs.length },
+    };
+  } catch (err) {
+    return { jobs: [], source: { state: "warning", count: 0, detail: errorMessage(err) } };
+  }
+}
+
+/** The Muse is an aggregator across many employers/ATSes, not a single
+ *  company — but like Amazon it has no per-company config to check for
+ *  "not configured", so a failed fetch is always a warning, never a
+ *  clean skip. */
+async function fetchMuse(root: string, query: string, pageSize: number): Promise<{ jobs: SearchJob[]; source: SourceResult }> {
+  try {
+    const muse = py(["src/scripts/jobs/fetch_muse_listings.py", "--search", query, "--limit", String(pageSize), "--timeout", "8"]);
+    const { stdout, stderr } = await execFileAsync(
+      muse.cmd,
+      muse.args,
+      { cwd: root, encoding: "utf8", maxBuffer: 10 * 1024 * 1024, timeout: 60_000 },
+    );
+    const jobs = stdout.split("\n").filter(Boolean).map((line) => JSON.parse(line) as SearchJob)
+      .map((job) => ({
+        ...job,
+        company: displayText(job.company),
+        title: displayText(job.title),
+        url: webUrl(job.url),
+        location: displayText(job.location) || undefined,
+      }))
+      .filter((job) => job.company && job.title && job.url);
+    const failed = /failed=true/.test(stderr);
+    return {
+      jobs,
+      source: failed && jobs.length === 0
+        ? { state: "warning", count: 0, detail: errorMessage(new Error(stderr.trim() || "fetch failed")) }
         : { state: "ready", count: jobs.length },
     };
   } catch (err) {
@@ -577,19 +664,36 @@ export async function searchJobs(
   const leverSlugs = isOn("lever") ? configured(targets.lever_company_slugs) : [];
   const greenhouseSlugs = isOn("greenhouse") ? configured(targets.greenhouse_company_slugs) : [];
   const smartrecruitersSlugs = isOn("smartrecruiters") ? configured(targets.smartrecruiters_company_slugs) : [];
-  const [ashby, lever, greenhouse, smartrecruiters, amazon, oracle, workday] = await Promise.all([
+  const workableSlugs = isOn("workable") ? configured(targets.workable_company_slugs) : [];
+  const [ashby, lever, greenhouse, smartrecruiters, workable, amazon, oracle, workday, muse] = await Promise.all([
     maybeCached(root, "ashbyhq", ashbySlugs, "Ashby", query, (slugs) => fetchAshby(slugs)),
     maybeCached(root, "lever", leverSlugs, "Lever", query, (slugs) => fetchLever(slugs)),
     maybeCached(root, "greenhouse", greenhouseSlugs, "Greenhouse", query, (slugs) => fetchGreenhouse(slugs)),
     maybeCached(root, "smartrecruiters", smartrecruitersSlugs, "SmartRecruiters", query, (slugs) => fetchSmartRecruiters(slugs, query)),
-    isOn("amazon") ? withDeadline(fetchAmazon(root, query, LIVE_SOURCE_FETCH_LIMIT), "Amazon") : Promise.resolve({ jobs: [], source: DISABLED_SOURCE }),
-    isOn("oracle") ? withDeadline(fetchOracle(root, query, LIVE_SOURCE_FETCH_LIMIT), "Oracle") : Promise.resolve({ jobs: [], source: DISABLED_SOURCE }),
-    isOn("workday") ? withDeadline(fetchWorkday(root, query, LIVE_SOURCE_FETCH_LIMIT), "Workday") : Promise.resolve({ jobs: [], source: DISABLED_SOURCE }),
+    // Not wired into the shared job_cache system (unlike the four above)
+    // — Workable was only just added (2026-08-10) and job_cache_targets.json/
+    // refreshJobCache.ts don't populate it yet. Plain withDeadline, same
+    // short fetch()-based-source budget as the cached sources get for
+    // their own live fallback (SOURCE_DEADLINE_MS, the default — this is
+    // one GET per company, no pagination, not a Python subprocess).
+    withDeadline(fetchWorkable(workableSlugs), "Workable"),
+    isOn("amazon") ? withDeadline(fetchAmazon(root, query, LIVE_SOURCE_FETCH_LIMIT), "Amazon", PYTHON_SOURCE_DEADLINE_MS) : Promise.resolve({ jobs: [], source: DISABLED_SOURCE }),
+    isOn("oracle") ? withDeadline(fetchOracle(root, query, LIVE_SOURCE_FETCH_LIMIT), "Oracle", PYTHON_SOURCE_DEADLINE_MS) : Promise.resolve({ jobs: [], source: DISABLED_SOURCE }),
+    isOn("workday") ? withDeadline(fetchWorkday(root, query, LIVE_SOURCE_FETCH_LIMIT), "Workday", PYTHON_SOURCE_DEADLINE_MS) : Promise.resolve({ jobs: [], source: DISABLED_SOURCE }),
+    isOn("muse") ? withDeadline(fetchMuse(root, query, LIVE_SOURCE_FETCH_LIMIT), "The Muse", PYTHON_SOURCE_DEADLINE_MS) : Promise.resolve({ jobs: [], source: DISABLED_SOURCE }),
   ]);
+  // Keyed on a normalized (company, title, location) triple, not job.url —
+  // aggregators (The Muse here; Simplify/vanshb03 further upstream via
+  // the shared job cache) link their own landing/tracking page rather
+  // than the employer's real ATS URL, so the same real posting reached
+  // through two different sources used to show up twice. See dedupeKey's
+  // own doc comment for exactly what "normalized" means and why it's
+  // exact-match, not fuzzy.
   const seen = new Set<string>();
-  const deduped = [...ashby.jobs, ...lever.jobs, ...greenhouse.jobs, ...smartrecruiters.jobs, ...amazon.jobs, ...oracle.jobs, ...workday.jobs].filter((job) => {
-    if (seen.has(job.url)) return false;
-    seen.add(job.url);
+  const deduped = [...ashby.jobs, ...lever.jobs, ...greenhouse.jobs, ...smartrecruiters.jobs, ...workable.jobs, ...amazon.jobs, ...oracle.jobs, ...workday.jobs, ...muse.jobs].filter((job) => {
+    const key = dedupeKey(job);
+    if (seen.has(key)) return false;
+    seen.add(key);
     return true;
   });
   // Cut stale postings — old listings that are probably already filled or
@@ -629,9 +733,11 @@ export async function searchJobs(
       lever: withMatchedCount(lever.source, "lever"),
       greenhouse: withMatchedCount(greenhouse.source, "greenhouse"),
       smartrecruiters: withMatchedCount(smartrecruiters.source, "smartrecruiters"),
+      workable: withMatchedCount(workable.source, "workable"),
       amazon: withMatchedCount(amazon.source, "amazon"),
       oracle: withMatchedCount(oracle.source, "oracle"),
       workday: withMatchedCount(workday.source, "workday"),
+      muse: withMatchedCount(muse.source, "muse"),
     },
   };
 }

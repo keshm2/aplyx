@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """seed_vetted_slugs.py — vetted slug auto-seeding (Phase 6, extended Phase 16B).
 
-Seeds the Ashby / Lever / Greenhouse / SmartRecruiters company-slug
-arrays in src/config/targets.json from the project-owned vetted lists
-(src/config/ashby_vetted_slugs.json, src/config/lever_vetted_slugs.json,
-config/greenhouse_vetted_slugs.json, src/config/smartrecruiters_vetted_slugs.json)
+Seeds the Ashby / Lever / Greenhouse / SmartRecruiters / Workable /
+JazzHR company-slug arrays in src/config/targets.json from the
+project-owned vetted lists (src/config/ashby_vetted_slugs.json,
+src/config/lever_vetted_slugs.json, config/greenhouse_vetted_slugs.json,
+src/config/smartrecruiters_vetted_slugs.json,
+src/config/workable_vetted_slugs.json, src/config/jazzhr_vetted_slugs.json)
 so a fresh clone has real board coverage on the first run.
 
 Seeding rules (per slug array, independently):
@@ -53,6 +55,8 @@ SOURCES = {
     "lever_company_slugs": "lever_vetted_slugs.json",
     "greenhouse_company_slugs": "greenhouse_vetted_slugs.json",
     "smartrecruiters_company_slugs": "smartrecruiters_vetted_slugs.json",
+    "workable_company_slugs": "workable_vetted_slugs.json",
+    "jazzhr_company_slugs": "jazzhr_vetted_slugs.json",
 }
 
 
@@ -118,7 +122,7 @@ def atomic_write_json(path: str, data: dict) -> None:
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         prog="seed_vetted_slugs.py",
-        description="Seed placeholder Ashby/Lever/Greenhouse/SmartRecruiters slug arrays from vetted lists (Phase 6/16B).",
+        description="Seed placeholder Ashby/Lever/Greenhouse/SmartRecruiters/Workable/JazzHR slug arrays from vetted lists (Phase 6/16B).",
     )
     parser.add_argument("--targets", default=DEFAULT_TARGETS)
     args = parser.parse_args(argv)

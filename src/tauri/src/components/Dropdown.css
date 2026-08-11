@@ -1,0 +1,130 @@
+/* Custom listbox (button trigger + animated popover panel) — replaces a
+ * wrapping grid of toggle buttons for pickers with too many options to
+ * compare at a glance (Settings' Theme family / Font, 6 options each).
+ * Same mount-once/outside-click/Escape/reduced-motion mechanics as
+ * NotificationBell's dropdown (components/NotificationBell.css) — one
+ * visual language for "a button opens a floating panel" across the app. */
+
+.dropdown-root {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+}
+
+.dropdown-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-align: left;
+  transition: border-color var(--duration-quick) var(--ease-snap), background-color var(--duration-quick) var(--ease-snap);
+}
+
+.dropdown-trigger:hover {
+  border-color: var(--accent);
+}
+
+.dropdown-trigger[aria-expanded="true"] {
+  border-color: var(--accent);
+  background: var(--accent-tint-bg);
+}
+
+.dropdown-chevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: transform var(--duration-quick) var(--ease-snap);
+}
+
+.dropdown-trigger[aria-expanded="true"] .dropdown-chevron {
+  transform: rotate(180deg);
+}
+
+/* Kept mounted after first open (see Dropdown.tsx's `everOpened`) so
+ * closing plays a real exit transition instead of just vanishing —
+ * identical technique to .notif-dropdown / .notif-dropdown-open. */
+.dropdown-panel {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  left: 0;
+  right: 0;
+  min-width: 12rem;
+  max-height: 18rem;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lift);
+  padding: var(--space-1);
+  z-index: 40;
+  transform-origin: top;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-0.4rem) scale(0.96);
+  transition:
+    opacity var(--duration-normal) var(--ease-out),
+    transform var(--duration-normal) var(--ease-out),
+    visibility 0s linear var(--duration-normal);
+}
+
+.dropdown-panel-open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+  transition:
+    opacity var(--duration-normal) var(--ease-out),
+    transform var(--duration-normal) var(--ease-out),
+    visibility 0s linear 0s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dropdown-panel,
+  .dropdown-panel-open {
+    transform: none;
+    transition: opacity var(--duration-quick) linear, visibility 0s linear;
+  }
+  .dropdown-trigger[aria-expanded="true"] .dropdown-chevron {
+    transition: none;
+  }
+}
+
+.dropdown-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  text-align: left;
+  transition: background-color var(--duration-quick) var(--ease-out);
+}
+
+.dropdown-option:hover {
+  background: var(--ground);
+}
+
+.dropdown-option.selected {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.dropdown-check {
+  flex-shrink: 0;
+  color: var(--accent-strong);
+}

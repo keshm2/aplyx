@@ -14,6 +14,7 @@ import {
   type ThemeFamily,
   type ThemePref,
 } from "../../lib/uiPrefs";
+import { Dropdown } from "../../components/Dropdown";
 import "../../components/formFields.css";
 
 const THEME_OPTIONS: { value: ThemePref; label: string; detail: string }[] = [
@@ -28,9 +29,11 @@ const THEME_FAMILY_OPTIONS: { value: ThemeFamily; detail: string }[] = [
   { value: "legacy", detail: "The original warm beige + violet/plum look" },
   { value: "graphite", detail: "Darker, more technical, ops-console feeling" },
   { value: "ember", detail: "Warm and inviting — burnt orange-red on cream, glowing amber in dark mode" },
+  { value: "volt", detail: "Bright true green on true black — dark mode is the point; light mode is the compromise" },
 ];
 
 const FONT_OPTIONS: { value: FontPref; detail: string }[] = [
+  { value: "manrope", detail: "Bundled Manrope + Inter — the default; Supabase's own display + body pairing" },
   { value: "system", detail: "Your OS's native UI font" },
   { value: "geist", detail: "Bundled Geist + Geist Mono — modern, technical-product feel" },
   { value: "inter", detail: "Bundled Inter — strong for dense, tabular product UI" },
@@ -116,19 +119,12 @@ export function SettingsScreen() {
         <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
           <div className="field">
             <span className="field-label">Theme family</span>
-            <div className="yesno-toggle" role="group" aria-label="Theme family">
-              {THEME_FAMILY_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  className={themeFamily === opt.value ? "selected" : ""}
-                  title={opt.detail}
-                  onClick={() => setThemeFamily(opt.value)}
-                >
-                  {THEME_FAMILY_LABELS[opt.value]}
-                </button>
-              ))}
-            </div>
+            <Dropdown
+              value={themeFamily}
+              onChange={setThemeFamily}
+              label="Theme family"
+              options={THEME_FAMILY_OPTIONS.map((opt) => ({ value: opt.value, label: THEME_FAMILY_LABELS[opt.value] }))}
+            />
             <p className="field-help">
               {THEME_FAMILY_OPTIONS.find((o) => o.value === themeFamily)?.detail}
             </p>
@@ -155,19 +151,12 @@ export function SettingsScreen() {
           </div>
           <div className="field">
             <span className="field-label">Font</span>
-            <div className="yesno-toggle" role="group" aria-label="Font">
-              {FONT_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  className={font === opt.value ? "selected" : ""}
-                  title={opt.detail}
-                  onClick={() => setFont(opt.value)}
-                >
-                  {FONT_LABELS[opt.value]}
-                </button>
-              ))}
-            </div>
+            <Dropdown
+              value={font}
+              onChange={setFont}
+              label="Font"
+              options={FONT_OPTIONS.map((opt) => ({ value: opt.value, label: FONT_LABELS[opt.value] }))}
+            />
             <p className="field-help">
               {FONT_OPTIONS.find((o) => o.value === font)?.detail} Bundled fonts apply to the
               whole interface, including headlines and code — no download, works offline.

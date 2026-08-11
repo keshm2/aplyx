@@ -72,8 +72,18 @@
               <button class="os-tab" type="button" data-os-tab="npm" role="tab" aria-selected="false">npm</button>
             </div>
 
+            <div class="os-panels">
             <div class="os-panel is-active" data-os-panel="mac">
               <div class="code-block">
+                <button class="copy-button" type="button" data-copy-button aria-label="Copy to clipboard">
+                  <svg class="icon-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="9" y="9" width="13" height="13" rx="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                  </svg>
+                  <svg class="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M20 6 9 17l-5-5" />
+                  </svg>
+                </button>
                 <pre>curl -fsSL https://raw.githubusercontent.com/keshm2/aplyx/main/src/scripts/install/install.sh | bash</pre>
               </div>
               <p>Installs to <code>~/aplyx</code> (override with <code>APLYX_HOME</code>). Detects your coding agent, walks you through your profile (kept local-only), and offers the optional desktop app.</p>
@@ -81,6 +91,15 @@
 
             <div class="os-panel" data-os-panel="win">
               <div class="code-block">
+                <button class="copy-button" type="button" data-copy-button aria-label="Copy to clipboard">
+                  <svg class="icon-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="9" y="9" width="13" height="13" rx="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                  </svg>
+                  <svg class="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M20 6 9 17l-5-5" />
+                  </svg>
+                </button>
                 <pre>irm https://raw.githubusercontent.com/keshm2/aplyx/main/src/scripts/install/install.ps1 | iex</pre>
               </div>
               <p>Run in PowerShell. Installs to <code>%USERPROFILE%\aplyx</code> (override with <code>APLYX_HOME</code>).</p>
@@ -88,10 +107,20 @@
 
             <div class="os-panel" data-os-panel="npm">
               <div class="code-block">
+                <button class="copy-button" type="button" data-copy-button aria-label="Copy to clipboard">
+                  <svg class="icon-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="9" y="9" width="13" height="13" rx="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                  </svg>
+                  <svg class="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M20 6 9 17l-5-5" />
+                  </svg>
+                </button>
                 <pre>npm install -g @keshm/aplyx
 aplyx</pre>
               </div>
               <p>If you'd rather go through npm directly. Same installer runs underneath either way.</p>
+            </div>
             </div>
           </div>
 

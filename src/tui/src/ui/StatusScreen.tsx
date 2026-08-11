@@ -109,22 +109,23 @@ export function StatusScreen({
         </Box>
       </Box>
 
-      {/* Scheduler heartbeat */}
+      {/* Scheduler heartbeat — Health reuses Stat (rather than its own
+       *  hand-rolled padEnd + Text bold) so its label column and value
+       *  weight line up exactly with Outcomes/Pipeline above instead of
+       *  being a one-off that happens to look similar. */}
       {heartbeat ? (
         <Box marginTop={1} flexDirection="column">
           <Text dimColor>Scheduler</Text>
-          <Box marginTop={1}>
-            <Text dimColor>{"Health".padEnd(13)}</Text>
-            {healthy ? (
-              <Text bold color={theme.good}>
-                {statusGlyph.applied} healthy
-              </Text>
-            ) : (
-              <Text bold color={theme.danger}>
-                {statusGlyph.failed} exit {heartbeat.last_run_exit_code} ·{" "}
-                {heartbeat.consecutive_nonzero_exits} consecutive
-              </Text>
-            )}
+          <Box flexDirection="column" marginTop={1}>
+            <Stat
+              label="Health"
+              value={
+                healthy
+                  ? `${statusGlyph.applied} healthy`
+                  : `${statusGlyph.failed} exit ${heartbeat.last_run_exit_code} · ${heartbeat.consecutive_nonzero_exits} consecutive`
+              }
+              color={healthy ? theme.good : theme.danger}
+            />
           </Box>
           <Text dimColor>run #{heartbeat.run_counter} at {heartbeat.last_run_completed_at}</Text>
         </Box>

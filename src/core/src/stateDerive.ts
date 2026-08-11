@@ -39,8 +39,29 @@ export interface AppliedJob {
   /** Path to the data/fill_records/<job_id>.json record written by
    *  src/scripts/state/record_fill.py — the durable, field-by-field snapshot of
    *  what was actually typed/attached. Absent when no field was ever filled
-   *  for this job (e.g. Workday, or a pre-tailoring reject). */
+   *  for this job (e.g. Workday, or a pre-tailoring reject). Local-mode
+   *  only — a hosted row can't point at a path on someone's laptop, see
+   *  fill_record below. */
   fill_record_path?: string;
+  /** Hosted-mode counterpart to fill_record_path: the fill record's actual
+   *  CONTENT (same shape record_fill.py writes to
+   *  data/fill_records/<job_id>.json — {job_id, recorded_at, fields}),
+   *  not a filesystem path. Populated by SupabaseAdapter, never by
+   *  LocalAdapter (which keeps using fill_record_path). */
+  fill_record?: FillRecord;
+}
+
+export interface FillRecordField {
+  field_name: string;
+  filled_value: string;
+  source: string;
+  verified: boolean;
+}
+
+export interface FillRecord {
+  job_id: string;
+  recorded_at: string;
+  fields: FillRecordField[];
 }
 
 export interface QueueEntry extends Omit<AppliedJob, "status"> {

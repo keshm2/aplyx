@@ -71,7 +71,8 @@
     "smartrecruiters",
     "amazon",
     "apple",
-    "stripe"
+    "stripe",
+    "muse"
   ],
   "ashby_company_slugs": [
     "REPLACE_ME"
@@ -83,6 +84,12 @@
     "REPLACE_ME"
   ],
   "smartrecruiters_company_slugs": [
+    "REPLACE_ME"
+  ],
+  "workable_company_slugs": [
+    "REPLACE_ME"
+  ],
+  "jazzhr_company_slugs": [
     "REPLACE_ME"
   ],
   "gem_company_slugs": [
@@ -130,8 +137,10 @@
     "lever_company_slugs": "Company slugs (from a Lever job-board URL, e.g. jobs.lever.co/<slug>) to scrape directly via the Lever API.",
     "greenhouse_company_slugs": "Company slugs (from a Greenhouse job-board URL, e.g. boards.greenhouse.io/<slug>) to scrape directly via the Greenhouse jobs API.",
     "smartrecruiters_company_slugs": "Company identifiers (from a SmartRecruiters careers URL, e.g. jobs.smartrecruiters.com/<identifier>) to scrape directly via the public SmartRecruiters Postings API.",
+    "workable_company_slugs": "Company account slugs (from a live Workable posting URL, e.g. apply.workable.com/<slug>/j/...) to scrape directly via Workable's public widget API. Never guess a slug from a company's public name — confirmed live 2026-08-10 that guessed name-based slugs 404 or return a permanently empty jobs array; find the real slug from an actual live posting URL. Verified live examples (2026-08-10): tarte-inc, quickrelease, powerlines.",
+    "jazzhr_company_slugs": "Company account subdomains (from a live JazzHR posting URL, e.g. <slug>.applytojob.com/apply/jobs/details/...) to scrape via HTML parsing — JazzHR has no public API. Same never-guess-a-slug rule as Workable. Verified live examples (2026-08-10): empowerproject, ilsos.",
     "gem_company_slugs": "Company slugs (from a Gem job-board URL, e.g. jobs.gem.com/<slug>) to scrape directly via Gem's public GraphQL batch API (jobs.gem.com/api/public/graphql/batch — a real, unauthenticated, public endpoint, confirmed live 2026-07-26).",
-    "simplify_feeds": "Named SimplifyJobs GitHub listing feeds to pull from — see docs/SETUP.md for the supported feed names.",
+    "simplify_feeds": "Named community listing-tracker feeds to pull from — see src/scripts/jobs/fetch_simplify_listings.py's FEEDS dict for the exhaustive, current list. As of Phase 16B: \"summer_internships\", \"new_grad\" (SimplifyJobs), \"vanshb03_summer_internships\", \"vanshb03_new_grad\" (vanshb03 — a separately-scraped sibling tracker sharing the same schema, real incremental coverage, not a duplicate).",
     "workday_tenants": "Workday tenant identifiers (\"<host>/<site>\") to scrape in review-only mode — see docs/SETUP.md for how to find a tenant string. Verified live examples (2026-07-25): salesforce.wd12.myworkdayjobs.com/External_Career_Site, nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite.",
     "workday_prefill_for_review": "Reserved for a future phase (16D+) that would pre-fill Workday review-queue entries the same way other needs_review applications are pre-filled (see AGENTS.md \"Fill records\"), while still never auto-submitting. Currently has no effect — Workday jobs never reach the fill step at all (Phase 2 step 0 routes them straight to needs_review), so this flag is a documented no-op until that phase ships. Leave false.",
     "oracle_tenants": "Oracle Recruiting Cloud tenant identifiers (\"<host>/<siteNumber>\", e.g. eeho.fa.us2.oraclecloud.com/CX_45001 for Oracle's own careers site) to scrape directly via the public Fusion HCM REST API — see docs/SETUP.md. Verified live examples (2026-07-25): egug.fa.us2.oraclecloud.com/CX_1 (American Express), jpmc.fa.oraclecloud.com/CX_1001 (JPMorgan Chase).",
