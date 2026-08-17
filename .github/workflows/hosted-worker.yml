@@ -23,8 +23,12 @@
 # which always does real work.
 name: hosted-worker
 on:
-  schedule:
-    - cron: "*/30 * * * *"
+  # Schedule paused (2026-08-16) while the auto-apply/apply-flow findings
+  # from the repo audit are being worked through — see docs/PLAN.md.
+  # Uncomment to resume the 30-minute cadence; workflow_dispatch still
+  # allows a manual run in the meantime.
+  # schedule:
+  #   - cron: "*/30 * * * *"
   workflow_dispatch: {}
 
 # One worker process at a time — src/worker/src/run.ts's claim query
