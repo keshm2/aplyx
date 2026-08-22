@@ -35,13 +35,14 @@ export function SkeletonRows({ count = 4 }: { count?: number }) {
   );
 }
 
-/** Stand-in for Home's three `.home-stat-card`s while the local install's
- *  state is still loading. */
-export function SkeletonStatCards() {
+/** Stand-in for a `.stat-cards` row (Home's 3, Status's 4) while state is
+ *  still loading. `count` matches whichever screen is rendering it so the
+ *  skeleton doesn't jump in card count once real data arrives. */
+export function SkeletonStatCards({ count = 3 }: { count?: number }) {
   return (
-    <div className="home-stats" aria-hidden="true">
-      {[0, 1, 2].map((i) => (
-        <div key={i} className="home-stat-card skeleton-row">
+    <div className="stat-cards" aria-hidden="true">
+      {Array.from({ length: count }, (_, i) => (
+        <div key={i} className="stat-card skeleton-row">
           <span className="skeleton skeleton-line" style={{ width: "2.5rem", height: "1.8rem" }} />
           <span className="skeleton skeleton-line skeleton-line-sm" style={{ width: "70%" }} />
         </div>

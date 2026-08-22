@@ -149,6 +149,20 @@ const SECTIONS: Section[] = [
       { kind: "personal", key: "ethnicity", label: "Ethnicity", explain: "Optional EEO demographic question some applications ask." },
       { kind: "personal", key: "hispanic_or_latino", label: "Hispanic/Latino", explain: "Optional EEO demographic question some applications ask." },
       { kind: "personal", key: "date_of_birth", label: "Date of birth", explain: "Only used where an application form explicitly requires it." },
+      {
+        kind: "personal",
+        key: "veteran_status",
+        label: "Veteran status",
+        explain:
+          'EEO demographic question many applications ask; onboarding requires an answer. Type "not_veteran", "veteran", or "decline" — aplyx never invents an answer.',
+      },
+      {
+        kind: "personal",
+        key: "disability_status",
+        label: "Disability status",
+        explain:
+          'EEO demographic question many applications ask; onboarding requires an answer. Type "no", "yes", or "decline" — aplyx never invents an answer.',
+      },
       { kind: "personal", key: "graduation_date", label: "Graduation", explain: "Graduation date (Month Year) — forms and the fit gate both use it." },
     ],
   },

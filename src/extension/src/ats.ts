@@ -86,10 +86,15 @@ export function extractJob(ats: AtsName, doc: Document, url: URL): ExtractedJob 
 export type FieldKey =
   | "first_name"
   | "last_name"
+  | "preferred_name"
   | "email"
   | "phone"
   | "linkedin_url"
   | "github_url"
+  | "location"
+  | "zip_code"
+  | "address_line1"
+  | "address_line2"
   | "graduation_date"
   | "gpa"
   | "authorized_to_work"
@@ -99,8 +104,13 @@ export type FieldKey =
   | "full_name";
 
 /** Ordered — the first matching pattern wins, so put the most specific
- *  patterns (e.g. workday data-automation ids) before generic words. */
+ *  patterns (e.g. workday data-automation ids) before generic words.
+ *  preferred_name/address_line2 are deliberately positioned before their
+ *  broader first_name/address_line1 siblings — "preferred name" contains
+ *  "name" and "address line 2" contains "address line", so the more
+ *  specific pattern has to be checked first or it would never win. */
 const FIELD_PATTERNS: Array<[FieldKey, RegExp]> = [
+  ["preferred_name", /preferred[\s_-]*name|nickname|goes[\s_-]*by/i],
   ["first_name", /legalNameSection_firstName|first[\s_-]*name|given[\s_-]*name/i],
   ["last_name", /legalNameSection_lastName|last[\s_-]*name|family[\s_-]*name|surname/i],
   ["full_name", /^(your\s*)?(full\s*)?name$|candidate[\s_-]*name|_systemfield_name/i],
@@ -108,6 +118,10 @@ const FIELD_PATTERNS: Array<[FieldKey, RegExp]> = [
   ["phone", /phone|mobile/i],
   ["linkedin_url", /linked\s*-?in/i],
   ["github_url", /git\s*hub/i],
+  ["zip_code", /zip[\s_-]*code|postal[\s_-]*code/i],
+  ["address_line2", /address[\s_-]*(line)?[\s_-]*2|apt|suite|unit\b/i],
+  ["address_line1", /address[\s_-]*(line)?[\s_-]*1|street[\s_-]*address|^address$/i],
+  ["location", /^(city|location)$|city\s*\/\s*state|current[\s_-]*location/i],
   ["graduation_date", /graduat/i],
   ["gpa", /\bgpa\b|grade\s*point/i],
   ["require_sponsorship", /sponsorship|sponsor\s*(a|an|my)?\s*(visa|employment)/i],

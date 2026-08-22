@@ -9,14 +9,25 @@
   "permission": {
     "edit": "allow",
     "bash": { "*": "allow" },
-    "external_directory": { "*": "ask" }
+    // "ask" auto-rejects with no chance to recover in headless/scheduled
+    // runs (no TTY to prompt) — repeatedly killed real runs mid-phase
+    // whenever the agent reached for a path outside the project (e.g. a
+    // /tmp/ scratch file while checking a fetched page), losing whatever
+    // job was in progress. bash is already "*": "allow" above, i.e.
+    // already unrestricted read/write to anything this OS user can touch
+    // via `cat`/`cp`/`mv`/etc. — "ask" here only ever gated the native
+    // file-read/write tools taking the same path politely, not a real
+    // security boundary bash didn't already remove. "allow" makes this
+    // consistent with that instead of leaving a friction point that
+    // silently kills unattended runs.
+    "external_directory": { "*": "allow" }
   },
-  "model": "opencode-go/qwen3.7-plus",
+  "model": "opencode-go/minimax-m3",
   "agent": {
     "job-scraper": {  
-      "model": "opencode-go/qwen3.7-plus"
+      "model": "opencode-go/minimax-m3"
     }
-  },
+  }, 
   "mcp": {
     "playwright": {
       "type": "local",

@@ -12,11 +12,7 @@ export function ImportOrFreshStep({
 }: {
   client: SupabaseClient;
   userId: string;
-  // alreadySetUp: true when the local install being imported from had
-  // already completed its own setup — lets the wizard skip straight to
-  // finish instead of marching this user through Profile/Resume again for
-  // data it just copied over.
-  onDone: (alreadySetUp: boolean) => void;
+  onDone: () => void;
 }) {
   const [hasLocal, setHasLocal] = useState<boolean | undefined>(undefined);
   const [importing, setImporting] = useState(false);
@@ -36,8 +32,8 @@ export function ImportOrFreshStep({
         const value = await readProfileField(root, id);
         await adapter.writeProfileField(id, value);
       }
-      const alreadySetUp = await readOnboardingCompleted(root);
-      onDone(alreadySetUp);
+      await readOnboardingCompleted(root);
+      onDone();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -61,7 +57,7 @@ export function ImportOrFreshStep({
           </div>
         </button>
       )}
-      <button type="button" className="option-card" onClick={() => onDone(false)}>
+        <button type="button" className="option-card" onClick={() => onDone()}>
         <div>
           <div className="option-card-title">Start fresh</div>
           <div className="option-card-detail">Fill in your profile from scratch.</div>

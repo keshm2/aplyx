@@ -41,7 +41,7 @@ export function EntryScreen() {
   if (status === "checking" || status === "signed-in") {
     return (
       <main className="entry">
-        <div className="entry-content">
+        <div className="entry-content entry-content-loading">
           <Logo size={40} />
         </div>
       </main>
@@ -66,14 +66,14 @@ export function EntryScreen() {
             <span className="entry-card-eyebrow">No account needed</span>
             <h2>Run locally</h2>
             <p>Your data stays on this machine. Nothing leaves your computer.</p>
-            <span className="entry-card-cta">{checkingLocal ? "Checking…" : "Get started →"}</span>
+            <span className="entry-card-cta">{checkingLocal ? "Checking…" : "Get started"}</span>
           </button>
 
           <button className="entry-card" onClick={() => navigate("/auth")}>
             <span className="entry-card-eyebrow">Sync across devices</span>
             <h2>Sign in</h2>
             <p>Email and password, or continue with Google. Your history follows you.</p>
-            <span className="entry-card-cta">Sign in &rarr;</span>
+            <span className="entry-card-cta">Sign in</span>
           </button>
         </div>
 

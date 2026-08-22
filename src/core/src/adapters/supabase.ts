@@ -1,10 +1,109 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Adapter, FieldValue } from "../adapter.js";
-import type { AplyxState, AppliedJob, QueueEntry, RegistryRecord } from "../state.js";
+import type { AplyxState, AppliedJob, ApplyRunSummary, ApplyRunStatus, QueueEntry, RegistryRecord } from "../state.js";
+import type { FillRecord } from "../stateDerive.js";
 import { HOSTED_PROFILE_FIELD_IDS, HOSTED_PREFERENCE_FIELD_IDS } from "../onboarding/hostedFields.js";
 import { registryByJobId, hasAppliedOrFailed, isDismissed, todayIso } from "../stateDerive.js";
+import type { AtsFamily } from "../atsRegistry.js";
+import { transition } from "../applyStateMachine.js";
 
 type Row = Record<string, unknown>;
+
+export interface ManagedAliasRow {
+  id: string;
+  family: AtsFamily;
+  alias: string;
+  forwarding_to: string;
+  status: "active" | "disabled";
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface InboundEmailRow {
+  id: string;
+  alias_id: string;
+  apply_run_id?: string;
+  from_address: string;
+  subject: string;
+  body_text: string;
+  parsed_otp?: string;
+  parsed_link?: string;
+  classified_status?: string;
+  forwarded_at?: string;
+  consumed_at?: string;
+  received_at: string;
+}
+
+export interface MailConnectionRow {
+  id: string;
+  provider: "gmail" | "microsoft" | "imap";
+  email_address: string;
+  auth_method: "oauth" | "app_password";
+  status: "connected" | "reauth_required" | "failed" | "revoked";
+  scopes: string[];
+  provider_account_id?: string;
+  watch_state?: Record<string, unknown>;
+  last_health_error?: string;
+  connected_at?: string;
+  revoked_at?: string;
+  updated_at?: string;
+}
+
+export interface VerificationSessionRow {
+  id: string;
+  apply_run_id?: string;
+  job_id: string;
+  family: AtsFamily;
+  tenant_key?: string;
+  company?: string;
+  candidate_email: string;
+  mail_connection_id?: string;
+  status: "created" | "watching" | "message_found" | "secret_ready" | "consumed" | "resumed" | "manual_required" | "expired" | "failed" | "canceled";
+  challenge_type: "otp" | "link" | "either" | "unknown";
+  expected_sender_domains: string[];
+  expected_subject_tokens: string[];
+  detection_started_at?: string;
+  expires_at?: string;
+  attempt_count: number;
+  last_poll_at?: string;
+  resolved_at?: string;
+  failure_reason?: string;
+  checkpoint: Record<string, unknown>;
+  updated_at?: string;
+}
+
+export interface HostedReadiness {
+  candidateEmail: string;
+  hasCandidateEmail: boolean;
+  inboxConnected: boolean;
+  inboxProvider?: string;
+  inboxStatus?: string;
+  resumeUploaded: boolean;
+  verificationFallbackReady: boolean;
+}
+
+export interface CreateApplyRunInput {
+  jobId: string;
+  family: AtsFamily;
+  aliasId?: string;
+  tailoredResumeAttached?: boolean;
+  tailoredResumeArtifactPath?: string;
+  fillPlan?: unknown;
+  checkpoint?: unknown;
+  screenshotUrl?: string;
+  status?: ApplyRunStatus;
+  approvalState?: "pending" | "approved" | "rejected";
+}
+
+export interface SaveReadyToSubmitOptions {
+  family: AtsFamily;
+  fillRecord?: FillRecord;
+  fillPlan?: unknown;
+  checkpoint?: unknown;
+  screenshotUrl?: string;
+  tailoredResumeArtifactPath?: string;
+  aliasId?: string;
+}
 
 function str(v: unknown): string | undefined {
   return v === null || v === undefined ? undefined : String(v);
@@ -18,6 +117,10 @@ function num(v: unknown): number | undefined {
 
 function bool(v: unknown): boolean | undefined {
   return v === null || v === undefined ? undefined : Boolean(v);
+}
+
+function obj(v: unknown): Record<string, unknown> | undefined {
+  return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : undefined;
 }
 
 /** jsonb columns come back already-parsed from PostgREST; a bare array/object
@@ -64,6 +167,19 @@ function rowToAppliedJobFields(row: Row): Omit<AppliedJob, "status"> {
     // fill_record_path intentionally omitted — hosted rows never have a
     // local filesystem path; fill_record (content) is the hosted analog.
     fill_record: (row.fill_record as AppliedJob["fill_record"]) ?? undefined,
+    screenshot_path: str(row.screenshot_path),
+    screenshot_url: str(row.screenshot_url),
+    apply_run_id: str(row.apply_run_id),
+    // Written directly onto this row by email-tracking-worker
+    // (src/supabase/functions/email-tracking-worker/), guarded by the
+    // applied_jobs_outcome_transition_guard DB trigger (migration 0007)
+    // — unlike local mode, there's no client-side derivation step here,
+    // the column already holds the authoritative current value.
+    outcome_status: row.outcome_status as AppliedJob["outcome_status"],
+    outcome_updated_at: str(row.outcome_updated_at),
+    outcome_source: str(row.outcome_source),
+    outcome_assessment_url: str(row.outcome_assessment_url),
+    outcome_assessment_note: str(row.outcome_assessment_note),
   };
 }
 
@@ -81,6 +197,56 @@ function rowToAppliedJob(row: Row): AppliedJob {
 
 function rowToQueueEntry(row: Row): QueueEntry {
   return { ...rowToAppliedJobFields(row), status: str(row.status) };
+}
+
+function rowToApplyRunSummary(row: Row): ApplyRunSummary {
+  return {
+    runId: String(row.id ?? ""),
+    status: String(row.status ?? "initialized") as ApplyRunStatus,
+    family: str(row.family),
+    aliasId: str(row.alias_id),
+    tailoredResumeAttached: bool(row.tailored_resume_attached),
+    approvalState: (str(row.approval_state) as ApplyRunSummary["approvalState"]) ?? undefined,
+    updatedAt: str(row.updated_at) ?? str(row.created_at),
+    fillPlanRef: str(row.id) ? `apply_run:${String(row.id)}` : undefined,
+    screenshotUrl: str(row.screenshot_url),
+    tailoredResumeArtifactPath: str(row.tailored_resume_artifact_path),
+  };
+}
+
+function attachApplyRun<T extends AppliedJob | QueueEntry>(entry: T, run?: ApplyRunSummary): T {
+  if (!run) return entry;
+  return {
+    ...entry,
+    apply_run: run,
+    screenshot_url: entry.screenshot_url ?? run.screenshotUrl,
+  };
+}
+
+function latestApplyRunsByJob(rows: Row[]): Map<string, ApplyRunSummary> {
+  const byJob = new Map<string, ApplyRunSummary>();
+  for (const row of rows) {
+    const jobId = String(row.job_id ?? "");
+    if (!jobId) continue;
+    const summary = rowToApplyRunSummary(row);
+    const current = byJob.get(jobId);
+    if (!current) {
+      byJob.set(jobId, summary);
+      continue;
+    }
+    const currentTs = Date.parse(current.updatedAt ?? "") || 0;
+    const nextTs = Date.parse(summary.updatedAt ?? "") || 0;
+    if (nextTs >= currentTs) byJob.set(jobId, summary);
+  }
+  return byJob;
+}
+
+function normalizeAliasLocalPart(raw: string): string {
+  return raw
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 32);
 }
 
 /**
@@ -157,11 +323,224 @@ export class SupabaseAdapter implements Adapter {
     return Boolean(row?.onboarding_completed);
   }
 
+  async readCandidateEmail(): Promise<string> {
+    const value = await this.readProfileField("email");
+    return typeof value === "string" ? value.trim() : "";
+  }
+
+  async writeCandidateEmail(email: string): Promise<void> {
+    await this.writeProfileField("email", email.trim());
+  }
+
   async writeOnboardingCompleted(completed: boolean): Promise<void> {
     const { error } = await this.client
       .from("profiles")
       .upsert({ user_id: this.userId, onboarding_completed: completed }, { onConflict: "user_id" });
     if (error) throw error;
+  }
+
+  async listMailConnections(): Promise<MailConnectionRow[]> {
+    try {
+      const { data, error } = await this.client
+        .from("mail_connections")
+        .select("*")
+        .eq("user_id", this.userId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return ((data ?? []) as Row[]).map((row) => ({
+        id: String(row.id ?? ""),
+        provider: String(row.provider ?? "imap") as MailConnectionRow["provider"],
+        email_address: String(row.email_address ?? ""),
+        auth_method: String(row.auth_method ?? "app_password") as MailConnectionRow["auth_method"],
+        status: String(row.status ?? "failed") as MailConnectionRow["status"],
+        scopes: strArray(row.scopes) ?? [],
+        provider_account_id: str(row.provider_account_id),
+        watch_state: obj(row.watch_state),
+        last_health_error: str(row.last_health_error),
+        connected_at: str(row.connected_at),
+        revoked_at: str(row.revoked_at),
+        updated_at: str(row.updated_at),
+      }));
+    } catch (error) {
+      const code = (error as { code?: string })?.code;
+      if (code === "42P01") return [];
+      throw error;
+    }
+  }
+
+  async getInboxConnection(): Promise<MailConnectionRow | undefined> {
+    const rows = await this.listMailConnections();
+    const connected = rows.find((row) => row.status === "connected");
+    if (connected) return connected;
+    const fallback = await this.selectMaybeSingleIfExists("email_tracking_config", { user_id: this.userId });
+    if (!fallback || !bool(fallback.enabled)) return undefined;
+    return {
+      id: "email_tracking_config",
+      provider: "imap",
+      email_address: String(fallback.email ?? ""),
+      auth_method: "app_password",
+      status: "connected",
+      scopes: ["imap:readonly"],
+      last_health_error: undefined,
+      connected_at: str(fallback.updated_at),
+      updated_at: str(fallback.updated_at),
+    };
+  }
+
+  async saveImapInboxConnection(input: {
+    provider: "gmail" | "microsoft" | "imap";
+    email: string;
+    imapServer: string;
+    imapPort?: number;
+    appPassword: string;
+  }): Promise<MailConnectionRow> {
+    const port = input.imapPort ?? 993;
+    const { error: rpcError } = await this.client.rpc("set_email_tracking_config", {
+      p_enabled: true,
+      p_email: input.email,
+      p_imap_server: input.imapServer,
+      p_imap_port: port,
+      p_app_password: input.appPassword,
+    });
+    if (rpcError) throw rpcError;
+    try {
+      const { data, error } = await this.client
+        .from("mail_connections")
+        .upsert({
+          user_id: this.userId,
+          provider: input.provider,
+          email_address: input.email,
+          auth_method: "app_password",
+          status: "connected",
+          scopes: ["imap:readonly"],
+          connected_at: new Date().toISOString(),
+          watch_state: { imap_server: input.imapServer, imap_port: port },
+        }, { onConflict: "user_id,provider,email_address" })
+        .select("*")
+        .maybeSingle();
+      if (error) throw error;
+      const row = (data ?? {}) as Row;
+      return {
+        id: String(row.id ?? ""),
+        provider: String(row.provider ?? input.provider) as MailConnectionRow["provider"],
+        email_address: String(row.email_address ?? input.email),
+        auth_method: String(row.auth_method ?? "app_password") as MailConnectionRow["auth_method"],
+        status: String(row.status ?? "connected") as MailConnectionRow["status"],
+        scopes: strArray(row.scopes) ?? ["imap:readonly"],
+        watch_state: obj(row.watch_state),
+        connected_at: str(row.connected_at),
+        updated_at: str(row.updated_at),
+      };
+    } catch (error) {
+      const code = (error as { code?: string })?.code;
+      if (code === "42P01") {
+        return {
+          id: "email_tracking_config",
+          provider: input.provider,
+          email_address: input.email,
+          auth_method: "app_password",
+          status: "connected",
+          scopes: ["imap:readonly"],
+          watch_state: { imap_server: input.imapServer, imap_port: port },
+          connected_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+      }
+      throw error;
+    }
+  }
+
+  /** Marks one mail_connections row revoked — the RLS "update own" policy
+   *  (0015_mail_connections.sql) lets the signed-in user do this directly,
+   *  no service-role RPC needed. Leaves the Vault-stored tokens in place
+   *  (only the service role can touch vault.secrets); getInboxConnection()
+   *  already only matches status === "connected", so a revoked row simply
+   *  stops counting as the active connection. */
+  async disconnectMailConnection(id: string): Promise<void> {
+    const { error } = await this.client
+      .from("mail_connections")
+      .update({ status: "revoked", revoked_at: new Date().toISOString() })
+      .eq("user_id", this.userId)
+      .eq("id", id);
+    if (error) throw error;
+  }
+
+  /** Revokes any other still-"connected" row for this provider once a new
+   *  one just succeeded (mail-oauth-callback upserts by (user, provider,
+   *  email) — reconnecting under a *different* email inserts a second row
+   *  rather than replacing the first, so without this a stale connection
+   *  could keep counting as "connected" alongside the new one). Called
+   *  right after a successful reconnect, keyed off the email that just
+   *  came back through the OAuth callback. */
+  async supersedeMailConnections(provider: string, keepEmailAddress: string): Promise<void> {
+    const { error } = await this.client
+      .from("mail_connections")
+      .update({ status: "revoked", revoked_at: new Date().toISOString() })
+      .eq("user_id", this.userId)
+      .eq("provider", provider)
+      .eq("status", "connected")
+      .neq("email_address", keepEmailAddress);
+    if (error) throw error;
+  }
+
+  async listVerificationSessions(limit = 10): Promise<VerificationSessionRow[]> {
+    try {
+      const { data, error } = await this.client
+        .from("verification_sessions")
+        .select("*")
+        .eq("user_id", this.userId)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+      if (error) throw error;
+      return ((data ?? []) as Row[]).map((row) => ({
+        id: String(row.id ?? ""),
+        apply_run_id: str(row.apply_run_id),
+        job_id: String(row.job_id ?? ""),
+        family: String(row.family ?? "workday") as AtsFamily,
+        tenant_key: str(row.tenant_key),
+        company: str(row.company),
+        candidate_email: String(row.candidate_email ?? ""),
+        mail_connection_id: str(row.mail_connection_id),
+        status: String(row.status ?? "created") as VerificationSessionRow["status"],
+        challenge_type: String(row.challenge_type ?? "unknown") as VerificationSessionRow["challenge_type"],
+        expected_sender_domains: strArray(row.expected_sender_domains) ?? [],
+        expected_subject_tokens: strArray(row.expected_subject_tokens) ?? [],
+        detection_started_at: str(row.detection_started_at),
+        expires_at: str(row.expires_at),
+        attempt_count: num(row.attempt_count) ?? 0,
+        last_poll_at: str(row.last_poll_at),
+        resolved_at: str(row.resolved_at),
+        failure_reason: str(row.failure_reason),
+        checkpoint: obj(row.checkpoint) ?? {},
+        updated_at: str(row.updated_at),
+      }));
+    } catch (error) {
+      const code = (error as { code?: string })?.code;
+      if (code === "42P01") return [];
+      throw error;
+    }
+  }
+
+  async readHostedReadiness(): Promise<HostedReadiness> {
+    const candidateEmail = await this.readCandidateEmail();
+    const inbox = await this.getInboxConnection();
+    let resumeUploaded = false;
+    try {
+      const { data, error } = await this.client.storage.from("resumes").list(this.userId);
+      if (error) throw error;
+      resumeUploaded = ((data ?? []).filter((entry) => entry.name && !entry.name.startsWith(".")).length > 0);
+    } catch {
+      resumeUploaded = false;
+    }
+    return {
+      candidateEmail,
+      hasCandidateEmail: Boolean(candidateEmail),
+      inboxConnected: inbox?.status === "connected",
+      inboxProvider: inbox?.provider,
+      inboxStatus: inbox?.status,
+      resumeUploaded,
+      verificationFallbackReady: inbox?.status === "connected",
+    };
   }
 
   /**
@@ -221,17 +600,46 @@ export class SupabaseAdapter implements Adapter {
     return rows;
   }
 
+  private async fetchAllRowsIfExists(table: string): Promise<Row[]> {
+    try {
+      return await this.fetchAllRows(table);
+    } catch (error) {
+      const code = (error as { code?: string })?.code;
+      if (code === "42P01") return [];
+      throw error;
+    }
+  }
+
+  private async selectMaybeSingleIfExists(table: string, filters: Record<string, unknown>): Promise<Row | undefined> {
+    try {
+      let query = this.client.from(table).select("*");
+      for (const [key, value] of Object.entries(filters)) {
+        query = query.eq(key, value);
+      }
+      const { data, error } = await query.maybeSingle();
+      if (error) throw error;
+      return (data as Row | null) ?? undefined;
+    } catch (error) {
+      const code = (error as { code?: string })?.code;
+      if (code === "42P01") return undefined;
+      throw error;
+    }
+  }
+
   async loadState(): Promise<AplyxState | undefined> {
-    const [jobsRows, appliedRows, queueRows] = await Promise.all([
+    const [jobsRows, appliedRows, queueRows, applyRunRows] = await Promise.all([
       this.fetchAllRows("jobs"),
       this.fetchAllRows("applied_jobs"),
       this.fetchAllRows("review_queue"),
+      this.fetchAllRowsIfExists("apply_runs"),
     ]);
+
+    const applyRuns = latestApplyRunsByJob(applyRunRows);
 
     return {
       registry: jobsRows.map(rowToRegistryRecord),
-      applied: appliedRows.map(rowToAppliedJob),
-      queue: queueRows.map(rowToQueueEntry),
+      applied: appliedRows.map((row) => attachApplyRun(rowToAppliedJob(row), applyRuns.get(String(row.job_id ?? "")))),
+      queue: queueRows.map((row) => attachApplyRun(rowToQueueEntry(row), applyRuns.get(String(row.job_id ?? "")))),
     };
   }
 
@@ -299,7 +707,7 @@ export class SupabaseAdapter implements Adapter {
       );
     }
     const reasoning = "Marked applied manually via review-queue triage";
-    const { error: insertError } = await this.client.from("applied_jobs").insert({
+    const payload = {
       user_id: this.userId,
       job_id: entry.job_id,
       company: entry.company,
@@ -314,16 +722,89 @@ export class SupabaseAdapter implements Adapter {
       location_tier: entry.location_tier,
       cover_letter_used: entry.cover_letter_used ?? false,
       reasoning,
-    });
-    if (insertError) {
-      if (insertError.code === "23505") {
-        return { message: `Already recorded: ${entry.company} — ${entry.title}` };
+      ...((entry as QueueEntry & { apply_run_id?: string }).apply_run_id ? { apply_run_id: (entry as QueueEntry & { apply_run_id?: string }).apply_run_id } : {}),
+      ...(entry.screenshot_url ? { screenshot_url: entry.screenshot_url } : {}),
+      ...(entry.screenshot_path ? { screenshot_path: entry.screenshot_path } : {}),
+    };
+    const { data: existing, error: existingError } = await this.client
+      .from("applied_jobs")
+      .select("status")
+      .eq("user_id", this.userId)
+      .eq("job_id", entry.job_id)
+      .maybeSingle();
+    if (existingError) throw existingError;
+    if (existing?.status === "needs_review") {
+      const { error: updateError } = await this.client
+        .from("applied_jobs")
+        .update(payload)
+        .eq("user_id", this.userId)
+        .eq("job_id", entry.job_id);
+      if (updateError) throw updateError;
+    } else {
+      const { error: insertError } = await this.client.from("applied_jobs").insert(payload);
+      if (insertError) {
+        if (insertError.code === "23505") {
+          return { message: `Already recorded: ${entry.company} — ${entry.title}` };
+        }
+        throw insertError;
       }
-      throw insertError;
     }
     await this.recordJobEvent(reg.job_key, "applied", reasoning, entry.company, entry.title, entry.url);
     return { message: `Recorded applied: ${entry.company} — ${entry.title}` };
   }
+
+  /**
+   * Global, cross-user "how many people applied to this posting" counts —
+   * public.job_apply_counts (migration 0025), maintained entirely by a
+   * DB trigger on applied_jobs; this is read-only, no client can write it.
+   * Batched (one request for however many job_ids a screen has on
+   * screen) rather than one request per row — the same per-row-request
+   * mistake the review_only worker made is easy to repeat here otherwise.
+   * Missing job_ids (nobody's applied yet) simply aren't in the returned
+   * map — callers should treat an absent key as 0, not as an error.
+   */
+  async getApplyCounts(jobIds: string[]): Promise<Record<string, number>> {
+    if (jobIds.length === 0) return {};
+    const { data, error } = await this.client.from("job_apply_counts").select("job_id, apply_count").in("job_id", jobIds);
+    if (error) throw error;
+    const counts: Record<string, number> = {};
+    for (const row of (data ?? []) as Row[]) {
+      const jobId = String(row.job_id ?? "");
+      if (jobId) counts[jobId] = Number(row.apply_count ?? 0);
+    }
+    return counts;
+  }
+
+  /**
+   * Logs an application aplyx never saw — applied to directly on the
+   * company's own site, not through the scrape/fit-gate/apply pipeline, so
+   * there's no registry row or job_key to require the way
+   * markQueueEntryApplied does above. job_id is generated (a "manual:"
+   * prefix keeps it visually distinct from a real scraped job_id in the
+   * data, and guarantees no collision with one) purely so it can serve as
+   * the row's identity for the (user_id, job_id) primary key — hosted-only
+   * by design (operator's call, 2026-08-21): this exists so
+   * email-tracking-worker's per-company Gmail search has something to
+   * match against for an application made outside aplyx, and that worker
+   * itself is already a hosted-only feature.
+   */
+  async addManualAppliedJob(input: { company: string; title: string; url?: string; dateApplied: string }): Promise<void> {
+    const company = input.company.trim();
+    const title = input.title.trim();
+    if (!company || !title) throw new Error("Company and title are required.");
+    const { error } = await this.client.from("applied_jobs").insert({
+      user_id: this.userId,
+      job_id: `manual:${crypto.randomUUID()}`,
+      company,
+      title,
+      url: input.url?.trim() ?? "",
+      date_applied: input.dateApplied,
+      status: "applied",
+      source: "manual",
+    });
+    if (error) throw error;
+  }
+
 
   /**
    * Upserts one registry row (the hosted mirror of job_state.py's
@@ -406,11 +887,269 @@ export class SupabaseAdapter implements Adapter {
       cover_letter: entry.cover_letter,
       missing_keywords: entry.missing_keywords,
       doubt_signals: entry.doubt_signals,
+      fill_record: entry.fill_record,
+      ...((entry as QueueEntry & { apply_run_id?: string }).apply_run_id ? { apply_run_id: (entry as QueueEntry & { apply_run_id?: string }).apply_run_id } : {}),
+      ...(entry.screenshot_url ? { screenshot_url: entry.screenshot_url } : {}),
+      ...(entry.screenshot_path ? { screenshot_path: entry.screenshot_path } : {}),
     };
     const { error: appliedError } = await this.client.from("applied_jobs").insert(payload);
     if (appliedError && appliedError.code !== "23505") throw appliedError;
     const { error: queueError } = await this.client.from("review_queue").insert(payload);
     if (queueError) throw queueError;
+  }
+
+  private async fetchLatestApplyRun(jobId: string): Promise<Row | undefined> {
+    const { data, error } = await this.client
+      .from("apply_runs")
+      .select("*")
+      .eq("user_id", this.userId)
+      .eq("job_id", jobId)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as Row | null) ?? undefined;
+  }
+
+  async listManagedAliases(family?: AtsFamily): Promise<ManagedAliasRow[]> {
+    let query = this.client
+      .from("managed_aliases")
+      .select("*")
+      .eq("user_id", this.userId)
+      .order("created_at", { ascending: true });
+    if (family) query = query.eq("family", family);
+    const { data, error } = await query;
+    if (error) throw error;
+    return ((data ?? []) as Row[]).map((row) => ({
+      id: String(row.id ?? ""),
+      family: String(row.family ?? "workday") as AtsFamily,
+      alias: String(row.alias ?? ""),
+      forwarding_to: String(row.forwarding_to ?? ""),
+      status: (String(row.status ?? "active") as ManagedAliasRow["status"]),
+      created_at: str(row.created_at),
+      updated_at: str(row.updated_at),
+    }));
+  }
+
+  async claimManagedAlias(family: AtsFamily, forwardingTo: string, preferredLocalPart?: string): Promise<ManagedAliasRow> {
+    const existing = (await this.listManagedAliases(family)).find((row) => row.status === "active");
+    if (existing) return existing;
+
+    const base = normalizeAliasLocalPart(preferredLocalPart || `${this.userId.slice(0, 8)}-${family}`) || `${family}-${this.userId.slice(0, 6)}`;
+    const attempts = [base, `${base}-${this.userId.slice(0, 4)}`, `${base}-${Date.now().toString(36).slice(-4)}`];
+    for (const alias of attempts) {
+      const { data, error } = await this.client
+        .from("managed_aliases")
+        .insert({ user_id: this.userId, family, alias, forwarding_to: forwardingTo })
+        .select("*")
+        .maybeSingle();
+      if (!error && data) {
+        return {
+          id: String((data as Row).id ?? ""),
+          family,
+          alias,
+          forwarding_to: forwardingTo,
+          status: "active",
+          created_at: str((data as Row).created_at),
+          updated_at: str((data as Row).updated_at),
+        };
+      }
+      if (error?.code !== "23505") throw error;
+    }
+    throw new Error(`could not claim a managed alias for ${family}`);
+  }
+
+  async listInboundEmails(aliasId: string): Promise<InboundEmailRow[]> {
+    const { data, error } = await this.client
+      .from("inbound_emails")
+      .select("*")
+      .eq("alias_id", aliasId)
+      .order("received_at", { ascending: false });
+    if (error) throw error;
+    return ((data ?? []) as Row[]).map((row) => ({
+      id: String(row.id ?? ""),
+      alias_id: String(row.alias_id ?? ""),
+      apply_run_id: str(row.apply_run_id),
+      from_address: String(row.from_address ?? ""),
+      subject: String(row.subject ?? ""),
+      body_text: String(row.body_text ?? ""),
+      parsed_otp: str(row.parsed_otp),
+      parsed_link: str(row.parsed_link),
+      classified_status: str(row.classified_status),
+      forwarded_at: str(row.forwarded_at),
+      consumed_at: str(row.consumed_at),
+      received_at: String(row.received_at ?? ""),
+    }));
+  }
+
+  /** Marks an inbound_emails row as consumed so a one-time verification
+   *  link/OTP is never re-handed to a later Workday continuation run.
+   *  Best-effort: a failure here (RLS, missing row) is logged by the
+   *  caller as a warning, not an exception — the verification mail was
+   *  already used in the browser; not marking it consumed only means the
+   *  next run might see it again, which the script's own checkpoint state
+   *  guards against independently. */
+  async consumeInboundEmail(id: string): Promise<void> {
+    const { error } = await this.client
+      .from("inbound_emails")
+      .update({ consumed_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) throw error;
+  }
+
+  async createApplyRun(input: CreateApplyRunInput): Promise<ApplyRunSummary> {
+    const status = input.status ?? "initialized";
+    const { data, error } = await this.client
+      .from("apply_runs")
+      .insert({
+        user_id: this.userId,
+        job_id: input.jobId,
+        family: input.family,
+        status,
+        alias_id: input.aliasId,
+        tailored_resume_attached: input.tailoredResumeAttached ?? false,
+        tailored_resume_artifact_path: input.tailoredResumeArtifactPath,
+        fill_plan: input.fillPlan ?? null,
+        checkpoint: input.checkpoint ?? null,
+        approval_state: input.approvalState ?? "pending",
+        screenshot_url: input.screenshotUrl,
+        started_at: new Date().toISOString(),
+      })
+      .select("*")
+      .maybeSingle();
+    if (error) throw error;
+    return rowToApplyRunSummary((data ?? {}) as Row);
+  }
+
+  async updateApplyRunStatus(
+    runId: string,
+    nextStatus: ApplyRunStatus,
+    extras: Partial<{
+      checkpoint: unknown;
+      fillPlan: unknown;
+      approvalState: "pending" | "approved" | "rejected";
+      screenshotUrl: string;
+      tailoredResumeArtifactPath: string;
+      error: string | null;
+      tailoredResumeAttached: boolean;
+      finishedAt: string | null;
+    }> = {},
+  ): Promise<ApplyRunSummary> {
+    const { data: current, error: currentError } = await this.client
+      .from("apply_runs")
+      .select("*")
+      .eq("id", runId)
+      .eq("user_id", this.userId)
+      .maybeSingle();
+    if (currentError) throw currentError;
+    if (!current) throw new Error(`apply run ${runId} not found`);
+    const status = transition(String((current as Row).status ?? "initialized") as ApplyRunStatus, nextStatus);
+    const { data, error } = await this.client
+      .from("apply_runs")
+      .update({
+        status,
+        checkpoint: extras.checkpoint,
+        fill_plan: extras.fillPlan,
+        approval_state: extras.approvalState,
+        screenshot_url: extras.screenshotUrl,
+        tailored_resume_artifact_path: extras.tailoredResumeArtifactPath,
+        tailored_resume_attached: extras.tailoredResumeAttached,
+        error: extras.error,
+        finished_at: extras.finishedAt,
+      })
+      .eq("id", runId)
+      .eq("user_id", this.userId)
+      .select("*")
+      .maybeSingle();
+    if (error) throw error;
+    return rowToApplyRunSummary((data ?? {}) as Row);
+  }
+
+  async saveReadyToSubmit(
+    record: { job_key: string; job_id: string; company: string; title: string; url: string; internship_term?: string },
+    entry: QueueEntry,
+    options: SaveReadyToSubmitOptions,
+  ): Promise<ApplyRunSummary> {
+    await this.registerJob(record);
+    await this.recordJobEvent(record.job_key, "needs_review", entry.reasoning ?? "Awaiting submit approval", record.company, record.title, record.url);
+    const run = await this.createApplyRun({
+      jobId: entry.job_id,
+      family: options.family,
+      aliasId: options.aliasId,
+      tailoredResumeAttached: Boolean(options.tailoredResumeArtifactPath),
+      tailoredResumeArtifactPath: options.tailoredResumeArtifactPath,
+      fillPlan: options.fillPlan,
+      checkpoint: options.checkpoint,
+      screenshotUrl: options.screenshotUrl,
+      status: "confirm_before_submit",
+      approvalState: "pending",
+    });
+    const appliedPayload = {
+      user_id: this.userId,
+      job_id: entry.job_id,
+      company: entry.company,
+      title: entry.title,
+      url: entry.url,
+      apply_url: entry.apply_url,
+      date_applied: entry.date_applied,
+      status: "needs_review",
+      role_type: entry.role_type,
+      source: entry.source,
+      resume_used: entry.resume_used,
+      ats_score: entry.ats_score,
+      location_tier: entry.location_tier,
+      cover_letter_used: entry.cover_letter_used ?? false,
+      reasoning: entry.reasoning,
+      tailored_bullets: entry.tailored_bullets,
+      cover_letter: entry.cover_letter,
+      missing_keywords: entry.missing_keywords,
+      doubt_signals: entry.doubt_signals,
+      fill_record: options.fillRecord,
+      apply_run_id: run.runId,
+      screenshot_url: options.screenshotUrl,
+    };
+    const queuePayload = {
+      ...appliedPayload,
+      status: "ready_to_submit",
+    };
+    const { error: appliedError } = await this.client.from("applied_jobs").insert(appliedPayload);
+    if (appliedError && appliedError.code !== "23505") throw appliedError;
+    const { error: queueError } = await this.client.from("review_queue").insert(queuePayload);
+    if (queueError) throw queueError;
+    return run;
+  }
+
+  async approveSubmit(entry: QueueEntry): Promise<{ ok: boolean; message: string }> {
+    const current = await this.fetchLatestApplyRun(entry.job_id);
+    if (!current) {
+      return { ok: false, message: `No apply run found for ${entry.company} — ${entry.title}.` };
+    }
+    const status = String(current.status ?? "initialized") as ApplyRunStatus;
+    if (status !== "confirm_before_submit" && status !== "ready_to_submit") {
+      return { ok: false, message: `Cannot approve submit from apply-run status '${status}'.` };
+    }
+    const family = str((current as Row).family) ?? (entry.source ?? "");
+    // Hosted browser execution does not exist for ANY family yet — there
+    // is no hosted Playwright worker that can drive a real submit. The
+    // message is family-specific so a Workday user (who needs account
+    // creation + verification mail handling, which only the local runtime
+    // does) isn't told to "use the local Greenhouse path" the way an
+    // earlier generic version of this message implied. This is the honest
+    // failure path: the apply run stays paused at confirm-before-submit,
+    // and the user is told exactly what doesn't exist and what to do
+    // instead. Never pretend hosted execution succeeded.
+    if (family === "workday") {
+      return {
+        ok: false,
+        message:
+          "Hosted Workday browser execution isn't available. Workday applications need a local aplyx install to drive account creation and verification-mail handling. Open the job URL and apply manually, or set up a local install and use Continue Workday from its Review screen.",
+      };
+    }
+    return {
+      ok: false,
+      message:
+        "Hosted approve-submit is not implemented yet. The apply run remains paused at confirm-before-submit; use a local aplyx install to drive the submit, or apply manually via the job URL.",
+    };
   }
 
   /** Hosted mirror of reviewActions.ts's dismissQueueEntry — same

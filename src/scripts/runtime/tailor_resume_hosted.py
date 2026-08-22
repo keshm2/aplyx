@@ -93,12 +93,17 @@ def _build_system_prompt(root: str) -> str:
     override = (
         "HOSTED-WORKER CONTEXT OVERRIDE: you are being invoked directly by "
         "the hosted review_only pipeline (src/worker/), not job-scraper. "
-        "This account has exactly one resume, already selected and given to "
-        "you below as `resume_markdown` in the user message — skip "
-        '"Step 1 — Select base resume" entirely (resolve_resume.py does not '
-        "exist in this context; do not attempt to run any command). Go "
-        'straight to "Step 2 — Tailor" using the given resume_markdown as '
-        "the base resume.\n\n---\n\n"
+        "This account's one resume is already given to you below as "
+        "`resume_markdown` in the user message — skip \"Step 1 — Read the "
+        "master resume\" entirely (there is no local data/resumes/ "
+        "filesystem in this context; do not attempt to run any command or "
+        "read any file). Go straight to \"Step 2 — Tailor\" using the given "
+        "resume_markdown as the resume content. Your actual output schema "
+        "is fixed by the submit_tailored_resume tool call, not by Step 2's "
+        "JSON example — that tool only wants tailored_bullets, ats_score, "
+        "and missing_keywords; ignore the resume_used and tailored_resume "
+        "fields entirely, this hosted context has no PDF-rendering step to "
+        "hand them to.\n\n---\n\n"
     )
     return override + body
 

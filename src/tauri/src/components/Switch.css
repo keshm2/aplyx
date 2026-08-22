@@ -1,0 +1,107 @@
+/*
+ * Apple-style toggle switch — pill track + sliding circular thumb.
+ * Motion tokens deliberately match this app's own established vocabulary
+ * rather than inventing new ones: --ease-snap is already the codebase's
+ * "small, frequent, direct-response feedback" curve (stat cards, nav-item
+ * hover), and --scale-press is already the one press-down amount every
+ * other clickable control in the app uses on :active — a toggle should
+ * feel like the same family of control, not a one-off.
+ */
+
+.apple-switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 1.5rem;
+  border-radius: var(--radius-pill);
+  border: none;
+  background: var(--border-strong);
+  padding: 0;
+  cursor: pointer;
+  transition:
+    background var(--duration-quick) var(--ease-snap),
+    transform var(--duration-quick) var(--ease-snap);
+}
+
+.apple-switch-on {
+  background: var(--good);
+}
+
+/* Instant press feedback on the whole control — the same tactile language
+   as every other button in the app, not just the thumb. */
+.apple-switch:active {
+  transform: scale(var(--scale-press));
+}
+
+.apple-switch:disabled {
+  cursor: default;
+}
+
+/* Disabled-but-idle (no pulse) still needs some visual signal that it's
+   not interactive — the pulse's own opacity keyframes cover that case
+   when pending, so this only applies when they're not already running. */
+.apple-switch:disabled:not(.apple-switch-pending) {
+  opacity: 0.5;
+}
+
+/* Actively working (toggleScheduler's await window) vs. plain "the switch
+   happens to be unavailable right now" read very differently — a flat
+   50% opacity looks identical to "broken/inert," which is exactly what
+   made a genuinely-in-progress toggle look like a dead click. A slow
+   breathing pulse communicates "something is happening" without a spinner
+   fighting the switch's own shape. This animates rarely (a manual,
+   occasional toggle, not a 100x/day control) and has a clear purpose
+   (state indication), so it earns the motion. */
+.apple-switch-pending {
+  animation: apple-switch-pulse 1.1s var(--ease-standard) infinite;
+}
+
+@keyframes apple-switch-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.apple-switch-thumb {
+  position: absolute;
+  top: 0.125rem;
+  left: 0.125rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+  transition: transform var(--duration-quick) var(--ease-snap), width var(--duration-quick) var(--ease-snap);
+}
+
+.apple-switch-on .apple-switch-thumb {
+  transform: translateX(1.25rem);
+}
+
+/* The classic iOS "stretch toward the direction of travel" press cue,
+   layered on top of the whole-control scale-press above. */
+.apple-switch:active .apple-switch-thumb {
+  width: 1.4rem;
+}
+
+.apple-switch-on:active .apple-switch-thumb {
+  transform: translateX(1.1rem);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .apple-switch,
+  .apple-switch-thumb {
+    transition: none;
+  }
+  .apple-switch:active {
+    transform: none;
+  }
+  .apple-switch-pending {
+    animation: none;
+    opacity: 0.7;
+  }
+}

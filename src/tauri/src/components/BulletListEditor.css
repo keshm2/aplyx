@@ -1,0 +1,98 @@
+.bullet-list-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.bullet-list-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.bullet-list-reorder {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex-shrink: 0;
+  padding-top: var(--space-1);
+}
+
+.bullet-list-move {
+  width: 1.5rem;
+  height: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: 1;
+  transition: border-color var(--duration-quick) var(--ease-out), background-color var(--duration-quick) var(--ease-out);
+}
+
+.bullet-list-move:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--ground);
+}
+
+.bullet-list-move:active:not(:disabled) {
+  transform: scale(var(--scale-press));
+}
+
+.bullet-list-move:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.bullet-list-textarea {
+  flex: 1 1 auto;
+  min-width: 0;
+  resize: vertical;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+
+.bullet-list-textarea:focus-visible {
+  border-color: var(--accent);
+}
+
+.bullet-list-delete {
+  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-faint);
+  font-size: var(--text-base);
+  line-height: 1;
+  margin-top: var(--space-1);
+  transition: border-color var(--duration-quick) var(--ease-out), color var(--duration-quick) var(--ease-out),
+    background-color var(--duration-quick) var(--ease-out);
+}
+
+.bullet-list-delete:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.bullet-list-delete:active {
+  transform: scale(var(--scale-press));
+}
+
+.bullet-list-add {
+  align-self: flex-start;
+}

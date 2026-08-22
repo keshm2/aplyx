@@ -26,6 +26,7 @@ import { useSkipDefaultFlow } from "./useSkipDefaultFlow.js";
 import { QuestionFrame } from "./QuestionFrame.js";
 import { TextField } from "./TextField.js";
 import { YesNoTextField } from "./YesNoTextField.js";
+import { Select3TextField } from "./Select3TextField.js";
 import { AutocompleteTextField } from "./AutocompleteTextField.js";
 import { MultiEntryAutocomplete } from "../MultiEntryAutocomplete.js";
 import { ResumeStep } from "./ResumeStep.js";
@@ -550,6 +551,22 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
         if (input.toLowerCase() === "n") return setDraftText("No");
         if (key.backspace || key.delete) return setDraftText("");
         return;
+      case "select3": {
+        // Stores the option's machine value ("not_veteran"/"veteran"/
+        // "decline", etc.) — same convention FieldInput.tsx (Tauri) uses
+        // for this kind — not the display label, so both UIs write the
+        // same shape to safe_fields.
+        const opts3 = field.options ?? [];
+        if (key.return) {
+          if (!draftText && field.required) return; // required: Enter with nothing chosen does nothing
+          return commitAndAdvance(field.id, draftText);
+        }
+        if (input === "1" && opts3[0]) return setDraftText(opts3[0].value);
+        if (input === "2" && opts3[1]) return setDraftText(opts3[1].value);
+        if (input === "3" && opts3[2]) return setDraftText(opts3[2].value);
+        if (!field.required && (key.backspace || key.delete)) return setDraftText("");
+        return;
+      }
       case "location":
         if (key.return) return handleLocationEnter(field);
         if (key.upArrow) return moveSuggestion(-1);
@@ -730,6 +747,14 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
             focused={isFocused}
           />
         );
+      case "select3": {
+        const opts3 = field.options ?? [];
+        const rawValue = isFocused ? draftText : committedText;
+        const resolvedLabel = opts3.find((o) => o.value === rawValue)?.label ?? "";
+        return (
+          <Select3TextField key={field.id} label={field.label} value={resolvedLabel} focused={isFocused} options={opts3} />
+        );
+      }
       case "location":
         return (
           <AutocompleteTextField

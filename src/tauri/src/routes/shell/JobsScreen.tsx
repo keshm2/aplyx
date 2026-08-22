@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import type { JobSource, SearchJob, SearchResult, SourceResult, FitResult } from "@aplyx/core/jobs.js";
+import type { JobSource, SearchJob, SearchResult, FitResult } from "@aplyx/core/jobs.js";
 import {
   sortByPreferredThenPosted,
   sortByPostedDesc,
@@ -8,8 +9,13 @@ import {
   sortByTitleAsc,
   isPreferredLocation,
 } from "@aplyx/core/jobsSort.js";
-import { findRoot, searchJobs, checkJobFit, saveJobForReview, readProfileField } from "../../lib/bridge";
+import { findRoot, searchJobs, checkJobFit, saveJobForReview, readProfileField, triggerSingleJobApply } from "../../lib/bridge";
+import { useAuth } from "../../lib/AuthContext";
+import { getSupabaseClient } from "../../lib/supabaseClient";
+import { SupabaseAdapter } from "@aplyx/core/adapters/supabase.js";
 import { SkeletonRows } from "../../components/Skeleton";
+import { ExternalLinkIcon } from "../../components/Icons";
+import { Modal } from "../../components/Modal";
 import "../../components/formFields.css";
 import "../../components/dataList.css";
 import "../../components/Skeleton.css";
@@ -39,15 +45,9 @@ const SOURCE_LABEL: Record<JobSource, string> = {
   oracle: "Oracle",
   workday: "Workday",
   muse: "The Muse",
+  simplify: "SimplifyJobs",
+  vanshb03: "vanshb03",
 };
-const SOURCES: JobSource[] = ["ashbyhq", "lever", "greenhouse", "smartrecruiters", "workable", "amazon", "oracle", "workday", "muse"];
-
-/** Pure fetch()-based sources (no Python subprocess startup) — shown first
- *  in a two-phase search so useful results appear before the slower
- *  Python-backed sources (Amazon/Oracle/Workday/The Muse) finish. */
-const FAST_SOURCES: JobSource[] = ["ashbyhq", "lever", "greenhouse", "smartrecruiters", "workable"];
-const SLOW_SOURCES: JobSource[] = ["amazon", "oracle", "workday", "muse"];
-
 type SortMode = "preferred" | "recent" | "company" | "title";
 
 const SORT_OPTIONS: { value: SortMode; label: string }[] = [
@@ -81,34 +81,91 @@ function fitBadgeClass(status: FitResult["fit_status"]): string {
   return "status-badge-danger";
 }
 
-function sourceBadge(result: SourceResult | undefined, loading: boolean): { text: string; className: string } {
-  if (loading) return { text: "loading…", className: "status-badge-muted" };
-  if (!result) return { text: "–", className: "status-badge-muted" };
-  if (result.state === "warning") return { text: result.detail ?? "warning", className: "status-badge-warn" };
-  if (result.state === "skipped") return { text: "off", className: "status-badge-muted" };
-  return { text: String(result.count), className: "status-badge-good" };
+// Splits jd_text on the "### Heading" markers jobs.ts's htmlToText/
+// markHeadings already inserted (own blank-line-delimited block, so
+// splitting on "\n\n" cleanly isolates each one) and renders each as its
+// own section instead of one flat run-on paragraph — the "how a job desc
+// actually looks" ask. Reuses .section-label (already loaded via
+// formFields.css below) rather than inventing a new heading style, same
+// small-caps "here's a section" treatment Home/Status already use.
+function renderJobDescription(text: string) {
+  return text.split("\n\n").map((block, i) =>
+    block.startsWith("### ") ? (
+      <div key={i} className="section-label" style={{ marginTop: i === 0 ? 0 : "var(--space-4)" }}>
+        {block.slice(4).trim()}
+      </div>
+    ) : (
+      <div key={i} style={{ whiteSpace: "pre-wrap" }}>
+        {block}
+      </div>
+    ),
+  );
+}
+
+// No ATS API used here (Ashby/Lever/Greenhouse/Workable) returns a
+// company logo — confirmed live, checked every field on a real response
+// from each. Best-effort only: guesses "{company}.com" (company is
+// already the literal board slug for 3 of 4 sources, so this lands right
+// more often than a name-based guess would) and asks DuckDuckGo's public
+// favicon proxy for it, which itself degrades gracefully (serves a
+// generic icon rather than erroring on an unknown domain). CompanyLogo
+// below adds one more layer on top for the cases even that misses:
+// falls back to a plain initial on any load error, never a broken image
+// or a logo for the wrong company.
+function guessCompanyDomain(company: string): string | undefined {
+  const normalized = company.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return normalized ? `${normalized}.com` : undefined;
+}
+
+function CompanyLogo({ company }: { company: string }) {
+  const domain = useMemo(() => guessCompanyDomain(company), [company]);
+  const [failed, setFailed] = useState(false);
+  if (!domain || failed) {
+    return (
+      <div className="data-row-logo data-row-logo-fallback" aria-hidden="true">
+        {company.trim().charAt(0).toUpperCase() || "?"}
+      </div>
+    );
+  }
+  return (
+    <img
+      key={domain}
+      src={`https://icons.duckduckgo.com/ip3/${domain}.ico`}
+      alt=""
+      aria-hidden="true"
+      className="data-row-logo"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
+// Matches job_state.py's derive_job_id()'s primary branch exactly
+// ("{source}-{external_job_id}") so this lines up with the same job_id
+// applied_jobs rows (and public.job_apply_counts) use for the same
+// posting — without needing to replicate derive_job_id's URL-hash
+// fallback client-side. A posting with no external_job_id just doesn't
+// get a count lookup; that's an honest "unknown," not a wrong number.
+function computeJobId(job: SearchJob): string | undefined {
+  return job.external_job_id ? `${job.source}-${job.external_job_id}` : undefined;
 }
 
 export function JobsScreen() {
+  const location = useLocation();
   const [query, setQuery] = useState("");
-  const [enabled, setEnabled] = useState<Record<JobSource, boolean>>({
-    ashbyhq: true,
-    lever: true,
-    greenhouse: true,
-    smartrecruiters: true,
-    workable: true,
-    amazon: true,
-    oracle: true,
-    workday: true,
-    muse: true,
-  });
   const [jobs, setJobs] = useState<SearchJob[]>([]);
-  const [sources, setSources] = useState<Partial<Record<JobSource, SourceResult>>>({});
   const [selected, setSelected] = useState<string | undefined>(undefined);
   const [fits, setFits] = useState<Record<string, FitResult>>({});
   const [searching, setSearching] = useState(false);
   const [fitting, setFitting] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [applying, setApplying] = useState(false);
+  // Two-click confirm, keyed by job url so switching the selected job
+  // always resets it rather than leaving a stale "click again to apply"
+  // armed against a *different* job than the one now showing. This is
+  // the one action in the whole app that can end with a real application
+  // actually going out — every other button here (Check fit, Save to
+  // review, even Dismiss elsewhere) fires immediately on a single click.
+  const [applyArmed, setApplyArmed] = useState<string | undefined>(undefined);
   const [message, setMessage] = useState<{ text: string; error?: boolean } | undefined>(undefined);
   const [preferredLocations, setPreferredLocations] = useState<string[]>([]);
   const [sortMode, setSortMode] = useState<SortMode>("preferred");
@@ -152,6 +209,21 @@ export function JobsScreen() {
       .catch(() => setPreferredLocations([]));
   }, []);
 
+  // Home's quick-search box navigates here with { state: { initialQuery } }
+  // instead of just a plain link — this is what actually runs that search
+  // on arrival instead of leaving the user to retype it. Only ever fires
+  // once per navigation: location.state is fresh (undefined) on any normal
+  // NavLink/nav-menu click, so there's nothing here to guard against
+  // re-triggering on a later remount.
+  useEffect(() => {
+    const initial = (location.state as { initialQuery?: string } | null)?.initialQuery;
+    if (initial && initial.trim()) {
+      setQuery(initial);
+      void search(initial);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // The bridge's searchJobs() already sorts preferred-location-first by
   // default (src/core/src/jobs.ts's sortByPreferredThenPosted) and
   // never drops a non-preferred posting — preferred_locations is a
@@ -188,63 +260,96 @@ export function JobsScreen() {
   const totalPages = Math.max(1, Math.ceil(displayedJobs.length / resultsPerPage));
   const pageJobs = displayedJobs.slice(page * resultsPerPage, (page + 1) * resultsPerPage);
 
+  // Global "N applied" counts — hosted-only (needs a signed-in Supabase
+  // session to read public.job_apply_counts at all), fetched once per
+  // page as a single batched request, not one request per row.
+  const { status: authStatus, session } = useAuth();
+  const [applyCounts, setApplyCounts] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (authStatus !== "signed-in" || !session) {
+      setApplyCounts({});
+      return;
+    }
+    const jobIds = [...new Set(pageJobs.map(computeJobId).filter((id): id is string => !!id))];
+    if (jobIds.length === 0) {
+      setApplyCounts({});
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const client = await getSupabaseClient();
+        const counts = await new SupabaseAdapter(client, session.user.id).getApplyCounts(jobIds);
+        if (!cancelled) setApplyCounts(counts);
+      } catch {
+        // Best-effort social-proof signal — a fetch failure just means no
+        // badges show this page, never an error the user needs to see.
+        if (!cancelled) setApplyCounts({});
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authStatus, session, pageJobs]);
+
   const selectedJob = displayedJobs.find((j) => j.url === selected);
   const selectedFit = selectedJob ? fits[selectedJob.url] : undefined;
-  const busy = searching || fitting || saving;
+  const busy = searching || fitting || saving || applying;
 
-  const search = async () => {
+  // Resets the arm state whenever the selected job changes, so "click
+  // again to confirm" never carries over to a job the user didn't mean to
+  // arm it for.
+  useEffect(() => {
+    setApplyArmed(undefined);
+  }, [selected]);
+
+  // Optional override so Home's quick-search can trigger a search with a
+  // query it just set via setQuery() in the same tick — reading `query`
+  // itself here would still see the pre-update value (React state updates
+  // aren't synchronous), so the caller passes the query straight through.
+  const search = async (queryOverride?: string) => {
     const gen = ++searchGen.current;
     setSearching(true);
     setMessage(undefined);
-    const trim = query.trim();
+    const trim = (queryOverride ?? query).trim();
     try {
       const root = await resolveRoot();
-      const slowEnabled = SLOW_SOURCES.some((s) => enabled[s]);
-      const fastEnabled = FAST_SOURCES.some((s) => enabled[s]);
 
       const apply = (result: SearchResult) => {
         if (gen !== searchGen.current) return;
         setJobs(result.jobs);
-        setSources(result.sources);
         setSelected(undefined);
       };
 
-      if (fastEnabled && slowEnabled) {
-        // Two-phase: show fast-source (fetch-based) results immediately,
-        // then replace with the complete set once the slower Python-backed
-        // sources finish. Phase 2 re-fetches fast sources (cheap, bounded
-        // by the bridge's per-source deadline) so dedup/sort/slice stay
-        // in one place — searchJobs — instead of being forked client-side.
-        //
-        // Both phases are fired together, not awaited sequentially — each
-        // is its own Tauri->Node subprocess spawn (no persistent bridge
-        // daemon), so awaiting phase1 fully before even starting phase2
-        // meant every search paid spawn+network cost twice, back to back,
-        // and phase2's slow sources (Amazon/Oracle/Workday, up to a 2.2s
-        // deadline each) didn't start counting until phase1 had already
-        // finished. Firing concurrently keeps the exact same progressive
-        // apply behavior (phase1's partial results still land first) but
-        // caps total wait for the final render at max(phase1, phase2)
-        // instead of phase1 + phase2.
-        const fastOnly = { ...enabled, amazon: false, oracle: false, workday: false };
-        const phase1Promise = searchJobs(root, trim, fastOnly);
-        const phase2Promise = searchJobs(root, trim, enabled);
-        const phase1 = await phase1Promise;
-        if (gen !== searchGen.current) return;
-        if (phase1.jobs.length > 0) apply(phase1);
-        const phase2 = await phase2Promise;
-        if (gen !== searchGen.current) return;
-        apply(phase2);
-        if (phase2.jobs.length === 0) {
-          setMessage({ text: "No matching titles found — try a different query." });
-        }
-      } else {
-        const result = await searchJobs(root, trim, enabled);
-        if (gen !== searchGen.current) return;
-        apply(result);
-        if (result.jobs.length === 0) {
-          setMessage({ text: "No matching titles found — try a different query." });
-        }
+      // Two-phase: show fast-source (fetch-based) results immediately,
+      // then replace with the complete set once the slower Python-backed
+      // sources (Amazon/Oracle/Workday) finish. Phase 2 re-fetches fast
+      // sources too (cheap, bounded by the bridge's per-source deadline)
+      // so dedup/sort/slice stay in one place — searchJobs — instead of
+      // being forked client-side.
+      //
+      // Both phases are fired together, not awaited sequentially — each
+      // is its own Tauri->Node subprocess spawn (no persistent bridge
+      // daemon), so awaiting phase1 fully before even starting phase2
+      // meant every search paid spawn+network cost twice, back to back,
+      // and phase2's slow sources (up to a 2.2s deadline each) didn't
+      // start counting until phase1 had already finished. Firing
+      // concurrently keeps the exact same progressive apply behavior
+      // (phase1's partial results still land first) but caps total wait
+      // for the final render at max(phase1, phase2) instead of
+      // phase1 + phase2.
+      const fastOnly = { amazon: false, oracle: false, workday: false };
+      const phase1Promise = searchJobs(root, trim, fastOnly);
+      const phase2Promise = searchJobs(root, trim);
+      const phase1 = await phase1Promise;
+      if (gen !== searchGen.current) return;
+      if (phase1.jobs.length > 0) apply(phase1);
+      const phase2 = await phase2Promise;
+      if (gen !== searchGen.current) return;
+      apply(phase2);
+      if (phase2.jobs.length === 0) {
+        setMessage({ text: "No matching titles found — try a different query." });
       }
     } catch (err) {
       if (gen !== searchGen.current) return;
@@ -279,6 +384,33 @@ export function JobsScreen() {
       setMessage({ text: `Save failed: ${err instanceof Error ? err.message : String(err)}`, error: true });
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Requires a second click on the same job (see applyArmed above) before
+  // it actually fires — this is the one action here that can end with a
+  // real application going out, so it doesn't get a single-click trigger
+  // the way Check fit/Save to review do.
+  const applyWithAplyx = async (job: SearchJob) => {
+    if (applyArmed !== job.url) {
+      setApplyArmed(job.url);
+      return;
+    }
+    setApplyArmed(undefined);
+    setApplying(true);
+    try {
+      const root = await resolveRoot();
+      const result = await triggerSingleJobApply(root, {
+        company: job.company,
+        title: job.title,
+        url: job.apply_url || job.url,
+        source: job.source,
+      });
+      setMessage({ text: result.message, error: !result.ok });
+    } catch (err) {
+      setMessage({ text: `Couldn't start: ${err instanceof Error ? err.message : String(err)}`, error: true });
+    } finally {
+      setApplying(false);
     }
   };
 
@@ -325,22 +457,6 @@ export function JobsScreen() {
             </span>
           </div>
         ) : null}
-        <div className="data-toolbar">
-          {SOURCES.map((source) => {
-            const badge = sourceBadge(sources[source], searching && enabled[source]);
-            return (
-              <button
-                key={source}
-                type="button"
-                className={enabled[source] ? "source-toggle on" : "source-toggle"}
-                onClick={() => setEnabled((cur) => ({ ...cur, [source]: !cur[source] }))}
-              >
-                {SOURCE_LABEL[source]}
-                <span className={`status-badge ${badge.className}`}>{badge.text}</span>
-              </button>
-            );
-          })}
-        </div>
         <div className="data-toolbar">
           <label className="field-label" htmlFor="jobs-sort" style={{ fontWeight: 500 }}>
             Sort by
@@ -402,20 +518,33 @@ export function JobsScreen() {
               <div className="data-list">
                 {pageJobs.map((job) => {
                   const jobFit = fits[job.url];
+                  const jobId = computeJobId(job);
+                  const applyCount = jobId ? applyCounts[jobId] : undefined;
                   return (
-                    <button
+                    <div
                       key={job.url}
-                      type="button"
+                      role="button"
+                      tabIndex={0}
                       className={job.url === selected ? "data-row selected" : "data-row"}
                       onClick={() => setSelected(job.url)}
                       onDoubleClick={() => void open(job)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setSelected(job.url);
+                        }
+                      }}
                     >
+                      <CompanyLogo company={job.company} />
                       <div className="data-row-main">
                         <span className="data-row-title">
                           {job.company} — {job.title}
                         </span>
                         <span className="data-row-sub">
                           {SOURCE_LABEL[job.source]} · {job.location || "location not listed"}
+                          {typeof applyCount === "number" && applyCount > 0
+                            ? ` · ${applyCount} ${applyCount === 1 ? "person" : "people"} applied`
+                            : ""}
                         </span>
                       </div>
                       {jobFit ? (
@@ -423,7 +552,23 @@ export function JobsScreen() {
                       ) : (
                         <span className="data-row-meta">{formatPosted(job.posted_at)}</span>
                       )}
-                    </button>
+                      {/* A real, generously-sized nested button — not just the
+                          row's own double-click, which nothing on screen hints
+                          at. Stops propagation so opening the posting never
+                          also fires the row's own select handler. */}
+                      <button
+                        type="button"
+                        className="data-row-open"
+                        title={`Open ${job.company} — ${job.title}`}
+                        aria-label={`Open ${job.company} — ${job.title}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void open(job);
+                        }}
+                      >
+                        <ExternalLinkIcon />
+                      </button>
+                    </div>
                   );
                 })}
               </div>
@@ -449,13 +594,11 @@ export function JobsScreen() {
           )}
         </div>
 
-        {selectedJob ? (
-          <div className="detail-col">
-            <div className="detail-title">{selectedJob.title}</div>
-            <div className="detail-row">
-              <span className="detail-row-label">Company</span>
-              <span className="detail-row-value">{selectedJob.company}</span>
-            </div>
+      </div>
+
+      <Modal open={!!selectedJob} onClose={() => setSelected(undefined)} title={selectedJob ? `${selectedJob.company} — ${selectedJob.title}` : ""}>
+        {selectedJob && (
+          <>
             <div className="detail-row">
               <span className="detail-row-label">Source</span>
               <span className="detail-row-value">{SOURCE_LABEL[selectedJob.source]}</span>
@@ -487,25 +630,80 @@ export function JobsScreen() {
               )}
             </div>
             <hr className="detail-rule" />
+            {/* Two equally-weighted primary paths — go look at the posting
+                and apply by hand, or have aplyx do it — with "Check
+                fit"/"Save to review" staying secondary to both, not equal
+                with either. Full-size (no btn-sm) and first, same as
+                Open always was. The aplyx path needs a second click on the
+                same job to actually fire (applyArmed, reset whenever the
+                selection changes) — the one action on this screen that can
+                end with a real application actually going out, unlike Open
+                (never submits anything itself) or the two secondary
+                actions below (also never do). */}
+            <button
+              type="button"
+              className="btn btn-primary detail-open-btn"
+              disabled={busy}
+              onClick={() => void open(selectedJob)}
+            >
+              <ExternalLinkIcon />
+              Open posting
+            </button>
+            <button
+              type="button"
+              className={applyArmed === selectedJob.url ? "btn btn-danger detail-open-btn" : "btn btn-primary detail-open-btn"}
+              disabled={busy}
+              onClick={() => void applyWithAplyx(selectedJob)}
+            >
+              {applying ? "Starting…" : applyArmed === selectedJob.url ? "Click again to confirm" : "Apply with aplyx"}
+            </button>
             <div className="detail-actions">
-              <button type="button" className="btn btn-sm" disabled={busy} onClick={() => void open(selectedJob)}>
-                Open
-              </button>
               <button type="button" className="btn btn-sm" disabled={busy} onClick={() => void fit(selectedJob)}>
                 {fitting ? "Checking…" : "Check fit"}
               </button>
               <button
                 type="button"
-                className="btn btn-primary btn-sm"
+                className="btn btn-sm"
                 disabled={busy}
                 onClick={() => void save(selectedJob)}
               >
                 {saving ? "Saving…" : "Save to review"}
               </button>
             </div>
-          </div>
-        ) : null}
-      </div>
+
+            {/* jd_text was already fetched by the scraper for most sources
+               *  (Ashby/Lever/Greenhouse/Workable reliably; SmartRecruiters/
+               *  Oracle/Muse's feed don't have it) and never shown anywhere
+               *  in the app until now — the fit-gate check already reads it,
+               *  but a human never got to. Run through jobs.ts's htmlToText()
+               *  at fetch time (converts <li> to "• " bullets, decodes HTML
+               *  entities, marks section headings, collapses stray tags)
+               *  rather than raw source markup, then renderJobDescription()
+               *  below splits those "### " markers back out into their own
+               *  labeled sections — no separate "requirements" field to
+               *  pull out, postings don't structure that consistently
+               *  enough to split deterministically beyond what each source
+               *  itself already marked as a heading, so within a section it
+               *  stays one block, same as a real job posting page reads. */}
+            <hr className="detail-rule" />
+            <div className="detail-row">
+              <span className="detail-row-label">Full posting</span>
+              {selectedJob.jd_text ? (
+                // div, not p — base.css's global `p { max-width: 65ch }`
+                // would clamp this to an oddly narrow ragged column
+                // regardless of the modal's actual (wider) content width.
+                <div className="detail-row-value" style={{ display: "block" }}>
+                  {renderJobDescription(selectedJob.jd_text)}
+                </div>
+              ) : (
+                <span className="detail-row-value" style={{ color: "var(--text-faint)" }}>
+                  Not available for this source — open the posting to read the full description.
+                </span>
+              )}
+            </div>
+          </>
+        )}
+      </Modal>
     </div>
   );
 }

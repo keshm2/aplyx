@@ -57,6 +57,25 @@ function FieldControl({ field, value, onChange }: { field: FieldDef; value: Fiel
       );
     }
 
+    case "select3": {
+      const current = String(value ?? "");
+      const options = field.options ?? [];
+      return (
+        <div className="yesno-toggle" role="group" aria-label={field.label}>
+          {options.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              className={current === opt.value ? "selected" : ""}
+              onClick={() => onChange(opt.value)}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      );
+    }
+
     case "multi-location":
       return (
         <TagSearchInput

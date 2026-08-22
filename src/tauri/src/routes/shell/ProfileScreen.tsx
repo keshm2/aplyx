@@ -61,7 +61,7 @@ export function ProfileScreen() {
 
   if (loaded && !root) {
     return (
-      <div style={{ maxWidth: "34rem", display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+      <div style={{ maxWidth: "42rem", margin: "0 auto", display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
         <h1 style={{ fontSize: "var(--text-3xl)" }}>Profile</h1>
         <p className="field-help">
           Connect a local install in Settings first — profile fields live in your local aplyx checkout.
@@ -71,7 +71,7 @@ export function ProfileScreen() {
   }
 
   return (
-    <div style={{ maxWidth: "34rem", display: "flex", flexDirection: "column", gap: "var(--space-6)" }}>
+    <div style={{ maxWidth: "42rem", margin: "0 auto", display: "flex", flexDirection: "column", gap: "var(--space-6)" }}>
       <div>
         <h1 style={{ fontSize: "var(--text-3xl)", marginBottom: "var(--space-2)" }}>Profile</h1>
         <p style={{ color: "var(--text-muted)" }}>
@@ -85,7 +85,7 @@ export function ProfileScreen() {
         <p className="field-help">Loading&hellip;</p>
       ) : (
         PAGES.map((page, pageIndex) => (
-          <section key={page.title}>
+          <section key={page.title} className="settings-section">
             <h2 style={{ fontSize: "var(--text-lg)", marginBottom: "var(--space-3)" }}>{page.title}</h2>
             <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
               {page.fields.map((field) => (

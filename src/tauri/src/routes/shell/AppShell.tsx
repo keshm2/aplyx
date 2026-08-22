@@ -1,7 +1,9 @@
 import { lazy, Suspense, useEffect, useState } from "react";
-import { NavLink, Route, Routes, useLocation } from "react-router-dom";
-import { Logo } from "../../components/Logo";
+import { Route, Routes, useLocation } from "react-router-dom";
 import { TopBar } from "../../components/TopBar";
+import { NavHomeIcon, NavJobsIcon, NavReviewIcon, NavDocumentsIcon, NavStatusIcon, NavResumesIcon, NavProfileIcon } from "../../components/Icons";
+import { useAplyxState } from "../../lib/useAplyxState";
+import { isResolved } from "@aplyx/core/stateDerive.js";
 import "./AppShell.css";
 
 // Same route-level code-splitting reasoning as App.tsx: a user visiting
@@ -25,15 +27,17 @@ const ResumesScreen = lazy(() => import("./ResumesScreen").then((m) => ({ defaul
 
 // Settings used to be a nav entry here too — it's the gear icon in TopBar
 // now instead (next to the bell), so the /app/settings route stays wired
-// up below but isn't listed as a sidebar destination anymore.
+// up below but isn't listed as a nav destination anymore. Consumed by
+// TopBar's NavMenu (the dropdown that replaced the old persistent sidebar
+// rail) rather than rendered directly here.
 const NAV = [
-  { to: "/app", label: "Home", end: true },
-  { to: "/app/jobs", label: "Jobs" },
-  { to: "/app/review", label: "Review queue" },
-  { to: "/app/documents", label: "Documents" },
-  { to: "/app/status", label: "Status" },
-  { to: "/app/resumes", label: "Resumes" },
-  { to: "/app/profile", label: "Profile" },
+  { to: "/app", label: "Home", end: true, Icon: NavHomeIcon },
+  { to: "/app/jobs", label: "Jobs", Icon: NavJobsIcon },
+  { to: "/app/review", label: "Review queue", Icon: NavReviewIcon },
+  { to: "/app/documents", label: "Documents", Icon: NavDocumentsIcon },
+  { to: "/app/status", label: "Application statuses", Icon: NavStatusIcon },
+  { to: "/app/resumes", label: "Resumes", Icon: NavResumesIcon },
+  { to: "/app/profile", label: "Profile", Icon: NavProfileIcon },
 ];
 
 // Route chunks are lazy (see the imports above) so a fresh launch only
@@ -60,6 +64,21 @@ export function AppShell() {
   const location = useLocation();
   const [displayedLocation, setDisplayedLocation] = useState(location);
   const [transition, setTransition] = useState<"idle" | "out" | "in">("idle");
+  // Live count on the "Review queue" nav item — the dropdown otherwise
+  // never reflects anything changing on its own, and this is the one
+  // number HomeScreen's own nextAction already treats as the most
+  // time-sensitive thing in the app (an unreviewed application waiting on
+  // a manual decision). useAplyxState already polls every 60s for exactly
+  // this reason (background scheduler activity while the window is open),
+  // so this rides that existing refresh rather than adding a second one.
+  const { state } = useAplyxState();
+  // Not state?.queue.length — the queue array is append-only and never
+  // shrinks on its own (AGENTS.md), so a raw length counts entries that
+  // were already applied/dismissed/failed after being queued. isResolved
+  // is the same filter ReviewScreen's own pending-count already applies;
+  // this badge needs to agree with it or the nav menu and the actual queue
+  // list would disagree about how many items are still pending.
+  const queueCount = state ? state.queue.filter((e) => !isResolved(state, e)).length : 0;
 
   useEffect(() => {
     const idle = window.setTimeout(() => {
@@ -94,26 +113,8 @@ export function AppShell() {
 
   return (
     <div className="shell">
-      <aside className="shell-sidebar">
-        <div className="shell-brand">
-          <Logo size={26} />
-        </div>
-        <nav className="shell-nav">
-          {NAV.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              className={({ isActive }) => (isActive ? "shell-nav-item shell-nav-item-active" : "shell-nav-item")}
-            >
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
-      </aside>
-
       <main className="shell-main">
-        <TopBar />
+        <TopBar navItems={NAV} queueBadge={{ to: "/app/review", count: queueCount }} />
         <div
           className={`shell-route-frame${transition === "out" ? " shell-route-out" : transition === "in" ? " shell-route-in" : ""}`}
           onAnimationEnd={(e) => {

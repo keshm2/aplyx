@@ -1,10 +1,25 @@
 /* Lives as the first child of .shell-main, which already supplies the
  * page's own top/side padding (AppShell.css) — no padding of its own here,
- * just the icon row plus breathing room before the routed content below. */
+ * just the icon row plus breathing room before the routed content below.
+ * Now the app's only persistent chrome (the old sidebar rail is gone):
+ * brand mark + nav switcher on the left, notifications/settings on the
+ * right. */
 .topbar {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: var(--space-2);
   margin-bottom: var(--space-4);
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }

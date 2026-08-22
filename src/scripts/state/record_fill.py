@@ -28,7 +28,13 @@ import tempfile
 
 DEFAULT_DIR = "data/fill_records"
 
-ALLOWED_SOURCE_PREFIXES = ("safe_fields:", "constructed", "resume_upload", "cover_letter")
+ALLOWED_SOURCE_PREFIXES = (
+    "safe_fields:",
+    "constructed",
+    "resume_upload",
+    "cover_letter",
+    "conservative_default",
+)
 
 # job_id is normally "{ats_source}-{external_job_id}" or a "jk:<sha256>" job_key
 # (see src/scripts/state/job_state.py derive_job_id) — both are filesystem-safe as
@@ -71,7 +77,15 @@ def validate_fields(fields):
         if entry["source"] not in ALLOWED_SOURCE_PREFIXES and not entry["source"].startswith("safe_fields:"):
             die(
                 f"fields-json[{i}]: 'source' must be 'safe_fields:<key>', "
-                f"'constructed', 'resume_upload', or 'cover_letter' (got '{entry['source']}')"
+                f"'constructed', 'resume_upload', 'cover_letter', or "
+                f"'conservative_default' (got '{entry['source']}')"
+            )
+        if entry["source"] == "conservative_default" and not (
+            isinstance(entry.get("note"), str) and entry["note"].strip()
+        ):
+            die(
+                f"fields-json[{i}]: source 'conservative_default' requires a non-empty "
+                f"'note' explaining what default was chosen and why"
             )
         if not isinstance(entry["verified"], bool):
             die(f"fields-json[{i}]: 'verified' must be a JSON boolean")

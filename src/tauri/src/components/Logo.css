@@ -4,6 +4,19 @@
   gap: var(--space-3);
 }
 
+/* Only the space AROUND the mark, never the mark's own pixels — the PNG
+ * (logo-mark.png) is opaque edge-to-edge, so a background can't show
+ * "through" it; this is a soft ambient halo bleeding outward instead,
+ * built from the same three accent stops as the rest of Prism. Static,
+ * not animated — a brand mark visible on every screen doesn't get a
+ * looping effect, same reasoning as the nav rail's active indicator. */
+.logo-mark {
+  border-radius: 22%;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent),
+    0 0 16px 2px color-mix(in srgb, var(--accent) 35%, transparent),
+    0 0 28px 6px color-mix(in srgb, var(--accent-3) 22%, transparent);
+}
+
 .logo-wordmark {
   font-family: var(--font-body);
   font-size: var(--text-xl);

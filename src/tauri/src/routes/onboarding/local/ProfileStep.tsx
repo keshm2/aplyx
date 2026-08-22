@@ -22,6 +22,11 @@ export function ProfileStep({ root, onComplete }: { root: string; onComplete: ()
   const [loaded, setLoaded] = useState(false);
 
   const page = PAGES[pageIndex];
+  // Only select3 fields set `required` today (see fields.ts) — always with
+  // a "prefer not to answer" option among their three choices, so this
+  // blocks leaving the question untouched, never forces an actual
+  // disclosure.
+  const missingRequired = page.fields.some((f) => f.required && !values[f.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -100,13 +105,13 @@ export function ProfileStep({ root, onComplete }: { root: string; onComplete: ()
         </div>
       )}
       <p className="field-help" style={{ marginTop: "1rem" }}>
-        {PRIVACY_LINE}
+        {missingRequired ? "Pick an answer for every question above to continue — \"prefer not to answer\" counts." : PRIVACY_LINE}
       </p>
       <div style={{ display: "flex", justifyContent: "space-between", marginTop: "1.5rem" }}>
         <button type="button" className="wizard-back" onClick={handleBack} disabled={pageIndex === 0}>
           &larr; {pageIndex === 0 ? "" : PAGES[pageIndex - 1].title}
         </button>
-        <button type="button" className="wizard-next" onClick={handleNext} disabled={!loaded}>
+        <button type="button" className="wizard-next" onClick={handleNext} disabled={!loaded || missingRequired}>
           {pageIndex < PAGES.length - 1 ? "Next" : "Continue"}
         </button>
       </div>

@@ -22,8 +22,6 @@ You are invoked (as a subagent, mid-run, by job-scraper's Phase 2) with:
 - `company` — the employer.
 - `title` — the role applied for.
 - `jd_text` — the full job description text.
-- `matched_category` — the role_keywords category the job matched (the
-  same tag `@resume-tailor` receives — see job-scraper.md Phase 2 step 1).
 - `resume_used` and `tailored_bullets` — `@resume-tailor`'s own output for
   this job, so the letter stays consistent with whichever resume version
   and emphasis was actually selected, instead of drifting from it.
@@ -78,9 +76,9 @@ a cover-letter form field or attachment, not through further editing.
 ## Grounding rules (do not bend these)
 
 - **Every factual claim must come from the tailored resume content
-  (`tailored_bullets`, or the base resume file `resume_used` selects) or
-  `jd_text`.** Never invent experience, a project, a metric, or a skill
-  the applicant doesn't actually have.
+  (`tailored_bullets`, or `data/resumes/resume.json`) or `jd_text`.**
+  Never invent experience, a project, a metric, or a skill the applicant
+  doesn't actually have.
 - **Never invent knowledge of the company** beyond what `jd_text` says.
   If the JD doesn't say what the team builds, write about the role's
   responsibilities instead of guessing at the company's mission.
@@ -95,7 +93,7 @@ a cover-letter form field or attachment, not through further editing.
 
 - Resolve the voice/structure reference file dynamically — never assume
   the literal filename `base_cover_letter.md`, since the operator can
-  rename it: `python3 src/scripts/state/resolve_resume.py --category cover_letter`
+  rename it: `python3 src/scripts/state/resolve_resume.py --cover-letter`
   and read the file at `md_path` (fall back to `pdf_path` only if
   `md_path` is null). `confidence: "none"` means no reference file
   exists at all — write without a voice/structure reference rather than
@@ -111,6 +109,22 @@ a cover-letter form field or attachment, not through further editing.
   enthusiasm on its own.
 - Plain sentences, first person, no superlatives about the company
   ("world-class", "industry-leading"), no flattery.
+
+## Humanize pass
+
+Before returning the output JSON, read the file at the literal
+repo-relative path `src/agents/skills/humanizer/SKILL.md` (relative to
+your current working directory, the project root — NOT `~/.agents/skills/`
+or any other global skills-directory convention your harness may know
+about; this is a plain file inside this repo, not an installed skill),
+specifically its "Cover-letter patterns" section, and apply it as a
+final style pass over `cover_letter`:
+rewrite generic enthusiasm openers, sycophantic tone, negative
+parallelism, AI-vocabulary words (delve, align with, fostering,
+showcase, underscore, tapestry, testament, pivotal), and generic
+positive conclusions. This changes wording only — it never adds a claim
+beyond what the Grounding rules above already allow, and never removes
+the concrete JD-connection points that are the substance of the letter.
 
 ## What you never do
 

@@ -57,6 +57,7 @@ DEFAULT_MODEL = "claude-sonnet-5"
 # even if the body is edited or the model ignores it.
 _EXCLUDED_PROFILE_KEYS = {
     "gender", "ethnicity", "hispanic_or_latino", "date_of_birth",
+    "veteran_status", "disability_status",
     "address_line1", "address_line2", "zip_code",
 }
 

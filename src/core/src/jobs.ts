@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
-import { py } from "./platform.js";
+import { py, execFileWithStdin } from "./platform.js";
 import { effectiveEnv, readTargetsArrayList } from "./settings.js";
 import { sortByPreferredThenPosted, titleMatchesQuery, dedupeKey } from "./jobsSort.js";
 import type { JobSource, SearchJob } from "./jobsSort.js";
@@ -158,6 +158,30 @@ export interface FitResult {
   fit_status: "candidate" | "needs_review" | "skipped_unfit";
   fit_score: number;
   reasoning: string;
+  matched_skills?: string[];
+}
+
+export interface RecommendedJob {
+  job_id: string;
+  company: string;
+  title: string;
+  url: string;
+  apply_url?: string;
+  source?: string;
+  role_type?: string;
+  location_tier?: string;
+  fit_score: number;
+  matched_skills: string[];
+}
+
+interface RegistryFitCandidate extends SearchJob {
+  job_key: string;
+  job_id: string;
+  location_tier?: string;
+  internship_term?: string;
+  role_type?: string;
+  normalized_apply_url?: string;
+  closed?: boolean;
 }
 
 export interface Targets {
@@ -176,6 +200,43 @@ interface CanonicalJob extends SearchJob {
   internship_term?: string;
 }
 
+export interface SchedulerHeartbeat {
+  last_run_completed_at: string;
+  last_run_exit_code: number;
+  last_run_counts: { applied: number; needs_review: number; failed: number; skipped_unfit: number };
+  run_counter: number;
+  consecutive_nonzero_exits: number;
+}
+
+export interface SchedulerStatus {
+  installed: boolean;
+  supported: boolean;
+  interval_min: number;
+  heartbeat: SchedulerHeartbeat | null;
+}
+
+/** Local 30-min scheduler state for the Home dashboard's status widget —
+ *  installed/not, and the last completed run's heartbeat (see
+ *  write_heartbeat.py). scheduler.py's own `status --json` already returns
+ *  exactly this shape as one JSON line, so runPyJson's single-parse works
+ *  here (unlike evaluate_job_fit.py --batch's JSONL output). */
+export async function getSchedulerStatus(root: string): Promise<SchedulerStatus> {
+  return await runPyJson(root, ["src/scripts/runtime/scheduler.py", "status", "--json"]) as SchedulerStatus;
+}
+
+/** Toggle the local 30-min scheduler on/off (install/uninstall the launchd
+ *  agent — see scheduler.py's own install/uninstall for what that actually
+ *  does per OS). install/uninstall print plain human-readable text, not
+ *  JSON, so this doesn't go through runPyJson — it just runs the command
+ *  (execFileAsync rejects on a non-zero exit) and returns fresh status
+ *  once it's done, so the caller always gets the post-toggle truth rather
+ *  than having to separately re-fetch. */
+export async function setSchedulerInstalled(root: string, installed: boolean): Promise<SchedulerStatus> {
+  const p = py(["src/scripts/runtime/scheduler.py", installed ? "install" : "uninstall"]);
+  await execFileAsync(p.cmd, p.args, { cwd: root, encoding: "utf8", timeout: 30_000 });
+  return getSchedulerStatus(root);
+}
+
 export function configured(values: string[] | undefined): string[] {
   return (values ?? []).filter((value) => value && value !== "REPLACE_ME");
 }
@@ -192,6 +253,108 @@ function webUrl(value: unknown): string {
   } catch {
     return "";
   }
+}
+
+const HTML_NAMED_ENTITIES: Record<string, string> = {
+  amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ",
+  rsquo: "’", lsquo: "‘", rdquo: "”", ldquo: "“",
+  ndash: "–", mdash: "—", hellip: "…",
+};
+
+function decodeHtmlEntitiesOnce(text: string): string {
+  return text
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex: string) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec: string) => String.fromCodePoint(parseInt(dec, 10)))
+    .replace(/&([a-zA-Z]+);/g, (match, name: string) => HTML_NAMED_ENTITIES[name] ?? match);
+}
+
+// Some sources (confirmed live: Greenhouse's job.content) double-encode —
+// the field's actual tags arrive as "&lt;p&gt;...&lt;/p&gt;" rather than
+// "<p>...</p>", so a single decode pass only reveals literal-looking
+// "<p>" text without ever exposing a real tag to strip. Decoding to a
+// fixed point (capped at 3 passes — real content never nests this deep,
+// this is just a backstop against pathological input) makes htmlToText
+// correct regardless of how many layers of encoding a source used.
+function decodeHtmlEntities(text: string): string {
+  let result = text;
+  for (let i = 0; i < 3; i++) {
+    const next = decodeHtmlEntitiesOnce(result);
+    if (next === result) break;
+    result = next;
+  }
+  return result;
+}
+
+// Marks real section headings so the UI can render them distinctly
+// instead of flattening "Responsibilities" / "Requirements" / etc. into
+// the same run-on body text as everything else. Two patterns cover what
+// postings actually use in practice (confirmed live against real Ashby/
+// Greenhouse content): real <h1-6> tags, and a <p> or bare <strong>/<b>
+// run whose entire short text is the heading (e.g. Greenhouse's
+// "<p><strong>ACCOUNTANT, REVENUE</strong></p>") — postings built with a
+// plain rich-text editor rarely use real heading tags for this. Emits a
+// "### " marker line (own paragraph, blank line on each side) that
+// htmlToText's caller can split on; deliberately not real markdown
+// syntax elsewhere in this string, so a "### " match is unambiguous.
+function markHeadings(html: string): string {
+  return html
+    .replace(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/gi, "\n\n### $1\n")
+    .replace(/<p[^>]*>\s*<(?:strong|b)>([^<]{1,80})<\/(?:strong|b)>\s*<\/p>/gi, "\n\n### $1\n")
+    .replace(/<(?:strong|b)>([^<]{1,80})<\/(?:strong|b)>\s*(?=<ul|<ol|<br)/gi, "\n\n### $1\n");
+}
+
+/**
+ * Converts a posting's rich-text HTML body into readable plain text.
+ * Every source below that ships jd_text (Ashby/Lever/Greenhouse/Workable)
+ * runs through this — including Ashby/Lever's own "descriptionPlain"
+ * field, which despite the name still carries raw entities/leftover
+ * markup in practice, not just the sources that obviously needed
+ * stripping. Preserves paragraph breaks, marks section headings (see
+ * markHeadings), and turns <li> into a "• " bulleted line instead of
+ * flattening everything into one run-on paragraph, which a naive
+ * tag-strip-to-space (the old per-source approach) did — that, plus not
+ * handling double-encoded sources (see decodeHtmlEntities), is what was
+ * showing up as "raw HTML" in the Full posting panel. Regex-based, not a
+ * DOM parser, so it behaves the same in the TUI's Node process and the
+ * desktop app's browser webview — this module is shared by both.
+ */
+function htmlToText(raw: string): string {
+  const html = decodeHtmlEntities(raw);
+  const withHeadings = markHeadings(html);
+  const withBreaks = withHeadings
+    .replace(/<li[^>]*>/gi, "\n• ")
+    .replace(/<\/(p|div|h[1-6]|tr)>/gi, "\n\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(ul|ol)>/gi, "\n");
+  const decoded = decodeHtmlEntities(withBreaks.replace(/<[^>]+>/g, ""));
+  return decoded
+    .split("\n")
+    .map((line) => (line.startsWith("### ") ? line.trim() : line.replace(/[ \t]+/g, " ").trim()))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+// Lever ships an intro paragraph, an explicitly structured list of
+// {text: heading, content: <li>...} sections, and a closing paragraph —
+// confirmed live (api.lever.co/v0/postings/<slug>) — rather than one
+// blob like every other source. Building sections directly from that
+// structure is more reliable than heuristically detecting headings in a
+// flattened description, so Lever gets its own builder instead of a bare
+// htmlToText(job.descriptionPlain) call.
+function leverJdText(job: Record<string, unknown>): string | undefined {
+  const parts: string[] = [];
+  const intro = htmlToText(String(job.description ?? ""));
+  if (intro) parts.push(intro);
+  const lists = Array.isArray(job.lists) ? (job.lists as Array<Record<string, unknown>>) : [];
+  for (const item of lists) {
+    const heading = displayText(item.text);
+    const body = htmlToText(String(item.content ?? ""));
+    if (heading || body) parts.push([heading ? `### ${heading}` : undefined, body].filter(Boolean).join("\n"));
+  }
+  const closing = htmlToText(String(job.additional ?? ""));
+  if (closing) parts.push(closing);
+  return parts.join("\n\n") || undefined;
 }
 
 export async function readTargets(root: string): Promise<Targets> {
@@ -257,7 +420,11 @@ export async function fetchAshby(slugs: string[]): Promise<{ jobs: SearchJob[]; 
           apply_url: webUrl(job.applyUrl) || undefined,
           external_job_id: displayText(job.id) || undefined,
           location: displayText(job.location) || undefined,
-          jd_text: String(job.descriptionPlain ?? "").trim() || undefined,
+          // descriptionHtml, not descriptionPlain — confirmed live, Ashby's
+          // "plain" field has no heading structure at all (already
+          // flattened), while descriptionHtml keeps real <h3>/<strong>
+          // section headings for markHeadings to pick up.
+          jd_text: htmlToText(String(job.descriptionHtml ?? job.descriptionPlain ?? "")) || undefined,
           posted_at: isoOrUndefined(job.publishedAt),
         }];
       });
@@ -287,7 +454,7 @@ export async function fetchLever(slugs: string[]): Promise<{ jobs: SearchJob[]; 
           apply_url: webUrl(job.applyUrl) || undefined,
           external_job_id: displayText(job.id) || undefined,
           location: displayText(categories.location) || undefined,
-          jd_text: String(job.descriptionPlain ?? "").trim() || undefined,
+          jd_text: leverJdText(job),
           posted_at: isoOrUndefined(job.createdAt),
         }];
       });
@@ -316,7 +483,7 @@ export async function fetchGreenhouse(slugs: string[]): Promise<{ jobs: SearchJo
           url,
           external_job_id: displayText(job.id) || undefined,
           location: displayText(location.name) || undefined,
-          jd_text: String(job.content ?? "").replace(/<[^>]+>/g, " ").trim() || undefined,
+          jd_text: htmlToText(String(job.content ?? "")) || undefined,
           posted_at: isoOrUndefined(job.updated_at),
         }];
       });
@@ -409,7 +576,7 @@ async function fetchWorkableCompany(slug: string): Promise<SearchJob[]> {
       location: locationParts.join(", ") || undefined,
       // Full JD text ships in the list response (confirmed live) — no
       // separate detail fetch needed, same as Amazon/Muse.
-      jd_text: String(job.description ?? "").replace(/<[^>]+>/g, " ").trim() || undefined,
+      jd_text: htmlToText(String(job.description ?? "")) || undefined,
       posted_at: isoOrUndefined(job.published_on),
     }];
   });
@@ -561,6 +728,56 @@ async function fetchMuse(root: string, query: string, pageSize: number): Promise
   }
 }
 
+/** Community listing-tracker aggregators (SimplifyJobs + vanshb03's sibling
+ *  trackers — see fetch_simplify_listings.py). Previously only wired into
+ *  the autonomous agent pipeline (job-scraper.md Phase 1) and a one-off
+ *  onboarding company-picker script, never this interactive search path —
+ *  meaning the single highest-volume, zero-maintenance source (SimplifyJobs
+ *  + vanshb03 combined) was invisible in the Jobs screen despite already
+ *  being fully configured (targets.json's simplify_feeds). Unlike the
+ *  per-company board fetchers, one process call here returns raw JSONL
+ *  across every configured feed — there's no `--search` flag on the
+ *  script; the merged result set is title-filtered downstream the same
+ *  as every other source (searchJobs()'s own `matched` filter). Carries
+ *  no jd_text (the feed doesn't include JD bodies) — Apply with aplyx
+ *  doesn't need it (the real agent pipeline fetches the JD itself per
+ *  AGENTS.md's board-specific fetch method for this source), but the
+ *  per-job "Check fit" button will show a no-match score here until a
+ *  generic per-URL JD fetch exists for this source specifically. */
+async function fetchSimplify(root: string, pageSize: number): Promise<{ jobs: SearchJob[]; source: SourceResult }> {
+  try {
+    const sim = py(["src/scripts/jobs/fetch_simplify_listings.py", "--limit", String(pageSize)]);
+    const { stdout, stderr } = await execFileAsync(
+      sim.cmd,
+      sim.args,
+      { cwd: root, encoding: "utf8", maxBuffer: 20 * 1024 * 1024, timeout: 60_000 },
+    );
+    const jobs = stdout.split("\n").filter(Boolean).map((line) => JSON.parse(line) as SearchJob)
+      .map((job) => ({
+        ...job,
+        company: displayText(job.company),
+        title: displayText(job.title),
+        url: webUrl(job.url),
+        location: displayText(job.location) || undefined,
+      }))
+      .filter((job) => job.company && job.title && job.url);
+    // "feeds=0 jobs=0 failed=0" — simplify_feeds unset/empty/placeholder,
+    // a clean configured skip (see load_configured_feeds's own doc
+    // comment). Distinct from "feeds=0 jobs=0 failed=<n>" (every
+    // configured feed genuinely failed to fetch), which should surface
+    // as a warning, not a silent "not configured".
+    const cleanSkip = /feeds=0 jobs=0 failed=0/.test(stderr);
+    return {
+      jobs,
+      source: cleanSkip
+        ? { state: "skipped", count: 0, detail: "not configured" }
+        : { state: "ready", count: jobs.length },
+    };
+  } catch (err) {
+    return { jobs: [], source: { state: "warning", count: 0, detail: errorMessage(err) } };
+  }
+}
+
 const DISABLED_SOURCE: SourceResult = { state: "skipped", count: 0, detail: "disabled" };
 
 /** Checks the shared job_cache table before falling back to a live
@@ -665,7 +882,7 @@ export async function searchJobs(
   const greenhouseSlugs = isOn("greenhouse") ? configured(targets.greenhouse_company_slugs) : [];
   const smartrecruitersSlugs = isOn("smartrecruiters") ? configured(targets.smartrecruiters_company_slugs) : [];
   const workableSlugs = isOn("workable") ? configured(targets.workable_company_slugs) : [];
-  const [ashby, lever, greenhouse, smartrecruiters, workable, amazon, oracle, workday, muse] = await Promise.all([
+  const [ashby, lever, greenhouse, smartrecruiters, workable, amazon, oracle, workday, muse, simplify] = await Promise.all([
     maybeCached(root, "ashbyhq", ashbySlugs, "Ashby", query, (slugs) => fetchAshby(slugs)),
     maybeCached(root, "lever", leverSlugs, "Lever", query, (slugs) => fetchLever(slugs)),
     maybeCached(root, "greenhouse", greenhouseSlugs, "Greenhouse", query, (slugs) => fetchGreenhouse(slugs)),
@@ -681,16 +898,19 @@ export async function searchJobs(
     isOn("oracle") ? withDeadline(fetchOracle(root, query, LIVE_SOURCE_FETCH_LIMIT), "Oracle", PYTHON_SOURCE_DEADLINE_MS) : Promise.resolve({ jobs: [], source: DISABLED_SOURCE }),
     isOn("workday") ? withDeadline(fetchWorkday(root, query, LIVE_SOURCE_FETCH_LIMIT), "Workday", PYTHON_SOURCE_DEADLINE_MS) : Promise.resolve({ jobs: [], source: DISABLED_SOURCE }),
     isOn("muse") ? withDeadline(fetchMuse(root, query, LIVE_SOURCE_FETCH_LIMIT), "The Muse", PYTHON_SOURCE_DEADLINE_MS) : Promise.resolve({ jobs: [], source: DISABLED_SOURCE }),
+    // One toggle ("simplify") gates the whole call even though results
+    // carry per-job source "simplify" or "vanshb03" — see fetchSimplify's
+    // own doc comment for why this used to be invisible here entirely.
+    isOn("simplify") ? withDeadline(fetchSimplify(root, LIVE_SOURCE_FETCH_LIMIT), "Simplify", PYTHON_SOURCE_DEADLINE_MS) : Promise.resolve({ jobs: [], source: DISABLED_SOURCE }),
   ]);
   // Keyed on a normalized (company, title, location) triple, not job.url —
-  // aggregators (The Muse here; Simplify/vanshb03 further upstream via
-  // the shared job cache) link their own landing/tracking page rather
-  // than the employer's real ATS URL, so the same real posting reached
-  // through two different sources used to show up twice. See dedupeKey's
-  // own doc comment for exactly what "normalized" means and why it's
-  // exact-match, not fuzzy.
+  // aggregators (The Muse and Simplify/vanshb03 here) link their own
+  // landing/tracking page rather than the employer's real ATS URL, so the
+  // same real posting reached through two different sources used to show
+  // up twice. See dedupeKey's own doc comment for exactly what
+  // "normalized" means and why it's exact-match, not fuzzy.
   const seen = new Set<string>();
-  const deduped = [...ashby.jobs, ...lever.jobs, ...greenhouse.jobs, ...smartrecruiters.jobs, ...workable.jobs, ...amazon.jobs, ...oracle.jobs, ...workday.jobs, ...muse.jobs].filter((job) => {
+  const deduped = [...ashby.jobs, ...lever.jobs, ...greenhouse.jobs, ...smartrecruiters.jobs, ...workable.jobs, ...amazon.jobs, ...oracle.jobs, ...workday.jobs, ...muse.jobs, ...simplify.jobs].filter((job) => {
     const key = dedupeKey(job);
     if (seen.has(key)) return false;
     seen.add(key);
@@ -738,6 +958,11 @@ export async function searchJobs(
       oracle: withMatchedCount(oracle.source, "oracle"),
       workday: withMatchedCount(workday.source, "workday"),
       muse: withMatchedCount(muse.source, "muse"),
+      // One fetch call, two per-job source values (see fetchSimplify) —
+      // both share simplify.source's state/detail, matched-count only
+      // splits by which tracker each job actually came from.
+      simplify: withMatchedCount(simplify.source, "simplify"),
+      vanshb03: withMatchedCount(simplify.source, "vanshb03"),
     },
   };
 }
@@ -782,6 +1007,77 @@ export async function checkJobFit(root: string, job: SearchJob): Promise<FitResu
     throw new Error("fit helper returned an unexpected status");
   }
   return result;
+}
+
+const RECOMMENDED_JOBS_LIMIT = 12;
+
+async function readRegistry(root: string): Promise<RegistryFitCandidate[]> {
+  try {
+    const raw = await fs.readFile(path.join(root, "data", "job_registry.json"), "utf8");
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as RegistryFitCandidate[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Not-yet-applied, fit-passing jobs for the Home screen's recommended-jobs
+ *  marquee. Reads the registry directly rather than a live board search —
+ *  every entry there was already scraped and canonicalized, so no network
+ *  round trip is needed, just the deterministic fit gate. Runs that gate in
+ *  one batched process (evaluate_job_fit.py --batch, JSONL output) instead
+ *  of one process per candidate — the same need src/worker/'s hosted
+ *  pipeline already had at real scale (see evaluate_job_fit.py's --batch
+ *  help text), just triggered here by a dashboard read instead of a queue
+ *  worker. excludeJobIds is the caller's own state.applied/state.queue
+ *  job_ids — this function doesn't re-read those files itself, so there's
+ *  one source of truth for "already spoken for" rather than two. */
+export async function getRecommendedJobs(root: string, excludeJobIds: string[]): Promise<RecommendedJob[]> {
+  const registry = await readRegistry(root);
+  const exclude = new Set(excludeJobIds);
+  // job_state.py's mark_seen_batch already infers closure (3 consecutive
+  // scrapes where a source's fresh listing no longer includes the job —
+  // see CLOSED_MISS_THRESHOLD) and persists it onto the registry record.
+  // Recommending a job the scraper itself has already flagged as gone
+  // would be a straightforwardly wrong recommendation, not a fit-quality
+  // question, so this filters before the fit gate ever runs, not after.
+  const candidates = registry.filter((job) => job.job_id && !job.closed && !exclude.has(job.job_id));
+  if (candidates.length === 0) return [];
+
+  const p = py(["src/scripts/jobs/evaluate_job_fit.py", "--batch", "-"]);
+  const { stdout } = await execFileWithStdin(p.cmd, p.args, JSON.stringify(candidates), {
+    cwd: root,
+    maxBuffer: 20 * 1024 * 1024,
+    timeout: 60_000,
+  });
+  // --batch emits JSONL (one result per line, input order preserved, one
+  // line even for a malformed item) — not a single JSON value, so this
+  // can't go through the runPyJson/runJson single-parse helper; mirrors
+  // the same split("\n")/per-line JSON.parse already used for
+  // fetchWorkday/fetchAmazon's JSONL output above.
+  const results = stdout.split("\n").filter(Boolean)
+    .map((line) => JSON.parse(line) as FitResult);
+
+  const recommended: RecommendedJob[] = [];
+  for (let i = 0; i < candidates.length && i < results.length; i++) {
+    const fit = results[i];
+    if (!fit || fit.fit_status !== "candidate") continue;
+    const job = candidates[i];
+    recommended.push({
+      job_id: job.job_id,
+      company: job.company,
+      title: job.title,
+      url: job.url,
+      apply_url: job.normalized_apply_url || job.apply_url || job.url,
+      source: job.source,
+      role_type: job.role_type,
+      location_tier: job.location_tier,
+      fit_score: fit.fit_score,
+      matched_skills: fit.matched_skills ?? [],
+    });
+  }
+  recommended.sort((a, b) => b.fit_score - a.fit_score);
+  return recommended.slice(0, RECOMMENDED_JOBS_LIMIT);
 }
 
 function roleType(title: string): "internship" | "new_grad" {

@@ -59,6 +59,10 @@ IS_WINDOWS = os.name == "nt"
 _harness_proc = None  # subprocess.Popen | None — set while the harness runs
 _stop_requested = False  # set by _handle_stop_signal on SIGTERM/SIGINT
 _stop_signum = None  # the signal number that triggered the stop, if any
+_lock_dir = None  # set in main() before the harness starts; lets a *different*
+# process (one reclaiming a stale lock left by this one) find this run's
+# harness pid on disk — see _run_harness_cmd's harness_pid file and
+# _kill_stale_harness below.
 
 
 def now_local() -> str:
@@ -182,15 +186,72 @@ def py_run(args, **kw):
     return subprocess.run([sys.executable, *args], **kw)
 
 
+# Mirrors check_postings_open.py's own MIN_HOURS_BETWEEN_RUNS — kept in sync
+# by hand since it's a small, rarely-changed constant; see
+# _postings_check_due for why this duplication is worth it.
+POSTINGS_CHECK_MIN_HOURS = 20
+
+
+def _postings_check_due(state_path: str, min_hours: float) -> bool:
+    """Peek at check_postings_open.py's own throttle stamp before spawning
+    it at all — avoids a full Python interpreter start on the ~47-of-48
+    daily ticks where it would just read the same stamp and no-op anyway.
+    Errs toward True (spawn it) whenever the stamp is missing or
+    unparseable — check_postings_open.py's own internal throttle stays the
+    real authority; this is purely an optimization to skip the subprocess,
+    never a second, independently-drifting throttle policy."""
+    try:
+        with open(state_path, "r", encoding="utf-8") as fh:
+            state = json.load(fh)
+    except (OSError, json.JSONDecodeError):
+        return True
+    last = state.get("last_run_at")
+    if not last:
+        return True
+    try:
+        last_dt = datetime.strptime(last, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    except ValueError:
+        return True
+    return (datetime.now(timezone.utc) - last_dt).total_seconds() >= min_hours * 3600
+
+
+def _terminate_group(pgid: int, is_alive, grace_sec: float = 5.0) -> None:
+    """Shared TERM-then-wait-then-KILL sequence for a whole process group.
+
+    POSIX only. `is_alive` is a zero-arg callable so the two call sites can
+    check liveness their own way: _kill_harness_group has a live Popen
+    handle and can just poll() it; _kill_stale_harness only has a pid read
+    back off disk (a different process wrote it) and has to ask the OS via
+    pid_alive(). Same shape as kill_pid()'s single-pid version, applied to
+    a whole group via os.killpg instead of a single pid via os.kill.
+    """
+    try:
+        os.killpg(pgid, signal.SIGTERM)
+    except OSError:
+        # ProcessLookupError: group already gone. PermissionError: also
+        # possible in practice (observed in testing) if the group died
+        # between the caller's own lookup and killpg() and the now-unused
+        # pgid was recycled for an unrelated process — either way, nothing
+        # left of ours to signal.
+        return
+    deadline = time.time() + grace_sec
+    while time.time() < deadline:
+        if not is_alive():
+            return
+        time.sleep(0.1)
+    try:
+        os.killpg(pgid, signal.SIGKILL)
+    except OSError:
+        pass
+
+
 def _kill_harness_group(grace_sec: float = 5.0) -> None:
     """Terminate the harness's whole process group.
 
     POSIX only — the harness Popen is started with start_new_session=True
     precisely so it (and everything it shells out to: bash, curl,
     Playwright/browser) lives in its own process group, separate from this
-    process's own group. Same TERM-then-wait-then-KILL shape as kill_pid()
-    above (and the same 5s grace period), just applied to a whole group via
-    os.killpg instead of a single pid via os.kill.
+    process's own group.
     """
     if _harness_proc is None or IS_WINDOWS:
         return
@@ -198,24 +259,45 @@ def _kill_harness_group(grace_sec: float = 5.0) -> None:
         pgid = os.getpgid(_harness_proc.pid)
     except OSError:  # ProcessLookupError: already gone
         return
-    try:
-        os.killpg(pgid, signal.SIGTERM)
-    except OSError:
-        # ProcessLookupError: group already gone. PermissionError: also
-        # possible in practice (observed in testing) if the group died
-        # between getpgid() and killpg() and the now-unused pgid was
-        # recycled for an unrelated process — either way, nothing left of
-        # ours to signal.
+    _terminate_group(pgid, lambda: _harness_proc.poll() is None, grace_sec)
+
+
+def _kill_stale_harness(lock_dir: str, run_log: str) -> None:
+    """Kill an orphaned harness left behind by a stale/dead runner.
+
+    POSIX only (on Windows, kill_pid()'s `taskkill /PID <runner> /T /F`
+    already recurses the whole process tree, since the harness there isn't
+    split into a separate session — see the module-level comment near
+    IS_WINDOWS). On POSIX, the harness deliberately runs in its own process
+    group (start_new_session=True in _run_harness_cmd) so the live
+    in-process stop-signal path can kill just the harness without touching
+    the runner — but that same split means killing the *runner's* pid alone
+    (kill_pid(old_pid), used when reclaiming a stale lock) never reaches the
+    harness. Without this, a stale-lock reclaim — whether the old runner is
+    simply dead or was force-killed for being wedged — leaves a real harness
+    (potentially mid-Playwright-click on a real application's Submit button)
+    running unsupervised while a new run starts under a freshly acquired
+    lock: two runs racing the same job boards and state files, and a
+    real-world submission that may complete with no run left alive to record
+    it. The harness's own pid is persisted to lock_dir/harness_pid by
+    _run_harness_cmd while it runs, precisely so a *different* process (this
+    one, reclaiming someone else's lock) has a way to find it — the
+    in-memory _harness_proc global only exists inside the process that
+    started it.
+    """
+    if IS_WINDOWS:
         return
-    deadline = time.time() + grace_sec
-    while time.time() < deadline:
-        if _harness_proc.poll() is not None:
-            return
-        time.sleep(0.1)
+    pid_file = os.path.join(lock_dir, "harness_pid")
     try:
-        os.killpg(pgid, signal.SIGKILL)
-    except OSError:
-        pass
+        with open(pid_file, "r", encoding="utf-8") as fh:
+            harness_pid = int((fh.read().strip() or "0"))
+    except (OSError, ValueError):
+        return
+    if not harness_pid or not pid_alive(harness_pid):
+        return
+    log(run_log, f"stale_harness_killed: reclaimed lock left harness pid {harness_pid} "
+                 f"running unsupervised — killing its process group")
+    _terminate_group(harness_pid, lambda: pid_alive(harness_pid))
 
 
 def _handle_stop_signal(signum, frame):  # noqa: ARG001 - frame required by signal API
@@ -252,8 +334,20 @@ def _run_harness_cmd(cmd, out) -> int:
         popen_kwargs["start_new_session"] = True
     proc = subprocess.Popen(cmd, **popen_kwargs)
     _harness_proc = proc
+    harness_pid_file = os.path.join(_lock_dir, "harness_pid") if (_lock_dir and not IS_WINDOWS) else None
+    if harness_pid_file:
+        try:
+            with open(harness_pid_file, "w", encoding="utf-8") as fh:
+                fh.write(str(proc.pid))
+        except OSError:
+            pass
     rc = proc.wait()
     _harness_proc = None
+    if harness_pid_file:
+        try:
+            os.remove(harness_pid_file)
+        except OSError:
+            pass
     return rc
 
 
@@ -317,6 +411,9 @@ def main() -> int:
     lock_max_age_min = int(os.environ.get("APLYX_LOCK_MAX_AGE_MIN", os.environ.get("FLUX_LOCK_MAX_AGE_MIN",
                             os.environ.get("ARES_LOCK_MAX_AGE_MIN", "60"))) or "60")
 
+    global _lock_dir
+    _lock_dir = lock_dir
+
     def lock_age_min() -> int:
         try:
             mtime = os.path.getmtime(lock_dir)
@@ -342,6 +439,11 @@ def main() -> int:
             old_pid = 0
         if old_pid and not pid_alive(old_pid):
             log(run_log, f"stale_lock_reclaimed: holder pid {old_pid} is dead")
+            # The runner died, but if it had a harness running (Playwright,
+            # mid-apply), that harness lives in its own process group and
+            # does not die with the runner — check for it explicitly rather
+            # than assuming "runner dead" means "nothing left running".
+            _kill_stale_harness(lock_dir, run_log)
             shutil.rmtree(lock_dir, ignore_errors=True)
         elif old_pid:
             age = lock_age_min()
@@ -349,6 +451,7 @@ def main() -> int:
                 log(run_log, f"stale_lock_reclaimed: holder pid {old_pid} alive but lock is "
                              f"{age}min old (threshold {lock_max_age_min}min) — terminating")
                 kill_pid(old_pid)
+                _kill_stale_harness(lock_dir, run_log)
                 shutil.rmtree(lock_dir, ignore_errors=True)
             else:
                 return False
@@ -367,7 +470,7 @@ def main() -> int:
         return 0
 
     try:
-        return _run(logs_dir, run_log)
+        return _run(logs_dir, run_log, run_start)
     finally:
         shutil.rmtree(lock_dir, ignore_errors=True)
 
@@ -402,7 +505,7 @@ def _count_skipped_unfit() -> int:
     return n
 
 
-def _run(logs_dir: str, run_log: str) -> int:
+def _run(logs_dir: str, run_log: str, run_start: datetime) -> int:
     # --- Config validation ---------------------------------------------------
     if py_run([os.path.join("src", "scripts", "validate", "validate_local_config.py"), PROJECT_ROOT]).returncode != 0:
         log(run_log, "ABORTED: local config validation failed. Run manually to fix.")
@@ -424,6 +527,21 @@ def _run(logs_dir: str, run_log: str) -> int:
     if py_run([os.path.join("src", "scripts", "state", "interest_letter.py"), "ensure-file"]).returncode != 0:
         log(run_log, "WARNING: could not ensure data/interest_letters.json; "
                      "interest-letter parking will be unavailable this run.")
+
+    # Lightweight direct closed/expired posting check — deterministic,
+    # non-LLM, self-throttled to roughly once/day internally (see
+    # check_postings_open.py's own docstring). _postings_check_due peeks at
+    # its throttle stamp first so the ~47-of-48 daily ticks that would just
+    # no-op skip the interpreter spawn entirely rather than paying startup
+    # cost for nothing. Best-effort: a network hiccup here must never abort
+    # or slow down the real run.
+    if _postings_check_due(os.path.join("data", "postings_check_state.json"), POSTINGS_CHECK_MIN_HOURS):
+        check_postings_proc = py_run(
+            [os.path.join("src", "scripts", "jobs", "check_postings_open.py")],
+            stderr=subprocess.PIPE, text=True,
+        )
+        if check_postings_proc.stderr:
+            log(run_log, check_postings_proc.stderr.strip())
 
     if py_run([os.path.join("src", "scripts", "validate", "generate_agent_definitions.py"), "--check"]).returncode != 0:
         log(run_log, "WARNING: generated agent definitions are stale — run src/scripts/validate/generate_agent_definitions.py")
@@ -483,12 +601,35 @@ def _run(logs_dir: str, run_log: str) -> int:
             session_cap = 25
     debug_log(logs_dir, f"session cap resolved: raw={raw_cap!r} -> {session_cap}")
 
-    run_prompt = (
-        "Start a new job application run. Read AGENTS.md, load data/applied_jobs.json\n"
-        "   and src/config/targets.json, scrape all configured job boards, deduplicate,\n"
-        f"   tailor and apply to at most {session_cap} jobs this session (session cap {session_cap} of the 25 maximum), and send a\n"
-        "   Discord summary when complete."
-    )
+    # --- Scrape-only mode -----------------------------------------------------
+    # Grows data/job_registry.json (scrape + dedupe + deterministic fit-gate)
+    # without risking a real application going out — useful for refreshing the
+    # recommended-jobs pool on demand, independent of whether the operator is
+    # ready to let the scheduler apply unattended. src/agents/bodies/job-scraper.md
+    # "Scrape-only mode" is the canonical instruction this line triggers.
+    scrape_only_raw = os.environ.get("APLYX_SCRAPE_ONLY", "") or ""
+    scrape_only = scrape_only_raw.strip().lower() not in ("", "0", "false", "no")
+
+    if scrape_only:
+        run_prompt = (
+            "Start a SCRAPE-ONLY job run (see 'Scrape-only mode' in job-scraper.md).\n"
+            "   Read AGENTS.md, load data/applied_jobs.json and src/config/targets.json,\n"
+            "   scrape all configured job boards, deduplicate, and run the deterministic\n"
+            "   fit gate on every new job so data/job_registry.json is up to date. Stop\n"
+            "   after Phase 1: do NOT tailor a resume, do NOT open or fill out any\n"
+            "   application, do NOT submit anything, and do NOT send a Discord application\n"
+            "   summary. Skip Phase 2 (tailor), Phase 3 (apply), and Phase 4's application\n"
+            "   report entirely. Print a short local summary of how many jobs were found\n"
+            "   as candidate / needs_review / skipped_unfit this run, then stop."
+        )
+        log(run_log, "APLYX_SCRAPE_ONLY set — running Phase 1 (scrape + fit-gate) only, no applications this run")
+    else:
+        run_prompt = (
+            "Start a new job application run. Read AGENTS.md, load data/applied_jobs.json\n"
+            "   and src/config/targets.json, scrape all configured job boards, deduplicate,\n"
+            f"   tailor and apply to at most {session_cap} jobs this session (session cap {session_cap} of the 25 maximum), and send a\n"
+            "   Discord summary when complete."
+        )
 
     extra = os.environ.get("APLYX_EXTRA_PROMPT", os.environ.get("FLUX_EXTRA_PROMPT", "")) or ""
     if extra:

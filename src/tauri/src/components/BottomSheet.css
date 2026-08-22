@@ -1,0 +1,108 @@
+.bottom-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 0.4);
+  z-index: 90;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity var(--duration-normal) var(--ease-out), visibility 0s linear var(--duration-normal);
+}
+
+.bottom-sheet-backdrop-open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity var(--duration-normal) var(--ease-out), visibility 0s linear 0s;
+}
+
+.bottom-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 82vh;
+  overflow-y: auto;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  box-shadow: var(--shadow-lift);
+  z-index: 91;
+  padding: var(--space-5) var(--space-6) var(--space-6);
+  /* translateY(100%) — its own height, not a hardcoded pixel amount, so
+   * this hides fully regardless of how much detail content it ends up
+   * holding. */
+  transform: translateY(100%);
+  transition: transform var(--duration-normal) var(--ease-drawer);
+}
+
+.bottom-sheet-open {
+  transform: translateY(0);
+}
+
+.bottom-sheet-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  /* Sticky so a long detail body still leaves Back reachable without
+   * scrolling back to the top first. */
+  position: sticky;
+  top: calc(-1 * var(--space-5));
+  padding-top: var(--space-5);
+  margin-top: calc(-1 * var(--space-5));
+  background: var(--surface);
+  z-index: 1;
+}
+
+.bottom-sheet-back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  transition: background var(--duration-quick) var(--ease-snap), color var(--duration-quick) var(--ease-snap);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .bottom-sheet-back:hover {
+    background: var(--ground);
+    color: var(--text);
+  }
+}
+
+.bottom-sheet-back:active {
+  transform: scale(var(--scale-press));
+}
+
+.bottom-sheet-title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--text);
+}
+
+.bottom-sheet-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bottom-sheet-backdrop,
+  .bottom-sheet-backdrop-open {
+    transition: opacity var(--duration-quick) linear, visibility 0s linear;
+  }
+  .bottom-sheet,
+  .bottom-sheet-open {
+    transform: none;
+    transition: opacity var(--duration-quick) linear;
+    opacity: 0;
+  }
+  .bottom-sheet-open {
+    opacity: 1;
+  }
+}

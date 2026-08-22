@@ -18,6 +18,7 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import json
 import os
 import re
@@ -29,31 +30,73 @@ DEFAULT_TARGETS = "src/config/targets.json"
 DECISION_VERSION = "phase4-v4"
 
 
-# Candidate skills derived from the two shipped base resumes. The fit helper
-# only awards overlap points for skills the candidate demonstrably has.
+# Candidate skills derived from all five shipped base resumes (data/resumes/
+# base_resume_{swe,ai_ml,cyber,networking_cyber,balanced}.md) — every entry
+# here should trace back to something actually on one of those resumes, not
+# a generic "any tech buzzword" list; the fit helper only awards overlap
+# points, and now (RecommendedJobsMarquee) directly displays this as "which
+# of your qualifications match" for what's still an unread JD, so an
+# ungrounded entry would misrepresent the candidate, not just mis-score a
+# job. Keys are display-cased since they're shown as-is in the UI now, not
+# just folded into prose. Re-derive this list by hand if the resumes change
+# meaningfully — there's no automated resume->skills extraction here.
 SKILL_PATTERNS: Dict[str, re.Pattern[str]] = {
-    "python": re.compile(r"\bpython\b", re.I),
-    "java": re.compile(r"\bjava\b", re.I),
-    "c++": re.compile(r"\bc\+\+\b", re.I),
-    "sql": re.compile(r"\bsql\b", re.I),
-    "javascript": re.compile(r"\bjavascript\b", re.I),
-    "typescript": re.compile(r"\btypescript\b", re.I),
-    "docker": re.compile(r"\bdocker\b", re.I),
-    "aws": re.compile(r"\baws\b|\bec2\b|\bs3\b", re.I),
-    "linux": re.compile(r"\blinux\b", re.I),
-    "git": re.compile(r"\bgit\b", re.I),
-    "langchain": re.compile(r"\blangchain\b", re.I),
-    "qdrant": re.compile(r"\bqdrant\b", re.I),
-    "faiss": re.compile(r"\bfaiss\b", re.I),
-    "streamlit": re.compile(r"\bstreamlit\b", re.I),
-    "rag": re.compile(r"\brag\b|retrieval augmented", re.I),
-    "llm": re.compile(r"\bllm\b|large language model", re.I),
-    "networking": re.compile(r"\bnetwork(?:ing)?\b|\btcp/ip\b", re.I),
-    "dhcp": re.compile(r"\bdhcp\b", re.I),
-    "ospf": re.compile(r"\bospf\b", re.I),
-    "wireshark": re.compile(r"\bwireshark\b", re.I),
-    "security": re.compile(r"\bsecurity\b|\bappsec\b|\bcybersecurity\b", re.I),
-    "ci/cd": re.compile(r"\bci/?cd\b", re.I),
+    # Languages
+    "Python": re.compile(r"\bpython\b", re.I),
+    "Java": re.compile(r"\bjava\b", re.I),
+    "C++": re.compile(r"\bc\+\+\b", re.I),
+    "SQL": re.compile(r"\bsql\b", re.I),
+    "JavaScript": re.compile(r"\bjavascript\b", re.I),
+    "TypeScript": re.compile(r"\btypescript\b", re.I),
+    "PHP": re.compile(r"\bphp\b", re.I),
+    "Go": re.compile(r"\bgolang\b|\bgo\s+lang(?:uage)?\b", re.I),
+
+    # AI / backend / web
+    "LangChain": re.compile(r"\blangchain\b", re.I),
+    "Qdrant": re.compile(r"\bqdrant\b", re.I),
+    "FAISS": re.compile(r"\bfaiss\b", re.I),
+    "Streamlit": re.compile(r"\bstreamlit\b", re.I),
+    "RAG": re.compile(r"\brag\b|retrieval[\s-]augmented", re.I),
+    "LLMs": re.compile(r"\bllms?\b|large language model", re.I),
+    "FastAPI": re.compile(r"\bfastapi\b", re.I),
+    "Node.js": re.compile(r"\bnode\.?js\b", re.I),
+    "React": re.compile(r"\breact(?:\.js|js)?\b", re.I),
+    "Playwright": re.compile(r"\bplaywright\b", re.I),
+    "Selenium": re.compile(r"\bselenium\b", re.I),
+    "Embeddings/Vector search": re.compile(r"\bembeddings?\b|\bvector\s+(?:search|database|db)\b|\bsemantic\s+search\b", re.I),
+    "LiveKit": re.compile(r"\blivekit\b", re.I),
+    "LoRA fine-tuning": re.compile(r"\blora\b|\baxolotl\b", re.I),
+
+    # Cloud / systems / devops
+    "Docker": re.compile(r"\bdocker\b", re.I),
+    "AWS": re.compile(r"\baws\b|\bec2\b|\bs3\b", re.I),
+    "Linux": re.compile(r"\blinux\b|\bubuntu\b", re.I),
+    "Git": re.compile(r"\bgit\b", re.I),
+    "CI/CD": re.compile(r"\bci/?cd\b", re.I),
+    "Supabase": re.compile(r"\bsupabase\b", re.I),
+    "SQLite": re.compile(r"\bsqlite\b", re.I),
+    "Stripe": re.compile(r"\bstripe\b", re.I),
+
+    # Networking
+    "Networking": re.compile(r"\bnetwork(?:ing)?\b", re.I),
+    "TCP/IP": re.compile(r"\btcp\s*/\s*ip\b", re.I),
+    "DHCP": re.compile(r"\bdhcp\b", re.I),
+    "OSPF": re.compile(r"\bospf\b", re.I),
+    "EIGRP": re.compile(r"\beigrp\b", re.I),
+    "MPLS": re.compile(r"\bmpls\b", re.I),
+    "DNS": re.compile(r"\bdns\b", re.I),
+    "Wireshark": re.compile(r"\bwireshark\b", re.I),
+    "Routing & Switching": re.compile(r"\brouting\b|\bswitching\b", re.I),
+
+    # Security
+    "Security": re.compile(r"\bsecurity\b|\bappsec\b|\bcybersecurity\b", re.I),
+    "Penetration testing": re.compile(r"\bpenetration\s+test(?:ing)?\b|\bpentest(?:ing)?\b", re.I),
+    "TLS/HTTPS": re.compile(r"\btls\b|\bhttps\b|\bssl\b", re.I),
+    "Vulnerability assessment": re.compile(r"\bvulnerabilit(?:y|ies)\b", re.I),
+    "SQL injection": re.compile(r"\bsql\s+injection\b", re.I),
+    "XSS": re.compile(r"\bxss\b|cross[\s-]site\s+scripting", re.I),
+    "Auth (JWT/SSO/OAuth)": re.compile(r"\bjwt\b|\bsso\b|\boauth\b|\brls\b", re.I),
+    "Firewalls": re.compile(r"\bfirewalls?\b", re.I),
 }
 
 WELCOME_PATTERNS = re.compile(
@@ -109,6 +152,41 @@ VISA_ONLY_RE = re.compile(
     re.I,
 )
 
+# Explicit graduating-class-year requirements ("Class of 2025", "graduating
+# between December 2025 and June 2026") — a real eligibility gate for
+# internships AND early-career/entry-level roles alike, distinct from the
+# generic level_keywords/YOE checks, since "early career" or "entry level"
+# in the title says nothing about whether *this candidate's* graduation
+# date actually falls inside the window a specific posting wants.
+GRAD_CLASS_RANGE_RE = re.compile(
+    r"\bclass\s+of\s+(20\d{2})(?:\s*(?:,|/|-|–|to|or|and)\s*(20\d{2}))?\b",
+    re.I,
+)
+GRADUATING_RANGE_RE = re.compile(
+    r"\bgraduat(?:e|ed|es|ing|ion)\b[^.\n]{0,40}?\b(20\d{2})(?:\s*(?:,|/|-|–|to|or|and)\s*(20\d{2}))?\b",
+    re.I,
+)
+ALREADY_GRADUATED_RE = re.compile(
+    r"\balready\s+(?:have\s+)?graduated\b|\bmust\s+have\s+(?:already\s+)?graduated\b|"
+    r"\bno\s+longer\s+(?:be\s+)?(?:a\s+)?(?:current\s+)?student\b|"
+    r"\bnot\s+(?:currently\s+)?enrolled\b|\bnot\s+a\s+current\s+student\b",
+    re.I,
+)
+# A class-year mention only counts as an eligibility requirement if it's
+# actually pointed at the candidate — otherwise "our founder graduated
+# Stanford in 2015" in a company-bio paragraph would false-positive a
+# reject. Require one of these nearby in the same clause.
+CANDIDATE_DIRECTED_RE = re.compile(
+    r"\byou\b|\byour\b|\bcandidates?\b|\bstudents?\b|\bapplicants?\b|\beligib|\bclass\s+of\b|\bwho\s+(?:are|will|expect)",
+    re.I,
+)
+GRAD_MONTHS = {
+    "jan": 1, "january": 1, "feb": 2, "february": 2, "mar": 3, "march": 3,
+    "apr": 4, "april": 4, "may": 5, "jun": 6, "june": 6, "jul": 7, "july": 7,
+    "aug": 8, "august": 8, "sep": 9, "sept": 9, "september": 9, "oct": 10,
+    "october": 10, "nov": 11, "november": 11, "dec": 12, "december": 12,
+}
+
 REMOTE_US_RE = re.compile(r"remote[^\n,;]*\b(?:us|u\.s\.?|usa|united\s+states)\b", re.I)
 REMOTE_GENERIC_RE = re.compile(r"\bremote\b|work\s+from\s+home|virtual", re.I)
 
@@ -128,9 +206,48 @@ US_STATE_TOKENS = {
 }
 
 FOREIGN_LOCATION_RE = re.compile(
-    r"\b(?:uk|united\s+kingdom|canada|toronto|vancouver|ontario|berlin|germany|india|"
-    r"australia|sydney|singapore|ireland|dublin|netherlands|amsterdam|france|paris|"
-    r"spain|barcelona|mexico|brazil|japan|tokyo|china|hong\s+kong)\b",
+    # Countries first (deliberately name Canada/UK/India/etc. even though a
+    # matching city almost always co-occurs — a bare "Remote, Canada" or
+    # "Location: Germany" with no city named still needs to hard-reject).
+    r"\b(?:"
+    r"uk|united\s+kingdom|england|scotland|wales|northern\s+ireland|"
+    r"canada|germany|india|australia|singapore|ireland|netherlands|france|"
+    r"spain|mexico|brazil|japan|china|hong\s+kong|poland|romania|ukraine|"
+    r"israel|portugal|italy|sweden|denmark|norway|finland|switzerland|"
+    r"austria|belgium|czech(?:ia|\s+republic)?|hungary|greece|turkiye|turkey|"
+    r"south\s+korea|taiwan|philippines|indonesia|vietnam|thailand|malaysia|"
+    r"new\s+zealand|south\s+africa|egypt|nigeria|kenya|pakistan|bangladesh|"
+    r"sri\s+lanka|u\.?a\.?e\.?|united\s+arab\s+emirates|saudi\s+arabia|"
+    r"argentina|chile|colombia|peru"
+    r")\b|"
+    # Non-US cities — the coverage gap that let jobs slip through: a
+    # foreign posting naming only a city (no country, e.g. "Bengaluru,
+    # Karnataka") matched nothing in the countries-only list above.
+    r"\b(?:"
+    r"toronto|vancouver|montreal|ottawa|calgary|waterloo|quebec|"
+    r"berlin|munich|hamburg|frankfurt|cologne|stuttgart|"
+    r"bangalore|bengaluru|mumbai|new\s+delhi|hyderabad|pune|chennai|"
+    r"gurgaon|gurugram|noida|kolkata|"
+    r"sydney|melbourne|brisbane|perth|adelaide|canberra|"
+    r"dublin|cork|galway|"
+    r"amsterdam|rotterdam|eindhoven|the\s+hague|"
+    r"paris|lyon|toulouse|barcelona|madrid|valencia|"
+    r"mexico\s+city|guadalajara|monterrey|"
+    r"s(?:a|ã)o\s+paulo|rio\s+de\s+janeiro|"
+    r"tokyo|osaka|yokohama|"
+    r"shanghai|beijing|shenzhen|guangzhou|"
+    r"warsaw|krak(?:o|ó)w|wroc(?:l|ł)aw|bucharest|kyiv|kiev|"
+    r"tel\s+aviv|jerusalem|haifa|"
+    r"lisbon|porto|milan|rome|turin|"
+    r"stockholm|gothenburg|copenhagen|oslo|helsinki|"
+    r"zurich|geneva|basel|vienna|brussels|antwerp|prague|budapest|athens|istanbul|"
+    r"seoul|busan|taipei|manila|jakarta|ho\s+chi\s+minh|hanoi|bangkok|kuala\s+lumpur|"
+    r"auckland|wellington|cape\s+town|johannesburg|cairo|"
+    r"dubai|abu\s+dhabi|riyadh|"
+    r"buenos\s+aires|santiago|bogot(?:a|á)|lima|lagos|nairobi|"
+    r"karachi|lahore|islamabad|dhaka|colombo|"
+    r"manchester|birmingham|edinburgh|glasgow|leeds|bristol|liverpool"
+    r")\b",
     re.I,
 )
 
@@ -292,6 +409,74 @@ def visa_only_required(jd_text: str) -> bool:
     return bool(jd_text and VISA_ONLY_RE.search(jd_text))
 
 
+def parse_graduation_month_year(graduation_date: str) -> Optional[Tuple[int, int]]:
+    """('June 2027') -> (2027, 6). Defaults to December if no month is found,
+    so an ambiguous 'already graduated' comparison stays conservative (treats
+    the candidate as still enrolled through the end of the stated year)."""
+    if not graduation_date:
+        return None
+    year_match = re.search(r"\b(20\d{2})\b", graduation_date)
+    if not year_match:
+        return None
+    year = int(year_match.group(1))
+    month = 12
+    for name, num in GRAD_MONTHS.items():
+        if re.search(rf"\b{name}\b", graduation_date, re.I):
+            month = num
+            break
+    return (year, month)
+
+
+def is_candidate_still_enrolled(graduation_date: str) -> Optional[bool]:
+    """True if graduation_date is still in the future relative to today.
+    None when it can't be parsed, so callers can skip the check rather than
+    guess."""
+    parsed = parse_graduation_month_year(graduation_date)
+    if parsed is None:
+        return None
+    year, month = parsed
+    today = dt.date.today()
+    return (year, month) > (today.year, today.month)
+
+
+def graduation_mismatch_reason(jd_text: str, graduation_date: str) -> Optional[str]:
+    """A hard-reject reason when the JD explicitly names graduating class
+    years, or requires the candidate to have already graduated, that the
+    candidate's own graduation_date can't satisfy. Runs for internships and
+    full-time/early-career postings alike — a class-year requirement is a
+    class-year requirement regardless of which level_keyword matched.
+    Returns None on anything short of an explicit statement, matching the
+    bar the other hard-reject gates (degree/clearance/visa) already hold to.
+    """
+    if not jd_text or not graduation_date:
+        return None
+    parsed = parse_graduation_month_year(graduation_date)
+    if parsed is None:
+        return None
+    candidate_year, candidate_month = parsed
+
+    for pattern in (GRAD_CLASS_RANGE_RE, GRADUATING_RANGE_RE):
+        match = pattern.search(jd_text)
+        if not match:
+            continue
+        clause = sentence_window(jd_text, match.start(), match.end())
+        if not CANDIDATE_DIRECTED_RE.search(clause):
+            continue
+        years = [int(y) for y in match.groups() if y]
+        min_year, max_year = min(years), max(years)
+        if not (min_year <= candidate_year <= max_year):
+            label = str(min_year) if min_year == max_year else f"{min_year}-{max_year}"
+            return f"JD requires graduating class of {label}; candidate graduates in {candidate_year}."
+        break
+
+    if ALREADY_GRADUATED_RE.search(jd_text):
+        today = dt.date.today()
+        if (candidate_year, candidate_month) > (today.year, today.month):
+            return "JD requires candidates who have already graduated; candidate has not graduated yet."
+
+    return None
+
+
 def explicit_non_us_location(location: str, location_tier: str) -> bool:
     loc = normalize_text(location).lower()
     if not loc:
@@ -369,6 +554,14 @@ def evaluate_fit(job: dict, targets: dict) -> dict:
     # hard rejects below; every other gate (role match, US location,
     # advanced degree, clearance, visa) still applies unchanged.
     allow_experienced_roles = bool(targets.get("allow_experienced_roles", False))
+    # graduation_date lives under safe_fields in a real local install — the
+    # Profile screen and TUI Settings both write there (writeSafeField), so
+    # checking it first always reflects the operator's latest edit rather
+    # than the stale top-level duplicate a local targets.json also carries.
+    # Fall back to a top-level key for callers that build a flatter targets
+    # object with no safe_fields wrapper (src/worker/run.ts's hosted-mode
+    # ScratchTargets, and run_conformance.py's GOLDEN_TARGETS).
+    graduation_date = str((targets.get("safe_fields") or {}).get("graduation_date") or targets.get("graduation_date", ""))
 
     title_lower = title.lower()
     jd_lower = jd_text.lower()
@@ -404,6 +597,19 @@ def evaluate_fit(job: dict, targets: dict) -> dict:
     welcoming = has_welcoming_language(title, jd_text, role_type, internship_term)
     if years_required is not None and years_required >= 3 and not welcoming and not allow_experienced_roles:
         fit_reasons.append(f"JD requires {years_required}+ years of experience without clear intern/new-grad language.")
+        return build_result(
+            fit_status="skipped_unfit",
+            fit_score=10,
+            fit_reasons=fit_reasons,
+            matched_role_keyword=matched_role_keyword,
+            matched_level_keyword=matched_level_keyword,
+            matched_level_source=matched_level_source,
+            years_required=years_required,
+        )
+
+    grad_reason = graduation_mismatch_reason(jd_text, graduation_date)
+    if grad_reason:
+        fit_reasons.append(grad_reason)
         return build_result(
             fit_status="skipped_unfit",
             fit_score=10,
@@ -558,6 +764,23 @@ def evaluate_fit(job: dict, targets: dict) -> dict:
             if weak_level:
                 fit_reasons.append("Level signal is implied rather than explicit, so manual review is safer.")
 
+    # "Early career" is the last entry checked in level_keywords, so
+    # matched_level_keyword only ever equals it when nothing more
+    # student-specific (intern, new grad, campus, entry level, ...) also
+    # matched. Real "early career" postings routinely mean "already have a
+    # little professional experience," not "about to graduate" — the JD
+    # rarely spells this out explicitly enough for graduation_mismatch_reason
+    # above to catch it. For a candidate who hasn't graduated yet, that's a
+    # real ambiguity worth a human glance rather than a confident match.
+    if status == "candidate" and matched_level_keyword == "early career":
+        still_enrolled = is_candidate_still_enrolled(graduation_date)
+        if still_enrolled:
+            status = "needs_review"
+            fit_reasons.append(
+                "Level signal is 'early career' only, and the candidate hasn't graduated yet — "
+                "these roles often expect some experience already, so this needs a manual look."
+            )
+
     return build_result(
         fit_status=status,
         fit_score=fit_score,
@@ -566,6 +789,7 @@ def evaluate_fit(job: dict, targets: dict) -> dict:
         matched_level_keyword=matched_level_keyword,
         matched_level_source=matched_level_source,
         years_required=years_required,
+        matched_skills=matched_skill_list,
     )
 
 
@@ -578,6 +802,7 @@ def build_result(
     matched_level_keyword: str,
     matched_level_source: str,
     years_required: Optional[int],
+    matched_skills: Optional[List[str]] = None,
 ) -> dict:
     return {
         "ok": True,
@@ -589,6 +814,11 @@ def build_result(
         "matched_level_keyword": matched_level_keyword,
         "matched_level_source": matched_level_source,
         "years_required": years_required,
+        # Only ever populated on the successful (post-hard-reject) path —
+        # the early skipped_unfit/needs_review returns above bail out before
+        # matched_skills() is computed, so they pass nothing and get [] here
+        # rather than a misleading partial list.
+        "matched_skills": matched_skills or [],
         "decision_version": DECISION_VERSION,
     }
 

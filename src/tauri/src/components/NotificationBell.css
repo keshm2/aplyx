@@ -18,13 +18,17 @@
     background var(--duration-quick) var(--ease-out),
     color var(--duration-quick) var(--ease-out),
     border-color var(--duration-quick) var(--ease-out),
+    box-shadow var(--duration-quick) var(--ease-out),
     transform var(--duration-quick) var(--ease-out);
 }
 
-.notif-bell-btn:hover {
-  background: var(--ground);
-  color: var(--text);
-  border-color: var(--border);
+@media (hover: hover) and (pointer: fine) {
+  .notif-bell-btn:hover {
+    background: var(--accent-tint-bg);
+    color: var(--accent);
+    border-color: var(--accent-tint-border);
+    box-shadow: 0 0 0 4px var(--accent-tint-bg);
+  }
 }
 
 .notif-bell-btn:active {

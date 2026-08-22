@@ -45,6 +45,7 @@ export function markQueueEntryApplied(root: string, entry: QueueEntry): QueueAct
     company: entry.company,
     title: entry.title,
     url: entry.url,
+    apply_url: entry.apply_url,
     date_applied: todayIso(),
     status: "applied",
     role_type: entry.role_type,
@@ -54,6 +55,15 @@ export function markQueueEntryApplied(root: string, entry: QueueEntry): QueueAct
     location_tier: entry.location_tier,
     cover_letter_used: entry.cover_letter_used ?? false,
     reasoning,
+    tailored_bullets: entry.tailored_bullets,
+    cover_letter: entry.cover_letter,
+    missing_keywords: entry.missing_keywords,
+    doubt_signals: entry.doubt_signals,
+    fill_record_path: entry.fill_record_path,
+    fill_record: entry.fill_record,
+    screenshot_path: entry.screenshot_path,
+    screenshot_url: entry.screenshot_url,
+    apply_run_id: entry.apply_run_id,
   };
   // Append the applied_jobs entry first — it is the dedup set the agent
   // reads before every run, so it must be durable even if the event write

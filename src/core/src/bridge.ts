@@ -9,14 +9,15 @@ import {
   readOnboardingCompleted,
   writeOnboardingCompleted,
 } from "./settings.js";
-import { runValidator, convertResumePdf, setResumeDescription, openPath, reopenApplicationFilled } from "./helpers.js";
+import { runValidator, convertResumePdf, setResumeDescription, openPath, reopenApplicationFilled, triggerSingleJobApply, approveReadyToSubmit } from "./helpers.js";
 import { LocalAdapter } from "./adapters/local.js";
 import { readSupabaseConfig } from "./supabaseConfig.js";
 import { detectAllHarnessesOnPath, readHarnessConfig, writeHarnessConfig, isKnownHarness } from "./harness.js";
 import { loadCompanyDirectory } from "./data/companyDirectory.js";
-import { searchJobs, checkJobFit, saveJobForReview, type JobSource, type SearchJob } from "./jobs.js";
+import { searchJobs, checkJobFit, getRecommendedJobs, getSchedulerStatus, setSchedulerInstalled, saveJobForReview, type JobSource, type SearchJob } from "./jobs.js";
 import { markQueueEntryApplied, dismissQueueEntry } from "./reviewActions.js";
 import { listResumeFiles, resumesDir } from "./resumes.js";
+import { readMasterResume, writeMasterResume, initialMasterResume, importFromMarkdown, exportResumePdf, previewTailoredResume, type MasterResume } from "./masterResume.js";
 import { startInMemoryCacheRefresh } from "./jobCache.js";
 import type { QueueEntry } from "./stateDerive.js";
 import fs from "node:fs";
@@ -265,6 +266,22 @@ async function dispatch(command: string, args: Args): Promise<unknown> {
       return checkJobFit(root, job);
     }
 
+    case "getRecommendedJobs": {
+      const root = resolveRoot(args);
+      const excludeJobIds = Array.isArray(args.excludeJobIds) ? (args.excludeJobIds as string[]) : [];
+      return getRecommendedJobs(root, excludeJobIds);
+    }
+
+    case "getSchedulerStatus": {
+      const root = resolveRoot(args);
+      return getSchedulerStatus(root);
+    }
+
+    case "setSchedulerInstalled": {
+      const root = resolveRoot(args);
+      return setSchedulerInstalled(root, Boolean(args.installed));
+    }
+
     case "saveJobForReview": {
       const root = resolveRoot(args);
       const job = args.job as SearchJob;
@@ -294,6 +311,82 @@ async function dispatch(command: string, args: Args): Promise<unknown> {
       return reopenApplicationFilled(root, jobId);
     }
 
+    // Confirm-before-submit "Approve" action (docs/hosted-auto-apply-plan.md
+    // Stage 1): the agent ran the full pipeline through pre-submit
+    // verification then paused with a filled-but-not-submitted form. For
+    // local Greenhouse entries, this now runs a deterministic submit helper
+    // (approve_submit_greenhouse.py) that replays the saved fill record and
+    // clicks the final submit, then records an applied outcome on success.
+    // Other families remain unsupported here until their own deterministic
+    // submit helpers exist.
+    case "approveSubmit": {
+      const root = resolveRoot(args);
+      const entry = args.entry as QueueEntry;
+      if (!entry) throw new Error("approveSubmit requires { entry }");
+      const workday = args.workday as { aliasEmail?: string; aliasId?: string; verificationLink?: string; verificationOtp?: string } | undefined;
+      const result = approveReadyToSubmit(root, entry, workday?.aliasEmail ? {
+        aliasEmail: workday.aliasEmail,
+        aliasId: workday.aliasId,
+        verificationLink: workday.verificationLink,
+        verificationOtp: workday.verificationOtp,
+      } : undefined);
+      if (!result.ok) return result;
+      // Workday's local runtime is resumable: most continuation runs pause
+      // mid-flow (account created awaiting verification, page filled, etc.)
+      // and must NOT be recorded as applied — only an explicit
+      // outcome="submitted" from the script is a real application. Every
+      // other Workday result (checkpoint, failed, or the verification/
+      // account-creation branches with no outcome field) stays in the
+      // review queue for the next continuation or manual triage.
+      if ((entry.source ?? "") === "workday") {
+        if (result.outcome !== "submitted") return result;
+        // A confirmed Workday submit: record the applied outcome the same
+        // way Greenhouse/Lever/Ashby do. Wrapped so a missing-field
+        // failure on the (needs_review-shaped) entry can't lose the real
+        // success message the script already returned — the application
+        // WAS submitted; the state write is the recoverable part.
+        try {
+          const recorded = markQueueEntryApplied(root, entry);
+          return { ...result, message: `${result.message} ${recorded.message}`.trim() };
+        } catch (err) {
+          return { ...result, message: `${result.message} (state record skipped: ${err instanceof Error ? err.message : String(err)})` };
+        }
+      }
+      const recorded = markQueueEntryApplied(root, entry);
+      return { ok: true, message: `${result.message} ${recorded.message}`.trim() };
+    }
+
+    // Reads a confirm-before-submit screenshot (the filled-form snapshot the
+    // agent captures before pausing) as a base64 data URL for the webview to
+    // render — the webview can't read local files directly. Same path-shape
+    // validation posture as readFillRecord: screenshots live under
+    // data/screenshots/ or logs/tmp/ (AGENTS.md's "PREFER logs/tmp/" rule),
+    // never an arbitrary caller-supplied path.
+    case "readScreenshot": {
+      const root = resolveRoot(args);
+      const relPath = String(args.path ?? "");
+      if (!/^(data\/screenshots|logs\/tmp)\/[^/\\]+\.(png|jpg|jpeg|webp)$/i.test(relPath)) {
+        throw new Error(`readScreenshot: unexpected path shape ${JSON.stringify(relPath)}`);
+      }
+      try {
+        const buffer = fs.readFileSync(path.join(root, relPath));
+        const ext = path.extname(relPath).slice(1).toLowerCase();
+        const mime = ext === "webp" ? "webp" : ext === "jpg" || ext === "jpeg" ? "jpeg" : "png";
+        return { dataUrl: `data:image/${mime};base64,${buffer.toString("base64")}` };
+      } catch {
+        return { dataUrl: null };
+      }
+    }
+
+    case "triggerSingleJobApply": {
+      const root = resolveRoot(args);
+      const job = args.job as { company: string; title: string; url: string; source: string } | undefined;
+      if (!job || !job.company || !job.title || !job.url || !job.source) {
+        throw new Error("triggerSingleJobApply requires { job: { company, title, url, source } }");
+      }
+      return triggerSingleJobApply(root, job);
+    }
+
     case "listResumeDetails": {
       const root = resolveRoot(args);
       return { files: listResumeFiles(root) };
@@ -303,6 +396,94 @@ async function dispatch(command: string, args: Args): Promise<unknown> {
       const root = resolveRoot(args);
       openPath(resumesDir(root));
       return { ok: true };
+    }
+
+    case "getMasterResume": {
+      const root = resolveRoot(args);
+      const existing = readMasterResume(root);
+      return { resume: existing ?? initialMasterResume(root), isNew: existing === null };
+    }
+
+    case "setMasterResume": {
+      const root = resolveRoot(args);
+      const resume = args.resume as MasterResume;
+      if (!resume) throw new Error("setMasterResume requires { resume }");
+      writeMasterResume(root, resume);
+      return { ok: true };
+    }
+
+    case "readFillRecord": {
+      // AppliedJob.fill_record_path (stateDerive.ts) — always exactly
+      // "data/fill_records/<job_id>.json", written once by
+      // record_fill.py and never elsewhere. Validated against that exact
+      // shape (not just "resolves under root") before reading, same
+      // defensive posture as every other path this bridge accepts from
+      // state-file content rather than a direct caller argument.
+      const root = resolveRoot(args);
+      const relPath = String(args.path ?? "");
+      if (!/^data\/fill_records\/[^/\\]+\.json$/.test(relPath)) {
+        throw new Error(`readFillRecord: unexpected path shape ${JSON.stringify(relPath)}`);
+      }
+      try {
+        const text = fs.readFileSync(path.join(root, relPath), "utf8");
+        return { record: JSON.parse(text) };
+      } catch {
+        return { record: null };
+      }
+    }
+
+    case "readWorkdayCheckpoint": {
+      const root = resolveRoot(args);
+      const jobId = String(args.jobId ?? "").trim();
+      if (!jobId || !/^[A-Za-z0-9_.:-]+$/.test(jobId)) {
+        throw new Error(`readWorkdayCheckpoint: unexpected job id ${JSON.stringify(jobId)}`);
+      }
+      const relPath = path.join("data", "workday_apply_runs", `${jobId}.json`);
+      try {
+        const text = fs.readFileSync(path.join(root, relPath), "utf8");
+        return { checkpoint: JSON.parse(text) };
+      } catch {
+        return { checkpoint: null };
+      }
+    }
+
+    case "readResumeMarkdown": {
+      const root = resolveRoot(args);
+      const stem = String(args.stem ?? "");
+      if (!stem) throw new Error("readResumeMarkdown requires { stem }");
+      try {
+        const text = fs.readFileSync(path.join(resumesDir(root), `${stem}.md`), "utf8");
+        return { text };
+      } catch {
+        return { text: null };
+      }
+    }
+
+    case "importMasterResumeFromMarkdown": {
+      const root = resolveRoot(args);
+      const markdown = String(args.markdown ?? "");
+      if (!markdown) throw new Error("importMasterResumeFromMarkdown requires { markdown }");
+      const base = readMasterResume(root) ?? initialMasterResume(root);
+      return { resume: importFromMarkdown(markdown, base) };
+    }
+
+    case "exportResumePdf": {
+      const root = resolveRoot(args);
+      const resume = args.resume as MasterResume;
+      if (!resume) throw new Error("exportResumePdf requires { resume }");
+      return exportResumePdf(root, resume);
+    }
+
+    case "previewTailoredResume": {
+      const root = resolveRoot(args);
+      const title = String(args.title ?? "");
+      const company = String(args.company ?? "");
+      const jdText = String(args.jdText ?? "");
+      const resume = args.resume as MasterResume;
+      if (!title) throw new Error("previewTailoredResume requires { title }");
+      if (!jdText) throw new Error("previewTailoredResume requires { jdText }");
+      if (!resume) throw new Error("previewTailoredResume requires { resume }");
+      return previewTailoredResume(root, title, company, jdText, resume);
     }
 
     case "readOnboardingCompleted": {

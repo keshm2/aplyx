@@ -31,7 +31,7 @@ const AppShell = lazy(() => import("./routes/shell/AppShell").then((m) => ({ def
 function RouteLoading() {
   return (
     <main className="entry">
-      <div className="entry-content">
+      <div className="entry-content entry-content-loading">
         <Logo size={40} />
       </div>
     </main>

@@ -127,14 +127,34 @@ def inline_preamble(agent: str, delegates: tuple = (), role: str = "agent") -> s
 
 def agent_command(exe: str, harness: str, agent: str, prompt: str,
                   delegates: tuple = (), extra_preamble: str = "",
-                  role: str = "agent") -> list:
+                  role: str = "agent", standalone: bool = False) -> list:
     """Build the argv that runs `agent` under `harness` with `prompt`.
 
     `delegates` / `extra_preamble` only affect harnesses without a registry:
     a registry harness gets the agent by name and its generated definition
     already carries the body.
+
+    `standalone` — True when this call IS the entire harness session (a
+    one-shot subagent invocation, e.g. a preview tool), rather than
+    `agent` being reached via in-session delegation from an
+    already-running orchestrator (the normal job-scraper -> @resume-tailor
+    path). Every generated agent definition except job-scraper itself is
+    `mode: subagent` in its opencode frontmatter — reachable via opencode's
+    own in-session delegation, but NOT via `opencode run --agent <name>`
+    at the top level: confirmed empirically (2026-08-19) that opencode
+    silently falls back to the project's default agent (job-scraper)
+    instead of erroring, which would run the wrong agent entirely with no
+    indication anything went wrong. `standalone=True` forces the same
+    inline-body path already used for no-registry harnesses (Codex,
+    older Copilot) even on opencode, sidestepping the subagent-mode
+    restriction the same way Claude Code's headless `-p` entry point
+    already has to (see that branch below — it never uses a registry
+    selector regardless of `standalone`, for the same underlying reason).
+    Copilot's own agent defs declare `user-invocable: true` and its CLI
+    has no equivalent subagent-mode restriction, so its branch is
+    unaffected by this flag.
     """
-    if harness == "opencode":
+    if harness == "opencode" and not standalone:
         return [exe, "run", "--agent", agent, *opencode_print_flag(exe), prompt]
     if harness == "claude":
         perm = os.environ.get("APLYX_CLAUDE_PERMISSION_MODE", os.environ.get("FLUX_CLAUDE_PERMISSION_MODE", "bypassPermissions"))
@@ -156,14 +176,17 @@ def agent_command(exe: str, harness: str, agent: str, prompt: str,
             full += " " + extra_preamble
         full += " " + prompt
         return [exe, "--agent", agent, "--prompt", full, "--allow-all-tools"]
-    # codex, and copilot without --agent support — no usable registry,
-    # inline the body.
+    # codex, copilot without --agent support, and opencode when standalone=True
+    # (see the standalone= docstring above) — no usable top-level registry
+    # selector for this call, inline the body.
     full = inline_preamble(agent, delegates, role)
     if extra_preamble:
         full += " " + extra_preamble
     full += " " + prompt
     if harness == "codex":
         return [exe, "exec", full]
+    if harness == "opencode":
+        return [exe, "run", *opencode_print_flag(exe), full]
     return [exe, "-p", full, "--allow-all-tools"]
 
 

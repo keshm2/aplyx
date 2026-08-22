@@ -16,7 +16,9 @@ export type JobSource =
   | "workable"
   | "amazon"
   | "oracle"
-  | "muse";
+  | "muse"
+  | "simplify"
+  | "vanshb03";
 
 export interface SearchJob {
   source: JobSource;

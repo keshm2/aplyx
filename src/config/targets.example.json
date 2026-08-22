@@ -129,7 +129,9 @@
     "gender": "REPLACE_ME",
     "ethnicity": "REPLACE_ME",
     "hispanic_or_latino": "REPLACE_ME",
-    "date_of_birth": "REPLACE_ME"
+    "date_of_birth": "REPLACE_ME",
+    "veteran_status": "REPLACE_ME",
+    "disability_status": "REPLACE_ME"
   },
   "_help": {
     "allow_experienced_roles": "false = only intern/new-grad/entry-level postings pass the fit gate (today's default). true = the fit gate also allows postings requiring 3+ years of experience — set by checking \"Full time (3+ yrs exp)\" in the Settings Levels submenu.",

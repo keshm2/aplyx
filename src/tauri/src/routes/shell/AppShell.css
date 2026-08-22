@@ -1,100 +1,32 @@
 .shell {
   height: 100%;
-  display: grid;
-  grid-template-columns: 15rem 1fr;
-}
-
-.shell-sidebar {
-  position: relative;
-  background: var(--surface);
   display: flex;
-  flex-direction: column;
-  /* Extra top clearance (vs. the space-5 every other side gets) so the
-   * brand mark isn't sitting under the macOS traffic lights — the native
-   * title bar is transparent (tauri.conf.json) and reserves no space of
-   * its own anymore. */
-  padding: 2.75rem var(--space-4) var(--space-5);
-  gap: var(--space-6);
 }
 
-/* A plain border-right would run the full height of this grid cell,
- * starting at y=0 under the transparent title bar — crossing straight
- * through .app-drag-region's own horizontal border and looking like a
- * stray line poking above it. Positioned to start exactly where the drag
- * bar ends instead, so the two lines meet cleanly rather than intersect. */
-.shell-sidebar::after {
-  content: "";
-  position: absolute;
-  top: 2rem;
-  right: 0;
-  bottom: 0;
-  width: 1px;
-  background: var(--border);
-}
-
-.shell-brand {
-  padding: 0 var(--space-2);
-}
-
-.shell-nav {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.shell-nav-item {
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-md);
-  font-size: var(--text-sm);
-  font-weight: 500;
-  color: var(--text-muted);
-  transition:
-    background var(--duration-quick) var(--ease-snap),
-    color var(--duration-quick) var(--ease-snap),
-    transform var(--duration-quick) var(--ease-snap);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .shell-nav-item:hover {
-    background: var(--ground);
-    color: var(--text);
-    transform: translateX(2px);
-  }
-}
-
-/* NavLinks are anchors, not buttons — base.css only resets native button
- * chrome, so this is the one place a pressable rail item needs its own
- * tactile feedback (same scale-press every button in the app already
- * gets on click). */
-.shell-nav-item:active {
-  transform: scale(var(--scale-press));
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .shell-nav-item:hover:active {
-    transform: translateX(2px) scale(var(--scale-press));
-  }
-}
-
-.shell-nav-item-active {
-  background: var(--accent-soft);
-  color: var(--accent-strong);
-  font-weight: 600;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .shell-nav-item:hover {
-    transform: none;
-  }
-}
-
+/* Only child now — the old persistent sidebar rail was replaced with
+ * TopBar's NavMenu dropdown, so every screen gets the window's full width
+ * instead of a fixed reserved column. */
 .shell-main {
+  flex: 1;
+  min-width: 0;
   overflow-y: auto;
+  /* space-7 (3rem) top clearance still covers the macOS traffic lights —
+   * same reasoning the old sidebar's own top padding had (transparent
+   * title bar, tauri.conf.json, reserves no space of its own). */
   padding: var(--space-7) var(--space-6);
 }
 
+/* Content itself still centers on a sensible reading/working width rather
+ * than stretching edge-to-edge on a wide window — the space the sidebar
+ * used to occupy is given back to whichever screen wants it (Jobs/Review/
+ * Status/Documents' list+detail layouts have no max-width and use it),
+ * not turned into empty margin either side of a narrow column on every
+ * other screen (Home/Settings/Profile/Resumes center within this, each
+ * with their own narrower max-width — see those files). */
 .shell-route-frame {
   min-height: 60vh;
+  max-width: 90rem;
+  margin: 0 auto;
 }
 
 @keyframes shell-route-out {
@@ -105,14 +37,14 @@
 
   to {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(10px);
   }
 }
 
 @keyframes shell-route-in {
   from {
     opacity: 0;
-    transform: translateY(8px) scale(0.99);
+    transform: translateY(16px) scale(0.98);
   }
 
   to {

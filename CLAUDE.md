@@ -43,8 +43,8 @@ for its own at the repo root).
 | `AGENTS.md` | Canonical behavioral rules (fetch methods, fit gate, write discipline) |
 | `docs/PLAN.md` | Phase roadmap + handoff (gitignored — read first when resuming) |
 | `docs/SETUP.md` | User-facing install/config walkthrough |
-| `src/agents/` | **Source of truth** for agent prompts: `bodies/` + `frontmatter/<harness>/` |
-| `.claude/agents/`, `.opencode/agents/` | **Generated** from `src/agents/` — never hand-edit |
+| `src/agents/` | **Source of truth** for agent prompts: `bodies/` + `frontmatter/<harness>/` + `skills/` (bundled, referenced inline by bodies — see `src/agents/skills/README.md`) |
+| `.claude/agents/`, `.opencode/agents/` | **Generated** from `src/agents/bodies/`+`frontmatter/` — never hand-edit (`skills/` is not compiled into these; bodies read it directly) |
 | `src/scripts/` | Deterministic helpers — the only things allowed to write state |
 | `src/tui/` | The `aplyx` TUI (TypeScript/Ink overlay; shells out to the helpers) |
 | `src/tauri/` | The Tauri desktop app |

@@ -1,0 +1,187 @@
+/*
+ * Recommended-jobs marquee for the Home dashboard — same auto-scroll
+ * technique as src/site's company-logo marquee (duplicated track groups,
+ * translateX(0) -> translateX(-50%) so the loop point is invisible, paused
+ * on hover, disabled under prefers-reduced-motion), rebuilt here against
+ * this app's own tokens since src/tauri and src/site don't share a
+ * stylesheet. Cards replace logos; always animates (RecommendedJobsMarquee.tsx
+ * scales the duration to card count so it stays visible at any count).
+ */
+
+.rec-jobs-marquee {
+  overflow: hidden;
+  /* Top/bottom breathing room for .rec-job-card:hover's translateY(-2px) +
+     box-shadow — without this, a card sitting flush against this
+     container's edge gets its own top clipped by overflow:hidden the
+     moment it lifts on hover. */
+  padding: var(--space-2) 0;
+}
+
+.rec-jobs-track {
+  display: flex;
+  width: max-content;
+  /* Duration is set inline per-render (RecommendedJobsMarquee.tsx), scaled
+     to card count so the scroll speed stays visually consistent regardless
+     of how many recommended jobs there are — a fixed duration here was the
+     actual bug: a short track (2-3 real cards) moving that slowly read as
+     "completely static" even though it was animating. */
+  animation-name: rec-jobs-scroll;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .rec-jobs-marquee:hover .rec-jobs-track {
+    animation-play-state: paused;
+  }
+}
+
+.rec-jobs-group {
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+}
+
+.rec-job-card {
+  flex-shrink: 0;
+  /* Grows with a long company name instead of truncating it — capped so one
+     outlier name can't blow out the whole row's rhythm; min-width keeps
+     short-name cards from looking cramped. */
+  width: max-content;
+  min-width: 16rem;
+  max-width: 22rem;
+  margin-right: var(--space-4);
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  cursor: pointer;
+  transition:
+    transform var(--duration-quick) var(--ease-snap),
+    box-shadow var(--duration-quick) var(--ease-snap),
+    border-color var(--duration-quick) var(--ease-snap);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .rec-job-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-lift);
+  }
+}
+
+.rec-job-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.rec-job-card-identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.rec-job-card-logo {
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: var(--radius-sm);
+  object-fit: contain;
+}
+
+.rec-job-card-logo-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.rec-job-card-company {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  /* No truncation — the card itself grows (width: max-content on
+     .rec-job-card, up to its max-width) to fit the name instead. */
+  overflow-wrap: anywhere;
+}
+
+.rec-job-card-match {
+  flex-shrink: 0;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--good);
+  background: var(--good-soft);
+  border-radius: var(--radius-pill);
+  padding: 0.15rem var(--space-3);
+  white-space: nowrap;
+}
+
+.rec-job-card-title {
+  font-size: var(--text-base);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+}
+
+.rec-job-card-quals-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.rec-job-card-quals-label {
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.rec-job-card-quals {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.rec-job-card-quals li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.rec-job-card-check {
+  color: var(--good);
+  font-weight: 700;
+}
+
+@keyframes rec-jobs-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    /* Exactly one .rec-jobs-group's width — the two duplicated groups are
+       identical, so this lands group 2 precisely where group 1 started. */
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rec-jobs-track {
+    animation: none;
+  }
+  .rec-job-card:hover {
+    transform: none;
+  }
+}

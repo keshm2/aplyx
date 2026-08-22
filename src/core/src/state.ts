@@ -2,13 +2,13 @@ import fs from "node:fs";
 import path from "node:path";
 import { logDir } from "./settings.js";
 import { pidAlive } from "./platform.js";
-import type { AppliedJob, QueueEntry, RegistryRecord, AplyxState, Heartbeat } from "./stateDerive.js";
+import type { AppliedJob, QueueEntry, RegistryRecord, AplyxState, Heartbeat, ApplyRunSummary, ApplyRunStatus } from "./stateDerive.js";
 
 // Re-exported for existing importers (the TUI, the desktop bridge) — the
 // actual definitions live in stateDerive.ts, which has no fs import so the
 // desktop webview can use the pure derivations directly against a AplyxState
 // it already loaded, without pulling in this module's fs-based readers too.
-export type { AppliedJob, QueueEntry, RegistryRecord, AplyxState, Heartbeat } from "./stateDerive.js";
+export type { AppliedJob, QueueEntry, RegistryRecord, AplyxState, Heartbeat, ApplyRunSummary, ApplyRunStatus } from "./stateDerive.js";
 export { todayIso, registryByJobId, isResolved, hasAppliedOrFailed, isDismissed } from "./stateDerive.js";
 
 function readJsonArray<T>(file: string): T[] {
@@ -19,6 +19,17 @@ function readJsonArray<T>(file: string): T[] {
     return [];
   }
 }
+
+// Inbox status detection (outcome_status/outcome_updated_at/outcome_source
+// on AppliedJob — see stateDerive.ts's own doc comment on that field) is
+// hosted-only (2026-08-19 — matches docs/website.md's pricing page, which
+// already lists it as a Pro-tier feature): email-tracking-worker
+// (src/supabase/functions/) writes those columns directly onto the hosted
+// applied_jobs row, guarded by a DB trigger (migration
+// 0007_hosted_email_tracking.sql), so SupabaseAdapter's loadState() just
+// reads them off the row — no local derivation step. Local installs have
+// no equivalent: a local AppliedJob's outcome_status is always undefined,
+// which StatusScreen.tsx already renders as the plain "Applied" badge.
 
 export function loadState(root: string): AplyxState {
   return {

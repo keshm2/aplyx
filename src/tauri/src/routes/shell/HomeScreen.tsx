@@ -1,68 +1,24 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { AplyxState, AppliedJob, QueueEntry } from "@aplyx/core/state.js";
-import { isResolved } from "@aplyx/core/stateDerive.js";
-import { SupabaseAdapter } from "@aplyx/core/adapters/supabase.js";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import type { AplyxState } from "@aplyx/core/state.js";
+import { SupabaseAdapter, type HostedReadiness, type VerificationSessionRow } from "@aplyx/core/adapters/supabase.js";
 import { useAuth } from "../../lib/AuthContext";
-import { readProfileField } from "../../lib/bridge";
+import { readProfileField, getRecommendedJobs, getSchedulerStatus, type RecommendedJob, type SchedulerStatus } from "../../lib/bridge";
 import { useAplyxState, type StateSource } from "../../lib/useAplyxState";
+import { useOnlineAppliedJobs } from "../../lib/useOnlineAppliedJobs";
+import { OUTCOME_LABEL, outcomeDotClass } from "../../lib/outcomeStatus";
+import { isResolved } from "@aplyx/core/stateDerive.js";
 import { SkeletonStatCards, SkeletonNextCard, SkeletonRows } from "../../components/Skeleton";
+import { DigitalClock } from "../../components/DigitalClock";
+import { RecommendedJobsMarquee } from "../../components/RecommendedJobsMarquee";
+import { WeeklyActivityChart } from "../../components/WeeklyActivityChart";
+import { PipelineBreakdown } from "../../components/PipelineBreakdown";
+import { SchedulerStatusCard } from "../../components/SchedulerStatusCard";
 import "../../components/formFields.css";
-import "../../components/dataList.css";
+import "../../components/dataList.css"; // .stat-cards/.stat-card (shared with StatusScreen)
 import "../../components/Skeleton.css";
 import "./HomeScreen.css";
-
-const STATUS_BADGE: Record<string, string> = {
-  applied: "status-badge-good",
-  needs_review: "status-badge-warn",
-  failed: "status-badge-danger",
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  applied: "Applied",
-  needs_review: "Needs review",
-  failed: "Failed",
-};
-
-interface ActivityRow {
-  key: string;
-  company: string;
-  title: string;
-  date: string;
-  badgeClass: string;
-  badgeLabel: string;
-  to: string;
-}
-
-/** Most-recent applied jobs and still-pending review items, merged into one
- *  reverse-chronological feed by date_applied — the "what's happened
- *  lately" half of the dashboard, alongside `nextAction`'s "what's next". */
-function recentActivity(state: AplyxState): ActivityRow[] {
-  const applied: ActivityRow[] = state.applied.map((job: AppliedJob) => ({
-    key: `applied-${job.job_id}`,
-    company: job.company,
-    title: job.title,
-    // Older review_queue.json entries predate a field rename and still use
-    // date_added instead of date_applied — real local data on this machine
-    // hits that, so this can't assume the field is always present.
-    date: job.date_applied ?? "",
-    badgeClass: STATUS_BADGE[job.status] ?? "status-badge-muted",
-    badgeLabel: STATUS_LABEL[job.status] ?? job.status,
-    to: "/app/status",
-  }));
-  const pending: ActivityRow[] = state.queue
-    .filter((entry: QueueEntry) => !isResolved(state, entry))
-    .map((entry) => ({
-      key: `queue-${entry.job_id}`,
-      company: entry.company,
-      title: entry.title,
-      date: entry.date_applied ?? (entry as { date_added?: string }).date_added ?? "",
-      badgeClass: "status-badge-warn",
-      badgeLabel: "Pending review",
-      to: "/app/review",
-    }));
-  return [...applied, ...pending].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6);
-}
 
 /** The single most useful thing to do right now. Priority: an unreviewed
  *  queue always wins (it's time-sensitive, and both local and hosted
@@ -75,16 +31,30 @@ function recentActivity(state: AplyxState): ActivityRow[] {
 function nextAction(
   source: StateSource,
   display: AplyxState | undefined,
+  hostedReadiness?: HostedReadiness,
 ): { title: string; detail: string; cta: string; to: string } | undefined {
-  if (display && display.queue.length > 0) {
+  // Not display.queue.length — the queue is append-only and never shrinks
+  // on its own (AGENTS.md), so a raw length still counts entries already
+  // applied/dismissed/failed after being queued. Same isResolved filter
+  // ReviewScreen's own pending count uses.
+  const pendingQueue = display?.queue.filter((e) => !isResolved(display, e)) ?? [];
+  if (pendingQueue.length > 0) {
     return {
-      title: `${display.queue.length} waiting for review`,
+      title: `${pendingQueue.length} waiting for review`,
       detail: "Applications that need a manual decision before they go out.",
       cta: "Open review queue",
       to: "/app/review",
     };
   }
   if (source === "hosted") {
+    if (hostedReadiness && !hostedReadiness.inboxConnected) {
+      return {
+        title: "Connect your inbox",
+        detail: "Hosted plans require inbox access for Workday and other gated ATS verification.",
+        cta: "Open settings",
+        to: "/app/settings",
+      };
+    }
     return {
       title: "Connect your local install",
       detail: "Job search and applying run through a local install on this machine.",
@@ -116,7 +86,17 @@ export function HomeScreen() {
   const navigate = useNavigate();
   const { state, loaded, source, root, hosted } = useAplyxState();
   const [preferredName, setPreferredName] = useState<string | undefined>(undefined);
+  const [recommended, setRecommended] = useState<RecommendedJob[] | undefined>(undefined);
+  const [schedulerStatus, setSchedulerStatus] = useState<SchedulerStatus | undefined>(undefined);
+  const [hostedReadiness, setHostedReadiness] = useState<HostedReadiness | undefined>(undefined);
+  const [verificationSessions, setVerificationSessions] = useState<VerificationSessionRow[] | undefined>(undefined);
+  const [quickQuery, setQuickQuery] = useState("");
   const signedIn = status === "signed-in";
+  // Independent of `source` (which prefers local whenever a local install
+  // exists) — same reasoning as Application Statuses: the tracking
+  // widgets below are a hosted-account feature regardless of which data
+  // source is driving the rest of this dashboard.
+  const { onlineJobs } = useOnlineAppliedJobs();
 
   useEffect(() => {
     if (source !== "local" || !root) return;
@@ -149,27 +129,139 @@ export function HomeScreen() {
     };
   }, [source, hosted, preferredName]);
 
-  const next = loaded ? nextAction(source, state) : undefined;
-  const activity = useMemo(() => (state ? recentActivity(state) : []), [state]);
-  const greeting = state?.applied?.length
-    ? preferredName
-      ? `Welcome back, ${preferredName}`
-      : "Welcome back"
-    : "You're set up";
+  useEffect(() => {
+    if (source !== "hosted" || !hosted) return;
+    let cancelled = false;
+    const adapter = new SupabaseAdapter(hosted.client, hosted.userId);
+    Promise.all([adapter.readHostedReadiness(), adapter.listVerificationSessions(3)])
+      .then(([readiness, sessions]) => {
+        if (cancelled) return;
+        setHostedReadiness(readiness);
+        setVerificationSessions(sessions);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setHostedReadiness(undefined);
+        setVerificationSessions(undefined);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [source, hosted]);
+
+  // A stable, value-compared key for "which jobs to exclude" — depending on
+  // this string instead of the `state` object itself means an unrelated
+  // state-object identity change (e.g. Supabase's routine hourly
+  // TOKEN_REFRESHED firing, which replaces `state` via useAplyxState's own
+  // effect even though nothing the user applied to actually changed) no
+  // longer re-triggers the fetch/re-evaluate-fit-for-the-whole-registry
+  // effect below for no reason. `loaded` is included separately so the
+  // effect still fires on the one real transition a same-valued key
+  // wouldn't catch: state going from not-yet-loaded to loaded-but-empty
+  // (a fresh install with no applied/queue jobs yet).
+  const excludeJobIdsKey = state
+    ? [...state.applied.map((j) => j.job_id), ...state.queue.map((j) => j.job_id)].sort().join(",")
+    : "";
+
+  // Recommended-jobs marquee: local-only, same reasoning as the profile-name
+  // lookup above — a hosted-only session has no local job_registry.json or
+  // Python fit gate to read from, so it simply doesn't render (see
+  // nextAction's own "connect a local install" case for that state).
+  useEffect(() => {
+    if (source !== "local" || !root || !state) return;
+    let cancelled = false;
+    const excludeJobIds = excludeJobIdsKey ? excludeJobIdsKey.split(",") : [];
+    getRecommendedJobs(root, excludeJobIds)
+      .then((jobs) => {
+        if (!cancelled) setRecommended(jobs);
+      })
+      .catch(() => {
+        // A bridge failure just leaves the marquee absent — the loaded-but-
+        // empty state below already covers "nothing to show".
+        if (!cancelled) setRecommended([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately
+    // keyed on excludeJobIdsKey (value-stable) rather than `state` (a new
+    // object reference on every refresh) — see the comment above.
+  }, [source, root, loaded, excludeJobIdsKey]);
+
+  // Scheduler status: local-only (the local 30-min schedule and its
+  // heartbeat file live on this machine, same reasoning as the two
+  // effects above).
+  useEffect(() => {
+    if (source !== "local" || !root) return;
+    let cancelled = false;
+    getSchedulerStatus(root)
+      .then((s) => {
+        if (!cancelled) setSchedulerStatus(s);
+      })
+      .catch(() => {
+        // A bridge failure just leaves the card absent below.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [source, root]);
+
+  const next = loaded ? nextAction(source, state, hostedReadiness) : undefined;
+  const pendingQueueCount = state ? state.queue.filter((e) => !isResolved(state, e)).length : 0;
+  // Name, not application count, decides "returning user" copy — a
+  // preferred name is set once during onboarding, so anyone past their
+  // first login has one; "You're set up" is now only for the genuine
+  // first-ever visit (no name on file yet AND no applications sent).
+  const greeting = preferredName
+    ? `Welcome back, ${preferredName}`
+    : state?.applied?.length
+      ? "Welcome back"
+      : "You're set up";
+
+  // Response rate: any tracked application whose outcome moved past the
+  // starting "applied" value — a reply of any kind, not just a positive
+  // one. Assessments pending: still-open oa_sent invites, the same
+  // information Application Statuses' own detail sheet shows in full.
+  const respondedCount = onlineJobs.filter((j) => j.outcome_status && j.outcome_status !== "applied").length;
+  const responseRate = onlineJobs.length > 0 ? Math.round((respondedCount / onlineJobs.length) * 100) : 0;
+  const pendingAssessments = onlineJobs.filter((j) => j.outcome_status === "oa_sent");
+
+  // A synthesized feed, not a real event log — this app doesn't keep one,
+  // so "recent activity" is reconstructed from current-state timestamps
+  // already on hand: when a local application was sent (date_applied) and
+  // when a hosted outcome last changed (outcome_updated_at). Honest about
+  // what it actually is rather than fabricating finer-grained history that
+  // doesn't exist. Local's date has no time component and hosted's does —
+  // an imperfect but reasonable sort given what's available.
+  const activity = [
+    ...(state?.applied ?? []).map((j) => ({
+      id: `applied:${j.job_id}`,
+      timestamp: j.date_applied,
+      title: `Applied to ${j.company} — ${j.title}`,
+      sub: j.date_applied,
+      badge: undefined as { label: string; className: string } | undefined,
+    })),
+    ...onlineJobs
+      .filter((j) => j.outcome_status && j.outcome_status !== "applied" && j.outcome_updated_at)
+      .map((j) => ({
+        id: `outcome:${j.job_id}`,
+        timestamp: j.outcome_updated_at!,
+        title: `${j.company} — ${j.title}`,
+        sub: `Updated ${j.outcome_updated_at!.slice(0, 10)}`,
+        badge: {
+          label: OUTCOME_LABEL[j.outcome_status!] ?? j.outcome_status!,
+          className: outcomeDotClass(j.outcome_status),
+        },
+      })),
+  ]
+    .sort((a, b) => (a.timestamp < b.timestamp ? 1 : a.timestamp > b.timestamp ? -1 : 0))
+    .slice(0, 8);
 
   return (
-    <div style={{ maxWidth: "44rem", margin: "0 auto", display: "flex", flexDirection: "column", gap: "var(--space-6)" }}>
-      <div className="aplyx-fade-in" style={{ textAlign: "center" }}>
-        <h1 style={{ fontSize: "var(--text-3xl)", marginBottom: "var(--space-2)" }}>{greeting}</h1>
-        {/* margin: "0 auto" overrides the global `p { margin: 0 }` reset
-           (base.css) — without it, this <p>'s own `p { max-width: 65ch }`
-           reset makes it a narrower box than the heading above, and a
-           narrower block with margin:0 sits flush against the left edge
-           of its container instead of centered, regardless of the
-           inherited text-align — the text inside looked centered *within
-           that box*, but the box itself wasn't centered under the
-           heading. */}
-        <p style={{ color: "var(--text-muted)", fontSize: "var(--text-sm)", margin: "0 auto" }}>
+    <div style={{ maxWidth: "68rem", margin: "0 auto", display: "flex", flexDirection: "column", gap: "var(--space-6)" }}>
+      <div className="aplyx-fade-in home-greeting">
+        <h1>{greeting}</h1>
+        <p>
           {signedIn ? (
             <>
               Signed in as <strong>{session?.user.email}</strong>.
@@ -178,7 +270,39 @@ export function HomeScreen() {
             "Running locally — your data stays on this machine."
           )}
         </p>
+        <DigitalClock />
       </div>
+
+      <section className="aplyx-fade-in home-quick-actions">
+        <h2 className="section-label">Quick actions</h2>
+        <form
+          className="home-quick-search"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const trimmed = quickQuery.trim();
+            if (trimmed) navigate("/app/jobs", { state: { initialQuery: trimmed } });
+          }}
+        >
+          <input
+            type="text"
+            value={quickQuery}
+            onChange={(e) => setQuickQuery(e.currentTarget.value)}
+            placeholder="Search for a role, e.g. software engineer intern"
+          />
+          <button type="submit" className="btn btn-primary">Search</button>
+        </form>
+        <div className="home-quick-links">
+          <button type="button" className="settings-action-btn" onClick={() => navigate("/app/review")}>
+            Review queue{pendingQueueCount > 0 ? ` (${pendingQueueCount})` : ""}
+          </button>
+          <button type="button" className="settings-action-btn" onClick={() => navigate("/app/status")}>
+            Application statuses
+          </button>
+          <button type="button" className="settings-action-btn" onClick={() => navigate("/app/resumes")}>
+            Resumes
+          </button>
+        </div>
+      </section>
 
       {!loaded && (
         <>
@@ -189,22 +313,121 @@ export function HomeScreen() {
       )}
 
       {loaded && state && (
-        <div className="home-stats">
-          <div className="home-stat-card aplyx-fade-rise">
-            <span className="home-stat-value" style={{ color: "var(--good)" }}>
+        <div className="stat-cards">
+          <div className="stat-card aplyx-fade-rise">
+            <span className="stat-value" style={{ color: "var(--good)" }}>
               {state.applied.length}
             </span>
-            <span className="home-stat-label">Applications sent</span>
+            <span className="stat-label">Applications sent</span>
           </div>
-          <div className="home-stat-card aplyx-fade-rise">
-            <span className="home-stat-value" style={{ color: state.queue.length > 0 ? "var(--warn)" : "var(--text)" }}>
-              {state.queue.length}
+          <div className="stat-card aplyx-fade-rise">
+            <span className="stat-value" style={{ color: pendingQueueCount > 0 ? "var(--warn)" : "var(--text)" }}>
+              {pendingQueueCount}
             </span>
-            <span className="home-stat-label">Waiting in review queue</span>
+            <span className="stat-label">Waiting in review queue</span>
           </div>
-          <div className="home-stat-card aplyx-fade-rise">
-            <span className="home-stat-value">{state.registry.length}</span>
-            <span className="home-stat-label">Jobs seen</span>
+          <div className="stat-card aplyx-fade-rise">
+            <span className="stat-value">{state.registry.length}</span>
+            <span className="stat-label">Jobs seen</span>
+          </div>
+        </div>
+      )}
+
+      {loaded && source === "hosted" && hostedReadiness && (
+        <div className="stat-cards aplyx-fade-rise">
+          <div className="stat-card">
+            <span className="stat-value" style={{ color: hostedReadiness.inboxConnected ? "var(--good)" : "var(--warn)" }}>
+              {hostedReadiness.inboxConnected ? "Connected" : "Action"}
+            </span>
+            <span className="stat-label">Inbox: {hostedReadiness.inboxProvider ?? "not connected"}</span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-value">{verificationSessions?.length ?? 0}</span>
+            <span className="stat-label">Recent verification sessions</span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-value" style={{ color: hostedReadiness.resumeUploaded ? "var(--good)" : "var(--warn)" }}>
+              {hostedReadiness.resumeUploaded ? "Ready" : "Missing"}
+            </span>
+            <span className="stat-label">Hosted resume</span>
+          </div>
+        </div>
+      )}
+
+      {signedIn && onlineJobs.length > 0 && (
+        <section className="aplyx-fade-in">
+          <h2 className="section-label">Tracking</h2>
+          <div className="stat-cards">
+            <div className="stat-card aplyx-fade-rise">
+              <span className="stat-value">{onlineJobs.length}</span>
+              <span className="stat-label">Applications tracked</span>
+            </div>
+            <div className="stat-card aplyx-fade-rise">
+              <span className="stat-value" style={{ color: respondedCount > 0 ? "var(--good)" : "var(--text)" }}>
+                {responseRate}%
+              </span>
+              <span className="stat-label">Response rate</span>
+              <div className="stat-progress">
+                <div className="stat-progress-fill" style={{ width: `${responseRate}%` }} />
+              </div>
+            </div>
+            <div className="stat-card aplyx-fade-rise">
+              <span className="stat-value" style={{ color: pendingAssessments.length > 0 ? "var(--info)" : "var(--text)" }}>
+                {pendingAssessments.length}
+              </span>
+              <span className="stat-label">Assessments pending</span>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {signedIn && pendingAssessments.length > 0 && (
+        <section className="aplyx-fade-in">
+          <h2 className="section-label">Assessments waiting on you</h2>
+          <div className="home-alert-cards">
+            {pendingAssessments.map((job) => (
+              <div key={job.job_id} className="home-alert-card">
+                <div className="home-alert-card-icon" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M12 7v5l3 3" />
+                  </svg>
+                </div>
+                <div className="home-alert-card-title">
+                  {job.company} — {job.title}
+                </div>
+                <div className="home-alert-card-detail">
+                  {job.outcome_assessment_note ? `Duration: ${job.outcome_assessment_note}` : "No duration listed"}
+                </div>
+                <div className="home-alert-card-footer">
+                  <span>OA sent</span>
+                  <button
+                    type="button"
+                    className="home-alert-card-link"
+                    onClick={() => (job.outcome_assessment_url ? void openUrl(job.outcome_assessment_url) : navigate("/app/status"))}
+                  >
+                    {job.outcome_assessment_url ? "Open assessment" : "View details"} →
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {loaded && source === "hosted" && verificationSessions && verificationSessions.length > 0 && (
+        <div className="aplyx-fade-in">
+          <h2 className="section-label">Verification sessions</h2>
+          <div className="data-list">
+            {verificationSessions.map((sessionRow) => (
+              <div key={sessionRow.id} className="data-row">
+                <div className="data-row-main">
+                  <span className="data-row-title">{sessionRow.company || sessionRow.family}</span>
+                  <span className="data-row-sub">{sessionRow.candidate_email}</span>
+                </div>
+                <span className="status-badge status-badge-info">{sessionRow.status}</span>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -221,27 +444,57 @@ export function HomeScreen() {
         </div>
       )}
 
-      {activity.length > 0 && (
-        <div className="aplyx-fade-in">
-          <h2 style={{ fontSize: "var(--text-lg)", marginBottom: "var(--space-3)" }}>Recent activity</h2>
-          <div className="data-list">
-            {activity.map((row) => (
-              <button key={row.key} type="button" className="data-row" onClick={() => navigate(row.to)}>
-                <div className="data-row-main">
-                  <span className="data-row-title">
-                    {row.company} — {row.title}
-                  </span>
-                  <span className="data-row-sub">{row.date}</span>
-                </div>
-                <span className={`status-badge ${row.badgeClass}`}>{row.badgeLabel}</span>
-              </button>
-            ))}
+      {loaded && state && source === "local" && (
+        <div className="home-widget-grid aplyx-fade-in">
+          <WeeklyActivityChart applied={state.applied} />
+          <div className="home-widget-stack">
+            {schedulerStatus && <SchedulerStatusCard status={schedulerStatus} />}
+            <PipelineBreakdown registry={state.registry} />
           </div>
         </div>
       )}
 
+      {loaded && source === "local" && recommended === undefined && (
+        <div className="aplyx-fade-in">
+          <h2 className="section-label">Recommended next</h2>
+          <SkeletonRows count={3} />
+        </div>
+      )}
+
+      {recommended && recommended.length > 0 && (
+        <div className="aplyx-fade-in">
+          <h2 className="section-label">Recommended next</h2>
+          <RecommendedJobsMarquee jobs={recommended} />
+        </div>
+      )}
+
+      {recommended && recommended.length === 0 && (
+        <p className="field-help aplyx-fade-in">No new matches right now — check back after your next scheduled run.</p>
+      )}
+
       {loaded && source === "none" && (
         <p className="field-help aplyx-fade-in">No activity yet — head to Jobs to start searching.</p>
+      )}
+
+      {activity.length > 0 && (
+        <section className="aplyx-fade-in">
+          <h2 className="section-label">Recent activity</h2>
+          {/* Synthesized from current-state timestamps (date_applied,
+             *  outcome_updated_at) — this app has no real event log, so
+             *  this is the honest version of "recent activity" rather
+             *  than fabricated finer-grained history. */}
+          <div className="data-list">
+            {activity.map((item) => (
+              <div key={item.id} className="data-row">
+                <div className="data-row-main">
+                  <span className="data-row-title">{item.title}</span>
+                  <span className="data-row-sub">{item.sub}</span>
+                </div>
+                {item.badge && <span className={`status-dot ${item.badge.className}`}>{item.badge.label}</span>}
+              </div>
+            ))}
+          </div>
+        </section>
       )}
     </div>
   );

@@ -9,23 +9,30 @@ import { Logo } from "../../../components/Logo";
 import { ImportOrFreshStep } from "./ImportOrFreshStep";
 import { HostedProfileStep } from "./HostedProfileStep";
 import { ResumeUploadStep } from "./ResumeUploadStep";
+import { EmailTrackingStep } from "./EmailTrackingStep";
+import { CandidateEmailStep } from "./CandidateEmailStep";
+import { HostedReadinessStep } from "./HostedReadinessStep";
 
-const STEPS = ["welcome", "import", "profile", "resume", "finish"] as const;
+const STEPS = ["welcome", "import", "profile", "candidate_email", "resume", "inbox", "readiness"] as const;
 type Step = (typeof STEPS)[number];
 
 /**
  * Hosted onboarding sequence per docs/app-integration-plan.md: Sign in ->
- * import local data or start fresh -> Profile -> Resume upload ->
- * Preferences -> Finish. "Preferences" (role_keywords/preferred_locations/
- * target_companies) is folded into Profile since those are 2 of the same
- * 8 shared field pages (src/core/src/onboarding/fields.ts) rather
- * than a separate duplicate step.
+   * import local data or start fresh -> Profile -> Candidate email -> Resume
+   * upload -> Inbox connection -> Readiness. "Preferences" (role_keywords/
+ * preferred_locations/target_companies) is folded into Profile since
+ * those are 2 of the same 8 shared field pages
+ * (src/core/src/onboarding/fields.ts) rather than a separate duplicate
+ * step. Inbox status tracking is hosted-only (docs/website.md's pricing
+ * page already lists it as a Pro-tier feature) — local installs have no
+ * equivalent step at all.
  */
 export function HostedWizard() {
   const { status, session, markOnboardingCompleted } = useAuth();
   const navigate = useNavigate();
   const [client, setClient] = useState<SupabaseClient | undefined>(undefined);
   const [stepIndex, setStepIndex] = useState(0);
+  const [wizardError, setWizardError] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     // A failed client must not strand this screen on "Loading…" — bounce
@@ -62,24 +69,31 @@ export function HostedWizard() {
   }
 
   async function goNext() {
+    if (!client) return;
+    setWizardError(undefined);
+    if (STEPS[stepIndex] === "resume" || STEPS[stepIndex] === "inbox" || STEPS[stepIndex] === "readiness") {
+      const readiness = await new SupabaseAdapter(client, userId).readHostedReadiness();
+      if (STEPS[stepIndex] === "resume" && !readiness.resumeUploaded) {
+        setWizardError("Upload a resume before continuing.");
+        return;
+      }
+      if (STEPS[stepIndex] === "inbox" && !readiness.inboxConnected) {
+        setWizardError("Hosted plans require a connected inbox before setup can finish.");
+        return;
+      }
+      if (STEPS[stepIndex] === "readiness" && !(readiness.hasCandidateEmail && readiness.resumeUploaded && readiness.inboxConnected)) {
+        setWizardError("Complete the required setup items before finishing hosted onboarding.");
+        return;
+      }
+    }
     if (stepIndex < STEPS.length - 1) {
       setStepIndex((i) => i + 1);
       return;
     }
-    // Last step ("Finish") — record that this user won't need to see the
-    // wizard again on their next sign-in.
     await finish();
   }
 
-  // Import already copied a local install's data over, and that install
-  // had already completed its own setup — jump straight to finish instead
-  // of marching this user through Profile/Resume for data that's already
-  // in place, even though they technically could still click through it.
-  async function goNextFromImport(alreadySetUp: boolean) {
-    if (alreadySetUp) {
-      await finish();
-      return;
-    }
+  async function goNextFromImport() {
     await goNext();
   }
 
@@ -87,9 +101,20 @@ export function HostedWizard() {
     if (stepIndex > 0) setStepIndex((i) => i - 1);
   }
 
+  // ResumeUploadStep tells the user they can skip and add a resume later
+  // from Settings, but goNext's readiness gate for "resume" always blocked
+  // that — there was no way to actually leave this step without uploading.
+  // This bypasses just that gate; readiness (the wizard's last step) still
+  // requires a resume before hosted setup can finish, matching
+  // HostedReadinessStep's own checklist.
+  function skipResume() {
+    setWizardError(undefined);
+    setStepIndex((i) => i + 1);
+  }
+
   if (step === "profile") {
     return (
-      <WizardShell stepIndex={stepIndex} stepCount={STEPS.length} title="Your profile" hideBack onSkip={finish}>
+      <WizardShell stepIndex={stepIndex} stepCount={STEPS.length} title="Your profile" hideBack error={wizardError}>
         <HostedProfileStep client={client} userId={userId} onComplete={goNext} />
       </WizardShell>
     );
@@ -102,7 +127,7 @@ export function HostedWizard() {
         stepCount={STEPS.length}
         title="You're signed in"
         onNext={goNext}
-        onSkip={finish}
+        error={wizardError}
         hideBack
       >
         <Logo size={28} withWordmark={false} />
@@ -115,8 +140,16 @@ export function HostedWizard() {
 
   if (step === "import") {
     return (
-      <WizardShell stepIndex={stepIndex} stepCount={STEPS.length} title="Bring over your data?" onBack={goBack} onSkip={finish}>
+      <WizardShell stepIndex={stepIndex} stepCount={STEPS.length} title="Bring over your data?" onBack={goBack} error={wizardError}>
         <ImportOrFreshStep client={client} userId={userId} onDone={goNextFromImport} />
+      </WizardShell>
+    );
+  }
+
+  if (step === "candidate_email") {
+    return (
+      <WizardShell stepIndex={stepIndex} stepCount={STEPS.length} title="Confirm your candidate email" onBack={goBack} error={wizardError}>
+        <CandidateEmailStep client={client} userId={userId} fallbackEmail={session.user.email ?? ""} onComplete={goNext} />
       </WizardShell>
     );
   }
@@ -129,23 +162,46 @@ export function HostedWizard() {
         title="Add a resume"
         onBack={goBack}
         onNext={goNext}
-        onSkip={finish}
+        onSkip={skipResume}
+        skipLabel="Skip for now"
+        error={wizardError}
       >
         <ResumeUploadStep client={client} userId={userId} />
       </WizardShell>
     );
   }
 
+  if (step === "inbox") {
+    return (
+      <WizardShell
+        stepIndex={stepIndex}
+        stepCount={STEPS.length}
+        title="Connect your inbox"
+        onBack={goBack}
+        error={wizardError}
+      >
+        <EmailTrackingStep client={client} userId={userId} onComplete={goNext} />
+      </WizardShell>
+    );
+  }
+
+  if (step === "readiness") {
+    return (
+      <WizardShell
+        stepIndex={stepIndex}
+        stepCount={STEPS.length}
+        title="Hosted setup check"
+        onBack={goBack}
+        error={wizardError}
+      >
+        <HostedReadinessStep client={client} userId={userId} onComplete={finish} />
+      </WizardShell>
+    );
+  }
+
   return (
-    <WizardShell
-      stepIndex={stepIndex}
-      stepCount={STEPS.length}
-      title="You're all set"
-      onBack={goBack}
-      onNext={goNext}
-      nextLabel="Finish"
-    >
-      <p>Your account is ready. You can change any of this later from Settings.</p>
+    <WizardShell stepIndex={stepIndex} stepCount={STEPS.length} title="Hosted setup" error={wizardError}>
+      <p>Preparing hosted setup…</p>
     </WizardShell>
   );
 }

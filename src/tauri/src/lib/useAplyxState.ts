@@ -86,5 +86,21 @@ export function useAplyxState(): AplyxStateHandle {
     };
   }, [refresh]);
 
+  // Local state lives in plain files on disk (data/applied_jobs.json etc.)
+  // that the background scheduler writes to independently of this window —
+  // without a poll, an application the scheduler submits while the app is
+  // open would never show up (Home's stat cards, the recommended-jobs
+  // exclude list) until something else happened to trigger a refresh
+  // (an auth change, a remount). A 60s interval is cheap — this is a
+  // handful of small local JSON reads, not real work — and frequent enough
+  // that "applied while I was looking at Home" feels live rather than
+  // stale for a whole 30-min scheduler cycle.
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      void refresh();
+    }, 60_000);
+    return () => window.clearInterval(id);
+  }, [refresh]);
+
   return { state, loaded, source, root, hosted, refresh };
 }

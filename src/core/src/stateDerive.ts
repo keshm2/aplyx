@@ -16,6 +16,10 @@ export interface AppliedJob {
   status: "applied" | "failed" | "needs_review";
   role_type?: string;
   source?: string;
+  /** Free text — @resume-tailor's own short label for this application's
+   *  tailoring emphasis (e.g. "backend + infra focus"), not a fixed
+   *  category. "n/a" for a pre-tailoring needs_review where
+   *  @resume-tailor never ran. "hosted" in hosted mode. */
   resume_used?: string;
   ats_score?: number;
   location_tier?: string;
@@ -49,6 +53,49 @@ export interface AppliedJob {
    *  not a filesystem path. Populated by SupabaseAdapter, never by
    *  LocalAdapter (which keeps using fill_record_path). */
   fill_record?: FillRecord;
+  /** Local ready-to-submit artifact screenshot path. Read via the bridge,
+   *  never directly by the webview. */
+  screenshot_path?: string;
+  /** Hosted ready-to-submit artifact screenshot URL. */
+  screenshot_url?: string;
+  /** Optional link back to the hosted apply_runs row that produced this
+   *  queue/applied entry. */
+  apply_run_id?: string;
+  /** Application outcome tracking (docs/application-status-tracking-plan.md)
+   *  — a genuinely different axis from `status` above: `status` means
+   *  whether *aplyx* successfully submitted the application; `outcome_status`
+   *  means what the *employer* has said since. Defaults to "applied" the
+   *  moment `status` first becomes "applied" (before any reply, that's the
+   *  accurate state) — undefined here for a job whose `status` is
+   *  `failed`/`needs_review`, since those were never submitted and have
+   *  no outcome to track. Hosted-only (2026-08-19 — matches
+   *  docs/website.md's pricing page): written directly onto the hosted
+   *  `applied_jobs` row by the email-tracking-worker Edge Function
+   *  (src/supabase/functions/email-tracking-worker/), guarded by a DB
+   *  trigger enforcing the terminal-state guard (once `rejected`/`offer`/
+   *  `withdrawn` is reached, no later update can silently move it again
+   *  — see migration 0007_hosted_email_tracking.sql). Always undefined
+   *  for a local install, which has no equivalent feature. A best-effort
+   *  SIGNAL, not a verified fact — `outcome_source` carries where it came
+   *  from ("email:<subject snippet>") so the UI can show provenance
+   *  rather than present it as ground truth. */
+  outcome_status?: "applied" | "oa_sent" | "oa_completed" | "interview_requested" | "offer" | "rejected" | "withdrawn";
+  outcome_updated_at?: string;
+  outcome_source?: string;
+  /** Only ever set alongside outcome_status === "oa_sent" — a link and a
+   *  verbatim-matched duration phrase (e.g. "7 days", "August 30") pulled
+   *  from the assessment email itself by email-tracking-worker. Not a
+   *  parsed/structured deadline, same best-effort spirit as outcome_source
+   *  — company phrasing is too inconsistent to compute a real one from. */
+  outcome_assessment_url?: string;
+  outcome_assessment_note?: string;
+  /** Apply-run metadata (apply-foundation). Present when an apply run
+   *  was started for this job — the UI/adapter reads it to show the
+   *  run's state (confirm_before_submit, submitting, submitted, …)
+   *  and to find runs awaiting human approval (Stage 1). Absent for a
+   *  pre-tailoring needs_review or a manual triage outcome where no
+   *  apply run was ever started. */
+  apply_run?: ApplyRunSummary;
 }
 
 export interface FillRecordField {
@@ -56,6 +103,7 @@ export interface FillRecordField {
   filled_value: string;
   source: string;
   verified: boolean;
+  note?: string;
 }
 
 export interface FillRecord {
@@ -146,4 +194,52 @@ export interface Heartbeat {
   last_run_counts: Record<string, number>;
   run_counter: number;
   consecutive_nonzero_exits: number;
+}
+
+// --- Apply-run metadata (apply-foundation) -----------------------------------
+// Lightweight summary of an apply run (src/core/src/applyStateMachine.ts)
+// that the UI/adapter can consume without importing the full state
+// machine. Carried on AppliedJob.apply_run so a job in the review queue
+// or applied list can show "where is this application" (initialized,
+// confirm_before_submit, submitted, …) and the confirm-before-submit UI
+// (docs/hosted-auto-apply-plan.md Stage 1) can find runs awaiting
+// approval. Optional on both local and hosted rows — absent when no
+// apply run was ever started for this job (e.g. a pre-tailoring
+// needs_review, or a manual triage outcome).
+
+export type ApplyRunStatus =
+  | "initialized"
+  | "package_assembled"
+  | "fill_planned"
+  | "filling"
+  | "ready_to_submit"
+  | "confirm_before_submit"
+  | "submitting"
+  | "submitted"
+  | "needs_review"
+  | "failed"
+  | "canceled";
+
+export interface ApplyRunSummary {
+  /** The apply_runs row id (hosted) or a local stable id. */
+  runId: string;
+  status: ApplyRunStatus;
+  /** The ATS family this run targets (greenhouse/lever/ashbyhq/workday). */
+  family?: string;
+  /** The managed alias used, when the run used a mail.aplyx.app alias
+   *  for an account-required family. Absent for guest flows. */
+  aliasId?: string;
+  /** Whether a tailored resume artifact was attached. */
+  tailoredResumeAttached?: boolean;
+  /** Approval checkpoint state for confirm-before-submit flows. */
+  approvalState?: "pending" | "approved" | "rejected";
+  /** ISO timestamp of the last status change. */
+  updatedAt?: string;
+  /** Path (local) or content reference (hosted) to the fill plan, when
+   *  one was produced. The UI loads it to render the confirm-before-
+   *  submit review surface. */
+  fillPlanRef?: string;
+  /** Hosted/local screenshot artifact for the ready-to-submit review UI. */
+  screenshotUrl?: string;
+  tailoredResumeArtifactPath?: string;
 }

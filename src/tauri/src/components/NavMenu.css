@@ -1,0 +1,155 @@
+.nav-menu-root {
+  position: relative;
+}
+
+.nav-menu-trigger {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text);
+  transition: background var(--duration-quick) var(--ease-snap), color var(--duration-quick) var(--ease-snap);
+}
+
+.nav-menu-trigger svg:first-child {
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .nav-menu-trigger:hover {
+    background: var(--ground);
+  }
+}
+
+.nav-menu-trigger:active {
+  transform: scale(var(--scale-press));
+}
+
+.nav-menu-trigger[aria-expanded="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.nav-menu-chevron {
+  color: var(--text-faint);
+  transition: transform var(--duration-quick) var(--ease-snap);
+}
+
+.nav-menu-trigger[aria-expanded="true"] .nav-menu-chevron {
+  transform: rotate(180deg);
+}
+
+/* Visible with the menu closed too — the one signal that something in the
+ * nav needs attention without having to open it, same reasoning as the
+ * sidebar rail's badge before it. */
+.nav-menu-trigger-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: var(--warn);
+  flex-shrink: 0;
+}
+
+/* Same mechanics as .dropdown-panel: kept mounted after first open so
+ * closing plays a real exit transition, origin-aware scale-in from the
+ * trigger (top-left, since that's where this lives in TopBar). */
+.nav-menu-panel {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  left: 0;
+  min-width: 13rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lift);
+  padding: var(--space-1);
+  z-index: 40;
+  transform-origin: top left;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-0.4rem) scale(0.96);
+  transition:
+    opacity var(--duration-normal) var(--ease-out),
+    transform var(--duration-normal) var(--ease-out),
+    visibility 0s linear var(--duration-normal);
+}
+
+.nav-menu-panel-open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+  transition:
+    opacity var(--duration-normal) var(--ease-out),
+    transform var(--duration-normal) var(--ease-out),
+    visibility 0s linear 0s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-menu-panel,
+  .nav-menu-panel-open {
+    transform: none;
+    transition: opacity var(--duration-quick) linear, visibility 0s linear;
+  }
+  .nav-menu-trigger[aria-expanded="true"] .nav-menu-chevron {
+    transition: none;
+  }
+}
+
+.nav-menu-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-muted);
+  transition: background var(--duration-quick) var(--ease-out), color var(--duration-quick) var(--ease-out);
+}
+
+.nav-menu-item svg {
+  flex-shrink: 0;
+  opacity: 0.75;
+}
+
+.nav-menu-item:hover {
+  background: var(--ground);
+  color: var(--text);
+}
+
+.nav-menu-item-active {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.nav-menu-item-active svg {
+  opacity: 1;
+}
+
+.nav-menu-item-label {
+  flex: 1;
+}
+
+.nav-menu-badge {
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.35rem;
+  border-radius: var(--radius-pill);
+  background: var(--warn);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.25rem;
+  text-align: center;
+  flex-shrink: 0;
+}

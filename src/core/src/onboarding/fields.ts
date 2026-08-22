@@ -1,6 +1,6 @@
 /**
- * Ordered page registry for the onboarding wizard — 18 fields grouped
- * into 8 pages of 1-5 related fields each, so the user answers several
+ * Ordered page registry for the onboarding wizard — 20 fields grouped
+ * into 8 pages of 1-6 related fields each, so the user answers several
  * related questions per screen instead of one question at a time (see
  * "Pages" in the onboarding plan). Field `id`s that match a
  * src/config/targets.json safe_fields key exactly are written/read via
@@ -13,11 +13,17 @@
 export type FieldKind =
   | "text"
   | "yesno"
+  | "select3"
   | "location"
   | "multi-location"
   | "multi-company"
   | "roles"
   | "date";
+
+export interface SelectOption {
+  value: string;
+  label: string;
+}
 
 export interface FieldDef {
   id: string;
@@ -35,6 +41,19 @@ export interface FieldDef {
   placeholder?: string;
   /** Optional per-field help shown under the label. */
   help?: string;
+  /** kind: "select3" only — exactly three fixed choices, rendered as a
+   *  toggle group (Tauri) / number-key picker (TUI). Used for EEO
+   *  self-identification fields, which by law must always offer a decline
+   *  option alongside the two substantive answers — never a free-text
+   *  field a user could leave ambiguous or an agent could misinterpret. */
+  options?: [SelectOption, SelectOption, SelectOption];
+  /** Page progression can't advance past a page with an unanswered
+   *  required field. For select3 EEO fields this only enforces picking
+   *  ONE of the three offered options — including "decline to answer",
+   *  which is always one of them — never that the user disclose their
+   *  actual status. Not a general validation system: only select3 fields
+   *  use this today. */
+  required?: boolean;
 }
 
 export interface PageDef {
@@ -125,6 +144,30 @@ export const PAGES: PageDef[] = [
       { id: "ethnicity", label: "Ethnicity (optional)", kind: "text", placeholder: "e.g. Asian / Decline" },
       { id: "hispanic_or_latino", label: "Hispanic or Latino? (y/n)", kind: "yesno" },
       { id: "date_of_birth", label: "Date of birth (optional)", kind: "date", placeholder: "MM/DD/YYYY" },
+      {
+        id: "veteran_status",
+        label: "Veteran status",
+        kind: "select3",
+        required: true,
+        help: "Asked by many EEO forms. \"Prefer not to answer\" is always a complete, valid choice — aplyx never invents an answer for a field you didn't set.",
+        options: [
+          { value: "not_veteran", label: "Not a veteran" },
+          { value: "veteran", label: "Veteran" },
+          { value: "decline", label: "Prefer not to answer" },
+        ],
+      },
+      {
+        id: "disability_status",
+        label: "Disability status",
+        kind: "select3",
+        required: true,
+        help: "Asked by many EEO forms. \"Prefer not to answer\" is always a complete, valid choice — aplyx never invents an answer for a field you didn't set.",
+        options: [
+          { value: "no", label: "No" },
+          { value: "yes", label: "Yes" },
+          { value: "decline", label: "Prefer not to answer" },
+        ],
+      },
     ],
   },
   {

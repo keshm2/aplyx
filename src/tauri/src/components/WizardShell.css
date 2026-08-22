@@ -15,6 +15,22 @@
   border-bottom: 1px solid var(--border);
 }
 
+.wizard-progress-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.wizard-progress-label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-faint);
+  white-space: nowrap;
+  /* Tabular so re-mounting on every step (frozen.stepIndex changes the
+   * digit) never causes a tiny width jiggle next to the dots. */
+  font-variant-numeric: tabular-nums;
+}
+
 .wizard-progress {
   display: flex;
   gap: var(--space-1);

@@ -1,0 +1,68 @@
+.pipeline-breakdown {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+}
+
+.pipeline-breakdown-title {
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+.pipeline-breakdown-subtitle {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  margin: var(--space-1) 0 var(--space-4);
+}
+
+.pipeline-breakdown-bar {
+  display: flex;
+  width: 100%;
+  height: 0.5rem;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  background: var(--border);
+}
+
+.pipeline-breakdown-segment {
+  height: 100%;
+  /* A thin surface-colored seam between adjacent segments so touching
+     status colors never blur into each other. */
+  box-shadow: inset 1px 0 0 var(--surface), inset -1px 0 0 var(--surface);
+}
+
+.pipeline-breakdown-legend {
+  list-style: none;
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-2) var(--space-4);
+}
+
+.pipeline-breakdown-legend li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+}
+
+.pipeline-breakdown-swatch {
+  flex-shrink: 0;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--radius-pill);
+}
+
+.pipeline-breakdown-label {
+  color: var(--text-muted);
+  flex: 1;
+}
+
+.pipeline-breakdown-count {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}

@@ -1,11 +1,28 @@
 # Application status tracking (inbox-derived)
 
-> **Status: planned, not started.** This is a design document, not a
-> phase in progress. Confirmed by direct code search: there is genuinely
-> no existing concept of post-submission outcome tracking anywhere in
-> this repo today — not even a TODO. Needs its own explicit go-ahead
-> before any part of it starts, per this project's one-phase-at-a-time
-> rule.
+> **Status: built, hosted-only, shipped 2026-08-19 → 2026-08-21.** This
+> doc's original design below — a local Python helper
+> (`track_email_status.py`), a local IMAP config file, TUI settings —
+> was **not** what shipped; it was superseded the same day it was first
+> explored in favor of a hosted-only redesign, per migration
+> `0007_hosted_email_tracking.sql`'s own header. What actually exists
+> today: `applied_jobs.outcome_status` + a DB-level terminal-state guard
+> trigger (`0007`), a `pg_cron`-scheduled Supabase Edge Function
+> (`src/supabase/functions/email-tracking-worker/index.ts`) that opens a
+> connected inbox read-only and classifies deterministically (no LLM),
+> Vault-secured IMAP credentials, the `oa_completed` taxonomy addition
+> (`0021`) and assessment-detail columns (`0023`), and full desktop UI
+> (`src/tauri/src/lib/outcomeStatus.ts`,
+> `src/tauri/src/routes/shell/StatusScreen.tsx`). See `AGENTS.md`'s
+> "Hosted-only inbox status tracking" section for the authoritative
+> up-to-date description. **Local installs have no path to this at
+> all** — no config file, no TUI rendering — by design, not as a gap;
+> `AppliedJob.outcome_status` is always `undefined` outside a hosted
+> account. One open item, stated plainly in `AGENTS.md`: the IMAP fetch
+> path has never been verified against a real inbox end-to-end. The
+> section below is left as originally written for historical context
+> (it documents the design that was explored and then superseded, not
+> what's live) — do not use it as a guide to the current implementation.
 
 ## Context
 

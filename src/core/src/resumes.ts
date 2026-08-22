@@ -2,8 +2,16 @@ import fs from "node:fs";
 import path from "node:path";
 
 /**
- * Read-only view of data/resumes/ for the Resumes screen. Listing is a
- * plain directory scan done here in TS (matching state.ts's read-only
+ * Read-only view of data/resumes/ — the legacy per-category resume files
+ * (from before the single-resume model; see src/core/src/masterResume.ts)
+ * plus the still-live base_cover_letter reference. Tailoring itself no
+ * longer reads any of the resume stems here by name — @resume-tailor
+ * reads data/resumes/resume.json directly — so this module's only
+ * remaining purposes are the TUI's legacy convert/describe screen and the
+ * desktop Resumes screen's "import from an existing resume" picker
+ * (src/tauri/src/routes/shell/ResumesScreen.tsx), which uses these labels
+ * to help a user pick which old file to migrate content from. Listing is
+ * a plain directory scan done here in TS (matching state.ts's read-only
  * fs reads); actually converting a PDF to markdown needs pypdf, so that
  * stays a Python helper (src/scripts/state/convert_resume.py) invoked from
  * helpers.ts — this module never writes.
@@ -12,21 +20,25 @@ import path from "node:path";
 export interface ResumeFile {
   /** Filename without extension, e.g. "base_resume_swe". */
   stem: string;
-  /** Human label when the stem is one resume-tailor.md expects; undefined for anything else found in the folder. */
+  /** Human label for a recognized legacy stem; undefined for anything else found in the folder. */
   category?: string;
   hasMarkdown: boolean;
   hasPdf: boolean;
   /** PDF present, markdown missing — the case the TUI offers to convert. */
   needsConversion: boolean;
-  /** True for the 6 stems resume-tailor.md actually reads by name. */
+  /** True for the 6 recognized legacy stems (5 old resume categories + the cover-letter reference). */
   expected: boolean;
   /** Short label set at convert time for arbitrarily-named resumes, from .resume_meta.json. */
   description?: string;
 }
 
-// Source of truth: src/agents/bodies/resume-tailor.md "Step 1 — Select base
-// resume" and docs/SETUP.md's resume section. Keep in sync by hand —
-// there's no single shared source for this the TUI can read at runtime.
+// The 5 old per-category resume names are recognized here purely so the
+// import picker can label them nicely — nothing reads them by name for
+// tailoring anymore (that's resume.json now). base_cover_letter is the
+// one stem still functionally resolved by name, by
+// src/scripts/state/resolve_resume.py. Keep in sync with that script's
+// CONVENTIONAL_STEM and docs/SETUP.md's resume section by hand — there's
+// no single shared source for this the TUI can read at runtime.
 const EXPECTED_RESUMES: Array<{ stem: string; category: string }> = [
   { stem: "base_resume_swe", category: "SWE" },
   { stem: "base_resume_ai_ml", category: "AI/ML" },

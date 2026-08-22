@@ -112,30 +112,32 @@ hand-editing `src/config/targets.json` directly? `src/config/targets.example.jso
 carries an inert `_help` object with doc strings for the less obvious
 fields, right next to the fields themselves.
 
-**Resumes.** Drop any file into `data/resumes/` — no required filename.
-The TUI's **Resumes** screen (`aplyx resumes`, or press `5`) lists
-everything, converts a PDF to markdown on the spot (press `c`), and
-lets you set or edit **what roles a resume targets** at any time (press
-`d`) — independent of conversion, so two already-converted resumes
-under generic names (say, uploaded straight from a laptop with no
-renaming) can each get a one-line description ("backend + cloud infra
-roles", "security / SOC internships") without needing to touch the file
-itself. This is optional but genuinely worth doing for any non-standard
-name — it's the strongest signal `resolve_resume.py` has once the
-filename alone doesn't say enough, and `resume-tailor.md` also applies
-its own judgment across every description on hand when the mechanical
-match is weak, so a well-written one materially improves which resume
-actually gets picked. Category matching (`src/scripts/state/
-resolve_resume.py`, called by `resume-tailor.md`/`job-scraper.md`/
-`cover-letter-tailor.md`) tries the five conventional base-resume names
-plus the cover-letter reference file first, then falls back to matching
-a category keyword against the actual filename, then against that
-description, then to the tailoring agent's own judgment across every
-description on hand — genuinely dynamic, not name-locked; renaming a
-file doesn't silently break tailoring as long as the new name or its
-description still says roughly what the resume is for. Extraction is
-text-only, not OCR — a scanned PDF with no text layer needs a
-hand-written `.md`.
+**Resumes.** One generic resume, `data/resumes/resume.json` — not a set
+of category-named files. Manage it from the desktop app's **Resume**
+screen: add/edit/delete jobs, projects, education, skills, and
+certifications directly, or use **"Import from an existing resume"** to
+pull in content from an older `base_resume_*.md` file if you have one
+from before this model existed. `@resume-tailor` reads this one file and
+composes a tailored copy — reordering, rewriting, and selecting bullets —
+per application; there's no category to pick or rename anymore.
+`@resume-tailor`'s tailored output is rendered straight into a one-page
+PDF (`src/scripts/state/render_resume_pdf.py`, Playwright-driven, a
+deterministic shrink ladder guarantees it never bleeds to a second page)
+and that's what gets attached to the application. The same screen has an
+**Export PDF** button to render the current resume.json on demand for
+your own use.
+
+The TUI's **Resumes** screen (`aplyx resumes`, or press `7`) is the same
+editor as the desktop app's, adapted for the terminal — drill into a
+section (↑↓, enter), add/edit/delete/reorder entries and bullets (`a`/
+enter/`x`/`[`/`]`), same **Import from an existing resume** and
+**Export PDF** actions. Both surfaces read and write the exact same
+`data/resumes/resume.json`, so editing in one is immediately visible in
+the other. The one thing still resolved dynamically by name/description
+(`src/scripts/state/resolve_resume.py`) is the optional cover-letter
+voice/structure reference file (`base_cover_letter.md` by convention) —
+`cover-letter-tailor.md` reads whichever file matches, and simply writes
+without a reference if none exists.
 
 **Discord is optional.** The installer asks whether you want status
 updates; declining leaves every outcome local. Opting in, choose one
@@ -434,3 +436,157 @@ than silently failing). Jobs with no `fill_record_path` (e.g. Workday,
 which is review-only and never reaches the fill step) have nothing to
 replay — this is a CLI-only capability for now; TUI/desktop wiring for
 the review queue's "Open" action is a separate, not-yet-started phase.
+
+## 3.5 Inbox status detection (hosted only, optional)
+
+aplyx can flag likely application-status changes (interview, rejected,
+offer) right on the Status screen — but **this is a hosted-account
+feature only**. Local installs have no access to it at all (matches the
+aplyx.app pricing page, which lists this as a Pro-tier hosted feature) —
+if you're running fully local, skip this section.
+
+The reason it's hosted-only: this needs a real IMAP credential to your
+inbox, and there's no way to hand that to an arbitrary local install
+safely. A signed-in hosted account already has real authentication and
+row-level security backing it, so the credential can live server-side,
+scoped to your account, and never touch a local machine at all.
+
+**How it works:** during the hosted onboarding wizard's "Track
+application status" step (or later from Settings), you provide your
+email address, IMAP server, and an **app-specific password** — not your
+real account password. This is submitted directly to a `SECURITY
+DEFINER` database function that stores the password via [Supabase
+Vault](https://supabase.com/docs/guides/database/vault) (encrypted at
+rest); it is never written to a plain, readable column. A scheduled
+job (`pg_cron`, every 30 minutes) invokes aplyx's own Edge Function,
+which connects **read-only** to your inbox over IMAP, looks for replies
+to companies you've actually applied to, and updates that job's status
+directly. Nothing here is read by an LLM — deterministic keyword
+matching only, same as every other aplyx classification step.
+
+This is a **best-effort keyword signal, not a verified fact** — every
+detected status carries its source (the matched email's subject line) so
+you can judge it yourself rather than take it as ground truth. Once a
+job reaches Rejected, Offer, or Withdrawn, it's treated as final — no
+later, possibly-misclassified email can flip it back.
+
+**Setting it up:**
+
+1. Generate an app-specific password with your email provider (Gmail:
+   Google Account → Security → App passwords. Outlook: Account →
+   Security → App passwords. Most providers have an equivalent) — never
+   use your real account password.
+2. In the desktop app's hosted onboarding wizard (or Settings, once
+   signed in), open "Track application status," enable it, and enter
+   your email address, IMAP server (auto-filled for Gmail/Outlook/
+   Yahoo/iCloud), and the app password.
+3. That's it — the next scheduled worker run picks it up automatically.
+   Disable the toggle at any time to turn this off again.
+
+Company-name matching against your applied jobs is a plain
+case-insensitive substring check on the sender/subject, so a very short
+or generic company name could occasionally mismatch — this is a signal
+to help you notice status changes faster, not a replacement for actually
+reading the email yourself.
+
+## 3.6 Gmail OAuth for hosted inbox connection (operator setup)
+
+The hosted onboarding wizard's "Track application status" step offers a
+**Gmail** choice that runs a real Google OAuth consent flow instead
+of asking for an IMAP app password. The flow lives in two Edge
+Functions — `mail-oauth-start` (builds the consent URL, signed state)
+and `mail-oauth-callback` (exchanges the code, persists tokens in Vault
+via the `service_upsert_mail_connection_oauth` RPC). Both read their
+credentials from `Deno.env`, which Supabase surfaces from
+`supabase secrets set`.
+
+This is a **one-time operator setup** (not per-user): the secrets belong
+to the aplyx-users Supabase project, not to any individual hosted
+account. Each hosted user's tokens are still scoped to their own
+`auth.uid()` by the RPC and RLS — the secrets here are just the app's
+own OAuth client credentials.
+
+**Prerequisites (Google Cloud Console):**
+
+1. Go to [Google Cloud Console → Credentials → Create OAuth client ID](https://console.cloud.google.com/apis/credentials).
+   - **Application type:** "Web application".
+   - **Name:** `aplyx Gmail hosted inbox` (or similar).
+2. Under **Authorized redirect URIs**, add this URI (the deployed callback function):
+   ```
+   https://aedejjesqcbndphkldfs.supabase.co/functions/v1/mail-oauth-callback
+   ```
+   (Replace the project ref if you are not on the `aplyx-users` project. Note:
+   this is `<ref>.supabase.co/functions/v1/...`, not the
+   `<ref>.functions.supabase.co/...` form `supabase functions deploy`
+   mentions — that's a legacy domain; supabase-js 2.111.0+ actually invokes
+   functions via `/functions/v1/`, and `_shared/mail_oauth.ts`'s
+   `callbackUrl()` builds the redirect_uri to match. A mismatch here fails
+   silently as a generic "invalid request" on Google's consent screen.)
+3. Click **Create**. Copy the **Client ID** and **Client secret** immediately
+   — the secret is shown only once during creation.
+
+**Set the secrets** (run from the repo root):
+
+```bash
+bash src/scripts/setup/set_mail_oauth_secrets.sh \
+  --google-client-id <google-client-id> \
+  --google-client-secret <google-client-secret>
+```
+
+The script also generates `MAIL_OAUTH_STATE_SECRET` (32 random bytes)
+the first time it runs — this signs the OAuth `state` parameter so the
+callback can verify the redirect came from our own start function, not a
+CSRF. Never rotate it without coordinating a redeploy of both functions
+(in-flight consent flows signed with the old secret would fail
+verification).
+
+**Secrets set on the project** (verify with `supabase secrets list`):
+
+| Secret | Required | Notes |
+| --- | --- | --- |
+| `GOOGLE_CLIENT_ID` | yes | Google Cloud Console OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | yes | Google OAuth client secret value |
+| `MICROSOFT_CLIENT_ID` | no | Set if you also want Microsoft OAuth; defaults to empty |
+| `MICROSOFT_CLIENT_SECRET` | no | Set if you also want Microsoft OAuth |
+| `MICROSOFT_TENANT_ID` | no | Defaults to `common` in code; set for single-tenant Microsoft |
+| `MAIL_OAUTH_STATE_SECRET` | yes | Auto-generated by the setup script; signs OAuth state |
+| `MAIL_CALLBACK_URL` | no | Where the callback redirects the browser *after* success. Defaults to `aplyx://mail-callback` (the desktop deep link). Set to a real URL only for a web-only deployment. |
+
+**Deploy the functions** (the setup script reminds you, but for
+reference):
+
+```bash
+cd src/supabase
+supabase functions deploy mail-oauth-start            # JWT-verified (called by the signed-in client)
+supabase functions deploy mail-oauth-callback --no-verify-jwt  # browser redirect target, no JWT
+```
+
+`mail-oauth-callback` is deployed `--no-verify-jwt` on purpose: Google
+redirects the user's browser to it with `?code=…&state=…`, so there is
+no Supabase session JWT to verify. Auth is the signed `state` parameter
+(HMAC-SHA-256 over the user id + provider + timestamp), which the
+callback verifies before exchanging the code or touching any row.
+
+**Verifying the flow end-to-end:**
+
+1. Confirm all relevant secrets appear in `supabase secrets list`.
+2. Confirm both functions are `ACTIVE` in `supabase functions list`.
+3. From the desktop app's hosted onboarding (or Settings), choose
+   **Gmail**, enter the inbox email, and click "Connect Gmail inbox."
+   The start function returns a consent URL and the app opens it.
+4. Complete Google consent in the browser. Google redirects to the
+   callback, which exchanges the code, fetches the profile, and
+   calls `service_upsert_mail_connection_oauth` — a row appears in
+   `mail_connections` with `status='connected'` and the tokens stored as
+   Vault secrets (never in a readable column).
+5. The callback redirects the browser to `MAIL_CALLBACK_URL` (default
+   `aplyx://mail-callback`) with `status=connected` and the connected
+   email as query params; the desktop app listens for that deep link and
+   advances the onboarding step.
+
+**What still needs the operator** (cannot be automated): the Google Cloud
+Console OAuth client ID and secret are real credentials that only the
+operator can create. Until they are set, `providerEnabled("gmail")`
+returns false and the start function returns HTTP 501 ("gmail inbox
+OAuth is not enabled on this build yet") rather than attempting a
+consent URL it cannot complete.

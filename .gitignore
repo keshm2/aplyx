@@ -28,11 +28,14 @@
 /src/job_cache_supabase/supabase/.temp/
 /src/job_cache_supabase/supabase/.branches/
 
-# Anthropic API key for the direct-API judgment calls (interest-letter,
-# resume-tailor) — see src/scripts/runtime/generate_interest_letter.py's
-# read_anthropic_key. ANTHROPIC_API_KEY env var is checked first; this
-# file is the local-file fallback, same pattern as job_cache_redis.json.
+# Anthropic API key for the direct-API judgment call (interest-letter) —
+# see src/scripts/runtime/generate_interest_letter.py's read_anthropic_key.
+# ANTHROPIC_API_KEY env var is checked first; this file is the local-file
+# fallback, same pattern as job_cache_redis.json. (resume-tailor preview
+# routes through the configured harness instead — see preview_resume.py —
+# so it does NOT need this key.)
 /src/config/anthropic_key.json
+
 
 # Runtime state
 /data/applied_jobs.json
@@ -44,6 +47,9 @@
 # rather than ignoring /data/, so ANY new state file must be added here
 # explicitly or it gets committed. Adding a data file? Add it here first.
 /data/interest_letters.json
+# check_postings_open.py's own throttle stamp (last_run_at) — not PII, but
+# still a new state file, so it follows the same explicit-list rule above.
+/data/postings_check_state.json
 
 # Personal PII — base resumes + cover letter
 /data/resumes/

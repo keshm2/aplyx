@@ -11,16 +11,26 @@
   max-width: 46rem;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-7);
+  text-align: left;
+}
+
+/* Loading states (App.tsx's RouteLoading, EntryScreen's "checking"
+ * branch) render only the logo, nothing else — .entry-content's
+ * flex-start is correct once the headline/cards are present to
+ * left-align against, but with just the logo alone it reads as
+ * off-center-left instead of centered. This modifier overrides that for
+ * the lone-logo case only. */
+.entry-content-loading {
+  align-items: center;
   text-align: center;
 }
 
 .entry-hero {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-3);
   max-width: 34rem;
 }
 
@@ -61,12 +71,14 @@
   padding: var(--space-5);
   transition:
     border-color var(--duration-normal) var(--ease-standard),
-    transform var(--duration-quick) var(--ease-out);
+    transform var(--duration-quick) var(--ease-out),
+    box-shadow var(--duration-quick) var(--ease-out);
 }
 
 .entry-card:hover {
   border-color: var(--accent);
   transform: translateY(-2px);
+  box-shadow: var(--shadow-lift);
 }
 
 .entry-card:active {

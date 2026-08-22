@@ -174,6 +174,13 @@ export function writeDiscordRoute(root: string, route: string, url: string): voi
   writeJson(file, cfg);
 }
 
+// Inbox status detection is hosted-only (2026-08-19 — matches
+// docs/website.md's pricing page, which already lists it as a Pro-tier
+// feature): local installs have no config for it at all. See
+// src/supabase/migrations/0007_hosted_email_tracking.sql,
+// src/supabase/functions/email-tracking-worker/, and
+// src/tauri/src/routes/onboarding/hosted/EmailTrackingStep.tsx.
+
 // --- Environment overrides (src/config/env.json) --------------------------------
 // Persisted APLYX_* overrides; the runner exports them at startup and the
 // TUI reads them for its own paths. A real environment variable always wins.

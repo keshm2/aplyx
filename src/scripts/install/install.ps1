@@ -466,6 +466,7 @@ if (Test-Path "src\config\harness.json") {
 
 # --- 4. Profile (safe_fields, LOCAL ONLY) -------------------------------
 Say "profile: run 'aplyx' (or 'aplyx setup') to fill in your name, contact info, and job targets through the guided wizard - or edit src/config/targets.json by hand (see the _help notes in src/config/targets.example.json)."
+Say "status tracking: automatic interview/rejection/offer detection from your inbox is a hosted-account feature (see aplyx.app) - this local install won't show it; local history still tracks applied/needs_review/failed outcomes via 'aplyx history'."
 New-Item -ItemType Directory -Force -Path "data\resumes" | Out-Null
 Write-Host ""
 Write-Host "[docs] Resumes: add your base resumes (markdown + matching PDF) to" -ForegroundColor Cyan

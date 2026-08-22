@@ -588,6 +588,69 @@ fn open_extension_folder(app: tauri::AppHandle, root: String) -> Result<Value, S
     run_bridge(&app, "openExtensionFolder", Some(serde_json::json!({ "root": root })))
 }
 
+#[tauri::command]
+fn get_master_resume(app: tauri::AppHandle, root: String) -> Result<Value, String> {
+    run_bridge(&app, "getMasterResume", Some(serde_json::json!({ "root": root })))
+}
+
+#[tauri::command]
+fn set_master_resume(app: tauri::AppHandle, root: String, resume: Value) -> Result<Value, String> {
+    run_bridge(&app, "setMasterResume", Some(serde_json::json!({ "root": root, "resume": resume })))
+}
+
+#[tauri::command]
+fn read_resume_markdown(app: tauri::AppHandle, root: String, stem: String) -> Result<Value, String> {
+    run_bridge(&app, "readResumeMarkdown", Some(serde_json::json!({ "root": root, "stem": stem })))
+}
+
+#[tauri::command]
+fn read_fill_record(app: tauri::AppHandle, root: String, path: String) -> Result<Value, String> {
+    run_bridge(&app, "readFillRecord", Some(serde_json::json!({ "root": root, "path": path })))
+}
+
+#[tauri::command]
+fn import_master_resume_from_markdown(app: tauri::AppHandle, root: String, markdown: String) -> Result<Value, String> {
+    run_bridge(
+        &app,
+        "importMasterResumeFromMarkdown",
+        Some(serde_json::json!({ "root": root, "markdown": markdown })),
+    )
+}
+
+// async: this calls preview_resume.py, which makes a real Anthropic API
+// request (tailoring + humanizing a full resume can legitimately take
+// 10-60s) — same reasoning as export_resume_pdf/search_jobs above, a
+// plain fn would freeze the whole window for the call's duration.
+#[tauri::command]
+async fn preview_tailored_resume(
+    app: tauri::AppHandle, root: String, title: String, company: String, jd_text: String, resume: Value,
+) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "previewTailoredResume",
+            Some(serde_json::json!({
+                "root": root, "title": title, "company": company, "jdText": jd_text, "resume": resume
+            })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("preview task panicked: {e}")))
+}
+
+// async: the render loop (headless Chrome launch + up to a couple dozen
+// print-and-recount iterations in the worst case) is real blocking work —
+// see the search_jobs comment above on why a plain fn would freeze the
+// whole window for its duration.
+#[tauri::command]
+async fn export_resume_pdf(app: tauri::AppHandle, root: String, resume: Value) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(&app, "exportResumePdf", Some(serde_json::json!({ "root": root, "resume": resume })))
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("export task panicked: {e}")))
+}
+
 // `async fn` here is load-bearing, not stylistic. A plain (non-async)
 // #[tauri::command] runs ON TAURI'S MAIN THREAD — see
 // https://v2.tauri.app/develop/calling-rust/: "Commands without the async
@@ -635,6 +698,29 @@ fn check_job_fit(app: tauri::AppHandle, root: String, job: Value) -> Result<Valu
 }
 
 #[tauri::command]
+fn get_recommended_jobs(app: tauri::AppHandle, root: String, exclude_job_ids: Vec<String>) -> Result<Value, String> {
+    run_bridge(
+        &app,
+        "getRecommendedJobs",
+        Some(serde_json::json!({ "root": root, "excludeJobIds": exclude_job_ids })),
+    )
+}
+
+#[tauri::command]
+fn get_scheduler_status(app: tauri::AppHandle, root: String) -> Result<Value, String> {
+    run_bridge(&app, "getSchedulerStatus", Some(serde_json::json!({ "root": root })))
+}
+
+#[tauri::command]
+fn set_scheduler_installed(app: tauri::AppHandle, root: String, installed: bool) -> Result<Value, String> {
+    run_bridge(
+        &app,
+        "setSchedulerInstalled",
+        Some(serde_json::json!({ "root": root, "installed": installed })),
+    )
+}
+
+#[tauri::command]
 fn save_job_for_review(app: tauri::AppHandle, root: String, job: Value) -> Result<Value, String> {
     run_bridge(&app, "saveJobForReview", Some(serde_json::json!({ "root": root, "job": job })))
 }
@@ -664,11 +750,84 @@ fn dismiss_queue_entry(app: tauri::AppHandle, root: String, entry: Value) -> Res
 // process as launched) — the actual browser review can take as long as the
 // human needs, running detached from both the bridge subprocess and this
 // one, so run_bridge's synchronous wait here is bounded, not open-ended.
+//
+// async: bounded is not instant — this still blocks on run_bridge's
+// synchronous subprocess `.output()` wait for however long that grace
+// window is (several seconds), and a plain (non-async) #[tauri::command]
+// runs on Tauri's main thread (see search_jobs's own comment above for the
+// full story: no repaint, no input, nothing, for the entire wait). This
+// command and trigger_single_job_apply below were missed when that fix
+// went in elsewhere — reported live as "Apply with aplyx hangs the app
+// when clicked", which is exactly this: every click froze the window for
+// the length of the launch-grace window, even though the actual apply run
+// itself was already correctly detached and backgrounded on the Node/
+// Python side. Moving the blocking wait onto spawn_blocking fixes both
+// commands the same way search_jobs/export_resume_pdf already were.
 #[tauri::command]
-fn reopen_application_filled(app: tauri::AppHandle, root: String, job_id: String) -> Result<Value, String> {
+async fn reopen_application_filled(app: tauri::AppHandle, root: String, job_id: String) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "reopenApplicationFilled",
+            Some(serde_json::json!({ "root": root, "jobId": job_id })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("reopen task panicked: {e}")))
+}
+
+// "Apply with aplyx" from the Jobs screen's manual-search results — runs
+// the exact same job-application agent a scheduled run does (harness,
+// job-scraper.md prompt, every AGENTS.md safety rule) for one already-
+// known job instead of the agent's own board search. Same bounded-wait
+// shape as reopen_application_filled above: the bridge call returns once
+// triggerSingleJobApply's own launch-grace window elapses (it only waits
+// to catch a fast startup failure), not once the run itself finishes —
+// a real fit-gate+tailor+apply run keeps going detached, independent of
+// this process, for as long as it takes. async for the same reason as
+// reopen_application_filled just above — see that comment.
+#[tauri::command]
+async fn trigger_single_job_apply(app: tauri::AppHandle, root: String, job: Value) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(&app, "triggerSingleJobApply", Some(serde_json::json!({ "root": root, "job": job })))
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("apply task panicked: {e}")))
+}
+
+// Confirm-before-submit "Approve" (docs/hosted-auto-apply-plan.md Stage 1):
+// the agent paused with a filled-but-not-submitted form; this tells it to
+// complete the submission. Same bounded-wait + spawn_blocking shape as
+// trigger_single_job_apply above — the bridge call returns once its launch-
+// grace window elapses, not once the actual submit finishes. See that
+// command's comment for the full async reasoning.
+#[tauri::command]
+async fn approve_submit(app: tauri::AppHandle, root: String, entry: Value, workday: Option<Value>) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "approveSubmit",
+            Some(serde_json::json!({ "root": root, "entry": entry, "workday": workday })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("approve task panicked: {e}")))
+}
+
+// Reads a confirm-before-submit screenshot as a base64 data URL — the
+// webview can't read local files directly. Same sync shape as
+// read_fill_record: a small file read that returns well within a main-
+// thread tick, no spawn_blocking needed.
+#[tauri::command]
+fn read_screenshot(app: tauri::AppHandle, root: String, path: String) -> Result<Value, String> {
+    run_bridge(&app, "readScreenshot", Some(serde_json::json!({ "root": root, "path": path })))
+}
+
+#[tauri::command]
+fn read_workday_checkpoint(app: tauri::AppHandle, root: String, job_id: String) -> Result<Value, String> {
     run_bridge(
         &app,
-        "reopenApplicationFilled",
+        "readWorkdayCheckpoint",
         Some(serde_json::json!({ "root": root, "jobId": job_id })),
     )
 }
@@ -735,12 +894,26 @@ pub fn run() {
             open_extension_folder,
             search_jobs,
             check_job_fit,
+            get_recommended_jobs,
+            get_scheduler_status,
+            set_scheduler_installed,
             save_job_for_review,
             mark_queue_entry_applied,
             dismiss_queue_entry,
             reopen_application_filled,
+            trigger_single_job_apply,
+            approve_submit,
+            read_screenshot,
+            read_workday_checkpoint,
             list_resume_details,
             open_resumes_folder,
+            get_master_resume,
+            set_master_resume,
+            read_resume_markdown,
+            read_fill_record,
+            import_master_resume_from_markdown,
+            export_resume_pdf,
+            preview_tailored_resume,
             read_onboarding_completed,
             write_onboarding_completed
         ])

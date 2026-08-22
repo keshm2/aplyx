@@ -25,7 +25,7 @@ This is **not a greenfield design** — most of the foundation already exists an
 
 | Table / bucket | Holds | Protection |
 | --- | --- | --- |
-| `profiles` | Name, contact info, address, work-authorization/EEO fields (`gender`, `ethnicity`, `hispanic_or_latino`, `date_of_birth`), job-search preferences (jsonb), `onboarding_completed` | RLS: select/insert/update/delete all scoped to `auth.uid() = user_id` |
+| `profiles` | Name, contact info, address, work-authorization/EEO fields (`gender`, `ethnicity`, `hispanic_or_latino`, `date_of_birth`, `veteran_status`, `disability_status`), job-search preferences (jsonb), `onboarding_completed` | RLS: select/insert/update/delete all scoped to `auth.uid() = user_id` |
 | `jobs` | Canonical per-user job registry (status tracking) | RLS scoped to owner; a trigger (`jobs_guard_status_transition`) blocks a sync from silently downgrading a terminal outcome back to "new" |
 | `job_events` | Append-only status-change log | RLS scoped to owner; insert-only policy (no update/delete), matching the local JSONL file's append-only discipline |
 | `applied_jobs` | One row per applied job — company, title, status, ATS score, reasoning, etc. | RLS scoped to owner |
@@ -42,7 +42,7 @@ The client (`src/tauri/src/lib/supabaseClient.ts`) uses the **anon/publishable k
 2. ~~**`fill_record_path` doesn't make sense hosted.** It's a path into the *local* filesystem (`data/fill_records/<job_id>.json`, written by `record_fill.py`). A hosted row can't point at a path on someone's laptop. The hosted column needs to hold the record's actual *content*, not a path to it.~~ **Closed by 0003** — the hosted column is `fill_record` (jsonb, content), not a path.
 3. **No sync implementation.** The tables/columns are necessary but not sufficient — `loadState()`/the write paths in `helpers.ts` need real code to read from and write to these tables. This plan only covers the schema; the sync code is a separate, larger follow-up (flagged, not scoped here).
 4. **No hosted storage for cover letters as files**, only as an (currently missing) text column. Worth a deliberate either/or, not an oversight — see below.
-5. **EEO/demographic fields have no extra protection beyond RLS.** `gender`, `ethnicity`, `hispanic_or_latino`, `date_of_birth` sit as plain columns. RLS already prevents any *other user* from reading them; the open question is whether the operator wants defense-in-depth beyond that (see options below).
+5. **EEO/demographic fields have no extra protection beyond RLS.** `gender`, `ethnicity`, `hispanic_or_latino`, `date_of_birth`, `veteran_status`, `disability_status` sit as plain columns. RLS already prevents any *other user* from reading them; the open question is whether the operator wants defense-in-depth beyond that (see options below).
 
 ## Proposed migration (draft SQL — for review, not applied)
 

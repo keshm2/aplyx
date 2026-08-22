@@ -184,7 +184,11 @@ export function HistoryScreen({
             rows {offset + 1}–{Math.min(offset + PAGE, jobs.length)} of {jobs.length} · ↑/↓ to navigate
           </Text>
         </Box>
-      ) : null}
+      ) : (
+        <Box marginTop={1}>
+          <Text dimColor>Want automatic interview/rejection detection? That's a hosted-account feature — aplyx.app</Text>
+        </Box>
+      )}
     </Box>
   );
 }

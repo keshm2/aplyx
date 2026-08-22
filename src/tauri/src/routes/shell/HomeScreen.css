@@ -5,63 +5,163 @@
  * instead of a flat checklist.
  */
 
-.home-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-4);
-}
-
-.home-stat-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-5);
+.home-greeting {
+  position: relative;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  transition: transform var(--duration-quick) var(--ease-snap), box-shadow var(--duration-quick) var(--ease-snap),
-    border-color var(--duration-quick) var(--ease-snap);
+  align-items: center;
+  text-align: center;
+  gap: var(--space-4);
+  /* Breathing room for the glow behind it (::before below) to actually
+   * read as a glow rather than getting clipped flush against the text. */
+  padding: var(--space-4) 0;
 }
 
-/* Cards arrive one after another rather than all at once — each reuses
- * the shared aplyx-fade-rise keyframe (see HomeScreen.tsx), this just
- * layers a short stagger on top so the row reads as a cascade. Delay is
- * a longhand override on the same property the shorthand animation
- * already sets, so it wins by source order without fighting specificity;
- * still fully covered by motion.css's reduced-motion guard on the class
- * itself. */
-.home-stat-card:nth-child(2) {
-  animation-delay: 60ms;
+/* The app's one other constant, always-on glow (.home-next, HomeScreen.css)
+ * is the "what to do next" card — this is the other legitimate case for
+ * it: the greeting is the very first thing seen on Home, once per visit,
+ * not a repeating list item. Same restrained values (--glow-blur/
+ * --glow-opacity), not a new, louder treatment. */
+.home-greeting::before {
+  content: "";
+  position: absolute;
+  inset: -20% -10%;
+  z-index: -1;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 45%, transparent), transparent 70%) 30%
+      40% / 55% 100% no-repeat,
+    radial-gradient(closest-side, color-mix(in srgb, var(--accent-2) 40%, transparent), transparent 70%) 70% 60% /
+      50% 100% no-repeat;
+  filter: blur(var(--glow-blur));
+  opacity: var(--glow-opacity);
 }
-.home-stat-card:nth-child(3) {
-  animation-delay: 120ms;
+
+.home-greeting h1 {
+  font-size: var(--text-4xl);
+  margin-bottom: var(--space-1);
+  /* The one gradient-text moment in the app — Prism's identity gradient
+   * spent on the single most-looked-at line on the screen you land on
+   * first, not smeared across every heading. */
+  background: var(--accent-gradient);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+.home-greeting p {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  /* p's own global max-width: 65ch (base.css) makes this a narrower box
+   * than the heading above — margin: 0 auto keeps that narrower box
+   * centered under it instead of flush against the flex container's left
+   * edge, same fix DigitalClock's sibling position below needs to avoid. */
+  margin: 0 auto;
+}
+
+.home-quick-search {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.home-quick-search input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.home-quick-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* A card per pending assessment, not a plain list row — the deadline/link
+ * is the actionable part, so it gets a footer with a real CTA instead of
+ * being just another line of text in a list. */
+.home-alert-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: var(--space-3);
+}
+
+.home-alert-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  transition: border-color var(--duration-quick) var(--ease-snap), transform var(--duration-quick) var(--ease-snap);
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .home-stat-card:hover {
-    transform: translateY(-2px);
+  .home-alert-card:hover {
     border-color: var(--border-strong);
-    box-shadow: var(--shadow-lift);
+    transform: translateY(-1px);
   }
 }
 
-.home-stat-value {
-  font-family: var(--font-mono);
-  font-size: var(--text-3xl);
-  font-weight: 600;
-  line-height: var(--leading-tight);
-  letter-spacing: var(--tracking-tight);
-  font-variant-numeric: tabular-nums;
+.home-alert-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--info-soft);
+  color: var(--info);
 }
 
-.home-stat-label {
+.home-alert-card-title {
   font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.home-alert-card-detail {
+  font-size: var(--text-xs);
   color: var(--text-muted);
 }
 
+.home-alert-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+}
+
+.home-alert-card-link {
+  color: var(--info);
+  font-weight: 600;
+  transition: color var(--duration-quick) var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .home-alert-card-link:hover {
+    color: var(--accent-strong);
+  }
+}
+
+/* The one place in the app with a constant, always-on glow — everywhere
+ * else earns it only on hover/focus (see .home-next-cta below), because
+ * this card is seen once per Home visit, not dozens of times a session.
+ * isolation: isolate keeps ::before's negative z-index scoped to this
+ * element instead of escaping into the page stack. */
 .home-next {
+  position: relative;
+  isolation: isolate;
   background: var(--accent-soft);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);
   padding: var(--space-5);
   display: flex;
@@ -69,6 +169,21 @@
   justify-content: space-between;
   gap: var(--space-5);
   transition: transform var(--duration-quick) var(--ease-snap), box-shadow var(--duration-quick) var(--ease-snap);
+}
+
+.home-next::before {
+  content: "";
+  position: absolute;
+  inset: -30% -8%;
+  z-index: -1;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--accent-3) 40%, transparent), transparent 70%)
+      12% 25% / 50% 100% no-repeat,
+    radial-gradient(closest-side, color-mix(in srgb, var(--accent-2) 40%, transparent), transparent 70%) 88% 75% /
+      50% 100% no-repeat,
+    radial-gradient(closest-side, color-mix(in srgb, var(--accent) 45%, transparent), transparent 70%) 50% 50% / 55%
+      120% no-repeat;
+  filter: blur(var(--glow-blur));
+  opacity: var(--glow-opacity);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -91,37 +206,65 @@
 .home-next-cta {
   flex-shrink: 0;
   border: none;
-  background: var(--accent);
+  background: var(--accent-gradient);
   color: var(--accent-ink);
   border-radius: var(--radius-md);
   padding: var(--space-2) var(--space-5);
   font-size: var(--text-sm);
-  font-weight: 600;
+  font-weight: 700;
   white-space: nowrap;
-  transition: background var(--duration-quick) var(--ease-snap), transform var(--duration-quick) var(--ease-snap);
+  transition: box-shadow var(--duration-quick) var(--ease-out), transform var(--duration-quick) var(--ease-snap);
 }
 
-.home-next-cta:hover {
-  background: var(--accent-strong);
+/* A real :hover rule, not gated behind a click/focus state — this is a
+ * mouse-driven desktop app, so (hover: hover) and (pointer: fine) reliably
+ * matches whenever a real pointing device is present, same as every other
+ * hover rule already in this file. */
+@media (hover: hover) and (pointer: fine) {
+  .home-next-cta:hover {
+    box-shadow: 0 0 0 5px var(--accent-tint-bg-hover), 0 8px 20px -8px color-mix(in srgb, var(--accent) 60%, transparent);
+  }
 }
 
 .home-next-cta:active {
   transform: scale(var(--scale-press));
 }
 
-@media (max-width: 640px) {
-  .home-stats {
-    grid-template-columns: 1fr;
+@media (prefers-reduced-motion: reduce) {
+  .home-next-cta:hover {
+    box-shadow: none;
   }
+}
+
+/* The wider dashboard (Phase 14C's original 44rem single column widened to
+ * 68rem so the new chart/status widgets have real room instead of stacking
+ * in one narrow scrolling column) splits into a wider chart column and a
+ * narrower stack for the two compact status cards. */
+.home-widget-grid {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.home-widget-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+@media (max-width: 640px) {
   .home-next {
     flex-direction: column;
     align-items: stretch;
     text-align: left;
   }
+  .home-widget-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .home-stat-card:hover,
   .home-next:hover {
     transform: none;
   }

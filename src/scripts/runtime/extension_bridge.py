@@ -63,18 +63,28 @@ ALLOWED_OUTCOMES = {"applied", "needs_review"}
 SAFE_FIELD_KEYS = {
     "first_name",
     "last_name",
+    "preferred_name",
     "email",
     "phone",
     "linkedin_username",
     "github_username",
     "linkedin_url",
     "github_url",
+    "location",
+    "zip_code",
+    "address_line1",
+    "address_line2",
     "graduation_date",
     "gpa",
     "authorized_to_work",
     "require_sponsorship",
     "citizenship_status",
     "currently_enrolled",
+    # Deliberately NOT here: gender, ethnicity, hispanic_or_latino,
+    # date_of_birth, veteran_status, disability_status. The extension's
+    # regex-based field detection (ats.ts) has no equivalent to the main
+    # apply agent's pre-submit field-by-field verification (AGENTS.md) —
+    # EEO/demographic answers only ever go out through that stricter path.
 }
 
 _HOST_PREFIX = {

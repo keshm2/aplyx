@@ -46,8 +46,8 @@ export function AutomaticModeGate({
           <Text color={missingResume ? theme.danger : theme.good}>
             {missingResume ? "✗" : "✓"}
           </Text>
-          <Text> at least one resume in data/resumes/ </Text>
-          <Text dimColor>{missingResume ? "— missing" : "— found"}</Text>
+          <Text> a resume with at least one job or project </Text>
+          <Text dimColor>{missingResume ? "— not set up yet" : "— found"}</Text>
         </Text>
         <Text>
           <Text color={missingHarness ? theme.danger : theme.good}>
@@ -61,8 +61,9 @@ export function AutomaticModeGate({
         <Box marginTop={1} flexDirection="column">
           {missingResume ? (
             <Text dimColor wrap="wrap">
-              6 Resumes — see what aplyx expects and how to add one (PDF or
-              markdown; PDFs convert in place).
+              7 Resume — add your experience/projects there, or use "Import
+              from an existing resume" if you have an old resume file to pull
+              content from.
             </Text>
           ) : null}
           {missingHarness ? (

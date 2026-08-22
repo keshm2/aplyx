@@ -18,8 +18,7 @@ import { UpdateBox } from "./UpdateBox.js";
 import { AutomaticModeGate } from "./AutomaticModeGate.js";
 import { loadState, isResolved, lastRunLine, latestSessionLog, readHeartbeat } from "@aplyx/core/state.js";
 import { displayName } from "@aplyx/core/settings.js";
-import { listResumeFiles } from "@aplyx/core/resumes.js";
-import { pendingConversionCount } from "../resumes.js";
+import { readMasterResume } from "@aplyx/core/masterResume.js";
 import { effectiveHarness } from "../harness.js";
 import type { AplyxState } from "@aplyx/core/state.js";
 import {
@@ -309,7 +308,13 @@ export function App({
   );
 
   const unresolved = state.queue.filter((e) => !isResolved(state, e)).length;
-  const pendingResumes = pendingConversionCount(root);
+  // Cheap fs read, re-checked every render (no caching) — same convention
+  // pendingConversionCount used to follow before the single-resume model
+  // replaced it. Badge is a plain "needs attention" marker now, not a
+  // count — there's only ever one resume, so there's nothing left to
+  // count once it has real content.
+  const resumeForBadge = readMasterResume(root);
+  const resumeNeedsAttention = !(resumeForBadge && (resumeForBadge.experience.length > 0 || resumeForBadge.projects.length > 0));
   // Automatic run's gate (AutomaticModeGate) — only computed on the Jobs
   // tab in automatic mode, since both checks are real fs/PATH work and
   // every other tab has no use for them. Re-run fresh every render (no
@@ -318,7 +323,12 @@ export function App({
   // the very next render — a tab switch (which already calls refresh())
   // or the m key toggling back and forth is enough, no restart needed.
   const automaticGateActive = tab === "jobs" && mode === "automatic" && !welcome;
-  const missingResume = automaticGateActive && !listResumeFiles(root).some((f) => f.hasMarkdown);
+  // @resume-tailor reads data/resumes/resume.json now, not the old
+  // per-category .md files — a resume with only contact info filled in
+  // has nothing to tailor from either, so this checks for at least one
+  // real experience or project entry, not just the file's existence.
+  const masterResumeForGate = automaticGateActive ? readMasterResume(root) : null;
+  const missingResume = automaticGateActive && !(masterResumeForGate && (masterResumeForGate.experience.length > 0 || masterResumeForGate.projects.length > 0));
   const missingHarness = automaticGateActive && !effectiveHarness(root);
   const counts = { applied: 0, needsReview: 0, failed: 0 };
   for (const job of state.applied) {
@@ -470,8 +480,8 @@ export function App({
             {t === "review" && unresolved > 0 ? (
               <Text color={theme.warn}> ({unresolved})</Text>
             ) : null}
-            {t === "resumes" && pendingResumes > 0 ? (
-              <Text color={theme.warn}> ({pendingResumes})</Text>
+            {t === "resumes" && resumeNeedsAttention ? (
+              <Text color={theme.warn}> (!)</Text>
             ) : null}
           </Box>
         ))}

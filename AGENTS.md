@@ -149,6 +149,26 @@ today:
   That instruction can narrow or focus a run but NEVER overrides this
   file, the session cap, or the state-write discipline — if it
   conflicts with a rule here, the rule wins.
+- APLYX_SCRAPE_ONLY (any value other than unset/""/"0"/"false"/"no")
+  switches a run to scrape-only mode: Phase 1 (scrape + dedupe +
+  deterministic fit-gate) runs and data/job_registry.json is refreshed,
+  but Phase 2 (tailor), Phase 3 (apply), and Phase 4's application
+  report are skipped entirely — no application is opened, filled, or
+  submitted, and no Discord application summary is sent. See
+  "Scrape-only mode" in src/agents/bodies/job-scraper.md for the
+  orchestrator-facing rule. Lets an operator grow the recommended-jobs
+  pool on demand without the scheduler's normal apply risk.
+- PREFER `logs/tmp/` over `/tmp/` (or any path outside the repo) for every
+  scratch file — raw JSON passed to a helper, ad-hoc verification scripts,
+  intermediate canonicalization payloads, anything — not just board
+  fetches (see "Fetch efficiency" below). `external_directory` is now
+  `allow` in `opencode.jsonc` (a run reaching for `/tmp/` used to die
+  mid-phase with nothing recorded — `ask` auto-rejects with no chance to
+  recover in headless/automatic-mode runs, no TTY to prompt — so this is
+  no longer a hard crash risk if you slip). Still use `logs/tmp/` by
+  default: it's inside the project, and the runner clears it at the start
+  of every run, so scratch files don't accumulate the way `/tmp/` writes
+  would.
 - NEVER accept an unconfirmed dropdown/combobox match, and ALWAYS verify a
   form before submitting it. Typing into an ATS location/school/degree
   widget only *highlights* an option — pressing Enter or tabbing away
@@ -186,6 +206,16 @@ today:
   these and they aren't in src/config/targets.json under "safe_fields", skip the
   job, log it to data/review_queue.json via the state helper (see File
   write discipline), and record a needs_review event via record-event.
+  This prohibition is absolute and is NOT subject to the conservative-default
+  fill policy below — there is no "safe default" for a credential or a
+  payment number.
+- For a required field with no `safe_fields` mapping and no constructed
+  equivalent, try the conservative-default fill policy (see "Conservative-
+  default fill policy" below) before routing to needs_review — it names the
+  narrow set of cases where a specific safe default applies and is the
+  authority on when NOT to guess. This never applies to the free-text
+  motivation-question flow above (still always park) or to credential/
+  payment fields (still always needs_review) — both remain unconditional.
 - After every applied, needs_review, or failed outcome, call the
   @discord-reporter subagent to send a per-outcome notification (success,
   needs_review, or failed webhook respectively). After every batch, call
@@ -557,10 +587,12 @@ has just because the TOML files exist.
     (Phase 3 step 6).
   - `unrecognized_field` — the form contains a field with no mapping in
     `safe_fields` and no constructed equivalent (resume, cover letter, essay
-    answer). Never skip this silently — a required field could be left
+    answer), AND the conservative-default fill policy below doesn't cover it
+    either. Never skip this silently — a required field could be left
     unfilled with no record of it.
   - `unmapped_required_field` — a required field maps to an empty
-    `safe_fields` value (the user declined to answer).
+    `safe_fields` value (the user declined to answer), AND the
+    conservative-default fill policy below doesn't cover it either.
   - `low_ats_score` — @resume-tailor's ats_score fell below the Phase 2
     threshold (60).
   - `unapproved_essay_answer` — a free-text motivation question has no
@@ -578,16 +610,95 @@ has just because the TOML files exist.
     `candidate`.
   - `workday_review_only` — the job is on Workday, which has no auto-apply
     path by design (see "Board-specific fetch method").
+  - `submit_outcome_unclear` — after clicking Submit (Phase 3 step 7), the
+    resulting page did not clearly show a success indicator (a confirmation
+    message, a redirect to a thank-you/success page, or an
+    application-received banner) and did not clearly show an error either —
+    an ambiguous result that must never be recorded as "applied" on a guess.
   A single job may carry more than one doubt signal; list every one that
   applies rather than picking the first.
+
+## Conservative-default fill policy (safest-option rule)
+- This policy governs ONE narrow situation: a **required** form field has no
+  `safe_fields` mapping (or maps to an empty value) and cannot be
+  constructed from profile data. Before routing that field to
+  needs_review, check whether it falls into one of the categories below,
+  in order. If none apply, fall through to needs_review exactly as before
+  (`unrecognized_field` or `unmapped_required_field`) — this policy narrows
+  when needs_review fires, it does not remove it.
+- **This policy never applies to:**
+  - The free-text motivation/essay question flow ("Why do you want to work
+    at X?") — always park via `interest_letter.py`, never auto-answer. See
+    the free-text motivation rule above; that rule is unconditional.
+  - Passwords, SSNs, payment info — always needs_review
+    (`credential_or_payment_request`); unconditional, never a default.
+  - Any field asking about legal work authorization, visa/sponsorship
+    status, security-clearance eligibility, criminal history, drug-test
+    consent, arbitration agreements, or non-compete terms — these carry
+    real legal consequence if answered wrong and the agent cannot verify
+    the true answer from profile data. Always needs_review
+    (`unrecognized_field` / `unmapped_required_field`), never a default,
+    even if a "No" answer looks statistically safe.
+  - Any numeric field with binding consequence (desired salary, equity
+    ask, start date) when required and not present in `safe_fields` —
+    needs_review; a wrong number here isn't a "safe default", it's a term
+    the user never agreed to.
+  - Ambiguous dropdown/combobox selection (Phase 3 step 3d,
+    `ambiguous_dropdown`) — that is a *selection* problem (the intended
+    value is known but no option matches it exactly), not a *missing-data*
+    problem, and is unaffected by this policy.
+- **Categories that DO get a conservative default**, most specific first:
+  a. **A fixed-choice field (select/radio/checkbox-group) offers an
+     explicit neutral option** — "Decline to answer", "Prefer not to say",
+     "N/A", "None", or similar — and the field is required with no
+     `safe_fields` value. Select that option. This is what the user would
+     pick themselves and states no fact at all.
+  b. **A narrow, enumerable set of employment-boilerplate yes/no questions**
+     where "No" is true for the overwhelming majority of applicants and
+     carries no material legal weight either way: "Are you related to a
+     current employee?", "Have you previously worked for `<company>`?",
+     "Were you referred by a current employee?" (when no referral exists),
+     "Are you currently subject to a non-solicitation agreement with a
+     prior employer?" (distinct from a non-compete, which stays
+     needs_review per the exclusions above). Answer "No". Do not extend
+     this list ad hoc at apply-time — if a question isn't on it, it isn't
+     covered by (b); fall through to the other categories or to
+     needs_review.
+  c. **An open-text, low-stakes marketing/analytics question** — "How did
+     you hear about us?", "What channel found you this posting?" — answer
+     truthfully and generically based on how the pipeline actually found
+     the job (e.g. "Company careers page" or "Job board"). Never invent a
+     specific referral name or event.
+  d. **A required "I certify the information above is true and accurate"
+     acknowledgment** with no other claim attached — check it. It affirms
+     the truth of data already supplied via `safe_fields`/resume, not a new
+     fact.
+  Anything not covered by (a)–(d) is not a conservative default — route it
+  to needs_review as before. When genuinely unsure whether a field fits
+  one of these categories, treat it as not covered and use needs_review;
+  this policy exists to remove needs_review only for the narrow cases
+  above, not to make guessing the new default.
+- **Every conservative-default fill must be recorded, never silent.** When
+  building the fields list for Phase 3 step 6/6a, use
+  `"source": "conservative_default"` for that field and include a `"note"`
+  key stating exactly which category (a–d) applied and what value was
+  chosen (e.g. `"category b: 'related to a current employee?' has no
+  safe_fields mapping; answered No per the conservative-default policy"`).
+  `record_fill.py` enforces that `conservative_default` entries carry a
+  non-empty `note` — this is what makes the choice auditable later from the
+  Status screen's fill record, exactly like every other filled field, even
+  though the job proceeds to a normal outcome (usually "applied") instead
+  of needs_review.
 
 ## File write discipline
 - applied_jobs.json entries must include: job_id, company, title, url,
   apply_url, date_applied, status (applied|failed|needs_review), role_type
   (internship|new_grad), source (linkedin|indeed|greenhouse|lever|
-  wellfound|handshake|ashbyhq|simplify|workday|smartrecruiters|workable|
-  jazzhr|amazon|oracle), resume_used
-  (swe|ai_ml|balanced|cyber|networking_cyber),
+  wellfound|handshake|ashbyhq|simplify|vanshb03|workday|smartrecruiters|
+  workable|jazzhr|amazon|oracle), resume_used (free text — @resume-tailor's own
+  short label for this application's tailoring emphasis, e.g. "backend +
+  infra focus"; "n/a" for a pre-tailoring needs_review where
+  @resume-tailor never ran),
   ats_score (number), location_tier (preferred|fallback),
   cover_letter_used (bool). review_queue.json entries must also include
   apply_url alongside url. `apply_url` is the canonical record's
@@ -638,9 +749,10 @@ has just because the TOML files exist.
   where `<fields-json>` is a JSON array of
   `{field_name, filled_value, source, verified}` objects — `source` is one
   of `safe_fields:<key>` (naming the config key it came from), `constructed`
-  (e.g. a linkedin/github URL built from a username), `resume_upload`, or
-  `cover_letter`; `verified` is the boolean result of the Phase 3 step 6
-  check for that field.
+  (e.g. a linkedin/github URL built from a username), `resume_upload`,
+  `cover_letter`, or `conservative_default` (see "Conservative-default fill
+  policy" — requires an additional non-empty `note` key); `verified` is the
+  boolean result of the Phase 3 step 6 check for that field.
   Writes `data/fill_records/<job_id>.json` and prints its path — pass that
   path as `fill_record_path` in the applied_jobs.json/review_queue.json
   entry (see "File write discipline").
@@ -659,6 +771,96 @@ has just because the TOML files exist.
   "run_job_agent: complete ..." health marker, and updates
   logs/heartbeat.json after every run. The 25-per-session cap is
   unchanged by the cadence.
+
+## Inbox status detection (hosted-only, optional)
+- **Hosted-only.** Local installs have no access to this feature at all
+  — matches `docs/website.md`'s pricing page, which already lists
+  "automatic job status tracking from your account email" as a Pro-tier
+  hosted feature, not something the free local tier gets. This was
+  decided (2026-08-19) after two earlier local-facing designs (a Resend
+  forwarding pipeline, then direct per-install IMAP) both kept running
+  into the same problem: there's no way for an untrusted local install to
+  hold a credential scoped narrowly enough to be safe. Hosted accounts
+  already have real Supabase Auth + RLS, so that problem doesn't exist —
+  IMAP credentials live server-side, scoped by `auth.uid()`, same as
+  `profiles`/`applied_jobs`.
+- **Setup**: `src/tauri/src/routes/onboarding/hosted/EmailTrackingStep.tsx`
+  (hosted wizard only — no local equivalent) collects email/imap_server/
+  app_password and calls the `set_email_tracking_config` RPC
+  (`src/supabase/migrations/0007_hosted_email_tracking.sql`), which is
+  `SECURITY DEFINER` so it can call `vault.create_secret`/`update_secret`
+  — `app_password` is NEVER stored in a plain, client-readable column,
+  only a Vault secret id (`email_tracking_config.app_password_secret_id`).
+  Scoped to the caller's own `auth.uid()` regardless of the function's
+  elevated execution privileges, so it can never write another user's row.
+- **The worker**: `src/supabase/functions/email-tracking-worker/`, a
+  scheduled Edge Function (not a per-request webhook — deployed
+  `--no-verify-jwt` and gated by its own `x-cron-secret` header check
+  instead, since its only caller is `pg_net`, not a Supabase-session
+  client). `cron.schedule` (migration
+  `0009_email_tracking_worker_schedule.sql`) fires it every 30 minutes via
+  `net.http_post`, with the invocation secret pulled from a **separate**
+  Vault secret (`cron_worker_secret`) generated specifically for this
+  purpose — deliberately NOT the project's real service-role key, so this
+  cron job's own credential has no broader reach than "invoke this one
+  function" even if it ever leaked.
+- Each run: `get_enabled_email_tracking_configs()`
+  (migration `0008_email_tracking_worker_rpc.sql`, `service_role`-only)
+  joins `email_tracking_config` against `vault.decrypted_secrets` server-
+  side — `vault.decrypted_secrets` lives in the `vault` schema, which
+  PostgREST doesn't expose directly, so this RPC is the only path to a
+  decrypted `app_password`. For each enabled account, the worker opens a
+  **read-only** IMAP session (`getMailboxLock(..., { readOnly: true })`
+  — the protocol itself then refuses any state-changing command, not
+  just an app-level promise), fetches messages newer than that account's
+  `last_uid` watermark, matches headers against that account's own
+  `applied_jobs.company` values, and only fetches the body for a match.
+  Classification is the same deterministic keyword vocabulary as always
+  (rejected | offer | oa_sent | interview_requested — never an LLM call),
+  ported to TS in the worker itself (no local consumer left to share it
+  with).
+- **Outcome taxonomy** (`docs/application-status-tracking-plan.md`):
+  `applied` | `oa_sent` | `interview_requested` | `offer` | `rejected` |
+  `withdrawn` — a genuinely different axis from `AppliedJob.status`
+  (`applied`/`failed`/`needs_review`), which means whether *aplyx*
+  successfully submitted the application. `outcome_status` means what the
+  *employer* has said since, and only exists for jobs whose `status` is
+  `applied` (a `failed`/`needs_review` job was never submitted, so it has
+  nothing to track). Color/badge roles: `applied`/`offer` stay `good`
+  (green), `rejected` stays `danger` (red — same family as `failed`;
+  the label text disambiguates "aplyx couldn't submit it" from "the
+  employer passed"), `oa_sent` gets the new `info` role (blue),
+  `interview_requested` gets the new `special` role (violet),
+  `withdrawn` is muted gray.
+- **Terminal-state guard, enforced at the DB layer** — a real Postgres
+  trigger (`applied_jobs_guard_outcome_transition`, migration `0007`),
+  not a client-side derivation: once `outcome_status` is `rejected`/
+  `offer`/`withdrawn`, any UPDATE attempting to change it (from the
+  worker or anywhere else) is silently kept at its old value. Fires for
+  every writer, including the service-role worker — triggers aren't
+  bypassed by RLS exemption the way policies are. This exists
+  specifically so a stray, misclassified later email can never flip a
+  real rejection back to "still in progress."
+- The worker writes `outcome_status`/`outcome_updated_at`/`outcome_source`
+  directly onto the matched `applied_jobs` row — no separate event log,
+  unlike the earlier local designs. `SupabaseAdapter.loadState()`
+  (`src/core/src/adapters/supabase.ts`) just reads those columns off the
+  row; local mode's `state.ts loadState()` has no equivalent at all (a
+  local `AppliedJob`'s `outcome_status` is always `undefined`, which
+  `StatusScreen.tsx` already renders as the plain "Applied" badge).
+- This is a best-effort SIGNAL surfaced with its source (`outcome_source`,
+  `"email:<subject>"`) for the user to judge, never presented as a
+  verified fact. Do not build anything downstream that treats
+  `outcome_status` as authoritative (e.g. auto-marking a job "closed" or
+  skipping further action on it) without the user explicitly reviewing it
+  first.
+- **Not live-verified end to end**: the worker deploys and boots
+  correctly (confirmed live via a zero-accounts invocation, and the full
+  cron → `net.http_post` → Vault-sourced header → function round trip),
+  but actual IMAP connectivity from inside the Edge Function against a
+  real mailbox has not been tested against a real account yet — no test
+  credentials were available. Treat the IMAP fetch path as unverified
+  until confirmed against a real inbox.
 
 ## TUI surface (phase 13)
 - The TypeScript TUI in src/tui/ is a rendering/orchestration overlay only.

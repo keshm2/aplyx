@@ -1,6 +1,97 @@
 /* Shared list + detail layout for the Jobs/Review/Status/Resumes screens —
  * one list column, one detail column that appears once a row is selected. */
 
+/* Stat-card summary row — originally Home-only (docs/ui-development-plan.md
+ * Phase 14C), moved here once Status needed the identical pattern: real
+ * orientation numbers instead of small badges crammed into a toolbar row.
+ * auto-fit/minmax instead of a fixed 3-column grid so it adapts cleanly
+ * whether a screen shows 3 stats (Home) or 4 (Status's extra avg-ATS card)
+ * without needing a variant class. */
+.stat-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--space-4);
+}
+
+.stat-card {
+  position: relative;
+  isolation: isolate;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  overflow: hidden;
+  transition: transform var(--duration-quick) var(--ease-snap), box-shadow var(--duration-quick) var(--ease-snap),
+    border-color var(--duration-quick) var(--ease-snap);
+}
+
+/* Cards arrive one after another rather than all at once — each reuses
+ * the shared aplyx-fade-rise keyframe, this just layers a short stagger on
+ * top so the row reads as a cascade. Delay is a longhand override on the
+ * same property the shorthand animation already sets, so it wins by
+ * source order without fighting specificity; still fully covered by
+ * motion.css's reduced-motion guard on the class itself. Stops at the 4th
+ * card (Status's max) — a longer stagger reads as slow, not polished. */
+.stat-card:nth-child(2) {
+  animation-delay: 60ms;
+}
+.stat-card:nth-child(3) {
+  animation-delay: 120ms;
+}
+.stat-card:nth-child(4) {
+  animation-delay: 180ms;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .stat-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-lift);
+  }
+}
+
+.stat-value {
+  font-family: var(--font-mono);
+  font-size: var(--text-3xl);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-label {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+/* A real trend would need daily historical snapshots this app doesn't
+ * keep — rather than fabricate a sparkline from data that doesn't exist,
+ * this shows the one proportion that's actually computable from current
+ * state (responded vs. not) as a segmented bar. */
+.stat-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+  margin-top: var(--space-1);
+}
+
+.stat-progress-fill {
+  height: 100%;
+  background: var(--good);
+  border-radius: 999px;
+  transition: width var(--duration-normal) var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stat-card:hover {
+    transform: none;
+  }
+}
+
 /* Jobs screen search-in-flight indicator: a rotating ring + a phrase that
  * crossfades to the next one every 1.8s (see JobsScreen.tsx's
  * SEARCH_PHRASES / searchPhrase state) — the phrase span is remounted
@@ -84,10 +175,65 @@
   background: var(--surface);
   text-align: left;
   width: 100%;
+  cursor: pointer;
   opacity: 0;
   animation: aplyx-fade-rise var(--duration-normal) var(--ease-out) both;
   transition: transform var(--duration-quick) var(--ease-snap), box-shadow var(--duration-quick) var(--ease-snap),
     border-color var(--duration-quick) var(--ease-snap), background-color var(--duration-quick) var(--ease-out);
+}
+
+/* A real, comfortably-sized open action directly on the row — not just the
+ * row's own undiscoverable double-click. Sized and styled to match the
+ * app's one other icon-button (NotificationBell's bell/gear, 2.25rem
+ * square, --ground hover fill, --scale-press on click) so it reads as
+ * part of the same control language rather than a one-off. Hover-revealed
+ * on pointer devices (the row itself already communicates "clickable";
+ * showing every row's open icon at full opacity all the time would be
+ * visual noise), but always visible on touch, which has no hover state to
+ * reveal it from. */
+.data-row-open {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid transparent;
+  opacity: 1;
+  transition:
+    opacity var(--duration-quick) var(--ease-snap),
+    background var(--duration-quick) var(--ease-out),
+    color var(--duration-quick) var(--ease-out),
+    border-color var(--duration-quick) var(--ease-out),
+    transform var(--duration-quick) var(--ease-snap);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .data-row-open {
+    opacity: 0;
+  }
+  .data-row:hover .data-row-open,
+  .data-row:focus-within .data-row-open {
+    opacity: 1;
+  }
+  .data-row-open:hover {
+    background: var(--ground);
+    color: var(--text);
+    border-color: var(--border);
+  }
+}
+
+.data-row-open:active {
+  transform: scale(var(--scale-press));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .data-row-open {
+    transition: none;
+  }
 }
 
 /* Rows already visible on load cascade in; anything past the first
@@ -118,15 +264,51 @@
   }
 }
 
+/* A single clean accent border + soft glow — border-color plus a
+ * separate box-shadow: 0 0 0 1px var(--accent) used to draw two
+ * slightly-offset rings on top of each other, which read as a harsh
+ * doubled outline rather than "selected". --shadow-glow already
+ * carries its own hairline ring at a softer alpha, so it replaces the
+ * redundant one instead of stacking with it. */
 .data-row.selected {
   border-color: var(--accent);
   background: var(--accent-soft);
+  box-shadow: var(--shadow-glow);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .data-row:hover {
     transform: none;
   }
+}
+
+/* Jobs screen only (see CompanyLogo in JobsScreen.tsx) — a favicon
+ * guessed from the company name, not an authoritative logo (no ATS API
+ * used here returns one). object-fit: contain plus a padded surface
+ * behind it so a non-square favicon doesn't look cropped/stretched.
+ * .data-row-logo-fallback (a plain initial) is the graceful landing spot
+ * whenever the guess misses — never a broken image, never someone else's
+ * logo. */
+.data-row-logo {
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius-md);
+  background: var(--ground);
+  border: 1px solid var(--border);
+  object-fit: contain;
+  padding: 6px;
+  box-sizing: border-box;
+}
+
+.data-row-logo-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-muted);
 }
 
 .data-row-main {
@@ -137,13 +319,18 @@
   gap: var(--space-1);
 }
 
+/* Was single-line + ellipsis — on a "Company — Title" string that's
+ * often 40+ characters, that cut mid-word ("...PhD Inte...") well before
+ * the badge even needed the room. A 2-line clamp reads the actual title
+ * almost every time instead of guessing from a fragment. */
 .data-row-title {
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--text);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .data-row-sub {
@@ -203,6 +390,69 @@
   color: var(--text-faint);
 }
 
+/* Application status tracking (docs/application-status-tracking-plan.md)
+ * — OA Sent and Interview Requested, the two outcome states good/warn/
+ * danger/muted don't already cover. */
+.status-badge-info {
+  background: var(--info-soft);
+  color: var(--info);
+}
+
+.status-badge-special {
+  background: var(--special-soft);
+  color: var(--special);
+}
+
+/* Dot + text, not a filled pill — for a dense list of many rows (a
+ * scrolled application list, the activity feed) a color-filled badge on
+ * every row reads as louder than the information warrants; a small dot
+ * carries the same at-a-glance color signal without the visual weight.
+ * The full .status-badge pill stays for places where a status IS the one
+ * thing being emphasized (a detail sheet's header, a single selected
+ * row) — this is the list-row register, not a universal replacement. */
+.status-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.status-dot::before {
+  content: "";
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.status-dot-good {
+  color: var(--good);
+}
+
+.status-dot-warn {
+  color: var(--warn);
+}
+
+.status-dot-danger {
+  color: var(--danger);
+}
+
+.status-dot-muted {
+  color: var(--text-faint);
+}
+
+.status-dot-info {
+  color: var(--info);
+}
+
+.status-dot-special {
+  color: var(--special);
+}
+
 .data-toolbar {
   display: flex;
   align-items: center;
@@ -223,6 +473,7 @@
  * restyle that cross-browser); this covers the closed control, which is
  * what's visible almost all the time. */
 .themed-select {
+  cursor: pointer;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
   padding: var(--space-2) var(--space-6) var(--space-2) var(--space-3);
@@ -271,7 +522,8 @@
   font-weight: 600;
   color: var(--text);
   transition: background-color var(--duration-quick) var(--ease-snap),
-    border-color var(--duration-quick) var(--ease-snap), transform var(--duration-quick) var(--ease-snap);
+    border-color var(--duration-quick) var(--ease-snap), transform var(--duration-quick) var(--ease-snap),
+    box-shadow var(--duration-quick) var(--ease-out);
 }
 
 .btn:hover {
@@ -294,18 +546,19 @@
 }
 
 .btn-primary {
-  border-color: var(--accent);
-  background: var(--accent);
+  border-color: transparent;
+  background: var(--accent-gradient);
   color: var(--accent-ink);
 }
 
-.btn-primary:hover {
-  background: var(--accent-strong);
-  border-color: var(--accent-strong);
+@media (hover: hover) and (pointer: fine) {
+  .btn-primary:hover {
+    box-shadow: 0 0 0 4px var(--accent-tint-bg-hover), 0 6px 18px -8px color-mix(in srgb, var(--accent) 55%, transparent);
+  }
 }
 
 .btn-primary:active {
-  background: var(--accent-strong);
+  background: var(--accent-gradient);
 }
 
 .btn-danger {
@@ -328,19 +581,37 @@
 }
 
 .detail-col {
-  width: 20rem;
+  /* Was 20rem — cramped once a record has real reasoning text plus the
+   * richer sections (tailored bullets, missing keywords) Status now
+   * surfaces; widened for every list+detail screen that shares this
+   * class, not just Status, so the whole app's use of space stays
+   * consistent rather than one screen quietly diverging from the rest. */
+  width: 24rem;
   flex-shrink: 0;
-  border: 1px solid var(--border);
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);
   background: var(--surface-raised);
   padding: var(--space-5);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  /* .shell-main (the actual scroll container — see AppShell.css) can be
+   * much taller than one detail pane once the list has enough rows to
+   * scroll. Without this, clicking a row far down the list mounted the
+   * pane back at .data-screen's own top — already scrolled out of view,
+   * so selecting anything meant scrolling back up to see what you just
+   * picked. Sticky keeps it pinned in the viewport as the list scrolls,
+   * same as any standard list+detail layout. */
+  position: sticky;
+  top: var(--space-6);
   /* Fades + rises in when a row is selected and the pane mounts, so the
    * detail column arrives calmly instead of snapping in. In-place
    * updates (selecting a different row) don't remount, so they stay
-   * immediate. */
+   * immediate — re-animating on every row click would fight a scan-many-
+   * records workflow (tens of clicks/session), which is exactly the
+   * animate-rarely line the rest of this app's motion already respects. */
   animation: aplyx-fade-rise var(--duration-normal) var(--ease-out) both;
 }
 
@@ -369,6 +640,46 @@
   word-break: break-word;
 }
 
+/* A compact inline-badge meta line (role_type / location_tier / cover
+ * letter used) — three short facts that don't each need a full label+value
+ * .detail-row of their own; grouping them as chips reads as one glance
+ * instead of three repetitive rows. */
+.detail-meta-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.detail-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem var(--space-2);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+  background: var(--ground);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Same shape as .detail-chip, tuned for "this is worth a second look"
+ * content (missing keywords, doubt signals) rather than neutral metadata —
+ * reuses the warn palette already established by status-badge-warn instead
+ * of introducing a third color meaning. */
+.detail-chip-warn {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.detail-bullets {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--text);
+}
+
 .detail-rule {
   border: none;
   border-top: 1px solid var(--border);
@@ -379,6 +690,17 @@
   display: flex;
   gap: var(--space-2);
   flex-wrap: wrap;
+}
+
+/* The detail pane's primary "go look at the real posting" action — full
+ * width, generously sized (not btn-sm), icon alongside the label so it
+ * reads as more than a text link buried among secondary actions. */
+.detail-open-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
 }
 
 .message-banner {
@@ -394,6 +716,62 @@
   color: var(--danger);
 }
 
+/* Confirm-before-submit artifact (docs/hosted-auto-apply-plan.md Stage 1):
+ * the screenshot of the filled-but-not-submitted form, the structured
+ * field summary, and the resume preview shown in the Review detail pane
+ * for a ready-to-submit entry. */
+
+.detail-screenshot {
+  width: 100%;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  display: block;
+}
+
+.detail-field-summary {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.detail-field-summary li {
+  display: grid;
+  grid-template-columns: 1fr 2fr auto;
+  gap: var(--space-2);
+  align-items: baseline;
+  font-size: var(--text-sm);
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.detail-field-summary li:last-child {
+  border-bottom: none;
+}
+
+.detail-field-name {
+  font-weight: 600;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.detail-field-value {
+  color: var(--text-muted);
+  word-break: break-word;
+}
+
+.detail-field-src {
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+.detail-field-src-unverified {
+  color: var(--warn);
+}
+
 @media (max-width: 900px) {
   .data-screen {
     flex-direction: column;
@@ -401,5 +779,9 @@
 
   .detail-col {
     width: 100%;
+    /* Stacked layout below this width — the pane sits under the list in
+     * normal flow, so sticking it mid-scroll (sensible only side-by-side)
+     * would just pin it awkwardly over whatever's beneath it. */
+    position: static;
   }
 }

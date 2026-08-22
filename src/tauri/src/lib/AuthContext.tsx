@@ -149,6 +149,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // in the URL. Registered once client exists; harmless if it never fires.
   useEffect(() => {
     if (!client) return;
+    let cancelled = false;
     const unlisten = onOpenUrl(async (urls) => {
       const url = urls.find((u) => u.startsWith(AUTH_CALLBACK_URL));
       if (!url) return;
@@ -161,9 +162,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const code = new URL(url).searchParams.get("code");
       if (!code) return;
       const { error } = await client.auth.exchangeCodeForSession(code);
-      if (error) console.error("Failed to complete sign-in", error);
+      if (error && !cancelled) {
+        setStatusError(errorMessage(error));
+        setStatus("error");
+      }
     });
     return () => {
+      cancelled = true;
       unlisten.then((fn) => fn());
     };
   }, [client]);

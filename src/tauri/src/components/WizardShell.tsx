@@ -80,10 +80,19 @@ export function WizardShell({
     <div className="wizard">
       <header className="wizard-header">
         <Logo size={24} />
-        <div className="wizard-progress" aria-label={`Step ${frozen.stepIndex + 1} of ${stepCount}`}>
-          {Array.from({ length: stepCount }, (_, i) => (
-            <span key={i} className={i <= frozen.stepIndex ? "wizard-dot wizard-dot-done" : "wizard-dot"} />
-          ))}
+        <div className="wizard-progress-group" aria-label={`Step ${frozen.stepIndex + 1} of ${stepCount}`}>
+          {/* Dots alone don't say how many steps remain — a returning
+             *  user mid-wizard has no way to gauge "almost done" vs.
+             *  "just started" without counting them. aria-label above
+             *  already said this; this is that same text made visible. */}
+          <span className="wizard-progress-label" aria-hidden="true">
+            Step {frozen.stepIndex + 1} of {stepCount}
+          </span>
+          <div className="wizard-progress">
+            {Array.from({ length: stepCount }, (_, i) => (
+              <span key={i} className={i <= frozen.stepIndex ? "wizard-dot wizard-dot-done" : "wizard-dot"} />
+            ))}
+          </div>
         </div>
       </header>
 

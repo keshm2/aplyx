@@ -26,6 +26,10 @@
       "types": "./dist/resumes.d.ts",
       "default": "./dist/resumes.js"
     },
+    "./masterResume.js": {
+      "types": "./dist/masterResume.d.ts",
+      "default": "./dist/masterResume.js"
+    },
     "./reviewActions.js": {
       "types": "./dist/reviewActions.d.ts",
       "default": "./dist/reviewActions.js"
@@ -121,6 +125,22 @@
     "./adapters/supabase.js": {
       "types": "./dist/adapters/supabase.d.ts",
       "default": "./dist/adapters/supabase.js"
+    },
+    "./atsRegistry.js": {
+      "types": "./dist/atsRegistry.d.ts",
+      "default": "./dist/atsRegistry.js"
+    },
+    "./applyStateMachine.js": {
+      "types": "./dist/applyStateMachine.d.ts",
+      "default": "./dist/applyStateMachine.js"
+    },
+    "./applicantPackage.js": {
+      "types": "./dist/applicantPackage.d.ts",
+      "default": "./dist/applicantPackage.js"
+    },
+    "./fillPlan.js": {
+      "types": "./dist/fillPlan.d.ts",
+      "default": "./dist/fillPlan.js"
     }
   },
   "bin": {

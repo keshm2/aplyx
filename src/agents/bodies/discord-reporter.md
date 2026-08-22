@@ -145,8 +145,7 @@ jq -n --arg company "$COMPANY" --arg title "$TITLE" --arg source "$SOURCE" \
 Route to `webhooks.summary` if present, otherwise `webhooks.success`:
 ```bash
 jq -n --arg applied_count "$APPLIED_COUNT" --arg review_count "$REVIEW_COUNT" \
-  --arg failed_count "$FAILED_COUNT" --arg avg_ats "$AVG_ATS" \
-  --arg general_count "$GENERAL_COUNT" --arg cyber_count "$CYBER_COUNT" '{
+  --arg failed_count "$FAILED_COUNT" --arg avg_ats "$AVG_ATS" '{
     allowed_mentions: {parse: []},
     embeds: [{
       title: "📊 Session Complete",
@@ -155,9 +154,7 @@ jq -n --arg applied_count "$APPLIED_COUNT" --arg review_count "$REVIEW_COUNT" \
         {name: "Applied", value: $applied_count, inline: true},
         {name: "Needs Review", value: $review_count, inline: true},
         {name: "Failed", value: $failed_count, inline: true},
-        {name: "Avg ATS Score", value: $avg_ats, inline: true},
-        {name: "General Resume Used", value: $general_count, inline: true},
-        {name: "Cyber Resume Used", value: $cyber_count, inline: true}
+        {name: "Avg ATS Score", value: $avg_ats, inline: true}
       ]
     }]
   }' | curl -H "Content-Type: application/json" -X POST "$WEBHOOK_URL?wait=true" -d @-

@@ -658,6 +658,41 @@ def mark_seen_batch(job_keys, sources, registry_path):
     }
 
 
+# --- Direct closed/expired check (lightweight watcher) ----------------------
+
+
+def record_check_results(checked_job_keys, closed_job_keys, registry_path):
+    """One load/save for both things the direct-check watcher
+    (check_postings_open.py) needs to record after a run: last_checked_at
+    on every record it examined (closed or not — so its own round-robin
+    selection of 'which stalest records to check next' actually rotates
+    through the whole registry instead of re-checking the same handful
+    forever), and closed=true on the subset it got an explicit,
+    unambiguous closure signal for (404/410, or clear closure language on
+    the posting's own page — see check_postings_open.py). closed_job_keys
+    is expected to be a subset of checked_job_keys, but isn't required to
+    be. Idempotent; never unsets closed — reopening is still
+    mark_seen_batch's job (a posting reappearing in a live scrape), since
+    a direct check finding the posting still gone tells you nothing about
+    whether it later reopens."""
+    checked = set(checked_job_keys)
+    closed = set(closed_job_keys)
+    registry = load_json_array(registry_path)
+    now = now_iso()
+    touched = 0
+    newly_closed = 0
+    for record in registry:
+        key = record.get("job_key")
+        if key in checked:
+            record["last_checked_at"] = now
+            touched += 1
+        if key in closed and not record.get("closed"):
+            record["closed"] = True
+            newly_closed += 1
+    save_json_array(registry_path, registry)
+    return {"ok": True, "touched": touched, "newly_closed": newly_closed}
+
+
 # --- Pre-apply dedupe recheck ----------------------------------------------
 
 
@@ -692,7 +727,8 @@ def can_apply(canonical, registry_path, applied_path):
     natural_key = _natural_key(canonical)
     for rec in load_json_array(registry_path):
         status = rec.get("latest_status", "")
-        if status not in BLOCKING_STATUSES:
+        closed = bool(rec.get("closed"))
+        if status not in BLOCKING_STATUSES and not closed:
             continue
         matched_field = None
         if job_key and rec.get("job_key") == job_key:
@@ -709,14 +745,24 @@ def can_apply(canonical, registry_path, applied_path):
         elif natural_key and _natural_key(rec) == natural_key:
             matched_field = "natural_key"
         if matched_field:
+            # closed is checked independently of latest_status: a posting
+            # can be inferred/confirmed closed (mark_seen_batch, or the
+            # direct checker) while its latest_status is still "new" —
+            # nothing had applied to it yet, so BLOCKING_STATUSES alone
+            # never catches this, and a closed posting would otherwise
+            # sail through can-apply and get a real, wasted application
+            # attempt against a dead listing.
+            reason = (
+                f"registry record matched by {matched_field} is inferred closed"
+                if closed and status not in BLOCKING_STATUSES
+                else f"registry record matched by {matched_field} has latest_status='{status}'"
+            )
             result.update(
                 can_apply=False,
-                reason=(
-                    f"registry record matched by {matched_field} has "
-                    f"latest_status='{status}'"
-                ),
+                reason=reason,
                 matched_in="registry",
                 matched_status=status,
+                matched_closed=closed,
             )
             break
 
@@ -891,6 +937,15 @@ def main(argv=None):
     )
     p_mark.add_argument("--registry", default=DEFAULT_REGISTRY)
 
+    p_check_results = sub.add_parser(
+        "record-check-results",
+        help="stamp last_checked_at on every checked job_key and closed=true on "
+        "the confirmed-closed subset, in one registry load/save (for check_postings_open.py)",
+    )
+    p_check_results.add_argument("checked_job_keys_json", help="JSON array of job_keys just examined")
+    p_check_results.add_argument("closed_job_keys_json", help="JSON array of job_keys confirmed closed (subset)")
+    p_check_results.add_argument("--registry", default=DEFAULT_REGISTRY)
+
     args = parser.parse_args(argv)
 
     if args.command == "ensure-files":
@@ -962,6 +1017,23 @@ def main(argv=None):
         if not isinstance(sources, list):
             die("mark-seen-batch: --sources must be a JSON array")
         result = mark_seen_batch(job_keys, sources, args.registry)
+        print(json.dumps(result, ensure_ascii=False))
+        return 0
+
+    if args.command == "record-check-results":
+        try:
+            checked_job_keys = json.loads(args.checked_job_keys_json)
+        except json.JSONDecodeError as exc:
+            die(f"record-check-results: checked_job_keys_json is not valid JSON: {exc.msg}")
+        if not isinstance(checked_job_keys, list):
+            die("record-check-results: checked_job_keys_json must be a JSON array")
+        try:
+            closed_job_keys = json.loads(args.closed_job_keys_json)
+        except json.JSONDecodeError as exc:
+            die(f"record-check-results: closed_job_keys_json is not valid JSON: {exc.msg}")
+        if not isinstance(closed_job_keys, list):
+            die("record-check-results: closed_job_keys_json must be a JSON array")
+        result = record_check_results(checked_job_keys, closed_job_keys, args.registry)
         print(json.dumps(result, ensure_ascii=False))
         return 0
 

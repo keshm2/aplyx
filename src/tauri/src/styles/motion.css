@@ -44,3 +44,29 @@
     animation: none;
   }
 }
+
+/* Confirms a status actually changed — applied once, on the row whose
+ * outcome_status just flipped between two reads, never on first paint
+ * or on an unrelated re-render. See StatusScreen.tsx's per-row
+ * previous-value tracking for how the class is toggled. */
+@keyframes aplyx-status-pop {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.aplyx-status-pop {
+  animation: aplyx-status-pop var(--duration-quick) var(--ease-snap);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aplyx-status-pop {
+    animation: none;
+  }
+}

@@ -10,6 +10,13 @@ The per-harness agent definitions are **generated**; never edit
 - `frontmatter/claude/<name>.yaml` — Claude Code frontmatter
   (`model: inherit` — the runtime model comes from the user's Claude
   Code session, never pinned here).
+- `skills/<name>/SKILL.md` — bundled skills: reusable checklists/
+  protocols a body reads and applies inline for one step of its own
+  process (not themselves invocable subagents). Not compiled into
+  `.opencode/agents/`/`.claude/agents/` — bodies reference the file path
+  directly, so behavior is identical across every harness regardless of
+  native skill-tool support. See `skills/README.md` for the index and
+  how to add one.
 
 Regenerate after editing any source:
 

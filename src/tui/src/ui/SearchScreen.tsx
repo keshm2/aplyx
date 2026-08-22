@@ -32,8 +32,16 @@ const SOURCE_LABEL: Record<JobSource, string> = {
   oracle: "Oracle",
   workday: "Workday",
   muse: "The Muse",
+  simplify: "SimplifyJobs",
+  vanshb03: "vanshb03",
 };
-const SOURCES: JobSource[] = ["ashbyhq", "lever", "greenhouse", "smartrecruiters", "workable", "amazon", "oracle", "workday", "muse"];
+// "vanshb03" is deliberately not in this toggle list — searchJobs() only
+// checks isOn("simplify") to decide whether to make the one combined
+// fetch call that returns both simplify- and vanshb03-tagged jobs (see
+// fetchSimplify's doc comment); a separate "vanshb03" checkbox here would
+// look real but do nothing. SOURCE_LABEL above still needs the key —
+// per-job results carry it as their actual `source` value.
+const SOURCES: JobSource[] = ["ashbyhq", "lever", "greenhouse", "smartrecruiters", "workable", "amazon", "oracle", "workday", "muse", "simplify"];
 
 type Action = "idle" | "searching" | "fitting" | "saving";
 
@@ -154,6 +162,8 @@ export function SearchScreen({
     oracle: true,
     workday: true,
     muse: true,
+    simplify: true,
+    vanshb03: true,
   });
   const [sourceFocused, setSourceFocused] = useState(false);
   const [sourceCursor, setSourceCursor] = useState(0);

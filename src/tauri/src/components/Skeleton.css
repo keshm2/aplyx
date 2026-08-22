@@ -1,6 +1,6 @@
 /* Shimmering placeholder shapes — shown while a screen's real data is
  * still loading, in the same box each real row/card will occupy (reuses
- * .data-row / .home-stat-card / .home-next directly), so the layout
+ * .data-row / .stat-card / .home-next directly), so the layout
  * doesn't jump when the real content swaps in. The swap itself needs no
  * special transition: the incoming real content already plays its own
  * mount animation (aplyx-fade-rise, .data-list's aplyx-fade-in) — the
@@ -43,16 +43,16 @@
 /* Disable the real row/card's hover-lift and click affordance — these
  * are plain <div>s standing in for content, not yet interactive. Compound
  * selectors (two classes) so this reliably outranks .data-row:hover /
- * .home-stat-card:hover / .home-next:hover regardless of stylesheet
+ * .stat-card:hover / .home-next:hover regardless of stylesheet
  * import order. */
 .data-row.skeleton-row,
-.home-stat-card.skeleton-row,
+.stat-card.skeleton-row,
 .home-next.skeleton-row {
   cursor: default;
 }
 
 .data-row.skeleton-row:hover,
-.home-stat-card.skeleton-row:hover,
+.stat-card.skeleton-row:hover,
 .home-next.skeleton-row:hover {
   transform: none;
   box-shadow: none;

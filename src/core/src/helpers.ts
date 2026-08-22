@@ -199,6 +199,245 @@ export function reopenApplicationFilled(root: string, jobId: string): Promise<Re
   });
 }
 
+export interface SingleJobApplyResult {
+  ok: boolean;
+  message: string;
+}
+
+export interface ApproveSubmitResult {
+  ok: boolean;
+  message: string;
+  /** Workday local runtime reports an explicit outcome so the caller can
+   *  distinguish a confirmed submit ("submitted") from a progress
+   *  checkpoint ("checkpoint") or a failure ("failed"). Other families
+   *  leave this undefined; the caller treats presence of "submitted" as
+   *  the only signal that a real application was confirmed. */
+  outcome?: string;
+  confirmationUrl?: string;
+  /** Workday-only: the resumable checkpoint file path and the status the
+   *  script paused at (awaiting_verification, verified, logged_in,
+   *  page_filled, ready_to_submit, submitted, submit_outcome_unclear,
+   *  …). Surfaced so the UI can show where the flow paused and the next
+   *  continuation can resume from it. */
+  checkpointPath?: string;
+  checkpointStatus?: string;
+  doubtSignals?: string[];
+  filledFields?: number;
+  resumeAttached?: boolean;
+  /** Workday-only: whether the script actually consumed (navigated to /
+   *  typed) the verification link/OTP it was passed. The UI uses this to
+   *  mark the corresponding inbound_emails row consumed so a one-time
+   *  link isn't re-handed to the next continuation run. */
+  usedVerificationLink?: boolean;
+  usedVerificationOtp?: boolean;
+}
+
+export interface WorkdayApprovalContext {
+  aliasEmail: string;
+  aliasId?: string;
+  verificationLink?: string;
+  verificationOtp?: string;
+}
+
+/** Same launch-grace-window reasoning as REPLAY_FILL_LAUNCH_GRACE_MS above,
+ *  just longer: a real run (fit-gate + tailor + apply, a live LLM harness
+ *  driving a real browser) routinely takes well over 5s before it's done
+ *  anything, so a short grace window would misreport an in-progress launch
+ *  as a failure. Failures this is actually meant to catch (bad harness
+ *  config, missing targets.json, no python interpreter) surface fast, well
+ *  under this. */
+const SINGLE_JOB_APPLY_LAUNCH_GRACE_MS = 15_000;
+
+/**
+ * Runs the exact same job-application agent a scheduled run does (same
+ * harness, same job-scraper.md prompt, same AGENTS.md safety rules — fit
+ * gate, exact-match dropdowns, pre-submit verification, doubt signals) for
+ * one already-known job (picked from a manual search) instead of the
+ * agent's own board search, via the existing APLYX_EXTRA_PROMPT operator-
+ * instruction hook (run_job_agent.py already supports this — nothing new
+ * on the agent side). APLYX_SESSION_CAP=1 is a code-enforced backstop
+ * independent of whether the agent actually honors the "just this one job"
+ * instruction — it physically cannot tailor+apply to more than one this
+ * run either way.
+ *
+ * Spawned detached and never awaited to completion, same reasoning as
+ * reopenApplicationFilled above: a real run can take minutes. The eventual
+ * outcome shows up the normal way — data/applied_jobs.json or
+ * review_queue.json (useAplyxState's 60s poll already picks either up) and
+ * a Discord notification if configured. If the fit gate rejects the job,
+ * that's a skipped_unfit outcome — local-only by design (AGENTS.md), so it
+ * produces no visible record anywhere, same as it already doesn't for a
+ * scheduled run; the caller's UI copy sets that expectation up front so a
+ * silent non-appearance doesn't read as a bug.
+ */
+export function triggerSingleJobApply(
+  root: string,
+  job: { company: string; title: string; url: string; source: string },
+): Promise<SingleJobApplyResult> {
+  const detail = `${job.company} — ${job.title} (${job.url}) [source=${job.source}]`;
+  const extraPrompt =
+    `Process ONLY this job, skip your own board search entirely: ${detail}. ` +
+    "Still run the fit gate, tailoring, and apply phases with every normal " +
+    "AGENTS.md safety rule (exact-match dropdowns, pre-submit verification, " +
+    "doubt signals). If the fit gate rejects it, report why instead of forcing " +
+    "an apply. Stop after this one job.";
+
+  const { cmd, args } = py(["src/scripts/runtime/run_job_agent.py"]);
+  return new Promise((resolve) => {
+    let settled = false;
+    let stdout = "";
+    let stderr = "";
+    const child = spawn(cmd, args, {
+      cwd: root,
+      stdio: ["ignore", "pipe", "pipe"],
+      detached: true,
+      env: {
+        ...process.env,
+        APLYX_SESSION_CAP: "1",
+        APLYX_EXTRA_PROMPT: extraPrompt,
+      },
+    });
+
+    const settle = (result: SingleJobApplyResult) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(result);
+    };
+
+    child.stdout?.on("data", (d) => (stdout += d.toString()));
+    child.stderr?.on("data", (d) => (stderr += d.toString()));
+    child.on("error", (err) => settle({ ok: false, message: err.message }));
+    child.on("exit", (code) => {
+      // A fast exit before the grace timer is always a failure path here —
+      // the success path never exits this quickly (fit-gate + tailor +
+      // apply always takes longer), so exit-before-timer only happens via
+      // a startup error (bad config, missing interpreter, etc.).
+      if (!settled) {
+        settle({
+          ok: false,
+          message: (stderr || stdout || `run_job_agent.py exited with code ${code}`).trim(),
+        });
+      }
+    });
+
+    const timer = setTimeout(() => {
+      settle({
+        ok: true,
+        message:
+          "Started — aplyx is tailoring and applying to this job now. Check Status or the review queue for the outcome in a bit. If the fit gate ends up rejecting it, that's a local-only skip and nothing will show up — same as any other unfit job.",
+      });
+      child.unref();
+    }, SINGLE_JOB_APPLY_LAUNCH_GRACE_MS);
+  });
+}
+
+/** Deterministic approve-submit for a ready_to_submit Greenhouse entry.
+ *  Replays the saved fill record into a real visible Chrome, attempts the
+ *  final submit, and returns a structured success/failure result. Unlike
+ *  triggerSingleJobApply, this never re-runs the LLM-driven fit/tailor/apply
+ *  pipeline — it is a narrow submit of an already-reviewed, already-filled
+ *  form. Greenhouse, Lever, and Ashby are implemented in v1; other families
+ *  surface a clear message so the caller never mistakes a missing executor
+ *  for success. */
+export function approveReadyToSubmit(
+  root: string,
+  entry: { job_id: string; source?: string; url: string; apply_url?: string; status?: string },
+  workday?: WorkdayApprovalContext,
+): ApproveSubmitResult {
+  const targetUrl = entry.apply_url || entry.url;
+  const source = (entry.source ?? "").toLowerCase();
+  let host = "";
+  try {
+    host = new URL(targetUrl).hostname;
+  } catch {
+    host = "";
+  }
+  const isGreenhouse = source === "greenhouse" || /(?:^|\.)greenhouse\.io$/i.test(host);
+  const isLever = source === "lever" || host.toLowerCase() === "jobs.lever.co";
+  const isAshby = source === "ashbyhq" || host.toLowerCase() === "jobs.ashbyhq.com";
+  const isWorkday = source === "workday" || host.toLowerCase().endsWith(".myworkdayjobs.com");
+  if (!isGreenhouse && !isLever && !isAshby && !isWorkday) {
+    return { ok: false, message: "Approve submit is only implemented for Greenhouse, Lever, Ashby, and Workday scaffolding right now." };
+  }
+  if (entry.status !== "ready_to_submit" && !(isWorkday && entry.status === "needs_review")) {
+    return { ok: false, message: `Approve submit expects a ready_to_submit entry (got ${entry.status ?? "<missing>"}).` };
+  }
+  const script = isGreenhouse
+    ? "src/scripts/runtime/approve_submit_greenhouse.py"
+    : isLever
+      ? "src/scripts/runtime/approve_submit_lever.py"
+      : isAshby
+        ? "src/scripts/runtime/approve_submit_ashby.py"
+        : "src/scripts/runtime/approve_submit_workday.py";
+  const extraArgs = isWorkday
+    ? [
+        "--alias-email", workday?.aliasEmail ?? "",
+        ...(workday?.aliasId ? ["--alias-id", workday.aliasId] : []),
+        ...(workday?.verificationLink ? ["--verification-link", workday.verificationLink] : []),
+        ...(workday?.verificationOtp ? ["--otp", workday.verificationOtp] : []),
+      ]
+    : [];
+  const { cmd, args } = py([script, entry.job_id, ...extraArgs]);
+  const res = spawnSync(cmd, args, {
+    cwd: root,
+    encoding: "utf8",
+    timeout: 180_000,
+  });
+  if (res.error) {
+    return { ok: false, message: res.error.message };
+  }
+  const stdout = (res.stdout ?? "").trim();
+  const stderr = (res.stderr ?? "").trim();
+  let parsed: {
+    ok?: boolean;
+    message?: string;
+    outcome?: string;
+    confirmation_url?: string;
+    confirmationUrl?: string;
+    checkpoint?: string;
+    checkpoint_status?: string;
+    doubt_signals?: string[];
+    filled_fields?: number;
+    resume_attached?: boolean;
+    used_verification_link?: boolean;
+    used_verification_otp?: boolean;
+  } = {};
+  try {
+    parsed = stdout ? JSON.parse(stdout) : {};
+  } catch {
+    // fall through to generic error message below
+  }
+  if (res.status === 0 && parsed.ok) {
+    return {
+      ok: true,
+      message: parsed.message ?? "Submitted successfully.",
+      outcome: parsed.outcome,
+      confirmationUrl: parsed.confirmation_url ?? parsed.confirmationUrl,
+      checkpointPath: parsed.checkpoint,
+      checkpointStatus: parsed.checkpoint_status,
+      doubtSignals: parsed.doubt_signals,
+      filledFields: parsed.filled_fields,
+      resumeAttached: parsed.resume_attached,
+      usedVerificationLink: parsed.used_verification_link,
+      usedVerificationOtp: parsed.used_verification_otp,
+    };
+  }
+  return {
+    ok: false,
+    message: parsed.message ?? (stderr || stdout || `${script.split("/").pop()} exited with code ${res.status}`),
+    outcome: parsed.outcome,
+    confirmationUrl: parsed.confirmation_url ?? parsed.confirmationUrl,
+    checkpointPath: parsed.checkpoint,
+    checkpointStatus: parsed.checkpoint_status,
+    doubtSignals: parsed.doubt_signals,
+    filledFields: parsed.filled_fields,
+    resumeAttached: parsed.resume_attached,
+    usedVerificationLink: parsed.used_verification_link,
+    usedVerificationOtp: parsed.used_verification_otp,
+  };
+}
+
 export interface ConvertResumeResult {
   ok: boolean;
   stem: string;
@@ -243,11 +482,12 @@ export interface SetResumeDescriptionResult {
 
 /** Set/update a resume's .resume_meta.json description without converting
  *  anything — for a resume that already has its .md (so convertResumePdf's
- *  conversion flow never runs) but still needs a description so
- *  resolve_resume.py's dynamic matching has something to go on for a
- *  non-conventional filename. Requires the stem to already have a .md or
- *  .pdf in data/resumes/ — never throws; failures come back as
- *  { ok: false, error }. */
+ *  conversion flow never runs) but still needs a description, either so
+ *  resolve_resume.py's dynamic matching can find a non-conventionally-named
+ *  cover-letter reference file, or just for a readable label in the
+ *  Resumes screen's "import from an existing resume" picker. Requires the
+ *  stem to already have a .md or .pdf in data/resumes/ — never throws;
+ *  failures come back as { ok: false, error }. */
 export function setResumeDescription(root: string, stem: string, description: string): SetResumeDescriptionResult {
   const args = ["src/scripts/state/convert_resume.py", stem, "--describe-only", "--description", description];
   const conv = py(args);

@@ -4,13 +4,15 @@ import { theme } from "../../theme.js";
 import { ResumesScreen } from "../ResumesScreen.js";
 
 /**
- * Thin wrapper around the existing resume list + convert-with-
- * description flow (Phase 4) — not one of the 18 counted fields, so it
- * gets its own page after "Job targets" instead of a slot in the
- * percentage bar. ResumesScreen already owns its full keyboard/state
- * story; this just adds the onboarding-appropriate framing around it
- * and forwards onInputActiveChange so OnboardingWizard.tsx can gate its
- * own Shift+←/→ page-nav handler while the description prompt is open.
+ * Thin wrapper around the resume editor (ResumesScreen.tsx, rewritten for
+ * the single-generic-resume model — see src/core/src/masterResume.ts) —
+ * not one of the 18 counted fields, so it gets its own page after "Job
+ * targets" instead of a slot in the percentage bar. ResumesScreen already
+ * owns its full keyboard/state story; this just adds the onboarding-
+ * appropriate framing around it and forwards onInputActiveChange so
+ * OnboardingWizard.tsx can gate its own Shift+←/→ page-nav handler while
+ * ResumesScreen owns the keyboard (a popup open, or drilled into a
+ * section).
  */
 export function ResumeStep({
   root,
@@ -30,14 +32,16 @@ export function ResumeStep({
       </Text>
       <Box marginTop={1} flexDirection="column">
         <Text wrap="wrap">
-          Press <Text bold color={theme.accent}>o</Text> to open this folder now and drop your resume file(s) in, or
-          press <Text bold color={theme.accent}>esc</Text> (or <Text bold color={theme.accent}>PgDn</Text>) to skip
-          for now — you can add resumes any time later from the Resumes tab.
+          Build your resume directly below — Contact, Education, Experience, Projects, Skills. Already have an old
+          resume file? Open <Text bold color={theme.accent}>Import from an existing resume</Text> to pull its
+          content in as a starting draft instead of retyping it. Press <Text bold color={theme.accent}>esc</Text> (or{" "}
+          <Text bold color={theme.accent}>PgDn</Text>) to skip for now — you can always finish this later from the
+          Resumes tab.
         </Text>
       </Box>
       <Box marginTop={1}>
         <Text bold color={theme.accent}>
-          Resumes
+          Resume
         </Text>
       </Box>
       <Box marginTop={1}>

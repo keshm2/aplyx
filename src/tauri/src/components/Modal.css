@@ -1,0 +1,117 @@
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 0.4);
+  z-index: 90;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity var(--duration-normal) var(--ease-out), visibility 0s linear var(--duration-normal);
+}
+
+.modal-backdrop-open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity var(--duration-normal) var(--ease-out), visibility 0s linear 0s;
+}
+
+.modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: min(42rem, calc(100vw - var(--space-6) * 2));
+  max-height: min(85vh, 48rem);
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lift);
+  z-index: 91;
+  padding: var(--space-5) var(--space-6) var(--space-6);
+  /* Nothing in the real world appears from nothing — 0.96 not 0, same as
+   * every other entrance in this app (Dropdown/NavMenu panels). Centered
+   * transform-origin: a modal isn't anchored to a trigger, unlike those. */
+  transform: translate(-50%, -50%) scale(0.96);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    transform var(--duration-normal) var(--ease-out),
+    opacity var(--duration-normal) var(--ease-out),
+    visibility 0s linear var(--duration-normal);
+}
+
+.modal-open {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition:
+    transform var(--duration-normal) var(--ease-out),
+    opacity var(--duration-normal) var(--ease-out),
+    visibility 0s linear 0s;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  position: sticky;
+  top: calc(-1 * var(--space-5));
+  padding-top: var(--space-5);
+  margin-top: calc(-1 * var(--space-5));
+  background: var(--surface);
+  z-index: 1;
+}
+
+.modal-title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--text);
+}
+
+.modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  transition: background var(--duration-quick) var(--ease-snap), color var(--duration-quick) var(--ease-snap);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .modal-close:hover {
+    background: var(--ground);
+    color: var(--text);
+  }
+}
+
+.modal-close:active {
+  transform: scale(var(--scale-press));
+}
+
+.modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-backdrop,
+  .modal-backdrop-open,
+  .modal,
+  .modal-open {
+    transition: opacity var(--duration-quick) linear, visibility 0s linear;
+  }
+  .modal,
+  .modal-open {
+    transform: translate(-50%, -50%);
+  }
+}

@@ -1,4 +1,6 @@
-import { spawnSync, execFileSync } from "node:child_process";
+import { spawnSync, execFileSync, execFile } from "node:child_process";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 
 /**
  * Cross-platform interpreter resolution. The runtime helpers are Python
@@ -11,35 +13,86 @@ const isWindows = process.platform === "win32";
 
 let cachedPython: { cmd: string; prefix: string[] } | undefined;
 
+type PyCandidate = { cmd: string; prefix: string[] };
+
+/**
+ * A Finder-launched .app inherits launchd's minimal PATH
+ * (/usr/bin:/bin:/usr/sbin:/sbin), which does not include Homebrew, pyenv,
+ * or conda/miniconda install locations — so a bare "python3" resolves to
+ * Apple's bundled system interpreter, which has none of the user's `pip3
+ * install -r requirements.txt` packages (playwright, google-api-python-client,
+ * pypdf). That surfaced as "the 'playwright' pip package is not installed"
+ * errors (Export PDF, Apply-with-aplyx, board fetches) even though the user
+ * genuinely had installed it — just onto a different python3 than the app
+ * could see. Mirrors node_binary()'s fix for the identical PATH problem in
+ * lib.rs. Probe common non-PATH install locations before falling back to
+ * bare "python3"/"python" lookup.
+ */
+function unixPythonCandidates(): PyCandidate[] {
+  const home = process.env.HOME ?? "";
+  const knownPaths = [
+    "/opt/homebrew/bin/python3",
+    "/usr/local/bin/python3",
+    "/opt/local/bin/python3",
+    ...(home
+      ? [
+          join(home, "miniconda3", "bin", "python3"),
+          join(home, "anaconda3", "bin", "python3"),
+          join(home, ".pyenv", "shims", "python3"),
+        ]
+      : []),
+  ];
+  const found = knownPaths.filter((p) => existsSync(p)).map((cmd) => ({ cmd, prefix: [] as string[] }));
+  return [...found, { cmd: "python3", prefix: [] }, { cmd: "python", prefix: [] }];
+}
+
+/** --version success (a real Python) plus whether `import playwright` works there. */
+function probePython(c: PyCandidate): { valid: boolean; hasPlaywright: boolean } {
+  try {
+    const v = spawnSync(c.cmd, [...c.prefix, "--version"], { stdio: "ignore" });
+    if (v.status !== 0) return { valid: false, hasPlaywright: false };
+  } catch {
+    return { valid: false, hasPlaywright: false };
+  }
+  try {
+    const p = spawnSync(c.cmd, [...c.prefix, "-c", "import playwright"], { stdio: "ignore" });
+    return { valid: true, hasPlaywright: p.status === 0 };
+  } catch {
+    return { valid: true, hasPlaywright: false };
+  }
+}
+
 /**
  * Resolve a working Python 3. On Windows the py-launcher (`py -3`) is
- * preferred, then `python`; elsewhere `python3` then `python`. Falls back
- * to the first candidate (which then fails loudly) if none respond.
+ * preferred, then `python`; elsewhere common non-PATH install locations are
+ * probed first (see unixPythonCandidates), then bare `python3`/`python`.
+ * Among candidates that are a real Python 3, prefers one that already has
+ * `playwright` importable — the interpreter the user actually ran `pip3
+ * install -r requirements.txt` against — over the first one merely found.
+ * Falls back to the first valid candidate (which then fails loudly with the
+ * real "pip3 install -r requirements.txt" message) if none have it, and to
+ * the first candidate outright if none respond at all.
  */
-export function pythonCmd(): { cmd: string; prefix: string[] } {
+export function pythonCmd(): PyCandidate {
   if (cachedPython) return cachedPython;
-  const candidates: { cmd: string; prefix: string[] }[] = isWindows
+  const candidates: PyCandidate[] = isWindows
     ? [
         { cmd: "py", prefix: ["-3"] },
         { cmd: "python", prefix: [] },
         { cmd: "python3", prefix: [] },
       ]
-    : [
-        { cmd: "python3", prefix: [] },
-        { cmd: "python", prefix: [] },
-      ];
+    : unixPythonCandidates();
+  let firstValid: PyCandidate | undefined;
   for (const c of candidates) {
-    try {
-      const r = spawnSync(c.cmd, [...c.prefix, "--version"], { stdio: "ignore" });
-      if (r.status === 0) {
-        cachedPython = c;
-        return c;
-      }
-    } catch {
-      /* try next candidate */
+    const { valid, hasPlaywright } = probePython(c);
+    if (!valid) continue;
+    if (!firstValid) firstValid = c;
+    if (hasPlaywright) {
+      cachedPython = c;
+      return c;
     }
   }
-  cachedPython = candidates[0];
+  cachedPython = firstValid ?? candidates[0];
   return cachedPython;
 }
 
@@ -51,6 +104,34 @@ export function pythonCmd(): { cmd: string; prefix: string[] } {
 export function py(args: string[]): { cmd: string; args: string[] } {
   const p = pythonCmd();
   return { cmd: p.cmd, args: [...p.prefix, ...args] };
+}
+
+/**
+ * Like a promisified execFile, but delivers `input` over the child's
+ * stdin instead of argv — argv (and the whole environment) shares a
+ * single OS-enforced budget (ARG_MAX; 1MB on macOS), which a large JSON
+ * payload can blow past (hit this for real with a big job-registry batch —
+ * see getRecommendedJobs in jobs.ts). Callers pass "-" as the script's
+ * positional arg so it reads stdin instead.
+ */
+export function execFileWithStdin(
+  command: string, args: string[], input: string,
+  opts: { cwd: string; maxBuffer: number; timeout: number },
+): Promise<{ stdout: string }> {
+  return new Promise((resolve, reject) => {
+    const child = execFile(command, args, { ...opts, encoding: "utf8" }, (err, stdout, stderr) => {
+      if (err) {
+        reject(Object.assign(err, { stdout, stderr }));
+        return;
+      }
+      resolve({ stdout });
+    });
+    // The child may exit (e.g. a usage error) before we finish writing —
+    // without this, that EPIPE surfaces as an unhandled 'error' event and
+    // crashes the process instead of just failing the execFile callback.
+    child.stdin?.on("error", () => {});
+    child.stdin?.end(input);
+  });
 }
 
 /**
