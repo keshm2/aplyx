@@ -8,7 +8,7 @@ import type {
   MasterResumeProject,
   MasterResumeSkillGroup,
 } from "@aplyx/core/masterResume.js";
-import { reflowExtractedResumeText } from "@aplyx/core/masterResume.js";
+import { reflowExtractedResumeText } from "@aplyx/core/resumeReflow.js";
 import type { ResumeFile } from "@aplyx/core/resumes.js";
 import {
   findRoot,

@@ -30,6 +30,10 @@
       "types": "./dist/masterResume.d.ts",
       "default": "./dist/masterResume.js"
     },
+    "./resumeReflow.js": {
+      "types": "./dist/resumeReflow.d.ts",
+      "default": "./dist/resumeReflow.js"
+    },
     "./reviewActions.js": {
       "types": "./dist/reviewActions.d.ts",
       "default": "./dist/reviewActions.js"
