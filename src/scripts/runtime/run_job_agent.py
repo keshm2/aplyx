@@ -556,7 +556,7 @@ def _run(logs_dir: str, run_log: str, run_start: datetime) -> int:
             harness = ""
     if not harness:
         for candidate in ("opencode", "claude", "codex", "copilot"):
-            if shutil.which(candidate):
+            if shutil.which(candidate) or harness_adapter.resolve_harness_exe(candidate) != candidate:
                 harness = candidate
                 break
     if harness not in ("opencode", "claude", "codex", "copilot"):
@@ -650,7 +650,7 @@ def _run(logs_dir: str, run_log: str, run_start: datetime) -> int:
         signal.signal(signal.SIGINT, _handle_stop_signal)
 
     run_rc = 0
-    exe = shutil.which(harness) or harness
+    exe = harness_adapter.resolve_harness_exe(harness)
     # The harness-specific argv shapes live in harness_adapter.agent_command —
     # the one place allowed to branch per harness (AGENTS.md "Harness
     # capability matrix"). They were inline here until interest-letter

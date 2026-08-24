@@ -51,7 +51,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import shutil
 import subprocess
 import sys
 
@@ -179,7 +178,7 @@ def main(argv=None) -> int:
         emit({"ok": False, "error": "no coding-agent harness available — set src/config/harness.json, "
                                      "APLYX_HARNESS, or install one of: " + ", ".join(harness_adapter.SUPPORTED)})
         return 2
-    exe = shutil.which(harness) or harness
+    exe = harness_adapter.resolve_harness_exe(harness)
 
     payload = {"title": args.title, "jd_text": jd_text, "master_resume": resume}
     prompt = (

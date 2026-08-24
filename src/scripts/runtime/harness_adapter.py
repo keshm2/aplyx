@@ -52,6 +52,61 @@ DETECT_ORDER = SUPPORTED
 _HAS_REGISTRY = ("opencode", "claude")
 
 
+def _well_known_harness_dirs(harness: str) -> list:
+    """Install locations each harness's own installer actually uses, beyond
+    plain PATH lookup — needed because a Finder/Dock-launched desktop app
+    inherits launchd's minimal PATH (/usr/bin:/bin:/usr/sbin:/sbin), not
+    the user's shell profile PATH. Reported live: an opencode install at
+    ~/.opencode/bin/opencode (opencode's real default) ran fine from the
+    TUI/terminal but crashed the desktop app's "Run now" with
+    FileNotFoundError, since shutil.which("opencode") only ever sees this
+    process's own inherited PATH.
+
+    src/core/src/harness.ts's extraSearchDirs() already solves this for
+    *detecting* an installed harness (the desktop Settings screen's "Auto"
+    label) — this mirrors that same directory list for actually *running*
+    one, which never got the same fix. src/tauri/src-tauri/src/lib.rs's
+    node_binary() is the same fix again, for `node`."""
+    home = os.path.expanduser("~")
+    dirs = [
+        os.path.join(home, ".local", "bin"),
+        os.path.join(home, "bin"),
+        os.path.join(home, ".bun", "bin"),
+        os.path.join(home, ".claude", "local"),  # Claude Code native installer wrapper
+        os.path.join(home, ".opencode", "bin"),  # opencode standalone installer
+        os.path.join(home, ".volta", "bin"),
+        os.path.join(home, ".cargo", "bin"),
+        os.path.join(home, ".npm-global", "bin"),
+        os.path.join(home, "Library", "pnpm"),
+        "/opt/homebrew/bin",
+        "/usr/local/bin",
+        "/opt/local/bin",
+    ]
+    nvm_versions = os.path.join(home, ".nvm", "versions", "node")
+    try:
+        for entry in os.listdir(nvm_versions):
+            dirs.append(os.path.join(nvm_versions, entry, "bin"))
+    except OSError:
+        pass  # no nvm — fine
+    return [os.path.join(d, harness) for d in dirs]
+
+
+def resolve_harness_exe(harness: str) -> str:
+    """The actual executable path for an already-resolved harness name
+    (resolve_harness()'s return value) — PATH lookup first (the common
+    terminal/TUI case), then the well-known install locations above.
+    Falls back to the bare name so a real PATH-based install keeps
+    working exactly as before and a genuinely-missing harness still fails
+    with a clear "no such file" rather than something more confusing."""
+    found = shutil.which(harness)
+    if found:
+        return found
+    for candidate in _well_known_harness_dirs(harness):
+        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            return candidate
+    return harness
+
+
 def _copilot_has_agent_flag(exe: str) -> bool:
     """Probes for --agent support (Copilot CLI's custom-agent registry
     flag) the same way opencode_print_flag probes for --print — an older
@@ -81,7 +136,7 @@ def resolve_harness(root: str = ".") -> str:
                 harness = ""
     if not harness:
         for candidate in DETECT_ORDER:
-            if shutil.which(candidate):
+            if shutil.which(candidate) or resolve_harness_exe(candidate) != candidate:
                 harness = candidate
                 break
     return harness if harness in SUPPORTED else ""
