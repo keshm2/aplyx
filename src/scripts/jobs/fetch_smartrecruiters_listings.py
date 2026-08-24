@@ -46,7 +46,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import html
 import json
 import os
 import re
@@ -54,6 +53,8 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+
+from _jd_text import extract_pay, join_sections
 
 DEFAULT_TARGETS = "src/config/targets.json"
 PLACEHOLDER = "replace_me"
@@ -102,9 +103,16 @@ def api_get(url: str, timeout: int) -> dict:
         return json.load(resp)
 
 
-def strip_html(markup: str) -> str:
-    text = re.sub(r"<[^>]+>", " ", markup)
-    return re.sub(r"\s+", " ", html.unescape(text)).strip()
+_CAMEL_BOUNDARY_RE = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
+
+
+def _section_label(key: str) -> str:
+    """SmartRecruiters' jobAd.sections keys are camelCase ("jobDescription",
+    "qualifications", "companyDescription") — there's no separate
+    human-readable title field per section, so the key itself, split on
+    camelCase boundaries and title-cased, is the best heading available."""
+    words = _CAMEL_BOUNDARY_RE.sub(" ", key).split()
+    return " ".join(w.capitalize() for w in words) if words else key
 
 
 def to_raw_job(posting: dict, company: str) -> dict:
@@ -139,7 +147,9 @@ def fetch_jd(url: str, timeout: int) -> dict:
     company, posting_id = m.group(1), m.group(2)
     info = api_get(f"{API_BASE}/{company}/postings/{posting_id}", timeout)
     sections = (info.get("jobAd") or {}).get("sections") or {}
-    jd_parts = [strip_html(str(section.get("text", ""))) for section in sections.values() if section.get("text")]
+    jd_text = join_sections(
+        [(_section_label(key), str(section.get("text", ""))) for key, section in sections.items() if section.get("text")]
+    )
     location = info.get("location") or {}
     return {
         "source": "smartrecruiters",
@@ -149,7 +159,8 @@ def fetch_jd(url: str, timeout: int) -> dict:
         "url": str(info.get("postingUrl") or url).strip(),
         "apply_url": str(info.get("applyUrl") or "").strip() or None,
         "external_job_id": str(info.get("id", "")).strip(),
-        "jd_text": " ".join(jd_parts).strip(),
+        "jd_text": jd_text,
+        "pay_text": extract_pay(jd_text),
     }
 
 

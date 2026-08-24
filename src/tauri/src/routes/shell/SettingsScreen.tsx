@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -59,7 +59,34 @@ export function SettingsScreen() {
   const [mailOauthBusy, setMailOauthBusy] = useState(false);
   const [mailOauthError, setMailOauthError] = useState<string | undefined>(undefined);
   const [disconnecting, setDisconnecting] = useState(false);
+  const resumeInputRef = useRef<HTMLInputElement>(null);
+  const [resumeUploading, setResumeUploading] = useState(false);
+  const [resumeUploadError, setResumeUploadError] = useState<string | undefined>(undefined);
   const desktopUpdate = useDesktopUpdateStatus();
+
+  // Same upload call the onboarding wizard's ResumeUploadStep.tsx uses
+  // (upsert: true replaces the existing file in place) — this is the
+  // permanent action that step's own copy already promised existed
+  // ("add a resume later from Settings") but that, until now, nothing
+  // actually built.
+  async function handleResumeFile(file: File) {
+    if (status !== "signed-in" || !session) return;
+    setResumeUploadError(undefined);
+    setResumeUploading(true);
+    try {
+      const client = await getSupabaseClient();
+      const { error: uploadError } = await client.storage
+        .from("resumes")
+        .upload(`${session.user.id}/${file.name}`, file, { upsert: true });
+      if (uploadError) {
+        setResumeUploadError(uploadError.message);
+        return;
+      }
+      await refreshInbox();
+    } finally {
+      setResumeUploading(false);
+    }
+  }
 
   async function refreshInbox() {
     if (status !== "signed-in" || !session) return;
@@ -246,6 +273,9 @@ export function SettingsScreen() {
               <div className="check-label">{session?.user.email}</div>
               <div className="check-detail">Signed in — your profile syncs across devices.</div>
             </div>
+            <button type="button" className="settings-action-btn" onClick={() => navigate("/app/accounts")}>
+              ATS accounts
+            </button>
             <button type="button" className="settings-action-btn" onClick={() => signOut().then(() => navigate("/"))}>
               Sign out
             </button>
@@ -321,6 +351,43 @@ export function SettingsScreen() {
           <p className="field-help">
             Candidate email: <code style={CODE_STYLE}>{hostedReadiness.candidateEmail || "not set"}</code>
           </p>
+        </section>
+      )}
+
+      {status === "signed-in" && hostedReadiness && (
+        <section className="settings-section">
+          <h2 style={{ fontSize: "var(--text-lg)", marginBottom: "var(--space-3)" }}>Resume</h2>
+          <input
+            ref={resumeInputRef}
+            type="file"
+            accept="application/pdf"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const file = e.currentTarget.files?.[0];
+              if (file) void handleResumeFile(file);
+            }}
+          />
+          <div className="check-row">
+            <span className={`check-icon ${hostedReadiness.resumeUploaded ? "check-icon-ok" : "check-icon-pending"}`}>
+              {hostedReadiness.resumeUploaded ? "✓" : "–"}
+            </span>
+            <div style={{ flex: 1 }}>
+              <div className="check-label">{hostedReadiness.resumeUploaded ? "Resume on file" : "No resume uploaded"}</div>
+              <div className="check-detail">
+                {hostedReadiness.resumeUploaded
+                  ? "Uploading a new PDF replaces this one — aplyx always tailors from whatever is currently on file."
+                  : "Upload a PDF so a signed-in session anywhere has something to tailor from."}
+              </div>
+            </div>
+            <button type="button" className="settings-action-btn" onClick={() => resumeInputRef.current?.click()} disabled={resumeUploading}>
+              {resumeUploading ? "Uploading…" : hostedReadiness.resumeUploaded ? "Replace resume" : "Upload resume"}
+            </button>
+          </div>
+          {resumeUploadError && (
+            <p className="field-help" style={{ color: "var(--danger)" }}>
+              {resumeUploadError}
+            </p>
+          )}
         </section>
       )}
 

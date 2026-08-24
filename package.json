@@ -7,7 +7,8 @@
     "src/core",
     "src/tui",
     "src/tauri",
-    "src/worker"
+    "src/worker",
+    "src/extension"
   ],
   "engines": {
     "node": ">=22"

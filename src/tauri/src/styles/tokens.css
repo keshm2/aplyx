@@ -1,74 +1,76 @@
 /*
- * aplyx desktop design tokens — Prism.
+ * aplyx desktop design tokens — Moss.
  *
  * One theme, two modes (light/dark), independent of each other: `data-theme`
  * on <html> ("system" leaves it unset so the prefers-color-scheme media
  * query decides; "light"/"dark" force it). The bare `:root` block doubles
  * as the pre-hydration fallback (src/lib/uiPrefs.ts sets the attribute from
  * localStorage on mount, same timing as before) so a brief unstyled flash
- * never happens — it just paints as light until JS decides otherwise, same
- * shape the six-family system used before this replaced it.
+ * never happens — it just paints as light until JS decides otherwise.
  *
- * Prism's identity is a three-stop accent gradient (violet → cyan →
- * magenta) instead of a single accent hex, plus a glow vocabulary
- * (--glow-*) the old single-accent families never needed: an ambient blur
- * behind the one hero card that earns it (HomeScreen.css's .home-next) —
- * and only that one card. An earlier pass also washed the gradient across
- * every screen's background and stamped a 3px gradient cap on every card
- * type (stat cards, settings panels, detail panes); both were removed
- * 2026-08-21 for contradicting this file's own rule below — glow reading
- * as ambient wallpaper instead of a scarce, earned accent. Status colors
- * (good/warn/danger) stay apart from the accent, same rule as always, so
- * accent is never overloaded to mean success/warning/error.
+ * Replaces the earlier "Prism" identity (violet → cyan → magenta) —
+ * operator call, 2026-08-22: that palette read as generic "AI product"
+ * purple-gradient, not the intended feel. Moss goes the other direction
+ * deliberately: a muted forest green (plant, not screen), warm honey/ochre
+ * and clay/rust as its two supporting notes — materials (moss, wood,
+ * honey, clay) rather than a synthetic gradient, on a warm parchment/ink
+ * ground instead of a cold blue-black. Also deliberately NOT cream+terracotta
+ * (a different but equally common "AI does warm/human" default) — green-
+ * forward instead of that exact combination. Every text/background pairing
+ * below is WCAG AA-verified (4.5:1 body text, 3:1 large text/UI), computed
+ * directly rather than eyeballed — see the contrast check run alongside
+ * this change. Status colors (good/warn/danger) stay apart from the
+ * accent, same rule as always, so accent is never overloaded to mean
+ * success/warning/error.
  */
 
 :root {
   color-scheme: light;
 
-  --ground: #f6f5fc;
+  --ground: #f5f2ea;
   --surface: #ffffff;
-  --surface-raised: #f1eefc;
-  --border: #ddd0f9;
-  --border-strong: #c2a3ef;
-  --text: #16121f;
-  --text-muted: #5b5570;
-  --text-faint: #928da6;
+  --surface-raised: #ede8db;
+  --border: #ddd5c2;
+  --border-strong: #c3b89e;
+  --text: #2b2820;
+  --text-muted: #655d4c;
+  --text-faint: #948b75;
 
-  --accent: #6d3ff0;
-  --accent-2: #06a8c4;
-  --accent-3: #e23a76;
-  --accent-strong: #5a2fd1;
-  --accent-soft: rgba(109, 63, 240, 0.08);
+  --accent: #3f6b4a;
+  --accent-2: #96631f;
+  --accent-3: #a15a3e;
+  --accent-strong: #2e5539;
+  --accent-soft: rgba(63, 107, 74, 0.08);
   --accent-ink: #ffffff;
   --accent-gradient: linear-gradient(135deg, var(--accent), var(--accent-2));
 
-  /* --- Brand pink (from the logo's own gradient) — brand moments only,
+  /* --- Brand clay (from the logo's own gradient) — brand moments only,
    *     never semantic state. Doubles as the gradient's third stop. --- */
-  --pink: #e23a76;
-  --pink-soft: #fdeaf2;
+  --pink: #a15a3e;
+  --pink-soft: #f3e7de;
 
   /* --- Semantic (kept apart from accent) --- */
-  --good: #1f8a55;
-  --good-soft: #e4f5ec;
-  --warn: #97690f;
-  --warn-soft: #f8f0d8;
-  --danger: #c23350;
-  --danger-soft: #fbe8ec;
+  --good: #3d7a52;
+  --good-soft: #e3efe6;
+  --warn: #96631a;
+  --warn-soft: #f3eada;
+  --danger: #a83f33;
+  --danger-soft: #f5e4e1;
   /* Application status tracking (docs/application-status-tracking-plan.md)
-   * — OA Sent (info, blue) and Interview Requested (special, violet).
-   * --special is deliberately a darker/more magenta-leaning violet than
-   * --accent (#6d3ff0), not the same hue, so an outcome badge never reads
-   * as an accent-colored UI control. */
-  --info: #1c6dd0;
-  --info-soft: #e1ecfb;
-  --special: #9333c2;
-  --special-soft: #f3e4fb;
+   * — OA Sent (info, slate blue) and Interview Requested (special, dusty
+   * plum). Both deliberately muted/dusty rather than saturated, matching
+   * this palette's overall restraint — neither reads as an accent-colored
+   * UI control since neither shares --accent's green hue. */
+  --info: #3d6e96;
+  --info-soft: #e2ebf1;
+  --special: #7a5c8a;
+  --special-soft: #eee7f0;
 
   /* --- Glow: a scarce accent, not a texture. --glow-blur/--glow-opacity
    *     tune the one ambient use — the blurred ::before behind the hero
    *     "next action" card (HomeScreen.css's .home-next). --- */
   --glow-blur: 20px;
-  --glow-opacity: 0.22;
+  --glow-opacity: 0.18;
 
   /* --- Type ---
    * Manrope (display) + Inter (body) — Supabase's own pairing. The system
@@ -112,7 +114,7 @@
   /* Subtle borders instead of shadows — a shadow only ever appears on
    * something actively lifted (a modal, a dragged card), never as default
    * card styling. */
-  --shadow-lift: 0 16px 36px -14px rgb(30 20 60 / 0.18);
+  --shadow-lift: 0 16px 36px -14px rgb(40 32 20 / 0.18);
   /* A colored alternative to --shadow-lift for hover/press feedback on
    * cards that should read as "glowing", not just "lifted" — a hairline
    * accent ring plus a soft accent-tinted blur, replacing the neutral
@@ -163,39 +165,43 @@
   --accent-tint-border: color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
-/* Dark is Prism's identity — glow reads as neon on a dark ground; light is
- * the compromise side, same relationship Volt Noir had in the old system. */
+/* Dark is Moss's identity ground — a warm near-black (ink/soil), not the
+ * cold blue-black the old Prism palette used; light is the compromise
+ * side. accent-ink flips to a dark value here specifically because this
+ * mode's accent itself is a light, minty green (#7fae86) — white text on
+ * it fails contrast outright (verified: 2.5:1, well under AA); the app's
+ * own dark ground color reads correctly against it instead (7.3:1). */
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
-    --ground: #0a0a12;
-    --surface: #131320;
-    --surface-raised: #191a2c;
-    --border: rgba(139, 92, 246, 0.18);
-    --border-strong: rgba(139, 92, 246, 0.32);
-    --text: #f2f2fa;
-    --text-muted: #9b9db4;
-    --text-faint: #64667e;
-    --accent: #8b5cf6;
-    --accent-2: #35d3ff;
-    --accent-3: #ff4fc3;
-    --accent-strong: #a684fb;
-    --accent-soft: rgba(139, 92, 246, 0.14);
-    --accent-ink: #ffffff;
-    --pink: #ff4fc3;
-    --pink-soft: rgba(255, 79, 195, 0.14);
-    --good: #3ddc86;
-    --good-soft: rgba(61, 220, 134, 0.13);
-    --warn: #ffb84d;
-    --warn-soft: rgba(255, 184, 77, 0.13);
-    --danger: #ff5c72;
-    --danger-soft: rgba(255, 92, 114, 0.13);
-    --info: #5b9dff;
-    --info-soft: rgba(91, 157, 255, 0.13);
-    --special: #c77dff;
-    --special-soft: rgba(199, 125, 255, 0.13);
+    --ground: #17140f;
+    --surface: #1e1b14;
+    --surface-raised: #26221a;
+    --border: rgba(127, 174, 134, 0.18);
+    --border-strong: rgba(127, 174, 134, 0.32);
+    --text: #ede6d6;
+    --text-muted: #b0a68e;
+    --text-faint: #7a7260;
+    --accent: #7fae86;
+    --accent-2: #d9a24e;
+    --accent-3: #cb8163;
+    --accent-strong: #9cc4a1;
+    --accent-soft: rgba(127, 174, 134, 0.14);
+    --accent-ink: #17140f;
+    --pink: #cb8163;
+    --pink-soft: rgba(203, 129, 99, 0.14);
+    --good: #6fbe8a;
+    --good-soft: rgba(111, 190, 138, 0.13);
+    --warn: #e0ac52;
+    --warn-soft: rgba(224, 172, 82, 0.13);
+    --danger: #e08770;
+    --danger-soft: rgba(224, 135, 112, 0.13);
+    --info: #7bafd4;
+    --info-soft: rgba(123, 175, 212, 0.13);
+    --special: #b79ac7;
+    --special-soft: rgba(183, 154, 199, 0.13);
     --glow-blur: 42px;
-    --glow-opacity: 0.55;
+    --glow-opacity: 0.4;
     --shadow-lift: 0 20px 48px -16px rgb(0 0 0 / 0.6);
     --shadow-glow: 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent),
       0 14px 34px -10px color-mix(in srgb, var(--accent) 55%, transparent);
@@ -205,34 +211,34 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --ground: #0a0a12;
-  --surface: #131320;
-  --surface-raised: #191a2c;
-  --border: rgba(139, 92, 246, 0.18);
-  --border-strong: rgba(139, 92, 246, 0.32);
-  --text: #f2f2fa;
-  --text-muted: #9b9db4;
-  --text-faint: #64667e;
-  --accent: #8b5cf6;
-  --accent-2: #35d3ff;
-  --accent-3: #ff4fc3;
-  --accent-strong: #a684fb;
-  --accent-soft: rgba(139, 92, 246, 0.14);
-  --accent-ink: #ffffff;
-  --pink: #ff4fc3;
-  --pink-soft: rgba(255, 79, 195, 0.14);
-  --good: #3ddc86;
-  --good-soft: rgba(61, 220, 134, 0.13);
-  --warn: #ffb84d;
-  --warn-soft: rgba(255, 184, 77, 0.13);
-  --danger: #ff5c72;
-  --danger-soft: rgba(255, 92, 114, 0.13);
-  --info: #5b9dff;
-  --info-soft: rgba(91, 157, 255, 0.13);
-  --special: #c77dff;
-  --special-soft: rgba(199, 125, 255, 0.13);
+  --ground: #17140f;
+  --surface: #1e1b14;
+  --surface-raised: #26221a;
+  --border: rgba(127, 174, 134, 0.18);
+  --border-strong: rgba(127, 174, 134, 0.32);
+  --text: #ede6d6;
+  --text-muted: #b0a68e;
+  --text-faint: #7a7260;
+  --accent: #7fae86;
+  --accent-2: #d9a24e;
+  --accent-3: #cb8163;
+  --accent-strong: #9cc4a1;
+  --accent-soft: rgba(127, 174, 134, 0.14);
+  --accent-ink: #17140f;
+  --pink: #cb8163;
+  --pink-soft: rgba(203, 129, 99, 0.14);
+  --good: #6fbe8a;
+  --good-soft: rgba(111, 190, 138, 0.13);
+  --warn: #e0ac52;
+  --warn-soft: rgba(224, 172, 82, 0.13);
+  --danger: #e08770;
+  --danger-soft: rgba(224, 135, 112, 0.13);
+  --info: #7bafd4;
+  --info-soft: rgba(123, 175, 212, 0.13);
+  --special: #b79ac7;
+  --special-soft: rgba(183, 154, 199, 0.13);
   --glow-blur: 42px;
-  --glow-opacity: 0.55;
+  --glow-opacity: 0.4;
   --shadow-lift: 0 20px 48px -16px rgb(0 0 0 / 0.6);
   --shadow-glow: 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent),
     0 14px 34px -10px color-mix(in srgb, var(--accent) 55%, transparent);
@@ -241,40 +247,40 @@
 
 :root[data-theme="light"] {
   color-scheme: light;
-  --ground: #f6f5fc;
+  --ground: #f5f2ea;
   --surface: #ffffff;
-  --surface-raised: #f1eefc;
-  --border: #ddd0f9;
-  --border-strong: #c2a3ef;
-  --text: #16121f;
-  --text-muted: #5b5570;
-  --text-faint: #928da6;
-  --accent: #6d3ff0;
-  --accent-2: #06a8c4;
-  --accent-3: #e23a76;
-  --accent-strong: #5a2fd1;
-  --accent-soft: rgba(109, 63, 240, 0.08);
+  --surface-raised: #ede8db;
+  --border: #ddd5c2;
+  --border-strong: #c3b89e;
+  --text: #2b2820;
+  --text-muted: #655d4c;
+  --text-faint: #948b75;
+  --accent: #3f6b4a;
+  --accent-2: #96631f;
+  --accent-3: #a15a3e;
+  --accent-strong: #2e5539;
+  --accent-soft: rgba(63, 107, 74, 0.08);
   --accent-ink: #ffffff;
-  --pink: #e23a76;
-  --pink-soft: #fdeaf2;
-  --good: #1f8a55;
-  --good-soft: #e4f5ec;
-  --warn: #97690f;
-  --warn-soft: #f8f0d8;
-  --danger: #c23350;
-  --danger-soft: #fbe8ec;
+  --pink: #a15a3e;
+  --pink-soft: #f3e7de;
+  --good: #3d7a52;
+  --good-soft: #e3efe6;
+  --warn: #96631a;
+  --warn-soft: #f3eada;
+  --danger: #a83f33;
+  --danger-soft: #f5e4e1;
   /* Application status tracking (docs/application-status-tracking-plan.md)
-   * — OA Sent (info, blue) and Interview Requested (special, violet).
-   * --special is deliberately a darker/more magenta-leaning violet than
-   * --accent (#6d3ff0), not the same hue, so an outcome badge never reads
-   * as an accent-colored UI control. */
-  --info: #1c6dd0;
-  --info-soft: #e1ecfb;
-  --special: #9333c2;
-  --special-soft: #f3e4fb;
+   * — OA Sent (info, slate blue) and Interview Requested (special, dusty
+   * plum). Both deliberately muted rather than saturated, matching this
+   * palette's overall restraint — neither shares --accent's green hue, so
+   * neither reads as an accent-colored UI control. */
+  --info: #3d6e96;
+  --info-soft: #e2ebf1;
+  --special: #7a5c8a;
+  --special-soft: #eee7f0;
   --glow-blur: 20px;
-  --glow-opacity: 0.22;
-  --shadow-lift: 0 16px 36px -14px rgb(30 20 60 / 0.18);
+  --glow-opacity: 0.18;
+  --shadow-lift: 0 16px 36px -14px rgb(40 32 20 / 0.18);
   --shadow-glow: 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent),
     0 10px 28px -10px color-mix(in srgb, var(--accent) 40%, transparent);
   --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);

@@ -229,6 +229,12 @@ export interface ApplyRunSummary {
   /** The managed alias used, when the run used a mail.aplyx.app alias
    *  for an account-required family. Absent for guest flows. */
   aliasId?: string;
+  /** The application_accounts row (migration 0027/0028) this run is
+   *  linked to, when the family requires an ATS account and one has
+   *  been created or reused. Absent for guest flows and for
+   *  account-required flows before the account is created. Never a
+   *  credential — only the account's id. */
+  accountId?: string;
   /** Whether a tailored resume artifact was attached. */
   tailoredResumeAttached?: boolean;
   /** Approval checkpoint state for confirm-before-submit flows. */

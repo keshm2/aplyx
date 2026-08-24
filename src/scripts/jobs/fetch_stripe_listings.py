@@ -53,12 +53,13 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import html as html_lib
 import json
 import re
 import sys
 import urllib.error
 import urllib.request
+
+from _jd_text import extract_pay, html_to_text
 
 USER_AGENT = "aplyx-job-agent/phase16b (+https://github.com/keshm2/aplyx)"
 BOARD_TOKEN = "stripe"
@@ -81,12 +82,8 @@ def api_get(url: str, timeout: int) -> dict:
         return json.load(resp)
 
 
-def strip_html(markup: str) -> str:
-    text = re.sub(r"<[^>]+>", " ", markup or "")
-    return re.sub(r"\s+", " ", html_lib.unescape(text)).strip()
-
-
 def to_raw_job(job: dict) -> dict:
+    jd_text = html_to_text(str(job.get("content", "")))
     return {
         "source": "stripe",
         "company": "Stripe",
@@ -94,7 +91,8 @@ def to_raw_job(job: dict) -> dict:
         "url": str(job.get("absolute_url", "")).strip(),
         "external_job_id": str(job.get("id", "")).strip(),
         "location": str((job.get("location") or {}).get("name", "")).strip(),
-        "jd_text": strip_html(str(job.get("content", ""))),
+        "jd_text": jd_text,
+        "pay_text": extract_pay(jd_text),
         "posted_at": str(job.get("first_published", "")).strip() or None,
     }
 
@@ -106,7 +104,7 @@ def fetch_jd(url: str, timeout: int) -> dict:
     job_id = m.group(1) or m.group(2)
     job = api_get(f"{API_BASE}/{job_id}?questions=false", timeout)
     raw = to_raw_job(job)
-    return {"url": raw["url"], "title": raw["title"], "jd_text": raw["jd_text"]}
+    return {"url": raw["url"], "title": raw["title"], "jd_text": raw["jd_text"], "pay_text": raw["pay_text"]}
 
 
 def main(argv=None) -> int:

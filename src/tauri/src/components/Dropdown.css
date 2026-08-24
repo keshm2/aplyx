@@ -49,7 +49,26 @@
 
 /* Kept mounted after first open (see Dropdown.tsx's `everOpened`) so
  * closing plays a real exit transition instead of just vanishing —
- * identical technique to .notif-dropdown / .notif-dropdown-open. */
+ * identical technique to .notif-dropdown / .notif-dropdown-open.
+ *
+ * Two deliberate departures from an earlier version of this animation
+ * (operator report, 2026-08-22 — the native macOS app needed a click
+ * near the TOP of an open panel to register, worse toward the bottom,
+ * never reproducible in Chrome-based tooling):
+ * 1. No `scale()` in the transform. Scale displaces a point by an amount
+ *    proportional to its distance from transform-origin — a point near
+ *    `top` barely moves, one further down moves noticeably more. If a
+ *    click ever lands mid-transition against a not-yet-final compositor
+ *    frame (a real, WebKit-documented class of timing issue between the
+ *    main-thread hit-test and the compositor-thread paint, more of a
+ *    risk on Tauri's system WKWebView than on Chromium), that mismatch
+ *    would be exactly this shape: negligible near the anchor, worse
+ *    further away. A plain `translateY` shifts every point by the same
+ *    vector, so even a stale-frame hit test still lands on the right
+ *    element. 2. `pointer-events` is now itself delayed (below) so a
+ *    click physically cannot reach an option until the entrance
+ *    transition has actually finished, closing the underlying timing
+ *    window rather than just narrowing it. */
 .dropdown-panel {
   position: absolute;
   top: calc(100% + var(--space-2));
@@ -68,22 +87,24 @@
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transform: translateY(-0.4rem) scale(0.96);
+  transform: translateY(-0.4rem);
   transition:
     opacity var(--duration-normal) var(--ease-out),
     transform var(--duration-normal) var(--ease-out),
-    visibility 0s linear var(--duration-normal);
+    visibility 0s linear var(--duration-normal),
+    pointer-events 0s linear var(--duration-normal);
 }
 
 .dropdown-panel-open {
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
-  transform: translateY(0) scale(1);
+  transform: translateY(0);
   transition:
     opacity var(--duration-normal) var(--ease-out),
     transform var(--duration-normal) var(--ease-out),
-    visibility 0s linear 0s;
+    visibility 0s linear 0s,
+    pointer-events 0s linear var(--duration-normal);
 }
 
 @media (prefers-reduced-motion: reduce) {

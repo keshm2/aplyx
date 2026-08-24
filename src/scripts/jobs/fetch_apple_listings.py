@@ -54,6 +54,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from _jd_text import extract_pay, join_sections
+
 USER_AGENT = "aplyx-job-agent/ats-expansion"
 SEARCH_BASE = "https://jobs.apple.com/en-us/search"
 SITE_BASE = "https://jobs.apple.com"
@@ -130,8 +132,19 @@ def parse_search_page(content: str) -> list[dict]:
 
 
 # Fields present in the detail page's embedded job-data JSON, in the
-# order they should be concatenated into jd_text.
-_JD_FIELD_ORDER = ["jobSummary", "description", "minimumQualifications", "preferredQualifications"]
+# order they should be concatenated into jd_text, each with the heading
+# it should render under — Apple's own page already separates these into
+# a Summary/Description/Minimum/Preferred structure (confirmed live:
+# these fields carry no inline HTML at all, unlike every other source
+# here, but they were still being joined with zero labels, leaving no
+# way to tell where "Description" ended and "Minimum Qualifications"
+# began).
+_JD_FIELDS = [
+    ("jobSummary", "Summary"),
+    ("description", "Description"),
+    ("minimumQualifications", "Minimum Qualifications"),
+    ("preferredQualifications", "Preferred Qualifications"),
+]
 
 
 def _extract_escaped_field(content: str, key: str) -> str | None:
@@ -169,8 +182,7 @@ def _extract_escaped_field(content: str, key: str) -> str | None:
 
 def fetch_jd(url: str, timeout: int) -> dict:
     content = http_get(url, timeout)
-    parts = [_extract_escaped_field(content, key) for key in _JD_FIELD_ORDER]
-    jd_text = "\n\n".join(p.strip() for p in parts if p and p.strip())
+    jd_text = join_sections([(label, _extract_escaped_field(content, key) or "") for key, label in _JD_FIELDS])
     # postingTitle is one of the same embedded-JSON fields jobSummary/
     # description/etc. come from — more reliable than scraping a <title>
     # tag (this page's <title> isn't a simple static element).
@@ -179,6 +191,7 @@ def fetch_jd(url: str, timeout: int) -> dict:
         "url": url,
         "title": title,
         "jd_text": jd_text,
+        "pay_text": extract_pay(jd_text),
     }
 
 

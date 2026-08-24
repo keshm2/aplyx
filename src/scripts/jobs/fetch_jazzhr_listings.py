@@ -84,6 +84,8 @@ import sys
 import urllib.error
 import urllib.request
 
+from _jd_text import extract_pay, html_to_text
+
 DEFAULT_TARGETS = "src/config/targets.json"
 PLACEHOLDER = "replace_me"
 USER_AGENT = "aplyx-job-agent/phase16b"
@@ -137,11 +139,6 @@ def http_get(url: str, timeout: int) -> str:
         return resp.read().decode("utf-8", errors="replace")
 
 
-def strip_html(markup: str) -> str:
-    text = re.sub(r"<[^>]+>", " ", markup or "")
-    return re.sub(r"\s+", " ", html_lib.unescape(text)).strip()
-
-
 def _row_posted_at(timestamp: str) -> str | None:
     """The row id's embedded YYYYMMDDHHMMSS prefix -> ISO 8601, or None
     if it doesn't parse as a real datetime (defensive — never seen live,
@@ -190,13 +187,15 @@ def fetch_jd(url: str, timeout: int) -> dict:
     title_m = re.search(r'<h1 class="job_title">([^<]*)</h1>', content)
     company_m = re.search(r'<h2 class="job_company">([^<]*)</h2>', content)
     desc_m = re.search(r'<div class="job_description">(.*?)</div>\s*<div id="how_to_apply"', content, re.S)
+    jd_text = html_to_text(desc_m.group(1)) if desc_m else ""
     return {
         "source": "jazzhr",
         "company": html_lib.unescape(company_m.group(1)).strip() if company_m else m.group(1),
         "title": html_lib.unescape(title_m.group(1)).strip() if title_m else "",
         "url": url,
         "external_job_id": m.group(2),
-        "jd_text": strip_html(desc_m.group(1)) if desc_m else "",
+        "jd_text": jd_text,
+        "pay_text": extract_pay(jd_text),
     }
 
 

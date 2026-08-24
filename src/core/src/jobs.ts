@@ -357,6 +357,209 @@ function leverJdText(job: Record<string, unknown>): string | undefined {
   return parts.join("\n\n") || undefined;
 }
 
+// --- Pay extraction ------------------------------------------------------
+//
+// Mirrors src/scripts/jobs/_jd_text.py's extract_pay() exactly — same
+// regexes, same magnitude heuristic — so both language runtimes agree on
+// the same posting's pay line regardless of which fetched it. Only Ashby
+// ships structured compensation data (see fetchAshby below, which uses
+// that directly and never calls this); every other source only states
+// pay as free text somewhere in the description, so this is a
+// best-effort text-mining extractor, same honesty posture as the
+// "N people applied" social-proof counter — a signal to show, not a
+// guaranteed-accurate structured field.
+const PAY_NUM = String.raw`\d{1,3}(?:,\d{3})*(?:\.\d+)?K?`;
+const PAY_CURRENCY_CODE = "USD|CAD|GBP|EUR|AUD";
+// "g" (global) so these can be scanned for every match in a document via
+// matchAll, not just the first — real multi-location postings state a
+// genuinely different range per location (confirmed live: Okta's
+// separate US/Canada pay-range blocks; Brex's inline "...is $185,320 -
+// $231,650 and for SLC it is $164,000 - $205,000").
+// A per-number interval tag ("/hr", "/yr", etc.) attached directly to
+// EITHER side of the range — confirmed live as a real, common shape
+// (Twilio: "$30.09/hr - $37.61/hr", the tag repeated on both numbers,
+// not stated once after the range the way "$45 - $65 USD hourly" does).
+// Captured (not just consumed) so it can decide the interval directly —
+// more reliable than the forward/magnitude fallbacks below, and the only
+// way to detect it at all here, since once consumed inside the match
+// it's no longer sitting in the text *after* the match for
+// detectPayInterval to find.
+const PAY_INLINE_INTERVAL_TAG = String.raw`(?:/\s*(hr|hour|hourly|yr|year|annum))?`;
+const PAY_RANGE_DOLLAR_RE = new RegExp(
+  String.raw`\$\s?(${PAY_NUM})${PAY_INLINE_INTERVAL_TAG}\s*(?:-|–|—|to)\s*\$?\s?(${PAY_NUM})${PAY_INLINE_INTERVAL_TAG}`,
+  "gi",
+);
+const PAY_RANGE_CODE_RE = new RegExp(String.raw`(${PAY_NUM})\s*(?:-|–|—|to)\s*(${PAY_NUM})\s*(?:${PAY_CURRENCY_CODE})\b`, "gi");
+const HOURLY_WORD_RE = /\b(hourly|hour|hr)\b|\/\s*hr\b|per\s+hour/i;
+const YEARLY_WORD_RE = /\b(yearly|annual(?:ly)?|year|yr)\b|\/\s*yr\b|per\s+year/i;
+const PAY_CONTEXT_WINDOW = 40;
+// Looks BACKWARD from a matched range for the location phrase real
+// pay-transparency boilerplate states right before the number — "for
+// candidates located in Canada is between:", "and for SLC it is"
+// (Okta/Brex), "Based in Colorado... :" (Twilio, confirmed live — hence
+// "i" flag here: a bullet-list item capitalizes "Based" at its own
+// start, not just mid-sentence "based in"). Allows one optional second
+// word ("Washington D.C.", "New York") since a single-word capture missed
+// real multi-word place names entirely.
+const LOCATION_LABEL_RE =
+  /(?:located in|based in|for)\s+([A-Z][A-Za-z.]{1,20}(?:\s[A-Z][A-Za-z.]{1,20})?)(?=\s*[,(:]|\s+(?:is|are|it)\b)/gi;
+const LOCATION_LABEL_WINDOW = 250;
+
+function parsePayAmount(raw: string): number {
+  const cleaned = raw.replace(/,/g, "");
+  return cleaned.toUpperCase().endsWith("K") ? parseFloat(cleaned.slice(0, -1)) * 1000 : parseFloat(cleaned);
+}
+
+function formatPayAmount(value: number, prefix = "$"): string {
+  if (value >= 1000) return `${prefix}${Math.round(value / 1000)}K`;
+  return Number.isInteger(value) ? `${prefix}${value}` : `${prefix}${value.toFixed(2)}`;
+}
+
+function detectPayInterval(text: string, endPos: number): "hour" | "year" | undefined {
+  const window = text.slice(endPos, endPos + PAY_CONTEXT_WINDOW);
+  if (HOURLY_WORD_RE.test(window)) return "hour";
+  if (YEARLY_WORD_RE.test(window)) return "year";
+  return undefined;
+}
+
+// Best-effort location tag for one matched range — see
+// LOCATION_LABEL_RE's own comment. Only meaningful once a posting has
+// already been confirmed to state more than one distinct range; a
+// single-range posting never needs a label at all.
+function locationLabel(text: string, startPos: number): string | undefined {
+  let window = text.slice(Math.max(0, startPos - LOCATION_LABEL_WINDOW), startPos);
+  // Scoped to the CURRENT bullet only, if inside one — confirmed live as
+  // a real bug otherwise: a later bullet whose own location phrase
+  // didn't match fell back to an EARLIER bullet's stale match still
+  // sitting in the window (Twilio's 2nd range wrongly labeled
+  // "Colorado", the 1st bullet's own location, instead of showing no
+  // label at all).
+  const lastBullet = window.lastIndexOf("•");
+  if (lastBullet !== -1) window = window.slice(lastBullet);
+  const matches = [...window.matchAll(LOCATION_LABEL_RE)];
+  return matches.length > 0 ? matches[matches.length - 1][1].trim() : undefined;
+}
+
+function tagToInterval(tag: string | undefined): "hour" | "year" | undefined {
+  if (!tag) return undefined;
+  return tag.toLowerCase().startsWith("hr") || tag.toLowerCase().startsWith("hour") ? "hour" : "year";
+}
+
+interface PaySpan {
+  start: number;
+  end: number;
+  low: number;
+  high: number;
+  inlineInterval: "hour" | "year" | undefined;
+}
+
+// Every non-overlapping range match in the document, dollar-prefixed or
+// currency-code-suffixed, sorted by position — start/end of the OUTER
+// match span, used both for interval detection (forward) and location-
+// label detection (backward). inlineInterval comes from a "/hr"-style
+// tag attached directly to either number when present — only
+// PAY_RANGE_DOLLAR_RE has this capability; PAY_RANGE_CODE_RE's groups
+// are just (low, high).
+function findAllPaySpans(text: string): PaySpan[] {
+  const spans: PaySpan[] = [];
+  for (const m of text.matchAll(PAY_RANGE_DOLLAR_RE)) {
+    spans.push({
+      start: m.index,
+      end: m.index + m[0].length,
+      low: parsePayAmount(m[1]),
+      high: parsePayAmount(m[3]),
+      inlineInterval: tagToInterval(m[2]) ?? tagToInterval(m[4]),
+    });
+  }
+  for (const m of text.matchAll(PAY_RANGE_CODE_RE)) {
+    spans.push({ start: m.index, end: m.index + m[0].length, low: parsePayAmount(m[1]), high: parsePayAmount(m[2]), inlineInterval: undefined });
+  }
+  return spans.sort((a, b) => a.start - b.start);
+}
+
+// Deliberately RANGE-only — never a single dollar amount. A lone number
+// latched onto real but unrelated dollar mentions twice, live, with an
+// interval word coincidentally nearby ("revenue targets >$1M per year"
+// as a job requirement; "a $1,500 USD learning stipend... per year" as a
+// benefit) — a plausibility floor on the number alone wasn't enough,
+// since both looked like perfectly reasonable amounts on their own.
+// Pay-transparency laws (CA/CO/NY/WA and others) have also made stating
+// an actual range the norm for real compensation disclosure, while
+// stipends/bonuses/targets are almost always single numbers — so
+// restricting to ranges trades a modest amount of recall (postings that
+// state one flat number) for meaningfully higher precision (never
+// confidently mislabeling a stipend as a salary).
+//
+// Scans the WHOLE document for every distinct range, not just the
+// first — confirmed live that real multi-location postings state a
+// genuinely different range per location (Okta: separate US/Canada pay-
+// range blocks; Brex: "...is $185,320 - $231,650 and for SLC it is
+// $164,000 - $205,000" inline) — returning only the first would silently
+// show one location's number as if it applied everywhere. When 2+
+// distinct ranges are found, each gets its own best-effort location
+// label and they're joined with " · "; a single-range posting gets no
+// label at all, nothing to disambiguate from.
+function extractPay(text: string | undefined): string | undefined {
+  if (!text) return undefined;
+  const spans = findAllPaySpans(text);
+  if (spans.length === 0) return undefined;
+  const seen = new Set<string>();
+  const formatted: Array<{ value: string; start: number }> = [];
+  for (const { start, end, low, high, inlineInterval } of spans) {
+    const key = `${low}|${high}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const interval = inlineInterval ?? detectPayInterval(text, end) ?? (Math.max(low, high) < 1000 ? "hour" : "year");
+    const suffix = interval === "hour" ? "hr" : "yr";
+    formatted.push({ value: `${formatPayAmount(low)}–${formatPayAmount(high)}/${suffix}`, start });
+  }
+  if (formatted.length === 1) return formatted[0].value;
+  return formatted
+    .map(({ value, start }) => {
+      const label = locationLabel(text, start);
+      return label ? `${value} (${label})` : value;
+    })
+    .join(" · ");
+}
+
+// Ashby is the one source with real structured compensation data
+// (confirmed live: job.compensation.summaryComponents[] carries
+// minValue/maxValue/currencyCode/interval directly) — using it beats
+// text-mining, especially for the hourly-vs-yearly call, which the
+// regex path can only guess at via a magnitude heuristic. Falls back to
+// text-mining (first the tier summary string, then jd_text itself) for
+// the real minority of postings that don't have compensation filled in
+// at all — same "best-effort, never invents a number" posture as the
+// generic extractPay() path every other source uses exclusively.
+function ashbyPayText(job: Record<string, unknown>, jdText: string | undefined): string | undefined {
+  const compensation = job.compensation as Record<string, unknown> | undefined;
+  const summaryComponents = Array.isArray(compensation?.summaryComponents)
+    ? (compensation!.summaryComponents as Array<Record<string, unknown>>)
+    : [];
+  const salaries = summaryComponents.filter(
+    (c) => c.compensationType === "Salary" && typeof c.minValue === "number" && typeof c.maxValue === "number",
+  );
+  if (salaries.length > 0) {
+    // compensationTiers[].title carries a location name for companies
+    // that post one tier per location (null for the common single-tier
+    // case) — same "no label when there's nothing to disambiguate"
+    // posture as the regex path's multi-location handling below.
+    const tiers = Array.isArray(compensation?.compensationTiers)
+      ? (compensation!.compensationTiers as Array<Record<string, unknown>>)
+      : [];
+    const formatted = salaries.map((salary, i) => {
+      const currencyCode = String(salary.currencyCode ?? "USD");
+      const prefix = currencyCode === "USD" ? "$" : `${currencyCode} `;
+      const suffix = String(salary.interval ?? "").toUpperCase().includes("HOUR") ? "hr" : "yr";
+      const value = `${formatPayAmount(salary.minValue as number, prefix)}–${formatPayAmount(salary.maxValue as number, prefix)}/${suffix}`;
+      const label = displayText(tiers[i]?.title) || undefined;
+      return label ? `${value} (${label})` : value;
+    });
+    return formatted.join(" · ");
+  }
+  return extractPay(displayText(compensation?.compensationTierSummary)) ?? extractPay(jdText);
+}
+
 export async function readTargets(root: string): Promise<Targets> {
   return JSON.parse(await fs.readFile(path.join(root, "src", "config", "targets.json"), "utf8")) as Targets;
 }
@@ -412,6 +615,11 @@ export async function fetchAshby(slugs: string[]): Promise<{ jobs: SearchJob[]; 
         const title = displayText(job.title);
         const url = webUrl(job.jobUrl ?? job.applyUrl);
         if (!title || !url) return [];
+        // descriptionHtml, not descriptionPlain — confirmed live, Ashby's
+        // "plain" field has no heading structure at all (already
+        // flattened), while descriptionHtml keeps real <h3>/<strong>
+        // section headings for markHeadings to pick up.
+        const jdText = htmlToText(String(job.descriptionHtml ?? job.descriptionPlain ?? "")) || undefined;
         return [{
           source: "ashbyhq",
           company: slug,
@@ -420,11 +628,8 @@ export async function fetchAshby(slugs: string[]): Promise<{ jobs: SearchJob[]; 
           apply_url: webUrl(job.applyUrl) || undefined,
           external_job_id: displayText(job.id) || undefined,
           location: displayText(job.location) || undefined,
-          // descriptionHtml, not descriptionPlain — confirmed live, Ashby's
-          // "plain" field has no heading structure at all (already
-          // flattened), while descriptionHtml keeps real <h3>/<strong>
-          // section headings for markHeadings to pick up.
-          jd_text: htmlToText(String(job.descriptionHtml ?? job.descriptionPlain ?? "")) || undefined,
+          jd_text: jdText,
+          pay_text: ashbyPayText(job, jdText),
           posted_at: isoOrUndefined(job.publishedAt),
         }];
       });
@@ -446,6 +651,7 @@ export async function fetchLever(slugs: string[]): Promise<{ jobs: SearchJob[]; 
         const url = webUrl(job.hostedUrl ?? job.applyUrl);
         if (!title || !url) return [];
         const categories = (job.categories ?? {}) as Record<string, unknown>;
+        const jdText = leverJdText(job);
         return [{
           source: "lever",
           company: slug,
@@ -454,7 +660,8 @@ export async function fetchLever(slugs: string[]): Promise<{ jobs: SearchJob[]; 
           apply_url: webUrl(job.applyUrl) || undefined,
           external_job_id: displayText(job.id) || undefined,
           location: displayText(categories.location) || undefined,
-          jd_text: leverJdText(job),
+          jd_text: jdText,
+          pay_text: extractPay(jdText),
           posted_at: isoOrUndefined(job.createdAt),
         }];
       });
@@ -476,6 +683,7 @@ export async function fetchGreenhouse(slugs: string[]): Promise<{ jobs: SearchJo
         const url = webUrl(job.absolute_url);
         if (!title || !url) return [];
         const location = (job.location ?? {}) as Record<string, unknown>;
+        const jdText = htmlToText(String(job.content ?? "")) || undefined;
         return [{
           source: "greenhouse",
           company: slug,
@@ -483,7 +691,8 @@ export async function fetchGreenhouse(slugs: string[]): Promise<{ jobs: SearchJo
           url,
           external_job_id: displayText(job.id) || undefined,
           location: displayText(location.name) || undefined,
-          jd_text: htmlToText(String(job.content ?? "")) || undefined,
+          jd_text: jdText,
+          pay_text: extractPay(jdText),
           posted_at: isoOrUndefined(job.updated_at),
         }];
       });
@@ -566,6 +775,9 @@ async function fetchWorkableCompany(slug: string): Promise<SearchJob[]> {
     const locations = (job.locations as Array<Record<string, unknown>> | undefined) ?? [];
     const loc = locations[0] ?? {};
     const locationParts = [loc.city, loc.region, loc.country].map((v) => displayText(v)).filter(Boolean);
+    // Full JD text ships in the list response (confirmed live) — no
+    // separate detail fetch needed, same as Amazon/Muse.
+    const jdText = htmlToText(String(job.description ?? "")) || undefined;
     return [{
       source: "workable",
       company,
@@ -574,9 +786,8 @@ async function fetchWorkableCompany(slug: string): Promise<SearchJob[]> {
       apply_url: webUrl(job.application_url) || undefined,
       external_job_id: externalId,
       location: locationParts.join(", ") || undefined,
-      // Full JD text ships in the list response (confirmed live) — no
-      // separate detail fetch needed, same as Amazon/Muse.
-      jd_text: htmlToText(String(job.description ?? "")) || undefined,
+      jd_text: jdText,
+      pay_text: extractPay(jdText),
       posted_at: isoOrUndefined(job.published_on),
     }];
   });
@@ -603,6 +814,20 @@ async function runJson(root: string, command: string, args: string[]): Promise<u
 function runPyJson(root: string, args: string[]): Promise<unknown> {
   const p = py(args);
   return runJson(root, p.cmd, p.args);
+}
+
+/** Same as runPyJson, but for a JSONL (one object per line) response —
+ *  the shape canonicalize-batch/evaluate_job_fit.py --batch use so a
+ *  page of jobs costs 2 subprocess spawns total, not 2 per job. */
+async function runPyLines(root: string, args: string[]): Promise<unknown[]> {
+  const p = py(args);
+  const { stdout } = await execFileAsync(p.cmd, p.args, {
+    cwd: root,
+    encoding: "utf8",
+    maxBuffer: 10 * 1024 * 1024,
+    timeout: 60_000,
+  });
+  return stdout.split("\n").filter(Boolean).map((line) => JSON.parse(line));
 }
 
 async function fetchWorkday(root: string, query: string, pageSize: number): Promise<{ jobs: SearchJob[]; source: SourceResult }> {
@@ -1007,6 +1232,75 @@ export async function checkJobFit(root: string, job: SearchJob): Promise<FitResu
     throw new Error("fit helper returned an unexpected status");
   }
   return result;
+}
+
+/** Fit-checks many jobs in 2 subprocess spawns total (canonicalize-batch,
+ *  then evaluate_job_fit.py --batch) instead of 2 per job — for browsing a
+ *  whole page of search results at once rather than one manual "Check
+ *  fit" click at a time. Deliberately does NOT do the checkJobFit's
+ *  per-job JD-backfill fetch (jobHasJdBackfill) — that's a live network
+ *  call per posting, which is fine for one manual click but not for
+ *  auto-running across a whole page. Callers should filter out
+ *  jobHasJdBackfill sources before calling this and leave those to the
+ *  existing manual per-job "Check fit" action. Returns a Map keyed by
+ *  job.url; a job that failed to canonicalize or fit-check is simply
+ *  absent from the map, not an error for the whole batch. */
+export async function checkJobFitBatch(root: string, jobs: SearchJob[]): Promise<Record<string, FitResult>> {
+  // A plain object, not a Map — this return value crosses the Tauri IPC
+  // boundary (JSON), which can't carry a Map.
+  const results: Record<string, FitResult> = {};
+  if (jobs.length === 0) return results;
+  const canonicalJobs = (await runPyLines(root, [
+    "src/scripts/state/job_state.py",
+    "canonicalize-batch",
+    JSON.stringify(jobs),
+  ])) as CanonicalJob[];
+  if (canonicalJobs.length === 0) return results;
+  const fitLines = (await runPyLines(root, [
+    "src/scripts/jobs/evaluate_job_fit.py",
+    JSON.stringify(canonicalJobs),
+    "--batch",
+  ])) as Array<FitResult & { ok?: boolean }>;
+  canonicalJobs.forEach((canonical, i) => {
+    const parsed = fitLines[i];
+    if (!parsed || parsed.ok === false) return;
+    results[canonical.url] = parsed;
+  });
+  return results;
+}
+
+// Sources whose list-mode fetch deliberately omits jd_text — the full
+// description exists, it just lives behind a second per-requisition API
+// call (see fetch_oracle_listings.py/fetch_workday_listings.py/
+// fetch_smartrecruiters_listings.py's own --jd-url mode) that a bulk
+// board listing can't afford to make once per posting. Same source list
+// checkJobFit already re-fetches through for exactly this reason.
+const JD_BACKFILL_SOURCES: ReadonlySet<JobSource> = new Set(["workday", "smartrecruiters", "oracle"]);
+
+export function jobHasJdBackfill(source: JobSource): boolean {
+  return JD_BACKFILL_SOURCES.has(source);
+}
+
+/** Lazily fetches the real jd_text/pay_text for a posting whose list-mode
+ *  fetch didn't carry one (see JD_BACKFILL_SOURCES) — used by the Jobs
+ *  screen's detail view so opening a posting shows its actual description
+ *  instead of a permanent "not available," matching what checkJobFit
+ *  already does before evaluating fit. Sources outside that set (Simplify
+ *  chief among them) have no per-URL JD fetch method at all — this
+ *  throws for those rather than silently returning nothing, so the
+ *  caller can tell "genuinely unavailable" apart from "fetch failed." */
+export async function fetchJobDescription(root: string, job: SearchJob): Promise<{ jd_text?: string; pay_text?: string }> {
+  if (!JD_BACKFILL_SOURCES.has(job.source)) {
+    throw new Error(`no per-posting JD fetch exists for source '${job.source}'`);
+  }
+  const script =
+    job.source === "workday"
+      ? "src/scripts/jobs/fetch_workday_listings.py"
+      : job.source === "smartrecruiters"
+        ? "src/scripts/jobs/fetch_smartrecruiters_listings.py"
+        : "src/scripts/jobs/fetch_oracle_listings.py";
+  const raw = (await runPyJson(root, [script, "--jd-url", job.url])) as SearchJob;
+  return { jd_text: raw.jd_text, pay_text: raw.pay_text };
 }
 
 const RECOMMENDED_JOBS_LIMIT = 12;

@@ -28,6 +28,16 @@
   position: absolute;
   inset: -20% -10%;
   z-index: -1;
+  /* Confirmed live (operator report, 2026-08-22): this decorative glow's
+   * negative inset bleeds it upward far enough to geometrically overlap
+   * TopBar's nav-menu dropdown sitting above it on the page — and being
+   * a later DOM sibling, it paints on top there, so without this it
+   * silently intercepted clicks meant for the real button underneath,
+   * reproducing as "have to click above the dropdown for it to
+   * register." isolation:isolate on the parent scopes this element's
+   * negative z-index for PAINT ordering, not for hit-testing — pointer
+   * events on a purely decorative box need to be turned off explicitly. */
+  pointer-events: none;
   background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 45%, transparent), transparent 70%) 30%
       40% / 55% 100% no-repeat,
     radial-gradient(closest-side, color-mix(in srgb, var(--accent-2) 40%, transparent), transparent 70%) 70% 60% /

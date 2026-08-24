@@ -1,7 +1,7 @@
 {
   "name": "@keshm/aplyx",
-  "version": "0.9.950-alpha.0",
-  "description": "Terminal UI overlay for aplyx — manual job search, automatic runs, review triage, status, and history over the Python core.",
+  "version": "1.0.0-beta.0",
+  "description": "Terminal UI overlay for aplyx \u2014 manual job search, automatic runs, review triage, status, and history over the Python core.",
   "publishConfig": {
     "tag": "latest",
     "access": "public"
@@ -33,7 +33,7 @@
     "react": "^18.3.1"
   },
   "devDependencies": {
-    "@aplyx/core": "^0.1.0",
+    "@aplyx/core": "file:../core",
     "@types/node": "^22.0.0",
     "@types/react": "^18.3.3",
     "esbuild": "^0.24.0",

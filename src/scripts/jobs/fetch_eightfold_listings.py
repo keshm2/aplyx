@@ -58,7 +58,6 @@ from __future__ import annotations
 
 import argparse
 import concurrent.futures
-import html
 import ipaddress
 import json
 import os
@@ -67,6 +66,8 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+
+from _jd_text import extract_pay, html_to_text
 
 DEFAULT_TARGETS = "src/config/targets.json"
 PLACEHOLDER = "replace_me"
@@ -222,11 +223,6 @@ def to_raw_job(position: dict, host: str, domain: str, variant: str) -> dict:
     return raw
 
 
-def strip_html(markup: str) -> str:
-    text = re.sub(r"<[^>]+>", " ", markup or "")
-    return re.sub(r"\s+", " ", html.unescape(text)).strip()
-
-
 def fetch_jd(url: str, targets_path: str, timeout: int) -> dict:
     """Posting URL -> JD JSON via the per-tenant detail endpoint. Needs
     `domain` (an API parameter, not present in the posting URL itself),
@@ -245,6 +241,7 @@ def fetch_jd(url: str, targets_path: str, timeout: int) -> dict:
     status, detail = api_get(f"https://{host}/api/apply/v2/jobs/{job_id}?domain={urllib.parse.quote(domain)}", timeout)
     if status != 200:
         die(f"JD detail fetch failed for {url}: HTTP {status}")
+    jd_text = html_to_text(str(detail.get("job_description", "")))
     return {
         "source": "eightfold",
         "company": domain,
@@ -252,7 +249,8 @@ def fetch_jd(url: str, targets_path: str, timeout: int) -> dict:
         "location": "; ".join(str(loc).strip() for loc in (detail.get("locations") or [])),
         "url": url,
         "external_job_id": str(detail.get("id", job_id)).strip(),
-        "jd_text": strip_html(str(detail.get("job_description", ""))),
+        "jd_text": jd_text,
+        "pay_text": extract_pay(jd_text),
     }
 
 

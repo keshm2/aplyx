@@ -24,6 +24,11 @@ const DocumentsScreen = lazy(() => import("./DocumentsScreen").then((m) => ({ de
 // for what it actually is instead of "History".
 const StatusScreen = lazy(() => import("./StatusScreen").then((m) => ({ default: m.StatusScreen })));
 const ResumesScreen = lazy(() => import("./ResumesScreen").then((m) => ({ default: m.ResumesScreen })));
+// ATS account credentials (docs/ats-account-credentials-plan.md Package
+// 6) — reached from Settings, same as Settings itself is reached via
+// the gear icon rather than a NAV entry: hosted-only, credential-
+// specific, not a daily-use tab.
+const AccountCenterScreen = lazy(() => import("./AccountCenterScreen").then((m) => ({ default: m.AccountCenterScreen })));
 
 // Settings used to be a nav entry here too — it's the gear icon in TopBar
 // now instead (next to the bell), so the /app/settings route stays wired
@@ -58,6 +63,7 @@ const PREFETCH = [
   () => import("./ResumesScreen"),
   () => import("./SettingsScreen"),
   () => import("./ProfileScreen"),
+  () => import("./AccountCenterScreen"),
 ];
 
 export function AppShell() {
@@ -139,6 +145,7 @@ export function AppShell() {
               <Route path="resumes" element={<ResumesScreen />} />
               <Route path="profile" element={<ProfileScreen />} />
               <Route path="settings" element={<SettingsScreen />} />
+              <Route path="accounts" element={<AccountCenterScreen />} />
             </Routes>
           </Suspense>
         </div>

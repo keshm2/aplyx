@@ -108,6 +108,12 @@ Deno.serve(async (req) => {
     .maybeSingle();
 
   const receivedAt = new Date().toISOString();
+  // Verification secrets (OTP/link) get a short expiry — the plan's
+  // "expiring quickly if persistence is required" — enforced by
+  // list_own_inbound_emails (migration 0031), which redacts either
+  // value once past expires_at. A plain reply with neither never
+  // expires (there's nothing sensitive to age out).
+  const expiresAt = parsedOtp || parsedLink ? new Date(Date.now() + 30 * 60 * 1000).toISOString() : null;
   const { error: insertError } = await supabase.from("inbound_emails").insert({
     alias_id: aliasRow.id,
     apply_run_id: pendingRun?.id ?? null,
@@ -117,6 +123,7 @@ Deno.serve(async (req) => {
     parsed_otp: parsedOtp,
     parsed_link: parsedLink,
     received_at: receivedAt,
+    expires_at: expiresAt,
   });
   if (insertError) {
     return new Response(JSON.stringify({ ok: false, error: insertError.message }), { status: 500, headers: { "Content-Type": "application/json" } });
@@ -135,7 +142,11 @@ Deno.serve(async (req) => {
     console.error("inbound-email forward failed", error);
   }
 
-  return new Response(JSON.stringify({ ok: true, alias, apply_run_id: pendingRun?.id ?? null, parsed_otp: parsedOtp, parsed_link: parsedLink }), {
+  // Never echo the OTP/link in the response body — docs/ats-account-
+  // credentials-plan.md: "Never print OTPs in logs or events," and a
+  // webhook response is exactly the kind of thing that ends up in
+  // Resend's delivery log and/or this function's own invocation logs.
+  return new Response(JSON.stringify({ ok: true, alias, apply_run_id: pendingRun?.id ?? null }), {
     status: 200,
     headers: { "Content-Type": "application/json" },
   });

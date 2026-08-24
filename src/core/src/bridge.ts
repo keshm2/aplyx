@@ -14,7 +14,7 @@ import { LocalAdapter } from "./adapters/local.js";
 import { readSupabaseConfig } from "./supabaseConfig.js";
 import { detectAllHarnessesOnPath, readHarnessConfig, writeHarnessConfig, isKnownHarness } from "./harness.js";
 import { loadCompanyDirectory } from "./data/companyDirectory.js";
-import { searchJobs, checkJobFit, getRecommendedJobs, getSchedulerStatus, setSchedulerInstalled, saveJobForReview, type JobSource, type SearchJob } from "./jobs.js";
+import { searchJobs, checkJobFit, checkJobFitBatch, fetchJobDescription, getRecommendedJobs, getSchedulerStatus, setSchedulerInstalled, saveJobForReview, type JobSource, type SearchJob } from "./jobs.js";
 import { markQueueEntryApplied, dismissQueueEntry } from "./reviewActions.js";
 import { listResumeFiles, resumesDir } from "./resumes.js";
 import { readMasterResume, writeMasterResume, initialMasterResume, importFromMarkdown, exportResumePdf, previewTailoredResume, type MasterResume } from "./masterResume.js";
@@ -219,7 +219,8 @@ async function dispatch(command: string, args: Args): Promise<unknown> {
       const stem = String(args.stem ?? "");
       if (!stem) throw new Error("convertResume requires { stem }");
       const description = String(args.description ?? "");
-      return convertResumePdf(root, stem, description);
+      const force = Boolean(args.force ?? false);
+      return convertResumePdf(root, stem, description, force);
     }
 
     case "setResumeDescription": {
@@ -264,6 +265,20 @@ async function dispatch(command: string, args: Args): Promise<unknown> {
       const job = args.job as SearchJob;
       if (!job) throw new Error("checkJobFit requires { job }");
       return checkJobFit(root, job);
+    }
+
+    case "checkJobFitBatch": {
+      const root = resolveRoot(args);
+      const jobs = args.jobs as SearchJob[];
+      if (!jobs) throw new Error("checkJobFitBatch requires { jobs }");
+      return checkJobFitBatch(root, jobs);
+    }
+
+    case "fetchJobDescription": {
+      const root = resolveRoot(args);
+      const job = args.job as SearchJob;
+      if (!job) throw new Error("fetchJobDescription requires { job }");
+      return fetchJobDescription(root, job);
     }
 
     case "getRecommendedJobs": {

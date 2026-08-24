@@ -45,7 +45,6 @@ from __future__ import annotations
 
 import argparse
 import concurrent.futures
-import html
 import json
 import os
 import re
@@ -53,6 +52,8 @@ import sys
 import urllib.error
 import urllib.request
 from datetime import datetime, timedelta, timezone
+
+from _jd_text import extract_pay, html_to_text
 
 DEFAULT_TARGETS = "src/config/targets.json"
 DEFAULT_DISCOVERED = "src/config/discovered_companies.json"
@@ -139,11 +140,6 @@ def cxs_post(host: str, tenant: str, site: str, payload: dict, timeout: int) -> 
         return json.load(resp)
 
 
-def strip_html(markup: str) -> str:
-    text = re.sub(r"<[^>]+>", " ", markup)
-    return re.sub(r"\s+", " ", html.unescape(text)).strip()
-
-
 def parse_posted_on(text: str):
     """Workday's public job-search API only exposes a bucketed relative-age
     string ("Posted Today", "Posted 3 Days Ago", "Posted 30+ Days Ago"),
@@ -201,6 +197,7 @@ def fetch_jd(url: str, timeout: int, discovered_path: str) -> dict:
     )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         info = json.load(resp).get("jobPostingInfo", {})
+    jd_text = html_to_text(str(info.get("jobDescription", "")))
     return {
         "source": "workday",
         "company": company_name or tenant,
@@ -208,7 +205,8 @@ def fetch_jd(url: str, timeout: int, discovered_path: str) -> dict:
         "location": str(info.get("location", "")).strip(),
         "url": str(info.get("canonicalPositionUrl") or url).strip(),
         "external_job_id": str(info.get("jobReqId", "")).strip(),
-        "jd_text": strip_html(str(info.get("jobDescription", ""))),
+        "jd_text": jd_text,
+        "pay_text": extract_pay(jd_text),
     }
 
 

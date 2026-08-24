@@ -5,7 +5,7 @@ import type { FillRecord } from "../stateDerive.js";
 import { HOSTED_PROFILE_FIELD_IDS, HOSTED_PREFERENCE_FIELD_IDS } from "../onboarding/hostedFields.js";
 import { registryByJobId, hasAppliedOrFailed, isDismissed, todayIso } from "../stateDerive.js";
 import type { AtsFamily } from "../atsRegistry.js";
-import { transition } from "../applyStateMachine.js";
+import { isTerminal, transition } from "../applyStateMachine.js";
 
 type Row = Record<string, unknown>;
 
@@ -72,6 +72,24 @@ export interface VerificationSessionRow {
   updated_at?: string;
 }
 
+/** get_application_account_metadata's shape (migration 0028) — masked
+ *  display fields only. `login_hint` is a masked value ("j***@company.com"),
+ *  never the real login identifier; there is no username/password field
+ *  here at all, by construction (see docs/ats-account-credentials-plan.md
+ *  Package 6: "credentials are masked by default"). */
+export interface ApplicationAccountRow {
+  id: string;
+  company_name: string;
+  ats_family: AtsFamily;
+  tenant_key: string;
+  login_hint?: string;
+  status: string;
+  verification_status: string;
+  status_tracking_enabled: boolean;
+  last_login_at?: string;
+  last_status_check_at?: string;
+}
+
 export interface HostedReadiness {
   candidateEmail: string;
   hasCandidateEmail: boolean;
@@ -86,6 +104,10 @@ export interface CreateApplyRunInput {
   jobId: string;
   family: AtsFamily;
   aliasId?: string;
+  /** The application_accounts row (migration 0027/0028) this run is
+   *  tied to, for account-required families. Never a credential — the
+   *  caller resolves this via createOrReuseApplicationAccount first. */
+  accountId?: string;
   tailoredResumeAttached?: boolean;
   tailoredResumeArtifactPath?: string;
   fillPlan?: unknown;
@@ -103,6 +125,19 @@ export interface SaveReadyToSubmitOptions {
   screenshotUrl?: string;
   tailoredResumeArtifactPath?: string;
   aliasId?: string;
+  accountId?: string;
+}
+
+export interface CreateOrReuseApplicationAccountInput {
+  family: AtsFamily;
+  /** Normalized tenant identifier — use atsRegistry.ts's tenantKeyFor so
+   *  every caller keys on the exact same value (required for the
+   *  RPC's own dedup to actually dedupe). */
+  tenantKey: string;
+  companyName: string;
+  username: string;
+  password: string;
+  managedAliasId?: string;
 }
 
 function str(v: unknown): string | undefined {
@@ -205,6 +240,7 @@ function rowToApplyRunSummary(row: Row): ApplyRunSummary {
     status: String(row.status ?? "initialized") as ApplyRunStatus,
     family: str(row.family),
     aliasId: str(row.alias_id),
+    accountId: str(row.account_id),
     tailoredResumeAttached: bool(row.tailored_resume_attached),
     approvalState: (str(row.approval_state) as ApplyRunSummary["approvalState"]) ?? undefined,
     updatedAt: str(row.updated_at) ?? str(row.created_at),
@@ -911,6 +947,28 @@ export class SupabaseAdapter implements Adapter {
     return (data as Row | null) ?? undefined;
   }
 
+  /** Ensures a (non-terminal) apply_runs row exists for this job, so
+   *  the inbound-email receiver's `pendingRun` lookup (it queries
+   *  apply_runs by alias_id + non-terminal status) has something to
+   *  tag a verification email's apply_run_id with. Without this, a
+   *  local-mode Workday continuation — which never otherwise touches
+   *  apply_runs at all — leaves every inbound_emails row for its alias
+   *  with apply_run_id null forever, so nothing can correlate a
+   *  verification email to "this specific job" versus any other job
+   *  sharing the same per-family managed alias (docs/ats-account-
+   *  credentials-plan.md: "Do not match verification messages by
+   *  company name alone... eligible only when its recipient, alias,
+   *  tenant URL, or account correlation data matches the pending
+   *  account"). Reuses an existing non-terminal run for this job
+   *  rather than minting a new row on every call. */
+  async ensureApplyRunForJob(jobId: string, family: AtsFamily, aliasId?: string): Promise<ApplyRunSummary> {
+    const existing = await this.fetchLatestApplyRun(jobId);
+    if (existing && !isTerminal(String(existing.status ?? "initialized") as ApplyRunStatus)) {
+      return rowToApplyRunSummary(existing);
+    }
+    return this.createApplyRun({ jobId, family, aliasId });
+  }
+
   async listManagedAliases(family?: AtsFamily): Promise<ManagedAliasRow[]> {
     let query = this.client
       .from("managed_aliases")
@@ -959,12 +1017,18 @@ export class SupabaseAdapter implements Adapter {
     throw new Error(`could not claim a managed alias for ${family}`);
   }
 
+  /** Reads inbound_emails through the ownership-checked
+   *  list_own_inbound_emails RPC (migration 0031), not a direct table
+   *  query — inbound_emails has RLS enabled with zero policies by
+   *  design (it carries real employer email content), so a direct
+   *  `.from("inbound_emails").select()` as the signed-in user's own
+   *  client silently returns nothing regardless of ownership. That was
+   *  a real bug: this method used to query the table directly and so
+   *  always returned an empty array for a real hosted user. The RPC
+   *  also redacts an expired parsed_otp/parsed_link (the plan's
+   *  "expiring quickly if persistence is required"). */
   async listInboundEmails(aliasId: string): Promise<InboundEmailRow[]> {
-    const { data, error } = await this.client
-      .from("inbound_emails")
-      .select("*")
-      .eq("alias_id", aliasId)
-      .order("received_at", { ascending: false });
+    const { data, error } = await this.client.rpc("list_own_inbound_emails", { p_alias_id: aliasId });
     if (error) throw error;
     return ((data ?? []) as Row[]).map((row) => ({
       id: String(row.id ?? ""),
@@ -982,18 +1046,20 @@ export class SupabaseAdapter implements Adapter {
     }));
   }
 
-  /** Marks an inbound_emails row as consumed so a one-time verification
-   *  link/OTP is never re-handed to a later Workday continuation run.
-   *  Best-effort: a failure here (RLS, missing row) is logged by the
-   *  caller as a warning, not an exception — the verification mail was
-   *  already used in the browser; not marking it consumed only means the
-   *  next run might see it again, which the script's own checkpoint state
-   *  guards against independently. */
+  /** Marks an inbound_emails row as consumed AND redacts the
+   *  parsed_otp/parsed_link it carried (consume_inbound_email RPC,
+   *  migration 0031) — "store no OTP after successful use," not just
+   *  "flag it as used while the plaintext lingers." Goes through the
+   *  ownership-checked RPC for the same reason listInboundEmails does:
+   *  inbound_emails has zero RLS policies, so a direct table update as
+   *  the signed-in user's own client silently matches zero rows.
+   *  Best-effort: a failure here is logged by the caller as a warning,
+   *  not an exception — the verification mail was already used in the
+   *  browser; not marking it consumed only means the next run might
+   *  see it again, which the script's own checkpoint state guards
+   *  against independently. */
   async consumeInboundEmail(id: string): Promise<void> {
-    const { error } = await this.client
-      .from("inbound_emails")
-      .update({ consumed_at: new Date().toISOString() })
-      .eq("id", id);
+    const { error } = await this.client.rpc("consume_inbound_email", { p_id: id });
     if (error) throw error;
   }
 
@@ -1007,6 +1073,7 @@ export class SupabaseAdapter implements Adapter {
         family: input.family,
         status,
         alias_id: input.aliasId,
+        account_id: input.accountId,
         tailored_resume_attached: input.tailoredResumeAttached ?? false,
         tailored_resume_artifact_path: input.tailoredResumeArtifactPath,
         fill_plan: input.fillPlan ?? null,
@@ -1019,6 +1086,115 @@ export class SupabaseAdapter implements Adapter {
       .maybeSingle();
     if (error) throw error;
     return rowToApplyRunSummary((data ?? {}) as Row);
+  }
+
+  /** Create-or-reuse the ATS account an account-required family's apply
+   *  run needs (docs/ats-account-credentials-plan.md Package 3). Thin
+   *  wrapper over the create_application_account RPC (migration 0028) —
+   *  all the actual idempotency (same user+family+tenant+login reuses
+   *  the existing account rather than minting a second Vault secret)
+   *  lives server-side in that RPC, not here. Returns only the account
+   *  id; the username/password just submitted are never returned or
+   *  logged — they were only ever in memory to pass to Vault. */
+  async createOrReuseApplicationAccount(input: CreateOrReuseApplicationAccountInput): Promise<{ accountId: string }> {
+    const { data, error } = await this.client.rpc("create_application_account", {
+      p_ats_family: input.family,
+      p_tenant_key: input.tenantKey,
+      p_company_name: input.companyName,
+      p_username: input.username,
+      p_password: input.password,
+      p_managed_alias_id: input.managedAliasId ?? null,
+    });
+    if (error) throw error;
+    return { accountId: String(data) };
+  }
+
+  /** Attach (or clear) an apply run's ATS account outside the status
+   *  state machine. Account creation and final submission are separate
+   *  state transitions (Package 3 acceptance criterion) — linking an
+   *  account to a run is metadata, not a lifecycle move, so this never
+   *  calls applyStateMachine.ts's transition() the way
+   *  updateApplyRunStatus does. Safe to call at any point in a run's
+   *  life, including before the account itself reaches 'active'. */
+  async linkApplyRunAccount(runId: string, accountId: string | null): Promise<ApplyRunSummary> {
+    const { data, error } = await this.client
+      .from("apply_runs")
+      .update({ account_id: accountId })
+      .eq("id", runId)
+      .eq("user_id", this.userId)
+      .select("*")
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) throw new Error(`apply run ${runId} not found`);
+    return rowToApplyRunSummary(data as Row);
+  }
+
+  // --- Package 6: user account center (docs/ats-account-credentials-plan.md) ---
+
+  /** Masked metadata only — get_application_account_metadata (migration
+   *  0028) never returns credential_secret_id, and this row shape has
+   *  no username/password field at all, so there is no way for this
+   *  method to leak a credential even by accident. */
+  async listApplicationAccounts(): Promise<ApplicationAccountRow[]> {
+    const { data, error } = await this.client.rpc("get_application_account_metadata");
+    if (error) throw error;
+    return ((data ?? []) as Row[]).map((row) => ({
+      id: String(row.id ?? ""),
+      company_name: String(row.company_name ?? ""),
+      ats_family: String(row.ats_family ?? "") as AtsFamily,
+      tenant_key: String(row.tenant_key ?? ""),
+      login_hint: str(row.login_hint),
+      status: String(row.status ?? ""),
+      verification_status: String(row.verification_status ?? ""),
+      status_tracking_enabled: bool(row.status_tracking_enabled) ?? false,
+      last_login_at: str(row.last_login_at),
+      last_status_check_at: str(row.last_status_check_at),
+    }));
+  }
+
+  /** Reveals the caller's own username/password for one account
+   *  (reveal_own_account_credential RPC — authenticated-only,
+   *  ownership-checked server-side, logs a login_succeeded/reveal
+   *  event on every call). The caller is responsible for gating this
+   *  behind recent re-authentication before calling it — the plan's
+   *  own comment on the RPC notes that timing is enforced at the
+   *  client/session layer, not inside the SQL function. */
+  async revealApplicationAccountCredential(accountId: string): Promise<{ username: string; password: string }> {
+    const { data, error } = await this.client.rpc("reveal_own_account_credential", { p_account_id: accountId });
+    if (error) throw error;
+    const row = (Array.isArray(data) ? data[0] : data) as Row | undefined;
+    return { username: String(row?.username ?? ""), password: String(row?.password ?? "") };
+  }
+
+  /** Overwrites the stored credential with a new username/password
+   *  (rotate_application_account_secret RPC) — e.g. after the user
+   *  resets their password directly on the ATS site. */
+  async rotateApplicationAccountSecret(accountId: string, newUsername: string, newPassword: string): Promise<void> {
+    const { error } = await this.client.rpc("rotate_application_account_secret", {
+      p_account_id: accountId,
+      p_new_username: newUsername,
+      p_new_password: newPassword,
+    });
+    if (error) throw error;
+  }
+
+  /** status_tracking_enabled is a plain column with its own RLS
+   *  update-own policy (migration 0027) — no RPC needed for this one
+   *  field, unlike the credential-touching operations above. */
+  async setApplicationAccountStatusTracking(accountId: string, enabled: boolean): Promise<void> {
+    const { error } = await this.client
+      .from("application_accounts")
+      .update({ status_tracking_enabled: enabled })
+      .eq("id", accountId)
+      .eq("user_id", this.userId);
+    if (error) throw error;
+  }
+
+  /** Tombstones the Vault secret and soft-deletes the account
+   *  (delete_application_account RPC, authenticated-only). */
+  async deleteApplicationAccount(accountId: string): Promise<void> {
+    const { error } = await this.client.rpc("delete_application_account", { p_account_id: accountId });
+    if (error) throw error;
   }
 
   async updateApplyRunStatus(
@@ -1076,6 +1252,7 @@ export class SupabaseAdapter implements Adapter {
       jobId: entry.job_id,
       family: options.family,
       aliasId: options.aliasId,
+      accountId: options.accountId,
       tailoredResumeAttached: Boolean(options.tailoredResumeArtifactPath),
       tailoredResumeArtifactPath: options.tailoredResumeArtifactPath,
       fillPlan: options.fillPlan,

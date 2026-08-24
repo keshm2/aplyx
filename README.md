@@ -4,6 +4,20 @@
 
 # aplyx
 
+[![npm version](https://img.shields.io/npm/v/%40keshm%2Faplyx?label=npm&color=cb3837)](https://www.npmjs.com/package/@keshm/aplyx)
+[![License: MIT](https://img.shields.io/github/license/keshm2/aplyx?color=blue)](LICENSE)
+[![Node.js >= 22](https://img.shields.io/badge/node-%E2%89%A522-339933?logo=node.js&logoColor=white)](docs/SETUP.md)
+[![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey)](docs/SETUP.md)
+[![Last commit](https://img.shields.io/github/last-commit/keshm2/aplyx)](https://github.com/keshm2/aplyx/commits/main)
+
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](src/core)
+[![Rust](https://img.shields.io/badge/Rust-000000?logo=rust&logoColor=white)](src/tauri/src-tauri)
+[![Tauri](https://img.shields.io/badge/Tauri-24C8DB?logo=tauri&logoColor=white)](src/tauri)
+[![React](https://img.shields.io/badge/React-61DAFB?logo=react&logoColor=black)](src/tui)
+[![Python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white)](src/scripts)
+[![Playwright](https://img.shields.io/badge/Playwright-2EAD33?logo=playwright&logoColor=white)](src/scripts/runtime)
+[![Supabase](https://img.shields.io/badge/Supabase-3FCF8E?logo=supabase&logoColor=white)](src/supabase)
+
 A local job-application agent for internship and new-grad roles.
 It scrapes public boards, skips anything you've already seen,
 tailors a resume and cover letter, applies on your behalf, pings
@@ -13,7 +27,7 @@ a Google Sheet tracker.
 It's built on top of a coding agent — aplyx is the workflow, the
 agent is the executor.
 
-> **Build 0.9.950a** — see [Release notes](docs/RELEASE.md) and
+> **Build 1.0.0b** — see [Release notes](docs/RELEASE.md) and
 > [Changelog](docs/CHANGELOG.md).
 
 ## You need a coding agent

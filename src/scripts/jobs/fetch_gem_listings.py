@@ -51,13 +51,14 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import html as html_lib
 import json
 import os
 import re
 import sys
 import urllib.error
 import urllib.request
+
+from _jd_text import extract_pay, join_sections
 
 DEFAULT_TARGETS = "src/config/targets.json"
 PLACEHOLDER = "replace_me"
@@ -134,13 +135,6 @@ def graphql_batch(operations: list, timeout: int) -> list:
         return json.load(resp)
 
 
-def strip_html(markup) -> str:
-    if not isinstance(markup, str):
-        return ""
-    text = re.sub(r"<[^>]+>", " ", markup)
-    return re.sub(r"\s+", " ", html_lib.unescape(text)).strip()
-
-
 def to_raw_job(posting: dict, company: str) -> dict:
     ext_id = str(posting.get("extId", "")).strip()
     locations = posting.get("locations") or []
@@ -179,7 +173,14 @@ def fetch_jd(url: str, timeout: int) -> dict:
     if not posting:
         die(f"no posting data returned for {url} (removed, or board/id no longer valid)")
     section = posting.get("jobPostSectionHtml") or {}
-    jd_parts = [strip_html(section.get("introHtml")), strip_html(posting.get("descriptionHtml")), strip_html(section.get("outroHtml")), strip_html(posting.get("compensationHtml"))]
+    jd_text = join_sections(
+        [
+            (None, section.get("introHtml") or ""),
+            (None, posting.get("descriptionHtml") or ""),
+            (None, section.get("outroHtml") or ""),
+            ("Compensation", posting.get("compensationHtml") or ""),
+        ]
+    )
     locations = posting.get("locations") or []
     location_names = [", ".join(p for p in (str(loc.get("name") or loc.get("city") or "").strip(), str(loc.get("isoCountry", "")).strip()) if p) for loc in locations]
     return {
@@ -189,7 +190,8 @@ def fetch_jd(url: str, timeout: int) -> dict:
         "location": "; ".join(n for n in location_names if n),
         "url": url,
         "external_job_id": str(posting.get("extId", ext_id)).strip(),
-        "jd_text": " ".join(p for p in jd_parts if p).strip(),
+        "jd_text": jd_text,
+        "pay_text": extract_pay(jd_text),
     }
 
 

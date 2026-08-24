@@ -27,6 +27,11 @@
 /src/supabase/.branches/
 /src/job_cache_supabase/supabase/.temp/
 /src/job_cache_supabase/supabase/.branches/
+# Same CLI state, created at the repo root instead of src/supabase/ when
+# a `supabase` command runs from the top level rather than that
+# subdirectory — same reasoning, not portable, never meant to be tracked.
+/supabase/.temp/
+/supabase/.branches/
 
 # Anthropic API key for the direct-API judgment call (interest-letter) —
 # see src/scripts/runtime/generate_interest_letter.py's read_anthropic_key.
@@ -50,6 +55,19 @@
 # check_postings_open.py's own throttle stamp (last_run_at) — not PII, but
 # still a new state file, so it follows the same explicit-list rule above.
 /data/postings_check_state.json
+# approve_submit_workday.py's per-job checkpoints — real PII (alias email,
+# fill history) and, before a 2026-08-23 fix, could carry a plaintext
+# account password (now split into workday_apply_runs/.secrets/, which
+# this same directory-level ignore also covers). A live example of exactly
+# what the "add it here first" rule above exists to prevent: this
+# directory was never added when the script that writes to it shipped.
+/data/workday_apply_runs/
+# Confirm-before-submit checkpoint screenshots — full-page captures of a
+# filled application form, i.e. name/address/phone visible in the image.
+/data/screenshots/
+# Saved field-fill values for the confirm-before-submit replay scripts —
+# the same form-field PII as above, just as JSON instead of a screenshot.
+/data/fill_records/
 
 # Personal PII — base resumes + cover letter
 /data/resumes/

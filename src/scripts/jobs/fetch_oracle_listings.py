@@ -54,7 +54,6 @@ from __future__ import annotations
 
 import argparse
 import concurrent.futures
-import html
 import json
 import os
 import re
@@ -62,6 +61,8 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+
+from _jd_text import extract_pay, join_sections
 
 DEFAULT_TARGETS = "src/config/targets.json"
 DEFAULT_DISCOVERED = "src/config/discovered_companies.json"
@@ -129,11 +130,6 @@ def api_get(url: str, timeout: int) -> dict:
         return json.load(resp)
 
 
-def strip_html(markup: str) -> str:
-    text = re.sub(r"<[^>]+>", " ", markup or "")
-    return re.sub(r"\s+", " ", html.unescape(text)).strip()
-
-
 def job_url(host: str, site: str, job_id: str) -> str:
     return f"https://{host}/hcmUI/CandidateExperience/en/sites/{site}/job/{job_id}"
 
@@ -194,11 +190,13 @@ def fetch_jd(url: str, timeout: int, discovered_path: str) -> dict:
     )
     items = info.get("items") or []
     detail = items[0] if items else {}
-    jd_parts = [
-        strip_html(str(detail.get("ExternalDescriptionStr", ""))),
-        strip_html(str(detail.get("ExternalResponsibilitiesStr", ""))),
-        strip_html(str(detail.get("ExternalQualificationsStr", ""))),
-    ]
+    jd_text = join_sections(
+        [
+            (None, str(detail.get("ExternalDescriptionStr", ""))),
+            ("Responsibilities", str(detail.get("ExternalResponsibilitiesStr", ""))),
+            ("Qualifications", str(detail.get("ExternalQualificationsStr", ""))),
+        ]
+    )
     return {
         "source": "oracle",
         "company": company_name or site,
@@ -206,7 +204,8 @@ def fetch_jd(url: str, timeout: int, discovered_path: str) -> dict:
         "location": str(detail.get("PrimaryLocation", "")).strip(),
         "url": url,
         "external_job_id": str(detail.get("Id", job_id)).strip(),
-        "jd_text": " ".join(p for p in jd_parts if p).strip(),
+        "jd_text": jd_text,
+        "pay_text": extract_pay(jd_text),
     }
 
 

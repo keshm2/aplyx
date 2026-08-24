@@ -82,6 +82,7 @@ interface JobCacheRow {
   external_job_id: string | null;
   location: string | null;
   jd_text: string | null;
+  pay_text: string | null;
   posted_at: string | null;
 }
 
@@ -291,6 +292,7 @@ async function postgresJobCacheSearch(
       external_job_id: row.external_job_id ?? undefined,
       location: row.location ?? undefined,
       jd_text: row.jd_text ?? undefined,
+      pay_text: row.pay_text ?? undefined,
       posted_at: row.posted_at ?? undefined,
     }));
   } catch {

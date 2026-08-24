@@ -18,6 +18,7 @@ import sys
 import time
 from urllib.parse import urlparse
 
+from browser_resilience import detect_challenge
 from replay_fill import (
     DEFAULT_FILL_RECORDS_DIR,
     DEFAULT_REVIEW_QUEUE,
@@ -47,22 +48,9 @@ def _looks_like_lever(url: str) -> bool:
 
 
 def _has_captcha(page) -> bool:
-    selectors = [
-        "textarea[name='g-recaptcha-response']",
-        "input[name='g-recaptcha-response']",
-        "iframe[src*='recaptcha']",
-        ".g-recaptcha",
-        "[data-sitekey]",
-        "iframe[src*='hcaptcha']",
-        ".h-captcha",
-    ]
-    for selector in selectors:
-        try:
-            if page.locator(selector).count() > 0:
-                return True
-        except Exception:
-            continue
-    return False
+    # Delegates to the shared, broader challenge detector (Package 4 —
+    # docs/ats-account-credentials-plan.md).
+    return detect_challenge(page) is not None
 
 
 def _find_submit(page):

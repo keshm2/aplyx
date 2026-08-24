@@ -74,6 +74,18 @@ export interface TailoredResumeArtifact {
   atsScore?: number;
 }
 
+/** Which existing/created ATS account (application_accounts, migration
+ *  0027/0028) this package's account-required flow is tied to. Carries
+ *  only the account id and its current lifecycle status — never a
+ *  username or password; those live only in Vault and are fetched
+ *  just-in-time by the runtime that actually needs to type them into a
+ *  form (reveal_own_account_credential / resolve_application_account_
+ *  credential_token), never threaded through this package. */
+export interface ApplicationAccountRef {
+  accountId: string;
+  status: string;
+}
+
 export interface ApplicantPackage {
   /** The family this package was assembled for — drives whether the
    *  email is a managed alias or the real email. */
@@ -87,6 +99,14 @@ export interface ApplicantPackage {
   tailored?: TailoredResumeArtifact;
   /** The email address to use for this application. */
   email: ApplicantEmail;
+  /** The ATS account this package's account-required flow is tied to,
+   *  once the caller has created-or-reused one (SupabaseAdapter's
+   *  createOrReuseApplicationAccount). Undefined for guest families,
+   *  and may still be undefined for an account-required family whose
+   *  account hasn't been created yet at assembly time — creating the
+   *  account is a separate step from assembling the package, and
+   *  assembling the package never creates one implicitly. */
+  applicationAccount?: ApplicationAccountRef;
   /** A snapshot of the safe_fields values the form-fill will draw
    *  from, keyed by the safe_fields key (first_name, phone, …).
    *  Snapshotted at assembly time so a mid-run config edit doesn't
@@ -113,6 +133,10 @@ export interface ApplicantPackageInput {
    *  routes to needs_review ("no managed alias available for
    *  account-required family <family>"). */
   managedAlias?: { address: string; aliasId: string };
+  /** The account-required flow's ATS account, when the caller has
+   *  already created or reused one for this (user, family, tenant).
+   *  Optional — see ApplicantPackage.applicationAccount. */
+  applicationAccount?: ApplicationAccountRef;
   safeFields: Record<string, string>;
   coverLetterUsed?: boolean;
 }
@@ -136,6 +160,7 @@ export function assembleApplicantPackage(input: ApplicantPackageInput): Applican
     masterResume: input.masterResume,
     tailored: input.tailored,
     email,
+    applicationAccount: needsAccount ? input.applicationAccount : undefined,
     safeFields: input.safeFields,
     coverLetterUsed: input.coverLetterUsed ?? Boolean(input.tailored?.coverLetter),
     assembledAt: new Date().toISOString(),

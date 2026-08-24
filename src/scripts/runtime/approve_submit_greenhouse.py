@@ -22,6 +22,7 @@ import sys
 import time
 from urllib.parse import urlparse
 
+from browser_resilience import detect_challenge
 from replay_fill import (
     PROJECT_ROOT,
     DEFAULT_REVIEW_QUEUE,
@@ -73,20 +74,10 @@ def _dismiss_cookie_banner(page) -> None:
 
 
 def _has_captcha(page) -> bool:
-    selectors = [
-        "textarea[name='g-recaptcha-response']",
-        "input[name='g-recaptcha-response']",
-        "iframe[src*='recaptcha']",
-        ".g-recaptcha",
-        "[data-sitekey]",
-    ]
-    for selector in selectors:
-        try:
-            if page.locator(selector).count() > 0:
-                return True
-        except Exception:
-            continue
-    return False
+    # Delegates to the shared, broader challenge detector (Package 4 —
+    # docs/ats-account-credentials-plan.md) so a hCaptcha/Cloudflare/
+    # generic-overlay challenge is caught here too, not just recaptcha.
+    return detect_challenge(page) is not None
 
 
 def _find_submit(page):

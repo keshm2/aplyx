@@ -568,7 +568,29 @@ if (Get-Command npm -ErrorAction SilentlyContinue) {
       if ($LASTEXITCODE -ne 0) { throw "core build failed" }
     }
   } catch {
-    Warn "core build failed - the TUI build below will likely fail too. See docs/SETUP.md."
+    # A workspace-scoped `npm install --workspace=X` can, on a genuinely
+    # empty npm cache, extract an incomplete copy of a dependency that's
+    # ALSO declared by another workspace (@supabase/supabase-js, shared
+    # with src/tauri) — missing its dist/ output entirely even though the
+    # real published tarball has it (confirmed live on macOS/bash:
+    # reproducible 100% of the time with a brand-new npm cache — exactly
+    # what a fresh install has — and gone as soon as any full, unscoped
+    # `npm install` has run once against a clean node_modules; npm's own
+    # behavior, not shell-specific, so the same fix applies here). Retry
+    # once with node_modules removed and a full install before giving up.
+    Warn "scoped core install looked incomplete - retrying with a full npm install..."
+    try {
+      Spin -Message "building the shared core (retry)" -Block {
+        Remove-Item -Recurse -Force -Path "node_modules" -ErrorAction SilentlyContinue
+        npm install --silent --no-progress
+        if ($LASTEXITCODE -ne 0) { throw "npm install failed" }
+        npm run build:core --silent
+        if ($LASTEXITCODE -ne 0) { throw "core build failed" }
+      }
+      Say "shared core ready after retry."
+    } catch {
+      Warn "core build failed - the TUI build below will likely fail too. See docs/SETUP.md."
+    }
   }
   Build-NodeSurface "src\tui" "the TUI"
   Build-NodeSurface "src\extension" "the browser extension"

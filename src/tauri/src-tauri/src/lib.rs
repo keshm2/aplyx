@@ -557,11 +557,11 @@ fn list_resumes(app: tauri::AppHandle, root: String) -> Result<Value, String> {
 }
 
 #[tauri::command]
-fn convert_resume(app: tauri::AppHandle, root: String, stem: String, description: Option<String>) -> Result<Value, String> {
+fn convert_resume(app: tauri::AppHandle, root: String, stem: String, description: Option<String>, force: Option<bool>) -> Result<Value, String> {
     run_bridge(
         &app,
         "convertResume",
-        Some(serde_json::json!({ "root": root, "stem": stem, "description": description.unwrap_or_default() })),
+        Some(serde_json::json!({ "root": root, "stem": stem, "description": description.unwrap_or_default(), "force": force.unwrap_or(false) })),
     )
 }
 
@@ -695,6 +695,16 @@ async fn search_jobs(app: tauri::AppHandle, root: String, query: String, sources
 #[tauri::command]
 fn check_job_fit(app: tauri::AppHandle, root: String, job: Value) -> Result<Value, String> {
     run_bridge(&app, "checkJobFit", Some(serde_json::json!({ "root": root, "job": job })))
+}
+
+#[tauri::command]
+fn check_job_fit_batch(app: tauri::AppHandle, root: String, jobs: Value) -> Result<Value, String> {
+    run_bridge(&app, "checkJobFitBatch", Some(serde_json::json!({ "root": root, "jobs": jobs })))
+}
+
+#[tauri::command]
+fn fetch_job_description(app: tauri::AppHandle, root: String, job: Value) -> Result<Value, String> {
+    run_bridge(&app, "fetchJobDescription", Some(serde_json::json!({ "root": root, "job": job })))
 }
 
 #[tauri::command]
@@ -894,6 +904,8 @@ pub fn run() {
             open_extension_folder,
             search_jobs,
             check_job_fit,
+            check_job_fit_batch,
+            fetch_job_description,
             get_recommended_jobs,
             get_scheduler_status,
             set_scheduler_installed,

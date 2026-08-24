@@ -71,7 +71,7 @@ GOLDEN_JOBS = [
             "job_key": "jk:5eb252b6e1228a6819fcbdbb09fd44a26f78f591a0f029cf26f982034cbb2003",
             "job_id": "ashbyhq-1111-2222", "ats_system": "ashby",
             "fit_status": "needs_review", "fit_score": 78,
-            "decision_version": "phase4-v4",
+            "decision_version": "phase4-v5",
         },
     },
     {
@@ -87,7 +87,7 @@ GOLDEN_JOBS = [
             "job_id": "jk:a097c58fff16ef1bb0ada59d7663cb3c341e724d9e605832f8687e0eeac9c5c3",
             "ats_system": "lever",
             "fit_status": "skipped_unfit", "fit_score": 10,
-            "decision_version": "phase4-v4",
+            "decision_version": "phase4-v5",
         },
     },
     {
@@ -104,7 +104,7 @@ GOLDEN_JOBS = [
             "job_key": "jk:4a56bdab19e66a737a0f7521c76092ac0c7854ce8cfb8b285e5c7cbacd8e4411",
             "job_id": "workday-JR9999", "ats_system": "workday",
             "fit_status": "needs_review", "fit_score": 82,
-            "decision_version": "phase4-v4",
+            "decision_version": "phase4-v5",
         },
     },
 ]

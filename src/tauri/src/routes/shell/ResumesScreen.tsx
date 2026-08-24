@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
 import type {
   MasterResume,
   MasterResumeContact,
@@ -7,6 +8,7 @@ import type {
   MasterResumeProject,
   MasterResumeSkillGroup,
 } from "@aplyx/core/masterResume.js";
+import { reflowExtractedResumeText } from "@aplyx/core/masterResume.js";
 import type { ResumeFile } from "@aplyx/core/resumes.js";
 import {
   findRoot,
@@ -14,6 +16,7 @@ import {
   setMasterResume,
   readResumeMarkdown,
   importMasterResumeFromMarkdown,
+  importResumeFile,
   exportResumePdf,
   listResumeDetails,
   convertResume,
@@ -21,6 +24,7 @@ import {
 } from "../../lib/bridge";
 import { BulletListEditor } from "../../components/BulletListEditor";
 import { PreviewResumePanel } from "./PreviewResumePanel";
+import { Modal } from "../../components/Modal";
 import "../../components/formFields.css";
 import "../../components/dataList.css";
 import "./ResumesScreen.css";
@@ -45,6 +49,7 @@ export function ResumesScreen() {
   const [importBusy, setImportBusy] = useState<string | undefined>(undefined);
   const [importPreview, setImportPreview] = useState<{ stem: string; text: string } | undefined>(undefined);
   const [showImportPanel, setShowImportPanel] = useState(false);
+  const [overwriteConfirm, setOverwriteConfirm] = useState<{ selected: string; stem: string } | undefined>(undefined);
 
   useEffect(() => {
     findRoot()
@@ -123,7 +128,7 @@ export function ResumesScreen() {
         setMessage({ text: `${file.stem} has no readable text.`, error: true });
         return;
       }
-      setImportPreview({ stem: file.stem, text });
+      setImportPreview({ stem: file.stem, text: reflowExtractedResumeText(text) });
     } finally {
       setImportBusy(undefined);
     }
@@ -138,11 +143,72 @@ export function ResumesScreen() {
     setMessage({ text: `Imported from ${importPreview.stem} — review everything below, then Save.` });
   };
 
+  // Picks a new PDF from anywhere on disk and previews it through the
+  // same import flow as the legacy-file panel above — a permanent
+  // action, unlike the onboarding wizard's "Choose a PDF…" step (which
+  // this reuses the same importResumeFile bridge call as), so updating
+  // to a newer resume doesn't require starting over from scratch.
+  // Reuses the existing preview-then-confirm step rather than replacing
+  // anything immediately, so a bad pick can't silently clobber a saved
+  // resume.
+  //
+  // A pick whose derived stem already exists on disk doesn't proceed
+  // straight to conversion — convert_resume.py refuses to overwrite an
+  // existing .md without --force, which used to surface as an opaque
+  // "already exists" error and no preview at all (a real reported bug:
+  // re-uploading the same filename silently did nothing). Now it's a
+  // real warn-then-confirm step instead, before anything on disk changes.
+  const uploadNewResume = async () => {
+    if (!root) return;
+    setMessage(undefined);
+    const selected = await openFileDialog({
+      multiple: false,
+      filters: [{ name: "Resume (PDF)", extensions: ["pdf"] }],
+    });
+    if (!selected || Array.isArray(selected)) return;
+    const filename = selected.split(/[/\\]/).pop() ?? "resume.pdf";
+    const stem = filename.replace(/\.pdf$/i, "").replace(/[^a-zA-Z0-9_-]+/g, "_") || "resume";
+    const existing = await listResumeDetails(root);
+    const collision = existing.find((f) => f.stem === stem && (f.hasPdf || f.hasMarkdown));
+    if (collision) {
+      setOverwriteConfirm({ selected, stem });
+      return;
+    }
+    await runResumeUpload(selected, stem, false);
+  };
+
+  const runResumeUpload = async (selected: string, stem: string, force: boolean) => {
+    if (!root) return;
+    setImportBusy(stem);
+    try {
+      await importResumeFile(root, selected, stem);
+      const result = await convertResume(root, stem, "", force);
+      if (!result.ok) {
+        setMessage({ text: `Could not read ${stem}.pdf: ${result.error}`, error: true });
+        return;
+      }
+      const text = await readResumeMarkdown(root, stem);
+      if (!text) {
+        setMessage({ text: `${stem} has no readable text.`, error: true });
+        return;
+      }
+      setImportPreview({ stem, text: reflowExtractedResumeText(text) });
+      setShowImportPanel(true);
+    } catch (err) {
+      setMessage({ text: err instanceof Error ? err.message : String(err), error: true });
+    } finally {
+      setImportBusy(undefined);
+    }
+  };
+
   if (loaded && !root) {
     return (
       <div style={{ maxWidth: "44rem", margin: "0 auto", display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
         <h1 style={{ fontSize: "var(--text-3xl)" }}>Resume</h1>
-        <p className="field-help">Connect a local install in Settings first — your resume lives in your local aplyx checkout.</p>
+        <p className="field-help">
+          This editor needs a local install (Settings) to parse and tailor your resume field by field. Without one,
+          you can still upload or replace the resume file itself from the Resume section in Settings.
+        </p>
       </div>
     );
   }
@@ -159,6 +225,9 @@ export function ResumesScreen() {
         {resume ? (
           <div className="resume-topbar-actions">
             {dirty ? <span className="field-help">Unsaved changes</span> : null}
+            <button type="button" className="btn btn-sm" disabled={importBusy !== undefined} onClick={() => void uploadNewResume()}>
+              {importBusy !== undefined ? "Reading…" : "Upload new resume"}
+            </button>
             <button type="button" className="btn btn-sm" disabled={exporting} onClick={() => void exportPdf()}>
               {exporting ? "Exporting…" : "Export PDF"}
             </button>
@@ -184,22 +253,33 @@ export function ResumesScreen() {
         <p className="field-help">Loading&hellip;</p>
       ) : (
         <>
-          {importCandidates.length > 0 ? (
+          {importCandidates.length > 0 || importPreview ? (
             <section className="resume-section">
               <div className="resume-import-header">
                 <h2 style={{ fontSize: "var(--text-lg)" }}>Import from an existing resume</h2>
-                <button type="button" className="btn btn-sm" onClick={() => setShowImportPanel((v) => !v)}>
-                  {showImportPanel ? "Hide" : "Show"}
-                </button>
+                {importCandidates.length > 0 ? (
+                  <button type="button" className="btn btn-sm" onClick={() => setShowImportPanel((v) => !v)}>
+                    {showImportPanel ? "Hide" : "Show"}
+                  </button>
+                ) : null}
               </div>
-              {showImportPanel ? (
+              {showImportPanel || importPreview ? (
                 importPreview ? (
                   <div className="resume-import-preview">
                     <p className="field-help">
-                      Extracted from <strong>{importPreview.stem}</strong> — review the text, then use it as a starting
-                      point. This replaces everything currently in the editor below.
+                      Extracted and auto-reformatted from <strong>{importPreview.stem}</strong> — PDF text extraction
+                      doesn't preserve headings or bullet styling, so this is a best-effort cleanup, not the original
+                      layout. Edit it directly below (section headers as <code>## Name</code>, entries as{" "}
+                      <code>### Title — Company, Location</code> with bullets as <code>- text</code>) before using it
+                      as a starting point — this replaces everything currently in the editor below.
                     </p>
-                    <pre className="resume-import-text">{importPreview.text}</pre>
+                    <textarea
+                      className="resume-import-text resume-import-textarea"
+                      value={importPreview.text}
+                      onChange={(e) => setImportPreview({ stem: importPreview.stem, text: e.target.value })}
+                      rows={22}
+                      spellCheck={false}
+                    />
                     <div className="detail-actions">
                       <button type="button" className="btn btn-primary btn-sm" onClick={() => void applyImport()}>
                         Use as starting point
@@ -246,6 +326,34 @@ export function ResumesScreen() {
           {root ? <PreviewResumePanel root={root} resume={resume} /> : null}
         </>
       )}
+
+      <Modal
+        open={overwriteConfirm !== undefined}
+        onClose={() => setOverwriteConfirm(undefined)}
+        title="Replace existing resume file?"
+      >
+        <p className="field-help">
+          A resume named <strong>{overwriteConfirm?.stem}</strong> already exists in data/resumes/. Uploading this
+          file will overwrite it — the old PDF and its extracted text are replaced, not kept alongside it.
+        </p>
+        <div className="detail-actions" style={{ marginTop: "var(--space-3)" }}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => {
+              if (!overwriteConfirm) return;
+              const { selected, stem } = overwriteConfirm;
+              setOverwriteConfirm(undefined);
+              void runResumeUpload(selected, stem, true);
+            }}
+          >
+            Overwrite
+          </button>
+          <button type="button" className="btn btn-sm" onClick={() => setOverwriteConfirm(undefined)}>
+            Cancel
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }

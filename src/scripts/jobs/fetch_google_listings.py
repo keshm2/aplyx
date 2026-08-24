@@ -63,14 +63,14 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import html as html_lib
 import json
-import re
 import sys
 import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
+
+from _jd_text import extract_pay, join_sections
 
 USER_AGENT = "aplyx-job-agent/ats-expansion"
 SEARCH_BASE = "https://www.google.com/about/careers/applications/jobs/results/"
@@ -177,21 +177,15 @@ def health_check(data) -> str | None:
     return None
 
 
-def strip_html(markup) -> str:
-    if not isinstance(markup, str):
-        return ""
-    text = re.sub(r"<[^>]+>", " ", markup)
-    return re.sub(r"\s+", " ", html_lib.unescape(text)).strip()
-
-
-def _text_field(job: list, index: int) -> str:
+def _raw_field(job: list, index: int) -> str:
     """Fields 3/4/10/19 are [null, "<html>"] wrappers, or occasionally
-    just null/missing entirely — normalizes either into a plain string."""
+    just null/missing entirely — normalizes either into a raw HTML
+    string (caller runs it through join_sections, not stripped here)."""
     if index >= len(job):
         return ""
     val = job[index]
     if isinstance(val, list) and len(val) > 1:
-        return strip_html(val[1])
+        return str(val[1])
     return ""
 
 
@@ -199,7 +193,13 @@ def to_raw_job(job: list) -> dict:
     job_id = str(job[0]).strip()
     locations = job[9] if len(job) > 9 and isinstance(job[9], list) else []
     location_names = [str(loc[0]).strip() for loc in locations if isinstance(loc, list) and loc and loc[0]]
-    jd_parts = [_text_field(job, 10), _text_field(job, 3), _text_field(job, 19) or _text_field(job, 4)]
+    jd_text = join_sections(
+        [
+            (None, _raw_field(job, 10)),
+            ("Responsibilities", _raw_field(job, 3)),
+            ("Qualifications", _raw_field(job, 19) or _raw_field(job, 4)),
+        ]
+    )
     raw = {
         "source": "google",
         "company": "Google",
@@ -207,7 +207,8 @@ def to_raw_job(job: list) -> dict:
         "url": f"{SITE_BASE}/{urllib.parse.quote(job_id)}",
         "external_job_id": job_id,
         "location": "; ".join(location_names),
-        "jd_text": " ".join(p for p in jd_parts if p).strip(),
+        "jd_text": jd_text,
+        "pay_text": extract_pay(jd_text),
     }
     posted = job[12] if len(job) > 12 else None
     if isinstance(posted, list) and posted and isinstance(posted[0], (int, float)):

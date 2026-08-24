@@ -350,6 +350,34 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Wraps the row's existing right-side content (fit-score badge or posted
+ * date) so pay_text can stack above it without changing either's own
+ * markup/styling — Jobs screen only (see CompanyLogo/pay_text handling
+ * in JobsScreen.tsx). */
+.data-row-side {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
+}
+
+/* Best-effort pay line (see extractPay/ashbyPayText in jobs.ts) — given
+ * its own prominent treatment, not folded into the already-dense
+ * .data-row-sub line, per the operator's "make pay another big thing on
+ * the card" ask. --good, not --accent: this is informational/positive
+ * signal about the posting itself, the same semantic role dollar amounts
+ * already play elsewhere (Home's stat cards), not an interactive/brand
+ * accent. */
+.data-row-pay {
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--good);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .data-empty {
   padding: var(--space-5);
   border: 1px dashed var(--border-strong);
@@ -464,33 +492,6 @@
   flex: 1;
 }
 
-/* Themed <select> (Jobs' sort/results-per-page dropdowns): base.css
- * strips the native appearance, so without a custom arrow here it'd have
- * no dropdown indicator at all — this is that arrow, drawn as a
- * background image in --text-muted rather than an OS icon, so it
- * actually matches the active theme instead of being a generic grey
- * caret. The open options popup itself is still OS-native (no CSS can
- * restyle that cross-browser); this covers the closed control, which is
- * what's visible almost all the time. */
-.themed-select {
-  cursor: pointer;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-md);
-  padding: var(--space-2) var(--space-6) var(--space-2) var(--space-3);
-  background-color: var(--surface);
-  color: var(--text);
-  font-size: var(--text-sm);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right var(--space-2) center;
-  background-size: 1rem;
-  transition: border-color var(--duration-quick) var(--ease-out);
-}
-
-.themed-select:hover {
-  border-color: var(--accent);
-}
-
 .source-toggle {
   display: inline-flex;
   align-items: center;
@@ -551,8 +552,21 @@
   color: var(--accent-ink);
 }
 
+/* `.btn:hover` above sets `background` too, and — because a pseudo-class
+ * counts as a full specificity step — `.btn:hover` (class + pseudo-class)
+ * outranks a plain `.btn-primary` (one class) regardless of source
+ * order. Without an explicit `.btn-primary:hover` background, hovering
+ * silently swapped the vivid gradient for `.btn:hover`'s near-transparent
+ * accent tint, revealing whatever surface sits behind the button —
+ * confirmed live as the "the button turns black on hover" report,
+ * 2026-08-23. Reasserting the gradient here (matching `:active` below,
+ * which already did this correctly) fixes that; the brightness bump on
+ * top is the actual "highlight it more" the operator asked for once the
+ * bug itself was out of the way. */
 @media (hover: hover) and (pointer: fine) {
   .btn-primary:hover {
+    background: var(--accent-gradient);
+    filter: brightness(1.08);
     box-shadow: 0 0 0 4px var(--accent-tint-bg-hover), 0 6px 18px -8px color-mix(in srgb, var(--accent) 55%, transparent);
   }
 }
@@ -561,14 +575,19 @@
   background: var(--accent-gradient);
 }
 
+
 .btn-danger {
   color: var(--danger);
   border-color: color-mix(in srgb, var(--danger) 30%, transparent);
   background: var(--danger-soft);
 }
 
+/* Same specificity gap as .btn-primary:hover above, same fix — reassert
+ * this variant's own background instead of leaving `.btn:hover`'s tint to
+ * win, plus a bit more saturation for the same "highlight on hover" feel. */
 .btn-danger:hover {
   border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 16%, var(--danger-soft));
 }
 
 .btn-danger:active {

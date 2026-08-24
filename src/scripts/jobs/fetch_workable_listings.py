@@ -50,13 +50,13 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import html
 import json
 import os
-import re
 import sys
 import urllib.error
 import urllib.request
+
+from _jd_text import extract_pay, html_to_text
 
 DEFAULT_TARGETS = "src/config/targets.json"
 PLACEHOLDER = "replace_me"
@@ -104,11 +104,6 @@ def api_get(url: str, timeout: int) -> dict:
         return json.load(resp)
 
 
-def strip_html(markup: str) -> str:
-    text = re.sub(r"<[^>]+>", " ", markup or "")
-    return re.sub(r"\s+", " ", html.unescape(text)).strip()
-
-
 def _location_text(job: dict) -> str:
     locations = job.get("locations") or []
     if locations:
@@ -123,6 +118,7 @@ def _location_text(job: dict) -> str:
 
 def to_raw_job(job: dict, company_slug: str, company_name: str) -> dict:
     shortcode = str(job.get("shortcode", "")).strip()
+    jd_text = html_to_text(str(job.get("description", "")))
     return {
         "source": "workable",
         "company": company_name or company_slug,
@@ -131,7 +127,8 @@ def to_raw_job(job: dict, company_slug: str, company_name: str) -> dict:
         "apply_url": str(job.get("application_url") or "").strip() or None,
         "external_job_id": shortcode,
         "location": _location_text(job),
-        "jd_text": strip_html(str(job.get("description", ""))),
+        "jd_text": jd_text,
+        "pay_text": extract_pay(jd_text),
         "posted_at": (str(job.get("published_on", "")).strip() + "T00:00:00Z") if job.get("published_on") else None,
     }
 

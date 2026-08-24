@@ -64,6 +64,39 @@ export function detectFamily(hostname: string): AtsFamily | null {
   return null;
 }
 
+/** Derive the normalized `application_accounts.tenant_key` /
+ *  `verification_sessions.tenant_key` value for a job posting URL. A
+ *  single ATS family can host many unrelated employer tenants (many
+ *  companies all run on Workday), so the family alone is never enough
+ *  to key an account or a verification session — two companies on the
+ *  same ATS must never share or collide on the same
+ *  (user, family, tenant_key) identity (docs/ats-account-credentials-plan.md
+ *  "Purpose"). This is the single place that derivation happens so
+ *  account creation/reuse (Package 3) and any future verification-session
+ *  writer key on the exact same value.
+ *
+ *  Only meaningful for account-required families — returns null for a
+ *  guest family (nothing to dedupe an account against) and for a URL
+ *  this function can't confidently parse. The caller treats null the
+ *  same way detectFamily's null is treated: route to needs_review,
+ *  never guess a tenant key. */
+export function tenantKeyFor(family: AtsFamily, url: string): string | null {
+  if (!requiresAccount(family)) return null;
+  let hostname: string;
+  try {
+    hostname = new URL(url).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+  // Workday tenants are one-per-subdomain (e.g. acme.wd1.myworkdayjobs.com,
+  // acme.wd5.myworkdayjobs.com) — the full hostname is already the
+  // narrowest stable identifier available without employer-specific
+  // path-parsing assumptions, so it's used as-is rather than trying to
+  // strip the shard segment.
+  if (family === "workday" && hostname.endsWith(".myworkdayjobs.com")) return hostname;
+  return null;
+}
+
 /** Action types the pacing config keys on. Coarse by design — the
  *  execution step (src/extension/src/ats.ts's bounded form-filler) is
  *  the only consumer, and it only needs "how long to pause before this

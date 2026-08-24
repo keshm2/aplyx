@@ -193,8 +193,8 @@ export async function importResumeFile(root: string, sourcePath: string, stem: s
   await invoke("import_resume_file", { root, sourcePath, stem });
 }
 
-export async function convertResume(root: string, stem: string, description = ""): Promise<{ ok: boolean; error?: string }> {
-  return invoke("convert_resume", { root, stem, description });
+export async function convertResume(root: string, stem: string, description = "", force = false): Promise<{ ok: boolean; error?: string }> {
+  return invoke("convert_resume", { root, stem, description, force });
 }
 
 /** Set/update a resume's description without converting anything — for a
@@ -219,6 +219,14 @@ export async function searchJobs(
 
 export async function checkJobFit(root: string, job: SearchJob): Promise<FitResult> {
   return invoke<FitResult>("check_job_fit", { root, job });
+}
+
+export async function checkJobFitBatch(root: string, jobs: SearchJob[]): Promise<Record<string, FitResult>> {
+  return invoke<Record<string, FitResult>>("check_job_fit_batch", { root, jobs });
+}
+
+export async function fetchJobDescription(root: string, job: SearchJob): Promise<{ jd_text?: string; pay_text?: string }> {
+  return invoke<{ jd_text?: string; pay_text?: string }>("fetch_job_description", { root, job });
 }
 
 export async function getRecommendedJobs(root: string, excludeJobIds: string[]): Promise<RecommendedJob[]> {

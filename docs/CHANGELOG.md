@@ -7,6 +7,85 @@ but trimmed to fit a small in-repo doc.
 > Per-`docs/RELEASE.md` is the canonical, deep-dive release
 > document for each tagged build. This file is the index.
 
+## [1.0.0b] — 2026-08-24
+
+First beta. Everything below is new since `0.9.950a`; full write-up in
+[`RELEASE.md`](./RELEASE.md).
+
+### Added
+
+- **ATS account-credential storage.** When aplyx creates an account on
+  a job site on your behalf, the password now goes into Postgres Vault
+  behind a set of `SECURITY DEFINER` RPCs, not a plaintext file.
+  A new Account Center screen in the desktop app lists your stored
+  accounts (masked) and lets you reveal, rotate, or delete one, gated
+  behind a 10-minute re-auth window. Hosted verification-mail reads
+  also moved behind ownership-checked RPCs — the inbox table has no
+  RLS policies by design, and the UI was querying it directly, so every
+  hosted user's inbox looked empty regardless of what had actually
+  arrived.
+- **Fit-gate results on the whole search page, not one job at a time.**
+  `checkJobFitBatch` runs canonicalization and the fit gate for a full
+  page of results in two subprocess calls total, so the Jobs screen can
+  show a status on every listing as soon as it loads instead of waiting
+  for a manual click each time.
+- **Resumes can be replaced any time, not just once during onboarding**,
+  in both local and hosted mode. Hosted was previously edit-only — no
+  upload path existed after the onboarding wizard closed, even though
+  the wizard's own upload code was never wired up anywhere it could be
+  reached again. Re-uploading a name that already exists now warns
+  before it overwrites instead of silently failing to convert.
+- Raw PDF-extracted resume text goes through a new reflow pass before
+  import — section names, bullet markers, and the run-together
+  title/date lines pypdf leaves behind ("...Intern" immediately
+  followed by "June 2025") get normalized before the markdown parser
+  ever sees them. Previously only a name and contact line ever made it
+  through; bullets, jobs, dates, and skills silently vanished. The
+  import preview box is also editable now, so a rough edge left over
+  after the reflow can be fixed by hand before confirming.
+
+### Fixed
+
+- A generated Workday account password could end up sitting in a
+  plaintext checkpoint file (`data/workday_apply_runs/*.json`) instead
+  of the sidecar it was supposed to go through. Moved to the sidecar,
+  and the two other PII-bearing run directories that had the same
+  `.gitignore` gap (`data/screenshots/`, `data/fill_records/`) are now
+  covered too.
+- Workday's step-loop detection relied on the page title changing
+  between steps, which never happens on at least one real tenant
+  (NVIDIA's) — it now reads the wizard's own progress-bar element
+  first. A "Save and Continue" click that fails client-side validation
+  used to go unnoticed until the final submit; it's checked right
+  after every step now.
+- The fit gate's clearance check missed "active security clearance"
+  phrasing, and its foreign-location list was missing several real
+  countries/cities. A new `sponsorship_blocked` check rejects postings
+  that require sponsorship the candidate's own profile says they don't
+  have. First dedicated regression suite for this file (18 tests); the
+  conformance fixtures' pinned decision version moved to `phase4-v5`.
+- `npm install --workspace=src/core` could — on a genuinely empty npm
+  cache, which is exactly what a fresh install has — extract an
+  incomplete copy of a dependency shared with another workspace,
+  missing its build output entirely even though the real published
+  package has it. `install.sh`/`install.ps1` now detect this and retry
+  with a full install. Separately, `src/tui` and `src/tauri` pointed at
+  `@aplyx/core` by a semver range that no longer matched once core's
+  own version crossed 1.0.0, which broke workspace linking outright;
+  switched both to `file:../core`, the same pattern `src/worker`
+  already used, so a version bump can't break this again.
+- `src/extension` had its own `package.json` but was never listed in
+  the root `package.json`'s `workspaces` array — its build step in
+  `install.sh`/`install.ps1` has been silently failing on every fresh
+  install since it was added.
+
+### Docs
+
+- A planning doc for real-time field clarification over Discord
+  (`docs/discord-field-clarification-plan.md`) — design only, nothing
+  implemented yet. The interim workaround already shipped: an unknown
+  field routes the posting to the review queue instead of guessing.
+
 ## [0.9.950a] — 2026-08-11
 
 npm package: `@keshm/aplyx` version `0.9.950-alpha.0`. `docs/RELEASE.md`

@@ -299,16 +299,39 @@ export function ReviewScreen() {
                     return { ok: false, message: "Workday continuation needs a hosted sign-in with a profile email saved first." };
                   }
                   const alias = await adapter.claimManagedAlias("workday", forwardingEmail);
+                  // A managed alias is shared across every Workday
+                  // tenant this user applies to, so "most recent
+                  // unconsumed email at this alias" alone can hand the
+                  // wrong employer's verification code to this job's
+                  // continuation. ensureApplyRunForJob leaves a
+                  // correlation row the inbound-email receiver tags new
+                  // messages with (apply_run_id) — matching on that is
+                  // "recipient/alias/tenant/account correlation data,"
+                  // not company name (docs/ats-account-credentials-plan.md).
+                  const run = await adapter.ensureApplyRunForJob(entry.job_id, "workday", alias.id);
                   const inbox = await adapter.listInboundEmails(alias.id);
-                  // Capture the row IDs of the unconsumed verification
-                  // link/OTP we're handing to the script, so after the
-                  // run we can mark them consumed — a one-time
-                  // verification link must never be re-handed to the next
-                  // continuation. The script reports whether it actually
-                  // used each (usedVerificationLink/usedVerificationOtp);
-                  // we only consume the ones it consumed.
-                  const linkRow = inbox.find((row) => !row.consumed_at && row.parsed_link);
-                  const otpRow = inbox.find((row) => !row.consumed_at && row.parsed_otp);
+                  const forThisRun = inbox.filter((row) => row.apply_run_id === run.runId);
+                  const unconsumed = (row: typeof inbox[number]) => !row.consumed_at;
+                  // Prefer a message tagged to this exact job's run; only
+                  // fall back to "most recent at this alias" when no
+                  // run-tagged message exists yet (e.g. the very first
+                  // verification mail can arrive before this run row did).
+                  // A fallback match is lower-confidence, so it's flagged
+                  // in the result message rather than silently treated
+                  // the same as a confirmed match — "require explicit
+                  // user action when a message cannot be confidently
+                  // matched."
+                  let matchedByFallback = false;
+                  let linkRow = forThisRun.find((row) => unconsumed(row) && row.parsed_link);
+                  let otpRow = forThisRun.find((row) => unconsumed(row) && row.parsed_otp);
+                  if (!linkRow) {
+                    linkRow = inbox.find((row) => unconsumed(row) && row.parsed_link);
+                    if (linkRow) matchedByFallback = true;
+                  }
+                  if (!otpRow) {
+                    otpRow = inbox.find((row) => unconsumed(row) && row.parsed_otp);
+                    if (otpRow) matchedByFallback = true;
+                  }
                   const result = await approveSubmit(root, entry, {
                     aliasEmail: `${alias.alias}@mail.aplyx.app`,
                     aliasId: alias.id,
@@ -323,6 +346,9 @@ export function ReviewScreen() {
                   // run might re-offer it, which the script's own
                   // checkpoint state guards against independently.
                   const consumeWarnings: string[] = [];
+                  if (matchedByFallback && (result.usedVerificationLink || result.usedVerificationOtp)) {
+                    consumeWarnings.push("verification mail matched by recency only (no message tagged to this job yet) — confirm it was the right employer");
+                  }
                   if (result.usedVerificationLink && linkRow) {
                     try { await adapter.consumeInboundEmail(linkRow.id); }
                     catch (e) { consumeWarnings.push(`could not mark verification link consumed: ${e instanceof Error ? e.message : String(e)}`); }

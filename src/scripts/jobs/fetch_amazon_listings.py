@@ -33,14 +33,14 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import html
 import json
-import re
 import sys
 import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
+
+from _jd_text import extract_pay, join_sections
 
 USER_AGENT = "aplyx-job-agent/phase16b"
 API_BASE = "https://www.amazon.jobs/en/search.json"
@@ -49,11 +49,6 @@ PAGE_SIZE = 100
 
 def warn(msg: str) -> None:
     print(f"fetch_amazon_listings: WARNING: {msg}", file=sys.stderr)
-
-
-def strip_html(markup: str) -> str:
-    text = re.sub(r"<[^>]+>", " ", markup or "")
-    return re.sub(r"\s+", " ", html.unescape(text)).strip()
 
 
 def parse_posted_date(text: str):
@@ -75,11 +70,13 @@ def to_raw_job(job: dict) -> dict:
     title = str(job.get("title", "")).strip()
     job_path = str(job.get("job_path", "")).strip()
     job_id = str(job.get("id_icims") or job.get("id") or "").strip()
-    jd_parts = [
-        strip_html(str(job.get("description", ""))),
-        strip_html(str(job.get("basic_qualifications", ""))),
-        strip_html(str(job.get("preferred_qualifications", ""))),
-    ]
+    jd_text = join_sections(
+        [
+            (None, str(job.get("description", ""))),
+            ("Basic Qualifications", str(job.get("basic_qualifications", ""))),
+            ("Preferred Qualifications", str(job.get("preferred_qualifications", ""))),
+        ]
+    )
     raw = {
         "source": "amazon",
         "company": str(job.get("company_name") or "Amazon").strip(),
@@ -88,7 +85,8 @@ def to_raw_job(job: dict) -> dict:
         "apply_url": str(job.get("url_next_step", "")).strip() or None,
         "external_job_id": job_id,
         "location": str(job.get("normalized_location") or job.get("location") or "").strip(),
-        "jd_text": " ".join(p for p in jd_parts if p).strip(),
+        "jd_text": jd_text,
+        "pay_text": extract_pay(jd_text),
     }
     posted = parse_posted_date(str(job.get("posted_date", "")))
     if posted:

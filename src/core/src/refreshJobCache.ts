@@ -156,6 +156,7 @@ function jobCacheRow(source: JobSource, slug: string, query: string, job: Search
     ats_system: source,
     posted_at: job.posted_at ?? null,
     jd_text: job.jd_text ?? null,
+    pay_text: job.pay_text ?? null,
     // fetched_at is deliberately ABSENT from this payload. PostgREST's
     // resolution=merge-duplicates generates DO UPDATE SET only for the
     // columns actually present in the body, so omitting it means: a

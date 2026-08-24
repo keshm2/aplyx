@@ -29,6 +29,12 @@ export interface SearchJob {
   external_job_id?: string;
   location?: string;
   jd_text?: string;
+  /** Best-effort "$117K–$160K/year" or "$45–$65/hour" pay line — Ashby's
+   *  own structured compensation field for Ashby (most reliable source),
+   *  regex-mined from jd_text everywhere else (see extractPay in jobs.ts).
+   *  A social-proof-grade signal, not a guaranteed-accurate structured
+   *  field — many postings simply never state pay at all. */
+  pay_text?: string;
   /** ISO 8601 when known. Ashby/Lever/Greenhouse give an exact timestamp;
    *  Workday's public API only exposes a bucketed relative-age string
    *  ("Posted 3 Days Ago"), approximated to an ISO date on the Python side. */

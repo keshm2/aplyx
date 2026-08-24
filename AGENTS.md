@@ -35,6 +35,66 @@ in each phase's own `docs/PLAN.md` §3.x section, not here.
   `review_queue` row before being caught and fixed (`fetchAllRows` now
   pages properly for all three tables). Full details, scope cuts, and
   what's still missing before real users: `docs/PLAN.md` §3.18.
+- **ATS account-credentials plan (docs/ats-account-credentials-plan.md)
+  — Packages 1–2 of 7 done (2026-08-22), parallel to the phase sequence.**
+  `application_accounts`/`application_account_links`/
+  `application_account_events` (migration `0027`) + RLS; cross-user
+  denial test run against the real project and passed
+  (`src/supabase/tests/0027_application_account_credentials_rls.sql`).
+  Package 2: `application_account_credential_tokens` + eight Vault
+  SECURITY DEFINER RPCs (migration `0028`) — create/reveal/rotate/
+  mark-state/delete plus a service_role-only token-resolve path for a
+  future worker; functional + cross-user test run against the real
+  project and passed
+  (`src/supabase/tests/0028_application_account_vault_service.sql`).
+  All hosted users (not opt-in), short-session-window reveal re-auth.
+  Package 3 (2026-08-23): `apply_runs.account_id` (migrations `0029`,
+  `0030`) with a composite, ownership-enforcing FK to
+  `application_accounts`; `atsRegistry.tenantKeyFor()`,
+  `applicantPackage.ts`'s `applicationAccount` field, and
+  `SupabaseAdapter.createOrReuseApplicationAccount()`/
+  `linkApplyRunAccount()` — hosted-only, local Workday's own account
+  flow untouched by design. Test passed against the real project; core/
+  worker/tui/tauri typecheck clean. Package 4 (2026-08-23): new
+  `src/scripts/runtime/browser_resilience.py` (bounded retry+backoff,
+  stale-safe re-acquire, generalized CAPTCHA/challenge detection,
+  checkpoint sanitizer, page-signature helper) wired into all four
+  `approve_submit_*.py` runtimes. Also fixed a real pre-existing bug
+  found along the way: Workday's local checkpoint was storing the
+  account password and OTP in plaintext, violating this same package's
+  own checkpoint contract — password moved to a `chmod 600` sidecar
+  file, OTP now stored only as a hash. Workday's existing unittest
+  suite (`test_approve_submit_workday.py`) passed before and after
+  (17/17 then 24/24 with new tests added). Package 5 (2026-08-23): fixed
+  real live bugs in the hosted verification-mail path — `inbound_emails`
+  was unreadable by real users under RLS (fixed with new ownership-checked
+  RPCs, migration `0031`), the inbound-email Edge Function echoed the
+  plaintext OTP in its response and never expired/scrubbed it (fixed),
+  and OTP/link selection in `ReviewScreen.tsx` had no per-job correlation
+  (fixed via `ensureApplyRunForJob` + preferring a run-tagged message).
+  Also closed the rotate/delete audit-metadata gap (migration `0032`).
+  Edge function change is NOT yet deployed — needs a separate explicit
+  go-ahead before `supabase functions deploy`. See `docs/PLAN.md`
+  pointer for full detail. Operator said "next phase" covering Package
+  6 too — proceeded directly. Package 6 (2026-08-23): new "ATS
+  accounts" screen (`AccountCenterScreen.tsx`, reached from Settings,
+  hosted-only) — masked account list, reveal/copy/rotate gated by a
+  10-minute in-memory re-auth window, delete via confirm modal, status-
+  tracking toggle. New `SupabaseAdapter` methods + migration `0033`
+  (had to drop/recreate `get_application_account_metadata` to add
+  `status_tracking_enabled`). `core`/`tauri` typecheck clean; module
+  loads without a runtime error via the Vite dev server, but **not
+  visually tested** — no Chrome extension connected in this
+  environment. Deliberately unbuilt: ephemeral-browser "open ATS
+  login"/"test login" and an in-app password-reset action (need a new
+  browser-launching script, not attempted here). Package 5's
+  inbound-email Edge Function deployed 2026-08-23 (operator: "deploy
+  the function and go to next phase"). **Package 7 (status adapters)
+  explicitly deferred, 2026-08-23** — operator decided existing
+  email-based outcome tracking (Phase 19) is sufficient for now rather
+  than building new always-on infrastructure for unattended ATS
+  logins. Plan is closed at 6/7 packages by decision, not paused
+  mid-work — see `docs/PLAN.md` pointer for full detail.
 - **Previous phase: 16B (ATS/source expansion) — reached a natural
   pause.** Shipped:
   Greenhouse, Lever, Ashby, Workday (review-only), SmartRecruiters,

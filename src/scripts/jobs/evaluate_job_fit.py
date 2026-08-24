@@ -27,7 +27,7 @@ from typing import Dict, Iterable, List, Optional, Tuple
 
 
 DEFAULT_TARGETS = "src/config/targets.json"
-DECISION_VERSION = "phase4-v4"
+DECISION_VERSION = "phase4-v5"
 
 
 # Candidate skills derived from all five shipped base resumes (data/resumes/
@@ -137,8 +137,8 @@ ADVANCED_DEGREE_ALLOWED_RE = re.compile(
 )
 
 CLEARANCE_REQUIRED_RE = re.compile(
-    r"(?:ts/sci|top\s+secret|secret\s+clearance|active\s+clearance|security\s+clearance\s+required|"
-    r"must\s+(?:hold|possess|have)\s+(?:an\s+)?(?:active\s+)?clearance)",
+    r"(?:ts/sci|top\s+secret|secret\s+clearance|active\s+(?:security\s+)?clearance|security\s+clearance\s+required|"
+    r"must\s+(?:hold|possess|have)\s+(?:an\s+)?(?:active\s+)?(?:security\s+)?clearance)",
     re.I,
 )
 CLEARANCE_OBTAINABLE_RE = re.compile(
@@ -149,6 +149,27 @@ CLEARANCE_OBTAINABLE_RE = re.compile(
 VISA_ONLY_RE = re.compile(
     r"(?:must\s+be\s+on\s+(?:opt|cpt|f-1|f1)|only\s+(?:opt|cpt|f-1|f1)|"
     r"opt/cpt\s+required|f-1\s+visa\s+required|student\s+visa\s+required)",
+    re.I,
+)
+
+# The much more common real-world visa restriction, and the mirror image of
+# VISA_ONLY_RE above: a posting that will NOT sponsor a visa, or that
+# requires citizenship/permanent residency outright. Only a hard reject for
+# a candidate who actually needs sponsorship (require_sponsorship in
+# safe_fields) — for a candidate who doesn't need it, this language is
+# irrelevant, not disqualifying, so this is checked conditionally in
+# evaluate_fit rather than unconditionally like the other hard rejects.
+NO_SPONSORSHIP_RE = re.compile(
+    r"(?:will\s+not\s+sponsor|unable\s+to\s+sponsor|not\s+able\s+to\s+sponsor|"
+    r"does\s+not\s+sponsor|cannot\s+sponsor|no\s+sponsorship|"
+    r"sponsorship\s+(?:is\s+)?not\s+(?:available|provided|offered)|"
+    r"not\s+(?:currently\s+)?(?:providing|offering)\s+(?:visa\s+)?sponsorship|"
+    r"without\s+(?:the\s+need\s+for\s+)?(?:visa\s+)?sponsorship|"
+    r"(?:u\.?s\.?|united\s+states)\s+citizens?\s+only|"
+    r"must\s+be\s+a\s+(?:u\.?s\.?|united\s+states)\s+citizen|"
+    r"u\.?s\.?\s+citizenship\s+(?:is\s+)?required|"
+    r"citizens?\s+and\s+permanent\s+residents?\s+only|"
+    r"green\s+card\s+holders?\s+only)",
     re.I,
 )
 
@@ -217,8 +238,11 @@ FOREIGN_LOCATION_RE = re.compile(
     r"austria|belgium|czech(?:ia|\s+republic)?|hungary|greece|turkiye|turkey|"
     r"south\s+korea|taiwan|philippines|indonesia|vietnam|thailand|malaysia|"
     r"new\s+zealand|south\s+africa|egypt|nigeria|kenya|pakistan|bangladesh|"
-    r"sri\s+lanka|u\.?a\.?e\.?|united\s+arab\s+emirates|saudi\s+arabia|"
-    r"argentina|chile|colombia|peru"
+    r"sri\s+lanka|u\.?a\.?e\.?|united\s+arab\s+emirates|saudi\s+arabia|qatar|"
+    r"kuwait|bahrain|oman|"
+    r"argentina|chile|colombia|peru|panama|costa\s+rica|uruguay|ecuador|"
+    r"iceland|luxembourg|croatia|slovakia|slovenia|bulgaria|serbia|estonia|"
+    r"latvia|lithuania|morocco|tunisia|algeria|ghana|ethiopia|uganda"
     r")\b|"
     # Non-US cities — the coverage gap that let jobs slip through: a
     # foreign posting naming only a city (no country, e.g. "Bengaluru,
@@ -227,7 +251,7 @@ FOREIGN_LOCATION_RE = re.compile(
     r"toronto|vancouver|montreal|ottawa|calgary|waterloo|quebec|"
     r"berlin|munich|hamburg|frankfurt|cologne|stuttgart|"
     r"bangalore|bengaluru|mumbai|new\s+delhi|hyderabad|pune|chennai|"
-    r"gurgaon|gurugram|noida|kolkata|"
+    r"gurgaon|gurugram|noida|kolkata|ahmedabad|kochi|cochin|"
     r"sydney|melbourne|brisbane|perth|adelaide|canberra|"
     r"dublin|cork|galway|"
     r"amsterdam|rotterdam|eindhoven|the\s+hague|"
@@ -235,16 +259,16 @@ FOREIGN_LOCATION_RE = re.compile(
     r"mexico\s+city|guadalajara|monterrey|"
     r"s(?:a|ã)o\s+paulo|rio\s+de\s+janeiro|"
     r"tokyo|osaka|yokohama|"
-    r"shanghai|beijing|shenzhen|guangzhou|"
+    r"shanghai|beijing|shenzhen|guangzhou|chengdu|hangzhou|nanjing|"
     r"warsaw|krak(?:o|ó)w|wroc(?:l|ł)aw|bucharest|kyiv|kiev|"
     r"tel\s+aviv|jerusalem|haifa|"
     r"lisbon|porto|milan|rome|turin|"
-    r"stockholm|gothenburg|copenhagen|oslo|helsinki|"
+    r"stockholm|gothenburg|copenhagen|oslo|helsinki|reykjav(?:i|í)k|"
     r"zurich|geneva|basel|vienna|brussels|antwerp|prague|budapest|athens|istanbul|"
     r"seoul|busan|taipei|manila|jakarta|ho\s+chi\s+minh|hanoi|bangkok|kuala\s+lumpur|"
     r"auckland|wellington|cape\s+town|johannesburg|cairo|"
-    r"dubai|abu\s+dhabi|riyadh|"
-    r"buenos\s+aires|santiago|bogot(?:a|á)|lima|lagos|nairobi|"
+    r"dubai|abu\s+dhabi|riyadh|doha|manama|muscat|"
+    r"buenos\s+aires|santiago|bogot(?:a|á)|lima|lagos|nairobi|accra|casablanca|"
     r"karachi|lahore|islamabad|dhaka|colombo|"
     r"manchester|birmingham|edinburgh|glasgow|leeds|bristol|liverpool"
     r")\b",
@@ -409,6 +433,12 @@ def visa_only_required(jd_text: str) -> bool:
     return bool(jd_text and VISA_ONLY_RE.search(jd_text))
 
 
+def sponsorship_blocked(jd_text: str, needs_sponsorship: bool) -> bool:
+    if not needs_sponsorship or not jd_text:
+        return False
+    return bool(NO_SPONSORSHIP_RE.search(jd_text))
+
+
 def parse_graduation_month_year(graduation_date: str) -> Optional[Tuple[int, int]]:
     """('June 2027') -> (2027, 6). Defaults to December if no month is found,
     so an ambiguous 'already graduated' comparison stays conservative (treats
@@ -562,6 +592,15 @@ def evaluate_fit(job: dict, targets: dict) -> dict:
     # object with no safe_fields wrapper (src/worker/run.ts's hosted-mode
     # ScratchTargets, and run_conformance.py's GOLDEN_TARGETS).
     graduation_date = str((targets.get("safe_fields") or {}).get("graduation_date") or targets.get("graduation_date", ""))
+    # Same safe_fields-first, top-level-fallback pattern as graduation_date
+    # above. Only "yes"/"true"-shaped values count as needing sponsorship —
+    # an empty/unset field (never filled in during onboarding) must not
+    # silently start hard-rejecting every "no sponsorship" posting for a
+    # candidate who never said they needed one.
+    require_sponsorship_raw = str(
+        (targets.get("safe_fields") or {}).get("require_sponsorship") or targets.get("require_sponsorship", "")
+    ).strip().lower()
+    needs_sponsorship = require_sponsorship_raw in {"yes", "true", "required", "y"}
 
     title_lower = title.lower()
     jd_lower = jd_text.lower()
@@ -658,6 +697,18 @@ def evaluate_fit(job: dict, targets: dict) -> dict:
 
     if visa_only_required(jd_text):
         fit_reasons.append("JD explicitly requires OPT/CPT/F-1 status.")
+        return build_result(
+            fit_status="skipped_unfit",
+            fit_score=15,
+            fit_reasons=fit_reasons,
+            matched_role_keyword=matched_role_keyword,
+            matched_level_keyword=matched_level_keyword,
+            matched_level_source=matched_level_source,
+            years_required=years_required,
+        )
+
+    if sponsorship_blocked(jd_text, needs_sponsorship):
+        fit_reasons.append("JD states it will not sponsor a visa / requires citizenship or permanent residency, and the candidate needs sponsorship.")
         return build_result(
             fit_status="skipped_unfit",
             fit_score=15,

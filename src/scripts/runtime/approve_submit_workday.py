@@ -27,6 +27,7 @@ keeps the queue entry unresolved until a confirmed submit lands.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import random
@@ -36,6 +37,13 @@ import time
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
+from browser_resilience import (
+    click_with_retry,
+    detect_challenge,
+    normalize_url,
+    page_signature,
+    sanitize_checkpoint,
+)
 from replay_fill import (
     DEFAULT_REVIEW_QUEUE,
     attach_resume,
@@ -119,11 +127,54 @@ def _load_state(out_dir: str, job_id: str) -> dict:
 def _save_state(out_dir: str, job_id: str, state: dict) -> str:
     os.makedirs(out_dir, exist_ok=True)
     path = _state_path(out_dir, job_id)
-    state = {**state, "updated_at": now_iso()}
+    # sanitize_checkpoint is a defensive backstop, not the primary
+    # control — the primary control is that password/OTP are kept out
+    # of `state` in the first place (see _load_local_password /
+    # _save_local_password and the OTP-hash handling in run()). This
+    # catches a future field added to `state` that forgets that rule,
+    # per the plan's checkpoint exclusion list (never a password, OTP,
+    # cookie, or raw page dump).
+    state = {**sanitize_checkpoint(state), "updated_at": now_iso()}
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(state, fh, indent=2)
         fh.write("\n")
     return path
+
+
+def _local_password_path(out_dir: str, job_id: str) -> str:
+    return os.path.join(out_dir, ".secrets", f"{job_id}.json")
+
+
+def _load_local_password(out_dir: str, job_id: str) -> str | None:
+    """The Workday account password lives in its own sidecar file,
+    never in the main checkpoint JSON that also carries page
+    signatures, fill history, and verification metadata — the plan's
+    checkpoint schema explicitly excludes passwords, and a real
+    generated-then-forgotten password would otherwise have made every
+    login retry re-create a new account instead of reusing the
+    pending one. This is a deliberately narrow local-only stopgap:
+    the plan's own "Local Install Strategy" section calls for this to
+    move to the OS keychain, which is a separate, later package."""
+    path = _local_password_path(out_dir, job_id)
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        return str(data.get("password")) if isinstance(data, dict) and data.get("password") else None
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _save_local_password(out_dir: str, job_id: str, password: str) -> None:
+    path = _local_password_path(out_dir, job_id)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump({"password": password}, fh)
+    try:
+        os.chmod(path, 0o600)
+    except OSError:
+        pass
 
 
 def _capture_checkpoint_screenshot(page, job_id: str) -> str | None:
@@ -221,6 +272,27 @@ def _otp_mode(page) -> bool:
 
 
 def _workday_step_title(page) -> str:
+    # progressBarActiveStep is checked first: a real live-site finding
+    # (2026-08-23, NVIDIA's Workday tenant) is that the multi-step apply
+    # wizard doesn't change the URL between internal steps at all (it's
+    # a client-side-only stepper) and none of the selectors below
+    # actually match this employer's page, causing every step to
+    # report the same generic page title. Since _page_signature combines
+    # this title with the URL for loop detection, that combination made
+    # every genuinely different step look identical — a false "stuck in
+    # a loop" stop on real forward progress. progressBarActiveStep's
+    # text is "current step N of M\n<Step Name>" — take the last
+    # non-empty line so the step count doesn't get folded into the name.
+    try:
+        active = page.locator("[data-automation-id='progressBarActiveStep']")
+        if active.count() > 0:
+            text = (active.first.inner_text(timeout=700) or "").strip()
+            lines = [line.strip() for line in text.splitlines() if line.strip()]
+            if lines:
+                return lines[-1]
+    except Exception:
+        pass
+
     selectors = [
         "[data-automation-id='pageHeader']",
         "[data-automation-id='jobPostingHeader']",
@@ -397,9 +469,20 @@ def _switch_to_apply_manually_url(page) -> bool:
     deterministic: only rewrite the URL when we're already on an autofill path
     and the manual sibling is obvious from the URL shape."""
     try:
-      url = page.url
+        url = page.url
     except Exception:
-      return False
+        return False
+    if "/apply/autofillWithResume" not in url:
+        return False
+    manual_url = url.replace("/apply/autofillWithResume", "/apply/applyManually")
+    if manual_url == url:
+        return False
+    try:
+        page.goto(manual_url, wait_until="domcontentloaded")
+        _pause(1400, 260)
+        return True
+    except Exception:
+        return False
 
 
 def _looks_like_blank_autofill_shell(page, fill_result: dict) -> bool:
@@ -420,17 +503,6 @@ def _looks_like_blank_autofill_shell(page, fill_result: dict) -> bool:
     if _submit_button(page) is not None or _next_button(page) is not None:
         return False
     return True
-    if "/apply/autofillWithResume" not in url:
-      return False
-    manual_url = url.replace("/apply/autofillWithResume", "/apply/applyManually")
-    if manual_url == url:
-      return False
-    try:
-      page.goto(manual_url, wait_until="domcontentloaded")
-      _pause(1400, 260)
-      return True
-    except Exception:
-      return False
 
 
 def _submit_create_account(page) -> bool:
@@ -455,6 +527,15 @@ def _submit_create_account(page) -> bool:
 
 
 def _submit_button(page):
+    """Final application-submit control only — never the public posting
+    `Apply` link. Workday surfaces submit buttons on account-creation and
+    intermediate steps too, and the public posting page has its own `Apply`
+    control that opens the application flow; matching either by name would
+    let a non-final page read as ready-to-submit. Prefer explicit Workday
+    automation IDs, then the narrow `Submit`/`Submit Application` button
+    names. The caller still gates the actual click behind
+    `_is_review_submit_page` — this selector just refuses to hand back a
+    control that is obviously not a final submit."""
     selectors = [
         "[data-automation-id='submitButton']",
         "[data-automation-id='bottom-navigation-submit-button']",
@@ -466,7 +547,7 @@ def _submit_button(page):
                 return loc.first
         except Exception:
             continue
-    for name in ["Submit", "Submit Application", "Apply"]:
+    for name in ["Submit Application", "Submit"]:
         try:
             loc = page.get_by_role("button", name=name, exact=False)
             if loc.count() > 0:
@@ -586,8 +667,15 @@ def _looks_successful(page) -> tuple[bool, str]:
 def _attempt_final_submit(page, submit) -> dict:
     """Clicks the final submit button and polls for an unambiguous outcome.
     Returns a dict with: outcome ('submitted' | 'validation_error' |
-    'outcome_unclear' | 'click_failed'), reason, confirmation_url. Never
-    claims success on ambiguity — outcome_unclear is the fail-closed path."""
+    'outcome_unclear' | 'click_failed' | 'challenge_detected'), reason,
+    confirmation_url. Never claims success on ambiguity — outcome_unclear
+    is the fail-closed path. The click itself is a single direct
+    `.click()`, never wrapped in click_with_retry — the plan forbids
+    auto-retrying a final submit, so this is the one action in the whole
+    file that must never gain a retry wrapper."""
+    challenge = detect_challenge(page)
+    if challenge:
+        return {"outcome": "challenge_detected", "reason": f"challenge detected before final submit: {challenge}", "confirmation_url": page.url}
     try:
         submit.click(timeout=2000)
     except Exception as exc:
@@ -652,7 +740,7 @@ def _fill_workday_page(page, safe_fields: dict[str, str]) -> dict:
 
 
 def _page_signature(page) -> str:
-    return f"{_workday_step_title(page)}::{page.url}"
+    return page_signature(page, _workday_step_title(page))
 
 
 def _ensure_apply_flow(page) -> None:
@@ -709,13 +797,13 @@ def run(job_id: str, review_queue_path: str, state_dir: str, alias_email: str, v
         return _write_result(False, "Workday account setup needs a managed mail.aplyx.app alias before it can continue")
 
     state = _load_state(state_dir, job_id)
-    password = str(state.get("password") or _random_password())
+    password = _load_local_password(state_dir, job_id) or _random_password()
+    _save_local_password(state_dir, job_id, password)
     state.update({
         "job_id": job_id,
         "apply_url": str(apply_url),
         "alias_email": alias_email,
         "alias_id": alias_id,
-        "password": password,
         "status": str(state.get("status") or "initialized"),
     })
     safe_fields = _read_safe_fields()
@@ -739,10 +827,21 @@ def run(job_id: str, review_queue_path: str, state_dir: str, alias_email: str, v
             return _write_result(False, f"could not launch Chrome: {exc}")
 
         page = context.pages[0] if context.pages else context.new_page()
+        # Set True only at the one checkpoint where a human is expected
+        # to pick up immediately in this same window (an unmapped
+        # required field) — every other checkpoint/outcome keeps the
+        # existing always-close behavior, so this doesn't change what
+        # the existing test suite already covers.
+        keep_browser_open = False
         try:
             page.goto(str(apply_url), wait_until="domcontentloaded")
             _pause(1200, 240)
             _ensure_apply_flow(page)
+
+            challenge = detect_challenge(page)
+            if challenge:
+                state["status"] = "challenge_detected"
+                return _emit_with_checkpoint(page, state_dir, job_id, state, False, f"Workday presented a challenge ({challenge}) before account setup could proceed. Checkpoint saved — resolve manually and re-run.", outcome="checkpoint")
 
             if verification_link:
                 page.goto(verification_link, wait_until="domcontentloaded")
@@ -774,7 +873,12 @@ def run(job_id: str, review_queue_path: str, state_dir: str, alias_email: str, v
                     _pause(220, 60)
                     if _click_if_visible(page, "[data-automation-id='submitButton']"):
                         _pause(1400, 260)
-                    state["last_verification_otp"] = verification_otp
+                    # Never persist the OTP itself — a one-way hash is
+                    # enough for an audit trail (this value is never
+                    # read back for a reuse decision anywhere in this
+                    # file) without keeping a live verification code
+                    # sitting in a checkpoint file on disk.
+                    state["last_verification_otp_hash"] = hashlib.sha256(verification_otp.encode("utf-8")).hexdigest()
                     state["used_verification_otp"] = True
                     # Guard: if the page is still asking for a code, the
                     # OTP did not take (wrong/expired code, or a
@@ -811,6 +915,10 @@ def run(job_id: str, review_queue_path: str, state_dir: str, alias_email: str, v
 
             mode = _account_mode(page)
             if mode == "create_account":
+                challenge = detect_challenge(page)
+                if challenge:
+                    state["status"] = "challenge_detected"
+                    return _emit_with_checkpoint(page, state_dir, job_id, state, False, f"Workday presented a challenge ({challenge}) on the create-account page. Checkpoint saved — resolve manually and re-run.", outcome="checkpoint")
                 _fill_if_visible(page, "[data-automation-id='email']", alias_email)
                 _pause(220, 60)
                 _fill_if_visible(page, "[data-automation-id='password']", password)
@@ -827,6 +935,10 @@ def run(job_id: str, review_queue_path: str, state_dir: str, alias_email: str, v
                 return _emit_with_checkpoint(page, state_dir, job_id, state, True, "Workday account created. Waiting for verification mail on the managed alias; re-run once the link arrives.")
 
             if mode == "login":
+                challenge = detect_challenge(page)
+                if challenge:
+                    state["status"] = "challenge_detected"
+                    return _emit_with_checkpoint(page, state_dir, job_id, state, False, f"Workday presented a challenge ({challenge}) on the login page. Checkpoint saved — resolve manually and re-run.", outcome="checkpoint")
                 _fill_if_visible(page, "[data-automation-id='email']", alias_email)
                 _pause(220, 60)
                 _fill_if_visible(page, "[data-automation-id='password']", password)
@@ -924,6 +1036,11 @@ def run(job_id: str, review_queue_path: str, state_dir: str, alias_email: str, v
                             state["seen_signatures"] = list(seen_signatures)
                             return _emit_with_checkpoint(page, state_dir, job_id, state, True, f"Workday application submitted. {submit_result['reason']}", outcome="submitted", confirmation_url=confirmation_url, filled_fields=filled_count, resume_attached=resume_attached)
 
+                        if outcome == "challenge_detected":
+                            state["status"] = "challenge_detected"
+                            state["seen_signatures"] = list(seen_signatures)
+                            return _emit_with_checkpoint(page, state_dir, job_id, state, False, f"Workday presented a challenge just before final submit: {submit_result['reason']}. Checkpoint saved — resolve manually and re-run.", outcome="checkpoint", confirmation_url=confirmation_url, filled_fields=filled_count, resume_attached=resume_attached)
+
                         if outcome == "validation_error":
                             state["status"] = "submit_validation_error"
                             state["seen_signatures"] = list(seen_signatures)
@@ -953,8 +1070,33 @@ def run(job_id: str, review_queue_path: str, state_dir: str, alias_email: str, v
                         return _emit_with_checkpoint(page, state_dir, job_id, state, True, "Workday page replayed, but no next/submit button was recognized. Checkpoint saved for the next continuation step.", filled_fields=len(fill_result["filled_labels"]), resume_attached=fill_result["resume_attached"])
 
                     try:
-                        next_button.click(timeout=1800)
+                        # Bounded retry, re-querying the Next button on
+                        # each attempt — this is a non-final transition
+                        # (unlike the final-submit click above, which is
+                        # never wrapped in a retry), so a transiently
+                        # unclickable control here is safe to retry.
+                        click_with_retry(lambda: _next_button(page) or next_button, timeout_ms=1800)
                         _pause(1300, 260)
+
+                        # A "Save and Continue"/"Next" click can fail
+                        # client-side validation without raising anything
+                        # (the page just stays put and shows inline
+                        # errors) — nothing above would notice, and the
+                        # loop would otherwise only catch this later via
+                        # the repeated-page-signature guard, which stops
+                        # the run but with a much less actionable message
+                        # than naming the actual fields. Check explicitly
+                        # so the checkpoint tells the human exactly what
+                        # to answer, same as the final-submit path
+                        # already does.
+                        page_errors = _validation_errors(page)
+                        if page_errors:
+                            state["status"] = "page_filled"
+                            state["seen_signatures"] = list(seen_signatures)
+                            note = "; ".join(page_errors[:5])
+                            keep_browser_open = True
+                            return _emit_with_checkpoint(page, state_dir, job_id, state, False, f"Workday needs answers aplyx can't safely guess before continuing: {note}. The browser window is left open — answer these yourself, then click Continue Workday again.", outcome="checkpoint", filled_fields=len(fill_result["filled_labels"]), resume_attached=fill_result["resume_attached"])
+
                         state["status"] = "page_advanced"
                         state["last_fill"]["next_step_title"] = _workday_step_title(page)
                         state["last_fill"]["next_url"] = page.url
@@ -979,10 +1121,11 @@ def run(job_id: str, review_queue_path: str, state_dir: str, alias_email: str, v
             state["status"] = "form_unrecognized"
             return _emit_with_checkpoint(page, state_dir, job_id, state, False, "Workday page did not match a known account-setup or login state. Checkpoint saved for manual follow-up.")
         finally:
-            try:
-                context.close()
-            except Exception:
-                pass
+            if not keep_browser_open:
+                try:
+                    context.close()
+                except Exception:
+                    pass
 
 
 def main(argv=None) -> int:

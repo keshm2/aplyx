@@ -9,13 +9,14 @@ import {
   sortByTitleAsc,
   isPreferredLocation,
 } from "@aplyx/core/jobsSort.js";
-import { findRoot, searchJobs, checkJobFit, saveJobForReview, readProfileField, triggerSingleJobApply } from "../../lib/bridge";
+import { findRoot, searchJobs, checkJobFit, checkJobFitBatch, fetchJobDescription, saveJobForReview, readProfileField, triggerSingleJobApply } from "../../lib/bridge";
 import { useAuth } from "../../lib/AuthContext";
 import { getSupabaseClient } from "../../lib/supabaseClient";
 import { SupabaseAdapter } from "@aplyx/core/adapters/supabase.js";
 import { SkeletonRows } from "../../components/Skeleton";
 import { ExternalLinkIcon } from "../../components/Icons";
 import { Modal } from "../../components/Modal";
+import { Dropdown } from "../../components/Dropdown";
 import "../../components/formFields.css";
 import "../../components/dataList.css";
 import "../../components/Skeleton.css";
@@ -48,6 +49,14 @@ const SOURCE_LABEL: Record<JobSource, string> = {
   simplify: "SimplifyJobs",
   vanshb03: "vanshb03",
 };
+// Mirrors jobs.ts's JD_BACKFILL_SOURCES — these sources' list-mode fetch
+// deliberately omits jd_text (it lives behind a second per-requisition API
+// call the bulk board listing can't afford per posting), not because the
+// posting genuinely has no description. Opening the detail view for one
+// of these triggers that second call instead of showing a permanent
+// "not available" for a JD that really does exist.
+const JD_BACKFILL_SOURCES: ReadonlySet<JobSource> = new Set(["workday", "smartrecruiters", "oracle"]);
+
 type SortMode = "preferred" | "recent" | "company" | "title";
 
 const SORT_OPTIONS: { value: SortMode; label: string }[] = [
@@ -147,6 +156,17 @@ function CompanyLogo({ company }: { company: string }) {
 // get a count lookup; that's an honest "unknown," not a wrong number.
 function computeJobId(job: SearchJob): string | undefined {
   return job.external_job_id ? `${job.source}-${job.external_job_id}` : undefined;
+}
+
+// jobs.ts's extractPay/ashbyPayText join multiple location-tagged ranges
+// with " · " when a posting states genuinely different pay per location
+// (e.g. "$136K–$187K/yr (California) · $116K–$160K/yr (Canada)") — full
+// detail belongs in the modal, where there's room, but the row itself is
+// too narrow for that; this shows just the first range plus a "+N" count
+// so the row stays compact while still signaling there's more to see.
+function payTextSummary(payText: string): { primary: string; extraCount: number } {
+  const parts = payText.split(" · ");
+  return { primary: parts[0], extraCount: parts.length - 1 };
 }
 
 export function JobsScreen() {
@@ -258,7 +278,16 @@ export function JobsScreen() {
   }, [displayedJobs, resultsPerPage]);
 
   const totalPages = Math.max(1, Math.ceil(displayedJobs.length / resultsPerPage));
-  const pageJobs = displayedJobs.slice(page * resultsPerPage, (page + 1) * resultsPerPage);
+  // Memoized, not a plain .slice() — a fresh array every render was
+  // exactly what made the applyCounts effect below refire on every
+  // render (its dependency array saw a "new" pageJobs each time even
+  // when nothing relevant changed), which triggered its own setState,
+  // which triggered another render, forever. Confirmed live: "Maximum
+  // update depth exceeded," caught before shipping.
+  const pageJobs = useMemo(
+    () => displayedJobs.slice(page * resultsPerPage, (page + 1) * resultsPerPage),
+    [displayedJobs, page, resultsPerPage],
+  );
 
   // Global "N applied" counts — hosted-only (needs a signed-in Supabase
   // session to read public.job_apply_counts at all), fetched once per
@@ -293,7 +322,119 @@ export function JobsScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authStatus, session, pageJobs]);
 
-  const selectedJob = displayedJobs.find((j) => j.url === selected);
+  const rawSelectedJob = displayedJobs.find((j) => j.url === selected);
+
+  // Backfilled jd_text/pay_text for sources whose list-mode fetch omits
+  // them (see JD_BACKFILL_SOURCES) — keyed by url so switching between
+  // jobs never shows a stale fetch from a previously opened posting, and
+  // a job already fetched this session doesn't re-fetch on reselect.
+  const [jdBackfill, setJdBackfill] = useState<Record<string, { jd_text?: string; pay_text?: string; loading?: boolean; failed?: boolean }>>({});
+  // Guards against firing the same job's fetch twice from two different
+  // triggers (the prefetch effect below and the modal-open effect both
+  // check jdBackfill first, but that's state — two effects can both read
+  // "not present yet" in the same tick before either's setState commits).
+  const jdFetchInFlight = useRef<Set<string>>(new Set());
+
+  const backfillJd = async (job: SearchJob) => {
+    const url = job.url;
+    if (jdFetchInFlight.current.has(url)) return;
+    jdFetchInFlight.current.add(url);
+    setJdBackfill((prev) => ({ ...prev, [url]: { loading: true } }));
+    try {
+      const root = await resolveRoot();
+      const result = await fetchJobDescription(root, job);
+      setJdBackfill((prev) => ({ ...prev, [url]: { jd_text: result.jd_text, pay_text: result.pay_text } }));
+    } catch {
+      setJdBackfill((prev) => ({ ...prev, [url]: { failed: true } }));
+    } finally {
+      jdFetchInFlight.current.delete(url);
+    }
+  };
+
+  // Prefetches the current page's Oracle/Workday/SmartRecruiters postings
+  // in the background as soon as results land, instead of waiting for a
+  // click into each one — so both the pay badge and the full description
+  // are usually already there by the time a user opens a posting. Capped
+  // concurrency (a handful of subprocess calls at once, not 25-200 all at
+  // once) and scoped to just the visible page — changing page/query kicks
+  // off a fresh batch for the newly visible jobs, and a job scrolled past
+  // before its fetch lands just finishes into the cache for next time.
+  const JD_PREFETCH_CONCURRENCY = 4;
+  useEffect(() => {
+    const candidates = pageJobs.filter(
+      (job) =>
+        JD_BACKFILL_SOURCES.has(job.source) &&
+        !job.jd_text &&
+        !jdBackfill[job.url] &&
+        !jdFetchInFlight.current.has(job.url),
+    );
+    if (candidates.length === 0) return;
+    let cancelled = false;
+    let next = 0;
+    const worker = async () => {
+      while (!cancelled && next < candidates.length) {
+        const job = candidates[next++]!;
+        await backfillJd(job);
+      }
+    };
+    void Promise.all(Array.from({ length: Math.min(JD_PREFETCH_CONCURRENCY, candidates.length) }, worker));
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageJobs]);
+
+  // Runs the fit gate automatically for the current page, instead of
+  // requiring a "Check fit" click per row — so a user can scan a page of
+  // results and immediately see which are worth opening. Deliberately
+  // excludes JD_BACKFILL_SOURCES: those need a live network fetch per
+  // posting first (see backfillJd above), which is fine for one manual
+  // click but not for auto-running across a whole page of results;
+  // the fit gate itself is a cheap, local, deterministic script (2
+  // subprocess spawns for the whole page via checkJobFitBatch, not one
+  // per job) with nothing to rate-limit against, so there's no similar
+  // concern for the sources this does cover.
+  useEffect(() => {
+    const candidates = pageJobs.filter((job) => !JD_BACKFILL_SOURCES.has(job.source) && !fits[job.url]);
+    if (candidates.length === 0) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const root = await resolveRoot();
+        const results = await checkJobFitBatch(root, candidates);
+        if (cancelled) return;
+        setFits((cur) => ({ ...cur, ...results }));
+      } catch {
+        // Best-effort — a batch failure just means those rows keep
+        // showing "Check fit" instead of a badge, same as today.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageJobs]);
+
+  // Covers the case a posting is opened before its prefetch got to it
+  // (e.g. clicked immediately after results load) — backfillJd's own
+  // in-flight guard means this never duplicates a prefetch already running.
+  useEffect(() => {
+    if (!rawSelectedJob) return;
+    if (!JD_BACKFILL_SOURCES.has(rawSelectedJob.source)) return;
+    if (rawSelectedJob.jd_text) return;
+    if (jdBackfill[rawSelectedJob.url]) return;
+    void backfillJd(rawSelectedJob);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawSelectedJob?.url]);
+
+  const selectedBackfill = rawSelectedJob ? jdBackfill[rawSelectedJob.url] : undefined;
+  const selectedJob = rawSelectedJob
+    ? {
+        ...rawSelectedJob,
+        jd_text: rawSelectedJob.jd_text || selectedBackfill?.jd_text,
+        pay_text: rawSelectedJob.pay_text || selectedBackfill?.pay_text,
+      }
+    : undefined;
   const selectedFit = selectedJob ? fits[selectedJob.url] : undefined;
   const busy = searching || fitting || saving || applying;
 
@@ -458,42 +599,41 @@ export function JobsScreen() {
           </div>
         ) : null}
         <div className="data-toolbar">
-          <label className="field-label" htmlFor="jobs-sort" style={{ fontWeight: 500 }}>
+          <span className="field-label" style={{ fontWeight: 500 }}>
             Sort by
-          </label>
-          <select
-            id="jobs-sort"
-            className="themed-select"
-            value={sortMode}
-            onChange={(e) => setSortMode(e.target.value as SortMode)}
-          >
-            {SORT_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+          </span>
+          {/* Native <select> replaced with the shared Dropdown component
+             *  (operator report, 2026-08-22): Tauri's macOS webview is
+             *  WebKit, not Chromium, and WebKit has its own well-known
+             *  <select> hit-region quirks with a styled/appearance:none
+             *  control — the visible box and the actual clickable area
+             *  drifted apart, needing the mouse held slightly above the
+             *  rendered text. Not reproducible in Chrome-based tooling,
+             *  so rather than keep guessing at native-select CSS, this
+             *  swaps to Dropdown — a fully custom-rendered, self-hit-tested
+             *  listbox already used identically in Settings (Theme
+             *  family/Font pickers), sidestepping the native control
+             *  entirely instead of fighting its layout quirks. */}
+          <div style={{ width: "11rem" }}>
+            <Dropdown value={sortMode} onChange={setSortMode} label="Sort by" options={SORT_OPTIONS} />
+          </div>
           {/* "Preferred locations only" toggle taken offline for now (operator
               request, 2026-07-23) — it was cutting real results out of an
               already-thin result set while search diversity/volume issues
               were being worked through. preferredOnly stays wired below
               (still always false, its default) so re-enabling this is just
               restoring the button. */}
-          <label className="field-label" htmlFor="jobs-per-page" style={{ fontWeight: 500 }}>
+          <span className="field-label" style={{ fontWeight: 500 }}>
             Results per page
-          </label>
-          <select
-            id="jobs-per-page"
-            className="themed-select"
-            value={resultsPerPage}
-            onChange={(e) => setResultsPerPage(Number(e.target.value))}
-          >
-            {RESULTS_PER_PAGE_OPTIONS.map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
+          </span>
+          <div style={{ width: "6rem" }}>
+            <Dropdown
+              value={String(resultsPerPage)}
+              onChange={(v) => setResultsPerPage(Number(v))}
+              label="Results per page"
+              options={RESULTS_PER_PAGE_OPTIONS.map((n) => ({ value: String(n), label: String(n) }))}
+            />
+          </div>
         </div>
       </div>
 
@@ -520,6 +660,8 @@ export function JobsScreen() {
                   const jobFit = fits[job.url];
                   const jobId = computeJobId(job);
                   const applyCount = jobId ? applyCounts[jobId] : undefined;
+                  const backfill = jdBackfill[job.url];
+                  const payText = job.pay_text || backfill?.pay_text;
                   return (
                     <div
                       key={job.url}
@@ -547,11 +689,33 @@ export function JobsScreen() {
                             : ""}
                         </span>
                       </div>
-                      {jobFit ? (
-                        <span className={`status-badge ${fitBadgeClass(jobFit.fit_status)}`}>{jobFit.fit_score}</span>
-                      ) : (
-                        <span className="data-row-meta">{formatPosted(job.posted_at)}</span>
-                      )}
+                      <div className="data-row-side">
+                        {payText ? (
+                          (() => {
+                            const { primary, extraCount } = payTextSummary(payText);
+                            return (
+                              <span className="data-row-pay">
+                                {primary}
+                                {extraCount > 0 ? ` +${extraCount}` : ""}
+                              </span>
+                            );
+                          })()
+                        ) : backfill?.loading ? (
+                          <span className="data-row-meta">Looking…</span>
+                        ) : (
+                          // Explicit "we looked and found nothing" rather than
+                          // silently leaving this slot blank — an empty gap
+                          // reads as "still loading" or a rendering bug, not
+                          // "extractPay/ashbyPayText genuinely found no pay
+                          // info in this posting" (operator report, 2026-08-23).
+                          <span className="data-row-meta">Couldn't find pay</span>
+                        )}
+                        {jobFit ? (
+                          <span className={`status-badge ${fitBadgeClass(jobFit.fit_status)}`}>{jobFit.fit_score}</span>
+                        ) : (
+                          <span className="data-row-meta">{formatPosted(job.posted_at)}</span>
+                        )}
+                      </div>
                       {/* A real, generously-sized nested button — not just the
                           row's own double-click, which nothing on screen hints
                           at. Stops propagation so opening the posting never
@@ -608,6 +772,22 @@ export function JobsScreen() {
               <span className="detail-row-value">{selectedJob.location || "not listed"}</span>
             </div>
             <div className="detail-row">
+              <span className="detail-row-label">Pay</span>
+              {selectedJob.pay_text ? (
+                <span className="detail-row-value" style={{ color: "var(--good)", fontWeight: 600 }}>
+                  {selectedJob.pay_text}
+                </span>
+              ) : selectedBackfill?.loading ? (
+                <span className="detail-row-value" style={{ color: "var(--text-faint)" }}>
+                  Looking…
+                </span>
+              ) : (
+                <span className="detail-row-value" style={{ color: "var(--text-faint)" }}>
+                  Couldn't find pay
+                </span>
+              )}
+            </div>
+            <div className="detail-row">
               <span className="detail-row-label">Posted</span>
               <span className="detail-row-value">{formatPosted(selectedJob.posted_at)}</span>
             </div>
@@ -630,22 +810,19 @@ export function JobsScreen() {
               )}
             </div>
             <hr className="detail-rule" />
-            {/* Two equally-weighted primary paths — go look at the posting
-                and apply by hand, or have aplyx do it — with "Check
-                fit"/"Save to review" staying secondary to both, not equal
-                with either. Full-size (no btn-sm) and first, same as
-                Open always was. The aplyx path needs a second click on the
-                same job to actually fire (applyArmed, reset whenever the
-                selection changes) — the one action on this screen that can
-                end with a real application actually going out, unlike Open
-                (never submits anything itself) or the two secondary
-                actions below (also never do). */}
-            <button
-              type="button"
-              className="btn btn-primary detail-open-btn"
-              disabled={busy}
-              onClick={() => void open(selectedJob)}
-            >
+            {/* Apply with aplyx is the one action on this screen that can
+                end with a real application actually going out (needs a
+                second click on the same job to actually fire — applyArmed,
+                reset whenever the selection changes) — it stays the sole
+                btn-primary (gradient-filled) so it visually reads as THE
+                main path. Open posting demoted to the plain/outline .btn
+                style (operator call, 2026-08-22: make it "less intriguing
+                to click" than Apply, not equal to it) — it never submits
+                anything itself, same secondary weight as "Check fit"/"Save
+                to review" below, just first in reading order since you
+                often want to glance at the real posting before doing
+                anything else. */}
+            <button type="button" className="btn detail-open-btn" disabled={busy} onClick={() => void open(selectedJob)}>
               <ExternalLinkIcon />
               Open posting
             </button>
@@ -672,11 +849,16 @@ export function JobsScreen() {
             </div>
 
             {/* jd_text was already fetched by the scraper for most sources
-               *  (Ashby/Lever/Greenhouse/Workable reliably; SmartRecruiters/
-               *  Oracle/Muse's feed don't have it) and never shown anywhere
-               *  in the app until now — the fit-gate check already reads it,
-               *  but a human never got to. Run through jobs.ts's htmlToText()
-               *  at fetch time (converts <li> to "• " bullets, decodes HTML
+               *  (Ashby/Lever/Greenhouse/Workable/Amazon/Muse) and never
+               *  shown anywhere in the app until now — the fit-gate check
+               *  already reads it, but a human never got to. Workday/
+               *  SmartRecruiters/Oracle's list feed omits jd_text (it's
+               *  behind a second per-requisition API call, not genuinely
+               *  missing) — the useEffect above backfills it lazily via
+               *  fetchJobDescription() the moment this modal opens for one
+               *  of those, same call checkJobFit already makes before
+               *  evaluating fit. Run through jobs.ts's htmlToText() at
+               *  fetch time (converts <li> to "• " bullets, decodes HTML
                *  entities, marks section headings, collapses stray tags)
                *  rather than raw source markup, then renderJobDescription()
                *  below splits those "### " markers back out into their own
@@ -695,6 +877,14 @@ export function JobsScreen() {
                 <div className="detail-row-value" style={{ display: "block" }}>
                   {renderJobDescription(selectedJob.jd_text)}
                 </div>
+              ) : selectedBackfill?.loading ? (
+                <span className="detail-row-value" style={{ color: "var(--text-faint)" }}>
+                  Fetching the full description…
+                </span>
+              ) : selectedBackfill?.failed ? (
+                <span className="detail-row-value" style={{ color: "var(--text-faint)" }}>
+                  Couldn't load the full description — open the posting to read it directly.
+                </span>
               ) : (
                 <span className="detail-row-value" style={{ color: "var(--text-faint)" }}>
                   Not available for this source — open the posting to read the full description.

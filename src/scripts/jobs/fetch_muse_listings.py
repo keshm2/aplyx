@@ -53,13 +53,13 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import html
 import json
-import re
 import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+
+from _jd_text import extract_pay, html_to_text
 
 USER_AGENT = "aplyx-job-agent/phase16b (+https://github.com/keshm2/aplyx)"
 API_BASE = "https://www.themuse.com/api/public/jobs"
@@ -82,11 +82,6 @@ def warn(msg: str) -> None:
     print(f"fetch_muse_listings: WARNING: {msg}", file=sys.stderr)
 
 
-def strip_html(markup: str) -> str:
-    text = re.sub(r"<[^>]+>", " ", markup or "")
-    return re.sub(r"\s+", " ", html.unescape(text)).strip()
-
-
 def api_get(url: str, timeout: int) -> dict:
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -100,6 +95,7 @@ def to_raw_job(job: dict) -> dict:
         if str(loc.get("name", "")).strip()
     )
     company = job.get("company") or {}
+    jd_text = html_to_text(str(job.get("contents", "")))
     return {
         "source": "muse",
         "company": str(company.get("name", "")).strip(),
@@ -108,7 +104,8 @@ def to_raw_job(job: dict) -> dict:
         "external_job_id": str(job.get("id", "")).strip(),
         "location": "; ".join(locations),
         "role_type": "internship",
-        "jd_text": strip_html(str(job.get("contents", ""))),
+        "jd_text": jd_text,
+        "pay_text": extract_pay(jd_text),
         "posted_at": str(job.get("publication_date", "")).strip() or None,
     }
 

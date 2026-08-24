@@ -577,9 +577,30 @@ if command -v npm >/dev/null 2>&1; then
   # `_npm_install_and_build` already uses for the TUI/extension below (see
   # its own comment on why a scoped install rather than a plain `npm
   # install` from the root matters here).
-  spin "building the shared core" bash -c \
-    'npm install --workspace=src/core --silent --no-progress && npm run build:core --silent' \
-    || warn "core build failed — the TUI build below will likely fail too. See docs/SETUP.md."
+  if ! spin "building the shared core" bash -c \
+    'npm install --workspace=src/core --silent --no-progress && npm run build:core --silent'; then
+    # A workspace-scoped `npm install --workspace=X` can, on a genuinely
+    # empty npm cache, extract an incomplete copy of a dependency that's
+    # ALSO declared by another workspace (@supabase/supabase-js, shared
+    # with src/tauri) — missing its dist/ output entirely even though the
+    # real published tarball has it (confirmed live: reproducible 100% of
+    # the time with a brand-new npm cache — exactly what a fresh install
+    # has — and gone as soon as any full, unscoped `npm install` has run
+    # once). Retrying with one costs more disk than the scoped install
+    # this step normally uses, but heals this deterministically, and the
+    # scoped TUI/extension installs below inherit the now-correct
+    # cache/extraction so they don't need the same fallback.
+    warn "scoped core install looked incomplete — retrying with a full npm install…"
+    # rm -rf node_modules first: npm sees the broken extraction already
+    # matches package-lock.json's pinned version/integrity and skips
+    # re-extracting it on a plain re-install, silently keeping the exact
+    # same incomplete copy in place (confirmed live — the "full install"
+    # retry alone was not sufficient without this).
+    spin "building the shared core (retry)" bash -c \
+      'rm -rf node_modules && npm install --silent --no-progress && npm run build:core --silent' \
+      && say "shared core ready after retry." \
+      || warn "core build failed — the TUI build below will likely fail too. See docs/SETUP.md."
+  fi
   build_node_surface src/tui "the TUI"
   build_node_surface src/extension "the browser extension"
 else
