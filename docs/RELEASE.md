@@ -1,28 +1,29 @@
-# Release notes — aplyx 1.0.0b1
+# Release notes — aplyx 1.0.1b
 
-> **Build:** `1.0.0b1` — first beta, second build (`1.0.0b`/`beta.0` had
-> a broken desktop-app production build, fixed below; the `0.9.x` line
-> was the alpha series).
-> **Branch:** `main`, tagged `v1.0.0b1` (`v1.0.0b` stays tagged too — it
-> was never removed from git, only superseded).
+> **Build:** `1.0.1b` — third beta build (`1.0.0b`/`beta.0` shipped a
+> broken desktop-app production build; `1.0.0b1`/`beta.1` fixed that and
+> added a harness-launch fix, both folded in below; the `0.9.x` line was
+> the alpha series).
+> **Branch:** `main`, tagged `v1.0.1b` (`v1.0.0b`/`v1.0.0b1` stay tagged
+> too — neither was removed from git, only superseded).
 > **TUI in-app marker:** `src/core/src/version.ts` →
-> `BUILD_MARKER = "1.0.0b1"` (re-exported from `src/tui/src/theme.ts`,
+> `BUILD_MARKER = "1.0.1b"` (re-exported from `src/tui/src/theme.ts`,
 > visible in the TUI side-panel footer and the desktop app's Settings
 > screen — one shared constant, both surfaces agree).
-> **npm package:** `@keshm/aplyx` version `1.0.0-beta.1`. `1.0.0-beta.0`
-> was published, then found to ship a broken desktop build — npm never
-> allows reusing a version number once unpublished, so this is a new
-> version rather than a swap-in-place fix. The unscoped npm name `aplyx`
-> belongs to an unrelated package — never `npm install aplyx`.
-> **Desktop app:** `1.0.0-beta.1` (Tauri app + `Cargo.toml`).
-> **Browser extension:** `1.0.0-beta.1` (previously `0.8.2a`).
+> **npm package:** `@keshm/aplyx` version `1.0.1-beta.0`. `1.0.0-beta.0`
+> and `1.0.0-beta.1` are both already published and stay that way — npm
+> never allows reusing a version number once unpublished, so each fix
+> gets a new version rather than a swap-in-place. The unscoped npm name
+> `aplyx` belongs to an unrelated package — never `npm install aplyx`.
+> **Desktop app:** `1.0.1-beta.0` (Tauri app + `Cargo.toml`).
+> **Browser extension:** `1.0.1-beta.0` (previously `0.8.2a`).
 > **Previous releases:** the `0.9.x` alpha history is preserved under
 > git tags `v0.9.945a` and earlier; see
 > [`CHANGELOG.md`](./CHANGELOG.md) for the index. `v0.9.946a` through
 > `v0.9.950a` were never tagged — that backlog is unrelated to this
 > release and still outstanding.
 
-## Fixed in 1.0.0b1: broken desktop-app production build
+## Fixed in 1.0.0b1 (folded into this release): broken desktop-app production build
 
 `ResumesScreen.tsx`'s new `reflowExtractedResumeText` import (see
 below) was a real, non-type import from `masterResume.ts` — unlike
@@ -38,6 +39,25 @@ dependency-free module, `resumeReflow.ts`, and registered it in
 `npm run build` in `src/tauri/` (not just `tsc --noEmit`, which this
 class of bug slips straight past) and a full `npm run tauri build` —
 the resulting `.app`/`.dmg` were installed and run.
+
+## Fixed in 1.0.1b: the desktop app couldn't launch a run
+
+Reported live: an application run started from the desktop app crashed
+with `FileNotFoundError: [Errno 2] No such file or directory:
+'opencode'`, even with a working opencode install
+(`~/.opencode/bin/opencode`, found instantly from a terminal). A
+Finder/Dock-launched `.app` inherits `launchd`'s minimal PATH
+(`/usr/bin:/bin:/usr/sbin:/sbin`), not the user's shell PATH, so
+`shutil.which("opencode")` came back empty. `src/core/src/harness.ts`'s
+`extraSearchDirs()` already solved this exact problem for *detecting*
+an installed harness (the Settings screen's "Auto" label);
+`harness_adapter.resolve_harness_exe()` is the same well-known-
+directory fallback applied to actually *running* one, used by
+`run_job_agent.py` and `preview_resume.py`. Verified against the real
+opencode install under both a normal PATH and a simulated minimal one.
+Python-only fix — took effect immediately, no rebuild needed, since the
+desktop app runs these scripts from the live checkout rather than a
+bundled copy.
 
 ## What's new in 1.0.0b
 
@@ -245,12 +265,14 @@ Windows: `powershell -ExecutionPolicy Bypass -File src\scripts\install\install.p
 
 ## Release artifacts
 
-- Git tag `v1.0.0b1` on `main` (`v1.0.0b` also still exists, superseded).
-- npm: `@keshm/aplyx@1.0.0-beta.1` under the `latest` dist-tag
+- Git tag `v1.0.1b` on `main` (`v1.0.0b`/`v1.0.0b1` also still exist,
+  superseded).
+- npm: `@keshm/aplyx@1.0.1-beta.0` under the `latest` dist-tag
   (`cd src/tui && npm publish` — `publishConfig` sets `access: public`
-  and the tag). `1.0.0-beta.0` was published and is not being
-  unpublished — npm blocks reusing a version number once unpublished,
-  so leaving it in place is strictly safer than removing it.
+  and the tag). `1.0.0-beta.0` and `1.0.0-beta.1` were both published
+  and neither is being unpublished — npm blocks reusing a version
+  number once unpublished, so leaving them in place is strictly safer
+  than removing them.
 - CI workflow `.github/workflows/tui.yml` runs on every push touching
   the TUI/core. `.github/workflows/desktop-release.yml` builds and
   attaches desktop app bundles once the tag above exists.

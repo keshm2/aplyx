@@ -7,6 +7,18 @@ but trimmed to fit a small in-repo doc.
 > Per-`docs/RELEASE.md` is the canonical, deep-dive release
 > document for each tagged build. This file is the index.
 
+## [1.0.1b] — 2026-08-24
+
+Hotfix. The desktop app crashed starting a run —
+`FileNotFoundError: ... 'opencode'` — because a Finder/Dock-launched
+`.app` inherits `launchd`'s minimal PATH, not the shell PATH an
+opencode/claude/codex/copilot install actually lives on. Fixed with the
+same well-known-install-directory fallback `harness.ts` already used for
+*detecting* an installed harness, now applied to actually *running*
+one (`harness_adapter.resolve_harness_exe()`). Python-only fix; no
+rebuild needed for anyone who only pulls source changes. Full write-up
+in [`RELEASE.md`](./RELEASE.md).
+
 ## [1.0.0b1] — 2026-08-24
 
 Hotfix. `1.0.0b`/`1.0.0-beta.0` shipped a desktop app that couldn't

@@ -27,7 +27,7 @@ a Google Sheet tracker.
 It's built on top of a coding agent — aplyx is the workflow, the
 agent is the executor.
 
-> **Build 1.0.0b1** — see [Release notes](docs/RELEASE.md) and
+> **Build 1.0.1b** — see [Release notes](docs/RELEASE.md) and
 > [Changelog](docs/CHANGELOG.md).
 
 ## You need a coding agent

@@ -4,7 +4,7 @@ The live configs (`src/config/targets.json`, `src/config/discord_config.json`) a
 gitignored — they hold personal data and secrets. Start from the shipped
 examples before running the agent.
 
-> **Build:** this document ships with release `1.0.0b1`. Full release
+> **Build:** this document ships with release `1.0.1b`. Full release
 > notes: [`RELEASE.md`](./RELEASE.md). Changelog: [`CHANGELOG.md`](./CHANGELOG.md).
 
 ## 0. Universal install (recommended)
@@ -44,8 +44,8 @@ gitignored local files and never leaves your machine.
 **Release archive:**
 
 ```bash
-curl -L -o aplyx-1.0.0b1.zip https://github.com/keshm2/aplyx/archive/refs/tags/v1.0.0b1.zip && \
-  unzip aplyx-1.0.0b1.zip && cd aplyx-1.0.0b1   # or the release page's "Source code" assets
+curl -L -o aplyx-1.0.1b.zip https://github.com/keshm2/aplyx/archive/refs/tags/v1.0.1b.zip && \
+  unzip aplyx-1.0.1b.zip && cd aplyx-1.0.1b   # or the release page's "Source code" assets
 ```
 
 **Desktop app (early preview, optional).** Near the end of the install,
