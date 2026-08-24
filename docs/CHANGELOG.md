@@ -7,6 +7,16 @@ but trimmed to fit a small in-repo doc.
 > Per-`docs/RELEASE.md` is the canonical, deep-dive release
 > document for each tagged build. This file is the index.
 
+## [1.0.0b1] — 2026-08-24
+
+Hotfix. `1.0.0b`/`1.0.0-beta.0` shipped a desktop app that couldn't
+production-build: a new import in `ResumesScreen.tsx` pulled a
+Node-only dependency into the browser bundle, and Vite failed outright.
+Moved the offending code (`reflowExtractedResumeText`) into its own
+dependency-free module. `1.0.0-beta.0` stays published on npm — a
+version can't be reused once unpublished, so this is a new version, not
+a swap-in-place. Full write-up in [`RELEASE.md`](./RELEASE.md).
+
 ## [1.0.0b] — 2026-08-24
 
 First beta. Everything below is new since `0.9.950a`; full write-up in

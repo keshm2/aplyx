@@ -1,6 +1,6 @@
 {
   "name": "@aplyx/core",
-  "version": "1.0.0-beta.0",
+  "version": "1.0.0-beta.1",
   "description": "Shared framework-agnostic TS core for aplyx: local state reads, helper wrappers that shell out to the Python core, settings/config read-write, platform/process utilities, project-root resolution, the onboarding field schema, and the storage-adapter interface (Local/Supabase). Consumed by the Ink TUI (src/tui/) and the Tauri desktop app (src/tauri/).",
   "private": true,
   "license": "MIT",

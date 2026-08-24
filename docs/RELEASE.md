@@ -1,22 +1,43 @@
-# Release notes — aplyx 1.0.0b
+# Release notes — aplyx 1.0.0b1
 
-> **Build:** `1.0.0b` — first beta (the `0.9.x` line was the alpha
-> series).
-> **Branch:** `main`, tagged `v1.0.0b`.
+> **Build:** `1.0.0b1` — first beta, second build (`1.0.0b`/`beta.0` had
+> a broken desktop-app production build, fixed below; the `0.9.x` line
+> was the alpha series).
+> **Branch:** `main`, tagged `v1.0.0b1` (`v1.0.0b` stays tagged too — it
+> was never removed from git, only superseded).
 > **TUI in-app marker:** `src/core/src/version.ts` →
-> `BUILD_MARKER = "1.0.0b"` (re-exported from `src/tui/src/theme.ts`,
+> `BUILD_MARKER = "1.0.0b1"` (re-exported from `src/tui/src/theme.ts`,
 > visible in the TUI side-panel footer and the desktop app's Settings
 > screen — one shared constant, both surfaces agree).
-> **npm package:** `@keshm/aplyx` version `1.0.0-beta.0`. The unscoped
-> npm name `aplyx` belongs to an unrelated package — never
-> `npm install aplyx`.
-> **Desktop app:** `1.0.0-beta.0` (Tauri app + `Cargo.toml`).
-> **Browser extension:** `1.0.0-beta.0` (previously `0.8.2a`).
+> **npm package:** `@keshm/aplyx` version `1.0.0-beta.1`. `1.0.0-beta.0`
+> was published, then found to ship a broken desktop build — npm never
+> allows reusing a version number once unpublished, so this is a new
+> version rather than a swap-in-place fix. The unscoped npm name `aplyx`
+> belongs to an unrelated package — never `npm install aplyx`.
+> **Desktop app:** `1.0.0-beta.1` (Tauri app + `Cargo.toml`).
+> **Browser extension:** `1.0.0-beta.1` (previously `0.8.2a`).
 > **Previous releases:** the `0.9.x` alpha history is preserved under
 > git tags `v0.9.945a` and earlier; see
 > [`CHANGELOG.md`](./CHANGELOG.md) for the index. `v0.9.946a` through
 > `v0.9.950a` were never tagged — that backlog is unrelated to this
 > release and still outstanding.
+
+## Fixed in 1.0.0b1: broken desktop-app production build
+
+`ResumesScreen.tsx`'s new `reflowExtractedResumeText` import (see
+below) was a real, non-type import from `masterResume.ts` — unlike
+every other consumer of that file, which only ever imports its types
+(erased entirely by `tsc`) or goes through the Rust/bridge IPC layer.
+That pulled `masterResume.ts`'s Node-only `platform.js` dependency
+(used only by `exportResumePdf`, for the PDF-export subprocess) into
+the desktop app's browser/webview bundle for the first time, and broke
+the production Vite build outright: `"join" is not exported by
+"__vite-browser-external"`. Moved the reflow logic into its own
+dependency-free module, `resumeReflow.ts`, and registered it in
+`src/core`'s `package.json` `exports` map. Verified with a clean
+`npm run build` in `src/tauri/` (not just `tsc --noEmit`, which this
+class of bug slips straight past) and a full `npm run tauri build` —
+the resulting `.app`/`.dmg` were installed and run.
 
 ## What's new in 1.0.0b
 
@@ -224,11 +245,12 @@ Windows: `powershell -ExecutionPolicy Bypass -File src\scripts\install\install.p
 
 ## Release artifacts
 
-- Git tag `v1.0.0b` on `main`.
-- npm: `@keshm/aplyx@1.0.0-beta.0` under the `latest` dist-tag
+- Git tag `v1.0.0b1` on `main` (`v1.0.0b` also still exists, superseded).
+- npm: `@keshm/aplyx@1.0.0-beta.1` under the `latest` dist-tag
   (`cd src/tui && npm publish` — `publishConfig` sets `access: public`
-  and the tag). Publishing is the last step of this release, after the
-  push and tag above.
+  and the tag). `1.0.0-beta.0` was published and is not being
+  unpublished — npm blocks reusing a version number once unpublished,
+  so leaving it in place is strictly safer than removing it.
 - CI workflow `.github/workflows/tui.yml` runs on every push touching
   the TUI/core. `.github/workflows/desktop-release.yml` builds and
   attaches desktop app bundles once the tag above exists.
