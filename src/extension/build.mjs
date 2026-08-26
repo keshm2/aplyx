@@ -22,3 +22,4 @@ await build({
 for (const file of ["manifest.json", "options.html"]) {
   cpSync(`src/${file}`, `dist/${file}`);
 }
+cpSync("src/icons", "dist/icons", { recursive: true });

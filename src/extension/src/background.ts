@@ -4,6 +4,15 @@
 // form actually mapped.
 import { BridgeMessage, DEFAULT_BRIDGE_URL } from "./shared.js";
 
+// There's no popup UI (manifest's "action" has no default_popup) — a
+// toolbar-icon click would otherwise do nothing. Options is the one
+// screen the extension has, so that's where a click should land, same
+// as the right-click context menu's existing "Options" entry already
+// goes.
+chrome.action.onClicked.addListener(() => {
+  void chrome.runtime.openOptionsPage();
+});
+
 interface BridgeSettings {
   bridgeUrl: string;
   token: string;

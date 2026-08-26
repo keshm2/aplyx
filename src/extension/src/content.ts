@@ -35,16 +35,28 @@ interface MappedControl {
   key: FieldKey;
 }
 
+/** A zero-size bounding rect alone (display:none, or a display:none
+ *  ancestor) already covers most hidden cases, but NOT visibility:hidden
+ *  or opacity:0 — both can still report a nonzero rect. That gap matters
+ *  here specifically: several ATS forms plant honeypot fields (invisible
+ *  to a real applicant, meant to catch bots) using exactly those two
+ *  properties rather than display:none. Autofilling one and having the
+ *  user submit it would look like automated/bot traffic to the ATS's own
+ *  anti-abuse checks — the opposite of this extension's entire "a human
+ *  reviews and submits" safety story. */
 function visible(el: HTMLElement): boolean {
   const rect = el.getBoundingClientRect();
-  return rect.width > 0 && rect.height > 0;
+  if (rect.width <= 0 || rect.height <= 0) return false;
+  const style = getComputedStyle(el);
+  return style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity) !== 0;
 }
 
 function fillable(el: Element): el is HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement {
-  if (el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement) return true;
+  if (el instanceof HTMLTextAreaElement) return !el.readOnly;
+  if (el instanceof HTMLSelectElement) return true;
   if (!(el instanceof HTMLInputElement)) return false;
   const type = (el.getAttribute("type") ?? "text").toLowerCase();
-  return ["text", "email", "tel", "url", "number", "search"].includes(type);
+  return !el.readOnly && ["text", "email", "tel", "url", "number", "search"].includes(type);
 }
 
 function scanForm(): { mapped: MappedControl[]; unmappedRequired: HTMLElement[] } {
@@ -164,42 +176,56 @@ function init(): void {
   const host = document.createElement("div");
   host.id = "aplyx-panel-host";
   const shadow = host.attachShadow({ mode: "closed" });
+  const iconUrl = chrome.runtime.getURL("icons/icon32.png");
   shadow.innerHTML = `
     <style>
       :host { all: initial; }
+      /* Moss — the app's actual dark palette (src/tauri/src/styles/tokens.css),
+         not an invented panel-specific scheme. This used to be a violet/indigo
+         palette that matched nothing else aplyx ships. */
       .panel {
         position: fixed; right: 16px; bottom: 16px; z-index: 2147483647;
-        width: 300px; padding: 12px 14px; border-radius: 10px;
-        background: #1e1b2e; color: #e5e7eb;
-        font: 13px/1.45 system-ui, sans-serif;
-        box-shadow: 0 6px 24px rgba(0,0,0,.35);
+        width: 300px; padding: 12px 14px; border-radius: 12px;
+        background: #1e1b14; color: #ede6d6;
+        font: 13px/1.45 -apple-system, "SF Pro Text", "Segoe UI", Roboto, system-ui, sans-serif;
+        box-shadow: 0 10px 32px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.06);
+        transition: width .18s ease, padding .18s ease;
       }
-      .panel.collapsed { width: auto; padding: 8px 12px; cursor: pointer; }
+      .panel.collapsed { width: auto; padding: 8px 10px; cursor: pointer; }
       .head { display: flex; align-items: center; gap: 8px; }
-      .brand { font-weight: 700; color: #a78bfa; letter-spacing: .04em; }
+      .head img { width: 18px; height: 18px; border-radius: 4px; display: block; }
+      .brand { font-weight: 700; color: #ede6d6; letter-spacing: .02em; }
       .spacer { flex: 1; }
       button {
-        font: inherit; border: 0; border-radius: 6px; cursor: pointer;
-        padding: 6px 10px; margin-top: 8px; width: 100%;
-        background: #7c3aed; color: #fff;
+        font: inherit; font-weight: 600; border: 0; border-radius: 8px; cursor: pointer;
+        padding: 7px 10px; margin-top: 8px; width: 100%;
+        background: #7fae86; color: #17140f;
+        transition: background .12s ease, opacity .12s ease, transform .08s ease;
       }
-      button.secondary { background: #3f3a52; }
+      button:hover:not(:disabled) { background: #9cc4a1; }
+      button:active:not(:disabled) { transform: scale(.98); }
+      button.secondary { background: #322c1f; color: #ede6d6; }
+      button.secondary:hover:not(:disabled) { background: #3d3524; }
       button:disabled { opacity: .5; cursor: default; }
-      .toggle { background: none; color: #9ca3af; width: auto; margin: 0; padding: 2px 6px; }
-      .status { margin-top: 8px; min-height: 1.2em; color: #cbd5e1; word-break: break-word; }
-      .fit { margin-top: 8px; padding: 6px 8px; border-radius: 6px; display: none; }
-      .fit.candidate { display: block; background: #0f6e2a33; color: #6ee7a0; }
-      .fit.needs_review { display: block; background: #edca0c22; color: #fde68a; }
-      .fit.skipped_unfit { display: block; background: #ed003122; color: #fda4af; }
-      .note { margin-top: 8px; color: #8b8ba3; font-size: 11px; }
+      .toggle { background: none; color: #b0a68e; width: auto; margin: 0; padding: 2px 6px; }
+      .toggle:hover:not(:disabled) { background: none; color: #ede6d6; }
+      .body { overflow: hidden; max-height: 0; opacity: 0; transition: max-height .18s ease, opacity .15s ease; }
+      .body.open { max-height: 22rem; opacity: 1; }
+      .status { margin-top: 8px; min-height: 1.2em; color: #b0a68e; word-break: break-word; }
+      .fit { margin-top: 8px; padding: 6px 8px; border-radius: 8px; display: none; font-weight: 600; }
+      .fit.candidate { display: block; background: rgba(111,190,138,.16); color: #6fbe8a; }
+      .fit.needs_review { display: block; background: rgba(224,172,82,.16); color: #e0ac52; }
+      .fit.skipped_unfit { display: block; background: rgba(224,135,112,.16); color: #e08770; }
+      .note { margin-top: 8px; color: #7a7260; font-size: 11px; }
     </style>
     <div class="panel collapsed" id="panel">
       <div class="head">
+        <img src="${iconUrl}" alt="" />
         <span class="brand">aplyx</span>
         <span class="spacer"></span>
         <button class="toggle" id="toggle" title="expand / collapse">▴</button>
       </div>
-      <div id="body" style="display:none">
+      <div class="body" id="body">
         <button id="fit">Fit check</button>
         <div class="fit" id="fitResult"></div>
         <button id="autofill">Autofill from profile</button>
@@ -216,11 +242,14 @@ function init(): void {
   const toggle = shadow.getElementById("toggle")!;
   const status = shadow.getElementById("status")!;
   const fitResult = shadow.getElementById("fitResult")!;
+  const actionButtons = ["fit", "autofill", "save", "applied"].map(
+    (id) => shadow.getElementById(id) as HTMLButtonElement,
+  );
 
   let expanded = false;
   const setExpanded = (value: boolean) => {
     expanded = value;
-    body.style.display = expanded ? "block" : "none";
+    body.classList.toggle("open", expanded);
     panel.classList.toggle("collapsed", !expanded);
     toggle.textContent = expanded ? "▾" : "▴";
   };
@@ -236,49 +265,75 @@ function init(): void {
     status.textContent = message;
   };
 
+  // All four actions talk to the same single-threaded bridge and read/
+  // write the same job's state — running two at once (a fast double-click,
+  // or clicking Autofill while Fit check is still in flight) previously
+  // had no guard at all, risking overlapping bridge calls racing each
+  // other. Disabling every action button for the duration of any one of
+  // them, not just the clicked one, is the simplest correct fix — these
+  // are all quick, sequential, single-user actions with no legitimate
+  // reason to overlap.
+  let busy = false;
+  async function runExclusive<T>(task: () => Promise<T>): Promise<T | undefined> {
+    if (busy) return undefined;
+    busy = true;
+    actionButtons.forEach((btn) => (btn.disabled = true));
+    try {
+      return await task();
+    } finally {
+      busy = false;
+      actionButtons.forEach((btn) => (btn.disabled = false));
+    }
+  }
+
   const job = (): ExtractedJob | null => extractJob(ats!, document, new URL(location.href));
 
-  shadow.getElementById("fit")!.addEventListener("click", async () => {
-    const extracted = job();
-    if (!extracted) return say("Could not read a posting from this page — open a specific job posting.");
-    if (!extracted.jd_text) return say("No description text found on this page.");
-    say("Running the fit gate…");
-    const result = (await chrome.runtime.sendMessage({ type: "fit", job: extracted })) as FitResponse;
-    if (!result.ok) return say(result.error ?? "Fit check failed.");
-    fitResult.className = `fit ${result.fit_status}`;
-    fitResult.textContent = `${result.fit_status} · score ${result.fit_score}` +
-      (result.can_apply === false ? " · already recorded" : "");
-    say(result.reasoning ?? "");
-  });
+  shadow.getElementById("fit")!.addEventListener("click", () =>
+    runExclusive(async () => {
+      const extracted = job();
+      if (!extracted) return say("Could not read a posting from this page — open a specific job posting.");
+      if (!extracted.jd_text) return say("No description text found on this page.");
+      say("Running the fit gate…");
+      const result = (await chrome.runtime.sendMessage({ type: "fit", job: extracted })) as FitResponse;
+      if (!result.ok) return say(result.error ?? "Fit check failed.");
+      fitResult.className = `fit ${result.fit_status}`;
+      fitResult.textContent = `${result.fit_status} · score ${result.fit_score}` +
+        (result.can_apply === false ? " · already recorded" : "");
+      say(result.reasoning ?? "");
+    }),
+  );
 
-  shadow.getElementById("autofill")!.addEventListener("click", async () => {
-    say("Scanning the form…");
-    try {
-      say(await autofill());
-    } catch (err) {
-      say(err instanceof Error ? err.message : String(err));
-    }
-  });
+  shadow.getElementById("autofill")!.addEventListener("click", () =>
+    runExclusive(async () => {
+      say("Scanning the form…");
+      try {
+        say(await autofill());
+      } catch (err) {
+        say(err instanceof Error ? err.message : String(err));
+      }
+    }),
+  );
 
-  const record = async (statusValue: "applied" | "needs_review") => {
-    const extracted = job();
-    if (!extracted) return say("Could not read a posting from this page.");
-    if (statusValue === "applied" &&
-        !confirm(`Record that you applied to "${extracted.title}" at ${extracted.company}?\n\nOnly confirm after you actually submitted the application.`)) {
-      return;
-    }
-    say("Recording…");
-    const result = (await chrome.runtime.sendMessage({
-      type: "outcome",
-      job: extracted,
-      status: statusValue,
-    })) as OutcomeResponse;
-    if (!result.ok) return say(result.error ?? "Recording failed.");
-    if (!result.recorded) return say(`Not recorded: ${result.reason ?? "already recorded"}.`);
-    say(statusValue === "applied"
-      ? `Recorded as applied ✓${result.tracker_sync === "synced" ? " (tracker synced)" : ""}`
-      : "Saved to the review queue ✓");
-  };
+  const record = (statusValue: "applied" | "needs_review") =>
+    runExclusive(async () => {
+      const extracted = job();
+      if (!extracted) return say("Could not read a posting from this page.");
+      if (statusValue === "applied" &&
+          !confirm(`Record that you applied to "${extracted.title}" at ${extracted.company}?\n\nOnly confirm after you actually submitted the application.`)) {
+        return;
+      }
+      say("Recording…");
+      const result = (await chrome.runtime.sendMessage({
+        type: "outcome",
+        job: extracted,
+        status: statusValue,
+      })) as OutcomeResponse;
+      if (!result.ok) return say(result.error ?? "Recording failed.");
+      if (!result.recorded) return say(`Not recorded: ${result.reason ?? "already recorded"}.`);
+      say(statusValue === "applied"
+        ? `Recorded as applied ✓${result.tracker_sync === "synced" ? " (tracker synced)" : ""}`
+        : "Saved to the review queue ✓");
+    });
   shadow.getElementById("applied")!.addEventListener("click", () => void record("applied"));
   shadow.getElementById("save")!.addEventListener("click", () => void record("needs_review"));
 }
