@@ -102,19 +102,29 @@
           <p class="account-fineprint">Free account &mdash; no card, no coding agent required. Search cached postings from Ashby, Lever, Greenhouse, and SmartRecruiters boards. For tailoring, review, and applying, <a class="link" href="install.html">install aplyx locally</a> instead.</p>
         </div>
 
-        <div id="dashboard-panel" class="account-panel" hidden>
+        <div id="dashboard-panel" class="account-panel account-dashboard" hidden>
           <div class="account-header">
             <div>
               <p class="account-label">Signed in as</p>
               <p class="account-email" id="dashboard-email"></p>
+              <span class="account-tier-badge">Free account</span>
             </div>
             <button type="button" class="btn btn-secondary" id="sign-out">Sign out</button>
           </div>
 
-          <form id="search-form" class="job-search-form">
-            <input type="text" id="search-query" placeholder="e.g. software engineer intern" aria-label="Search cached job postings" />
-            <button type="submit" class="btn btn-primary">Search</button>
-          </form>
+          <div class="dashboard-search">
+            <form id="search-form" class="job-search-form">
+              <input type="text" id="search-query" placeholder="Search cached postings, e.g. software engineer intern" aria-label="Search cached job postings" />
+              <button type="submit" class="btn btn-primary">Search</button>
+            </form>
+            <div class="job-source-filters" role="group" aria-label="Filter by board">
+              <button type="button" class="job-source-chip is-active" data-source-filter="all">All boards</button>
+              <button type="button" class="job-source-chip" data-source-filter="ashbyhq">Ashby</button>
+              <button type="button" class="job-source-chip" data-source-filter="lever">Lever</button>
+              <button type="button" class="job-source-chip" data-source-filter="greenhouse">Greenhouse</button>
+              <button type="button" class="job-source-chip" data-source-filter="smartrecruiters">SmartRecruiters</button>
+            </div>
+          </div>
           <p class="account-fineprint">Searches a cached snapshot from Ashby, Lever, Greenhouse, and SmartRecruiters boards &mdash; not a live fetch, and narrower than what a local install can search. For every board plus tailoring, review, and applying, <a class="link" href="install.html">install aplyx locally</a>.</p>
 
           <div id="search-status" class="job-results-status" role="status"></div>

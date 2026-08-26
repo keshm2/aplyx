@@ -3003,6 +3003,14 @@ button {
 .account-wrap {
   max-width: 30rem;
   margin: 0 auto;
+  transition: max-width var(--duration-normal) var(--ease-standard);
+}
+
+/* Widens once signed in — a job-listing dashboard wants real width, a
+   login form doesn't. #auth-panel keeps its own narrower cap below so
+   the form itself never stretches even while its wrap is wide. */
+.account-wrap:has(#dashboard-panel:not([hidden])) {
+  max-width: 56rem;
 }
 
 .account-panel {
@@ -3011,6 +3019,11 @@ button {
   border: 1px solid var(--border);
   background: var(--surface);
   box-shadow: var(--shadow-lift);
+}
+
+#auth-panel {
+  max-width: 30rem;
+  margin: 0 auto;
 }
 
 .account-tabs {
@@ -3137,6 +3150,51 @@ button {
   font-weight: 650;
 }
 
+.account-tier-badge {
+  display: inline-block;
+  margin-top: var(--space-2);
+  padding: 0.2em var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.dashboard-search {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.job-source-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.job-source-chip {
+  padding: 0.3em var(--space-3);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color var(--duration-quick) var(--ease-out), color var(--duration-quick) var(--ease-out), background var(--duration-quick) var(--ease-out);
+}
+
+.job-source-chip:hover {
+  border-color: var(--accent);
+}
+
+.job-source-chip.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
 .job-search-form {
   display: flex;
   gap: var(--space-3);
@@ -3165,8 +3223,8 @@ button {
 }
 
 .job-results {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
   gap: var(--space-3);
   margin-top: var(--space-4);
 }
@@ -3181,11 +3239,24 @@ button {
   background: var(--ground);
   text-decoration: none;
   color: inherit;
-  transition: border-color var(--duration-quick) var(--ease-out);
+  transition: border-color var(--duration-quick) var(--ease-out), transform var(--duration-quick) var(--ease-out-expo);
 }
 
 .job-result:hover {
   border-color: var(--accent);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .job-result:hover {
+    transform: translateY(-2px);
+  }
+}
+
+.job-result-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
 }
 
 .job-result-company {
@@ -3196,15 +3267,45 @@ button {
   letter-spacing: 0.04em;
 }
 
+.job-result-source {
+  flex-shrink: 0;
+  padding: 0.15em var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  color: var(--text-faint);
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+
 .job-result-title {
   font-weight: 600;
 }
 
 .job-result-meta {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-3);
+  margin-top: var(--space-1);
   color: var(--text-faint);
   font-size: var(--text-xs);
+}
+
+/* Loading state — a handful of pulsing placeholder cards instead of
+   plain status text, so a search reads as "working," not "did nothing." */
+.job-result-skeleton {
+  height: 5.5rem;
+  background: var(--ground);
+  animation: job-result-skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes job-result-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 @media (max-width: 30rem) {
@@ -3213,5 +3314,8 @@ button {
   }
   .job-search-form {
     flex-direction: column;
+  }
+  .job-results {
+    grid-template-columns: 1fr;
   }
 }
