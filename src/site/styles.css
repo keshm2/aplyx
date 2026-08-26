@@ -795,11 +795,43 @@ button {
   color: #4caf6d;
 }
 
-/* Two of the four rows start unchecked and check themselves off once the
-   mockup scrolls into view — a one-shot animation, not an infinite
-   toggle, since the real TUI never un-applies a job either. The "[x]"
-   layer sits absolutely over the static "[ ]" (same 3-character cell,
-   same monospace font, so they align exactly) and fades in once. */
+/* The mockup reads as a live session, not a static screenshot: a light
+   sweep continuously passes over the job rows (ambient "processing"),
+   and two of the four rows loop their checkbox between pending and
+   applied on a staggered cycle. The "[x]" layer sits absolutely over the
+   static "[ ]" (same 3-character cell, same monospace font, so they
+   align exactly) and fades in and back out repeatedly. */
+.term-rows {
+  position: relative;
+}
+
+.term-rows::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 40%,
+    color-mix(in srgb, #8b5cf6 22%, transparent) 50%,
+    transparent 60%
+  );
+  background-size: 250% 100%;
+  pointer-events: none;
+}
+
+.hero-mockup-tui[data-reveal].is-visible .term-rows::after {
+  animation: term-scan-sweep 4s linear infinite;
+}
+
+@keyframes term-scan-sweep {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -120% 0;
+  }
+}
+
 .term-check-wrap {
   position: relative;
   display: inline-block;
@@ -814,15 +846,20 @@ button {
 }
 
 .hero-mockup-tui[data-reveal].is-visible .term-check-anim {
-  animation: term-check-in 500ms var(--ease-out) forwards;
+  animation: term-check-loop 4.5s ease-in-out infinite;
 }
 
-@keyframes term-check-in {
-  from {
+@keyframes term-check-loop {
+  0%,
+  100% {
     opacity: 0;
   }
-  to {
+  15%,
+  55% {
     opacity: 1;
+  }
+  70% {
+    opacity: 0;
   }
 }
 
@@ -2077,6 +2114,13 @@ button {
   padding: var(--space-6) 0 var(--space-9);
 }
 
+/* Wider than the site's standard 72rem .wrap — 4 cards with a full
+   feature list each need more room than that to avoid the skinny,
+   cramped columns a standard-width container forces them into. */
+.pricing .wrap {
+  max-width: 88rem;
+}
+
 .pricing-section-head {
   text-align: center;
 }
@@ -2087,7 +2131,7 @@ button {
 
 .pricing-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: var(--space-5);
   margin-top: var(--space-7);
   align-items: stretch;
@@ -2215,6 +2259,14 @@ button {
 .price-card .btn {
   justify-content: center;
   margin-top: var(--space-6);
+}
+
+@media (max-width: 88rem) {
+  /* 4 cards split evenly into a 2x2 grid below the wide pricing .wrap's
+     own max-width, once the viewport itself can't fit it comfortably. */
+  .pricing-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 @media (max-width: 40rem) {
