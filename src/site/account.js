@@ -12,14 +12,9 @@
  * Supabase client — everything else on this site is plain script-tag JS
  * with no build step, so this stays isolated to the one page that needs it
  * rather than converting the whole site to a module graph. */
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { supabase } from "./nav-auth.js";
 
-const AUTH_CONFIG = {
-  url: "https://aedejjesqcbndphkldfs.supabase.co",
-  anonKey: "sb_publishable_d3pJdWv70x7tYbDEWoGkFw_HCUpS1_i",
-};
-
-// Deliberately separate project from AUTH_CONFIG above — same split as
+// Deliberately separate project from the auth client above — same split as
 // src/core/src/supabaseConfig.ts's readJobCacheSupabaseConfig: job_cache
 // holds no personal data and doesn't share the auth project's I/O budget.
 const JOB_CACHE_CONFIG = {
@@ -47,8 +42,6 @@ const SOURCES = [
   { source: "smartrecruiters", slugsKey: "smartrecruiters_company_slugs", label: "SmartRecruiters" },
 ];
 const SOURCE_LABELS = Object.fromEntries(SOURCES.map(({ source, label }) => [source, label]));
-
-const supabase = createClient(AUTH_CONFIG.url, AUTH_CONFIG.anonKey);
 
 const authPanel = document.getElementById("auth-panel");
 const dashboardPanel = document.getElementById("dashboard-panel");

@@ -3000,6 +3000,36 @@ button {
   border: 1px solid var(--border-strong);
 }
 
+/* Signed-in state, applied by nav-auth.js on every page — a generic
+   placeholder avatar (no photo-upload feature exists), not a "Sign in"
+   link a signed-in visitor has no reason to see. */
+.nav-avatar-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  border-color: var(--border);
+  overflow: hidden;
+}
+
+.nav-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.nav-avatar svg {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+
 .account-wrap {
   max-width: 30rem;
   margin: 0 auto;
@@ -3010,7 +3040,7 @@ button {
    login form doesn't. #auth-panel keeps its own narrower cap below so
    the form itself never stretches even while its wrap is wide. */
 .account-wrap:has(#dashboard-panel:not([hidden])) {
-  max-width: 56rem;
+  max-width: 68rem;
 }
 
 .account-panel {
@@ -3129,21 +3159,6 @@ button {
   color: var(--text-faint);
   font-size: var(--text-xs);
   line-height: 1.6;
-}
-
-.account-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  margin-bottom: var(--space-6);
-}
-
-.account-label {
-  color: var(--text-faint);
-  font-size: var(--text-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 
 .account-email {
@@ -3311,13 +3326,112 @@ button {
 /* --- "My activity" — live read-write mirror of the desktop app's own
    synced state (account.js's startActivitySync/loadMyState). --- */
 
-.dashboard-tabs {
+.account-dashboard {
+  display: grid;
+  grid-template-columns: 14rem 1fr;
+  align-items: start;
+  gap: var(--space-6);
+}
+
+.dashboard-sidebar {
   display: flex;
-  gap: var(--space-2);
-  margin-bottom: var(--space-5);
-  padding: var(--space-1);
-  border-radius: var(--radius-pill);
+  flex-direction: column;
+  gap: var(--space-6);
+  padding-right: var(--space-5);
+  border-right: 1px solid var(--border);
+}
+
+.dashboard-sidebar-identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.dashboard-sidebar-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.dashboard-sidebar-avatar svg {
+  width: 1.6rem;
+  height: 1.6rem;
+}
+
+.dashboard-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.dashboard-nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--duration-quick) var(--ease-out), color var(--duration-quick) var(--ease-out);
+}
+
+.dashboard-nav-item svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex-shrink: 0;
+}
+
+.dashboard-nav-item:hover {
   background: var(--surface-raised);
+  color: var(--text);
+}
+
+.dashboard-nav-item.is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.dashboard-sidebar-signout {
+  margin-top: auto;
+  align-self: flex-start;
+}
+
+.dashboard-main {
+  min-width: 0;
+}
+
+@media (max-width: 48rem) {
+  .account-dashboard {
+    grid-template-columns: 1fr;
+  }
+  .dashboard-sidebar {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    padding-right: 0;
+    padding-bottom: var(--space-5);
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .dashboard-nav {
+    flex-direction: row;
+    flex: 1;
+    min-width: 12rem;
+  }
+  .dashboard-sidebar-signout {
+    margin-top: 0;
+  }
 }
 
 .activity-stats {
