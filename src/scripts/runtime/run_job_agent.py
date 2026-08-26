@@ -329,7 +329,11 @@ def _run_harness_cmd(cmd, out) -> int:
     handling (see the module-level comment near IS_WINDOWS).
     """
     global _harness_proc
-    popen_kwargs = {"stdout": out, "stderr": subprocess.STDOUT}
+    # Uses harness_env(), not the bare inherited environment. The harness's
+    # own children (opencode spawning `npx @playwright/mcp@latest` for its
+    # MCP server, say) need a real PATH too, not just this process finding
+    # the harness executable. See harness_env()'s docstring for why.
+    popen_kwargs = {"stdout": out, "stderr": subprocess.STDOUT, "env": harness_adapter.harness_env()}
     if not IS_WINDOWS:
         popen_kwargs["start_new_session"] = True
     proc = subprocess.Popen(cmd, **popen_kwargs)

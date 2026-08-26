@@ -10,6 +10,36 @@
   padding: var(--space-5);
 }
 
+/* Settings' own tab bar (SettingsShell.tsx), styled like AuthScreen's
+ * .auth-tabs pill segments but generalized. That pattern was built for
+ * exactly two fixed tabs, and Settings needs more than two. */
+.settings-tabs {
+  display: flex;
+  gap: var(--space-1);
+  background: var(--ground);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 3px;
+}
+
+.settings-tab {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: center;
+  transition: background-color var(--duration-quick) var(--ease-standard), color var(--duration-quick) var(--ease-standard);
+}
+
+.settings-tab-active {
+  background: var(--surface);
+  color: var(--text);
+}
+
 .field {
   display: flex;
   flex-direction: column;

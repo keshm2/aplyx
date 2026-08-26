@@ -107,6 +107,15 @@
   }
 }
 
+:root[data-reduced-motion="1"] .nav-menu-panel,
+:root[data-reduced-motion="1"] .nav-menu-panel-open {
+  transform: none;
+  transition: opacity var(--duration-quick) linear, visibility 0s linear;
+}
+:root[data-reduced-motion="1"] .nav-menu-trigger[aria-expanded="true"] .nav-menu-chevron {
+  transition: none;
+}
+
 .nav-menu-item {
   position: relative;
   display: flex;

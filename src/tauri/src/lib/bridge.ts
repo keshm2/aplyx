@@ -160,13 +160,74 @@ export async function detectHarnesses(): Promise<string[]> {
   return result.detected;
 }
 
+export async function readHarness(root: string): Promise<string | undefined> {
+  const result = await invoke<{ harness: string | null }>("read_harness", { root });
+  return result.harness ?? undefined;
+}
+
 export async function writeHarness(root: string, harness: string): Promise<void> {
   await invoke("write_harness", { root, harness });
 }
 
+/** Effective value of an APLYX_* setting: real env var wins, then
+ *  src/config/env.json, then the fallback. The desktop-app counterpart of
+ *  the TUI's effectiveEnv(), reading through the same env.json so both
+ *  surfaces agree. */
+export async function readEnvOverride(
+  root: string,
+  key: string,
+  opts?: { legacyKeys?: string[]; fallback?: string },
+): Promise<string> {
+  const result = await invoke<{ value: string }>("read_env_override", {
+    root,
+    key,
+    legacyKeys: opts?.legacyKeys,
+    fallback: opts?.fallback,
+  });
+  return result.value;
+}
+
+export async function writeEnvOverride(root: string, key: string, value: string): Promise<void> {
+  await invoke("write_env_override", { root, key, value });
+}
+
+/** Starts a live run_job_agent.py run (see src-tauri/src/lib.rs's
+ *  start_run). Progress streams via the "run:log"/"run:exit" Tauri events
+ *  (see useRunState.ts). This call just confirms the process launched;
+ *  it doesn't wait for the run to finish. */
+export async function startRun(
+  root: string,
+  opts?: { sessionCap?: string; extraPrompt?: string },
+): Promise<{ pid: number }> {
+  return invoke<{ pid: number }>("start_run", {
+    root,
+    sessionCap: opts?.sessionCap,
+    extraPrompt: opts?.extraPrompt,
+  });
+}
+
+export async function stopRun(pid: number): Promise<void> {
+  await invoke("stop_run", { pid });
+}
+
+/** The pid of a run this window itself started, if any is still live. */
+export async function getRunStatus(): Promise<{ pid: number | undefined }> {
+  const result = await invoke<{ pid: number | null }>("get_run_status");
+  return { pid: result.pid ?? undefined };
+}
+
+/** The pid of a run in progress from any surface (TUI, scheduler, another
+ *  aplyx window), so the UI can show "already running elsewhere" instead
+ *  of offering a Run button that would just exit immediately via
+ *  run_job_agent.py's own single-flight lock. */
+export async function readActiveRunPid(root: string): Promise<number | undefined> {
+  const result = await invoke<{ pid: number | null }>("read_active_run_pid", { root });
+  return result.pid ?? undefined;
+}
+
 export interface DiscordConfig {
   enabled: boolean;
-  applied: string;
+  success: string;
   needs_review: string;
   failed: string;
   summary: string;
@@ -180,7 +241,7 @@ export async function writeDiscordConfig(root: string, config: DiscordConfig): P
   await invoke("write_discord_config", {
     root,
     enabled: config.enabled,
-    routes: { applied: config.applied, needs_review: config.needs_review, failed: config.failed, summary: config.summary },
+    routes: { success: config.success, needs_review: config.needs_review, failed: config.failed, summary: config.summary },
   });
 }
 

@@ -1,21 +1,25 @@
 /* aplyx.app marketing site — plain CSS, no framework.
  *
- * Theme tokens mirror src/tauri/src/styles/tokens.css's Calm Cobalt palette
- * (the desktop app's actual default), so the site feels like the same
- * product rather than a separately-designed one. Mode works exactly like
- * the desktop app: no data-theme attribute = prefers-color-scheme decides;
- * an explicit [data-theme="light"|"dark"] (set by the toggle in site.js,
- * persisted to localStorage) always wins over the media query. */
+ * Theme tokens mirror src/tauri/src/styles/tokens.css's Moss palette (the
+ * desktop app's actual default as of the 2026-08-22 retheme — a muted
+ * forest green with warm honey/clay notes on a parchment/ink ground,
+ * replacing the earlier "Calm Cobalt" blue this site ran for a while),
+ * so the site feels like the same product rather than a separately-
+ * designed one. Mode works exactly like the desktop app: no data-theme
+ * attribute = prefers-color-scheme decides; an explicit
+ * [data-theme="light"|"dark"] (set by the toggle in site.js, persisted to
+ * localStorage) always wins over the media query. */
 
 @view-transition {
   navigation: auto;
 }
 
-/* Self-hosted variable Inter, same file as the desktop app
-   (src/tauri/src/assets/fonts/Inter-Variable.woff2) — no CDN fetch,
-   consistent with the project's offline-first ethos. One file covers the
-   whole 100-900 weight range, so both body copy and bold display
-   headlines use it. */
+/* Self-hosted variable Inter + Manrope, same files as the desktop app
+   (src/tauri/src/assets/fonts/) — no CDN fetch, consistent with the
+   project's offline-first ethos. Manrope carries headlines (--font-display
+   below), Inter carries body copy — the app's own default pairing, not
+   Inter alone for everything like this site used to run. Inter's variable
+   file covers the whole 100-900 weight range. */
 @font-face {
   font-family: "Inter";
   src: url("assets/fonts/Inter-Variable.woff2") format("woff2");
@@ -26,39 +30,51 @@
     U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
+@font-face {
+  font-family: "Manrope";
+  src: url("assets/fonts/Manrope-Variable.woff2") format("woff2");
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 :root {
   color-scheme: light;
 
-  --ground: #f3f6fb;
+  --ground: #f5f2ea;
   --surface: #ffffff;
-  --surface-raised: #eef3fb;
-  --border: #dbe4f0;
-  --border-strong: #c1d0e6;
-  --text: #121a2c;
-  --text-muted: #55627a;
-  --text-faint: #8894ab;
+  --surface-raised: #ede8db;
+  --border: #ddd5c2;
+  --border-strong: #c3b89e;
+  --text: #2b2820;
+  --text-muted: #655d4c;
+  --text-faint: #948b75;
 
-  --accent: #2f6fed;
-  --accent-strong: #1f56c4;
-  --accent-soft: #e8f0fe;
+  --accent: #3f6b4a;
+  --accent-strong: #2e5539;
+  --accent-soft: #e3e9de;
   --accent-ink: #ffffff;
 
   /* Status-tracking demo colors (features.html) — same 5-role palette
      proposed in docs/application-status-tracking-plan.md for the real
      app (good/info/special/danger, plus muted via --text-faint), same
-     good/danger hex values as src/tauri/src/styles/tokens.css's Calm
-     Cobalt light palette, so this demo is an accurate preview of the
-     real design, not a one-off invented for the marketing site. */
-  --good: #357952;
-  --good-soft: #e4f2e9;
-  --info: #0f7d92;
-  --info-soft: #e1f2f5;
-  --special: #6d28d9;
-  --special-soft: #efe7fc;
-  --danger: #b03a4a;
-  --danger-soft: #fbe8eb;
+     good/danger hex values as src/tauri/src/styles/tokens.css's Moss
+     light palette, so this demo is an accurate preview of the real
+     design, not a one-off invented for the marketing site. */
+  --good: #3d7a52;
+  --good-soft: #e3efe6;
+  --info: #3d6e96;
+  --info-soft: #e2ebf1;
+  --special: #7a5c8a;
+  --special-soft: #eee7f0;
+  --danger: #a83f33;
+  --danger-soft: #f5e4e1;
 
-  --font-display: "Inter", ui-sans-serif, -apple-system, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial,
+  /* Manrope (display) + Inter (body) — the app's own default pairing,
+     not a generic single sans-serif stack. */
+  --font-display: "Manrope", ui-sans-serif, -apple-system, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial,
     sans-serif;
   --font-body: "Inter", ui-sans-serif, -apple-system, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial,
     sans-serif;
@@ -91,7 +107,7 @@
   --radius-xl: 24px;
   --radius-pill: 999px;
 
-  --shadow-lift: 0 12px 32px -12px rgb(18 26 44 / 0.16);
+  --shadow-lift: 0 16px 36px -14px rgb(40 32 20 / 0.18);
   --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
 
   /* Entrance/scroll-reveal motion — orientation only, tuned down in dark
@@ -112,26 +128,26 @@
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
-    --ground: #0f1420;
-    --surface: #161d2c;
-    --surface-raised: #1c2438;
-    --border: #29334a;
-    --border-strong: #3a4763;
-    --text: #eaeef7;
-    --text-muted: #a7b0c4;
-    --text-faint: #6f7890;
-    --accent: #6d9dff;
-    --accent-strong: #8ab0ff;
-    --accent-soft: #1d2c4d;
-    --accent-ink: #08152f;
-    --good: #79c48c;
-    --good-soft: #21322a;
-    --info: #5fd0e6;
-    --info-soft: #113239;
-    --special: #b794f6;
-    --special-soft: #322250;
-    --danger: #e0768a;
-    --danger-soft: #3a2029;
+    --ground: #17140f;
+    --surface: #1e1b14;
+    --surface-raised: #26221a;
+    --border: rgba(127, 174, 134, 0.18);
+    --border-strong: rgba(127, 174, 134, 0.32);
+    --text: #ede6d6;
+    --text-muted: #b0a68e;
+    --text-faint: #7a7260;
+    --accent: #7fae86;
+    --accent-strong: #9cc4a1;
+    --accent-soft: rgba(127, 174, 134, 0.14);
+    --accent-ink: #17140f;
+    --good: #6fbe8a;
+    --good-soft: rgba(111, 190, 138, 0.13);
+    --info: #7bafd4;
+    --info-soft: rgba(123, 175, 212, 0.13);
+    --special: #b79ac7;
+    --special-soft: rgba(183, 154, 199, 0.13);
+    --danger: #e08770;
+    --danger-soft: rgba(224, 135, 112, 0.13);
     --shadow-lift: 0 16px 40px -14px rgb(0 0 0 / 0.55);
     --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
     --duration-normal: 180ms;
@@ -142,26 +158,26 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --ground: #0f1420;
-  --surface: #161d2c;
-  --surface-raised: #1c2438;
-  --border: #29334a;
-  --border-strong: #3a4763;
-  --text: #eaeef7;
-  --text-muted: #a7b0c4;
-  --text-faint: #6f7890;
-  --accent: #6d9dff;
-  --accent-strong: #8ab0ff;
-  --accent-soft: #1d2c4d;
-  --accent-ink: #08152f;
-  --good: #79c48c;
-  --good-soft: #21322a;
-  --info: #5fd0e6;
-  --info-soft: #113239;
-  --special: #b794f6;
-  --special-soft: #322250;
-  --danger: #e0768a;
-  --danger-soft: #3a2029;
+  --ground: #17140f;
+  --surface: #1e1b14;
+  --surface-raised: #26221a;
+  --border: rgba(127, 174, 134, 0.18);
+  --border-strong: rgba(127, 174, 134, 0.32);
+  --text: #ede6d6;
+  --text-muted: #b0a68e;
+  --text-faint: #7a7260;
+  --accent: #7fae86;
+  --accent-strong: #9cc4a1;
+  --accent-soft: rgba(127, 174, 134, 0.14);
+  --accent-ink: #17140f;
+  --good: #6fbe8a;
+  --good-soft: rgba(111, 190, 138, 0.13);
+  --info: #7bafd4;
+  --info-soft: rgba(123, 175, 212, 0.13);
+  --special: #b79ac7;
+  --special-soft: rgba(183, 154, 199, 0.13);
+  --danger: #e08770;
+  --danger-soft: rgba(224, 135, 112, 0.13);
   --shadow-lift: 0 16px 40px -14px rgb(0 0 0 / 0.55);
   --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
   --duration-normal: 180ms;
@@ -171,27 +187,27 @@
 
 :root[data-theme="light"] {
   color-scheme: light;
-  --ground: #f3f6fb;
+  --ground: #f5f2ea;
   --surface: #ffffff;
-  --surface-raised: #eef3fb;
-  --border: #dbe4f0;
-  --border-strong: #c1d0e6;
-  --text: #121a2c;
-  --text-muted: #55627a;
-  --text-faint: #8894ab;
-  --accent: #2f6fed;
-  --accent-strong: #1f56c4;
-  --accent-soft: #e8f0fe;
+  --surface-raised: #ede8db;
+  --border: #ddd5c2;
+  --border-strong: #c3b89e;
+  --text: #2b2820;
+  --text-muted: #655d4c;
+  --text-faint: #948b75;
+  --accent: #3f6b4a;
+  --accent-strong: #2e5539;
+  --accent-soft: #e3e9de;
   --accent-ink: #ffffff;
-  --good: #357952;
-  --good-soft: #e4f2e9;
-  --info: #0f7d92;
-  --info-soft: #e1f2f5;
-  --special: #6d28d9;
-  --special-soft: #efe7fc;
-  --danger: #b03a4a;
-  --danger-soft: #fbe8eb;
-  --shadow-lift: 0 12px 32px -12px rgb(18 26 44 / 0.16);
+  --good: #3d7a52;
+  --good-soft: #e3efe6;
+  --info: #3d6e96;
+  --info-soft: #e2ebf1;
+  --special: #7a5c8a;
+  --special-soft: #eee7f0;
+  --danger: #a83f33;
+  --danger-soft: #f5e4e1;
+  --shadow-lift: 0 16px 36px -14px rgb(40 32 20 / 0.18);
   --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
   --duration-normal: 220ms;
   --duration-slow: 420ms;
@@ -2088,7 +2104,7 @@ button {
      near-black background to read clearly at all. Not pure white either
      way: dimmed a step down from #fff so it doesn't glow in a dark room,
      just enough to stay a clearly distinct box. */
-  background: #1c2438;
+  background: #26221a;
   border: 1px solid rgb(255 255 255 / 0.08);
   box-shadow: 0 2px 8px rgb(0 0 0 / 0.3);
   transition:
@@ -2097,14 +2113,14 @@ button {
 }
 
 :root[data-theme="dark"] .marquee-item {
-  background: #e2e4ea;
+  background: #ede8db;
   border-color: rgb(15 20 32 / 0.1);
   box-shadow: 0 2px 8px rgb(0 0 0 / 0.4);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .marquee-item {
-    background: #e2e4ea;
+    background: #ede8db;
     border-color: rgb(15 20 32 / 0.1);
     box-shadow: 0 2px 8px rgb(0 0 0 / 0.4);
   }

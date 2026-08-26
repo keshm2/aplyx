@@ -52,21 +52,17 @@ DETECT_ORDER = SUPPORTED
 _HAS_REGISTRY = ("opencode", "claude")
 
 
-def _well_known_harness_dirs(harness: str) -> list:
-    """Install locations each harness's own installer actually uses, beyond
-    plain PATH lookup — needed because a Finder/Dock-launched desktop app
-    inherits launchd's minimal PATH (/usr/bin:/bin:/usr/sbin:/sbin), not
-    the user's shell profile PATH. Reported live: an opencode install at
-    ~/.opencode/bin/opencode (opencode's real default) ran fine from the
-    TUI/terminal but crashed the desktop app's "Run now" with
-    FileNotFoundError, since shutil.which("opencode") only ever sees this
-    process's own inherited PATH.
+def _well_known_bin_dirs() -> list:
+    """Install locations the various harnesses/toolchains actually use,
+    beyond plain PATH lookup. A Finder/Dock-launched desktop app inherits
+    launchd's minimal PATH (/usr/bin:/bin:/usr/sbin:/sbin), not the
+    user's shell profile PATH, so plain PATH lookup misses most real
+    installs.
 
-    src/core/src/harness.ts's extraSearchDirs() already solves this for
-    *detecting* an installed harness (the desktop Settings screen's "Auto"
-    label) — this mirrors that same directory list for actually *running*
-    one, which never got the same fix. src/tauri/src-tauri/src/lib.rs's
-    node_binary() is the same fix again, for `node`."""
+    Same fix as src/core/src/harness.ts's extraSearchDirs() (detecting an
+    installed harness for the desktop Settings "Auto" label) and lib.rs's
+    node_binary() (same thing for node). Shared directory list for
+    _well_known_harness_dirs and harness_env() below."""
     home = os.path.expanduser("~")
     dirs = [
         os.path.join(home, ".local", "bin"),
@@ -88,7 +84,45 @@ def _well_known_harness_dirs(harness: str) -> list:
             dirs.append(os.path.join(nvm_versions, entry, "bin"))
     except OSError:
         pass  # no nvm — fine
-    return [os.path.join(d, harness) for d in dirs]
+    return dirs
+
+
+def _well_known_harness_dirs(harness: str) -> list:
+    """Same directories as _well_known_bin_dirs, with the harness binary
+    name joined on. This is the search list resolve_harness_exe() probes
+    below.
+
+    Real bug this fixed: an opencode install at ~/.opencode/bin/opencode
+    (opencode's actual default) worked fine from the TUI/terminal but
+    threw FileNotFoundError from the desktop app's "Run now" button,
+    because shutil.which("opencode") only sees this process's own
+    inherited PATH."""
+    return [os.path.join(d, harness) for d in _well_known_bin_dirs()]
+
+
+def harness_env() -> dict:
+    """Same environment this process already has, but with the well-known
+    directories prepended to PATH — for the harness subprocess itself,
+    not just for finding its executable (resolve_harness_exe handles
+    that part). This is about what the harness can find once it's
+    already running.
+
+    Turns out fixing the binary lookup wasn't enough on its own. opencode
+    started fine under the desktop app's "Run now" (GUI-launched, so a
+    bare launchd PATH), but its Playwright MCP server never came up.
+    opencode brings that up by running `npx @playwright/mcp@latest`, and
+    npx/node live under Homebrew or nvm — nowhere near launchd's minimal
+    PATH. opencode didn't surface an error for this either. The model
+    just never saw a Playwright tool in its list and, correctly given
+    what it could see, reported no browser automation and sent every
+    apply to needs_review. A harness launched from an actual terminal
+    (TUI, scheduler.sh under a login shell) already has a full PATH, so
+    none of this applies there."""
+    env = dict(os.environ)
+    existing = env.get("PATH", "").split(os.pathsep)
+    extra = [d for d in _well_known_bin_dirs() if os.path.isdir(d) and d not in existing]
+    env["PATH"] = os.pathsep.join(extra + existing)
+    return env
 
 
 def resolve_harness_exe(harness: str) -> str:

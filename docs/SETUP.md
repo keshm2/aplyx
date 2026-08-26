@@ -9,10 +9,11 @@ examples before running the agent.
 
 ## 0. Universal install (recommended)
 
-One command from a fresh GitHub download detects your coding agent and
-builds the optional TUI + browser extension. Your profile, job
-targets, and resumes are filled in by a guided wizard the first time
-you run `aplyx` — see section 1.
+One command from a fresh GitHub download detects your coding agent,
+builds the terminal UI + browser extension, and — the recommended way
+to use aplyx day to day — offers to install the native **desktop
+app** too (§0.1). Your profile, job targets, and resumes are filled
+in by a guided wizard the first time you open the app — see section 1.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/keshm2/aplyx/main/src/scripts/install/install.sh | bash
@@ -48,11 +49,16 @@ curl -L -o aplyx-1.0.1b.zip https://github.com/keshm2/aplyx/archive/refs/tags/v1
   unzip aplyx-1.0.1b.zip && cd aplyx-1.0.1b   # or the release page's "Source code" assets
 ```
 
-**Desktop app (early preview, optional).** Near the end of the install,
-the installer offers to also install a native desktop app
-(macOS/Linux/Windows) alongside the TUI — a graphical alternative
-that's still catching up in features. It's opt-in and defaults to no.
-Answer `y` when asked, or run it any time after the fact:
+### 0.1 Desktop app (recommended)
+
+Near the end of the install, the installer offers to also install a
+native desktop app (macOS/Linux/Windows) alongside the terminal UI —
+the recommended way to run aplyx day to day, with Jobs, Review,
+Status, Documents/Resumes, and Settings screens. It defaults to yes
+when the installer can prompt you (a non-interactive `curl | bash`
+install skips it, to avoid silently turning a few-second install into
+a multi-minute compile with no one watching). Run it any time after
+the fact:
 
 ```bash
 bash src/scripts/install/install_desktop.sh        # macOS / Linux

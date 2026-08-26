@@ -8,13 +8,13 @@
 use serde_json::Value;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{mpsc, Arc, Mutex, OnceLock};
 use std::time::Duration;
 use tauri::path::BaseDirectory;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 /// Resolves the bridge script for both a packaged/installed build and a
 /// local `tauri dev` checkout.
@@ -438,6 +438,293 @@ fn kill_search_daemon(app: &tauri::AppHandle) {
     }
 }
 
+// --- Live run (desktop app's Run screen, mirroring the TUI's
+// RunScreen.tsx/run.ts) --------------------------------------------------
+//
+// Every other command in this file is spawn-once, capture-everything,
+// return. A live run_job_agent.py run isn't like that: it's long-lived and
+// needs to push updates to the frontend as they happen, so run_bridge()'s
+// model doesn't fit. This talks to the Python runner directly
+// (std::process::Command, not the Node bridge subprocess) and tails the
+// session log file itself, pushing chunks via Tauri events instead of
+// having the frontend poll a command in a loop.
+//
+// None of this needs to be bug-free for concurrency to stay safe.
+// run_job_agent.py has its own single-flight lock (a lock directory + pid
+// file under logs/) that every surface shares — TUI, scheduler, this one
+// too. See that file's acquire_lock(). Worst case if the bookkeeping here
+// is wrong: a wasted spawn that exits immediately with "skipped_overlap"
+// and does nothing. Never a real double-run.
+
+/// Pid of a run this Rust process itself started, if any. Lets start_run
+/// refuse a second concurrent launch from this window and get_run_status
+/// report it — a UX nicety, not the safety mechanism (see above).
+type RunProcessState = Mutex<Option<u32>>;
+
+/// Which interpreter and log directory to use for a run, resolved once per
+/// start_run via the existing Node bridge. Reuses pythonCmd()'s
+/// Playwright-aware candidate probing and logDir()'s APLYX_LOG_DIR
+/// override instead of guessing either in Rust — see bridge.ts's
+/// "resolvePython"/"resolveLogDir" cases.
+struct RunLaunchInfo {
+    py_cmd: String,
+    py_prefix: Vec<String>,
+    log_dir: PathBuf,
+}
+
+fn resolve_run_launch_info(app: &tauri::AppHandle, root: &str) -> Result<RunLaunchInfo, String> {
+    let python = run_bridge(app, "resolvePython", None)?;
+    let py_cmd = python
+        .get("cmd")
+        .and_then(Value::as_str)
+        .unwrap_or("python3")
+        .to_string();
+    let py_prefix: Vec<String> = python
+        .get("args")
+        .and_then(Value::as_array)
+        .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+        .unwrap_or_default();
+
+    let log = run_bridge(app, "resolveLogDir", Some(serde_json::json!({ "root": root })))?;
+    let log_dir = log
+        .get("dir")
+        .and_then(Value::as_str)
+        .map(PathBuf::from)
+        .ok_or("could not resolve the log directory")?;
+
+    Ok(RunLaunchInfo { py_cmd, py_prefix, log_dir })
+}
+
+/// Newest `session_<timestamp>.log` in `dir`. Matches
+/// src/core/src/state.ts's latestSessionLog() exactly: same filename
+/// filter, same lexical sort. That's safe here because the timestamp
+/// format (`%Y%m%d_%H%M%S`) is fixed-width and zero-padded, so lexical
+/// order is chronological order.
+fn latest_session_log(dir: &Path) -> Option<PathBuf> {
+    let entries = std::fs::read_dir(dir).ok()?;
+    let mut sessions: Vec<PathBuf> = entries
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| {
+            p.file_name()
+                .and_then(|n| n.to_str())
+                .map(|n| n.starts_with("session_") && n.ends_with(".log"))
+                .unwrap_or(false)
+        })
+        .collect();
+    sessions.sort();
+    sessions.pop()
+}
+
+/// Emits any bytes appended to `path` since `*offset`, advancing it.
+/// UTF-8-lossy on purpose — a chunk boundary can legitimately land
+/// mid-character while the agent is still writing, and this is a live
+/// cosmetic tail, not something downstream parses byte-exactly.
+fn drain_tail(app: &tauri::AppHandle, path: &Path, offset: &mut u64) {
+    let Ok(meta) = std::fs::metadata(path) else { return };
+    let size = meta.len();
+    if size <= *offset {
+        return;
+    }
+    let Ok(mut f) = std::fs::File::open(path) else { return };
+    use std::io::{Read, Seek, SeekFrom};
+    if f.seek(SeekFrom::Start(*offset)).is_err() {
+        return;
+    }
+    let mut buf = vec![0u8; (size - *offset) as usize];
+    if f.read_exact(&mut buf).is_err() {
+        return;
+    }
+    *offset = size;
+    let text = String::from_utf8_lossy(&buf).to_string();
+    let _ = app.emit("run:log", serde_json::json!({ "chunk": text }));
+}
+
+/// Background loop for one run. Advances the log tail and watches for the
+/// child to exit, on a plain poll interval (same 500ms-class cadence the
+/// TUI's own run.ts uses) instead of blocking on child.wait() — that way
+/// both jobs share one thread and nothing else needs cross-thread access
+/// to the Child.
+fn spawn_run_watcher(
+    app: tauri::AppHandle,
+    mut child: Child,
+    log_dir: PathBuf,
+    before: Option<PathBuf>,
+    stderr_tail: Arc<Mutex<Vec<String>>>,
+) {
+    std::thread::spawn(move || {
+        let mut tailing: Option<(PathBuf, u64)> = None;
+        loop {
+            if tailing.is_none() {
+                if let Some(newest) = latest_session_log(&log_dir) {
+                    if Some(&newest) != before.as_ref() {
+                        tailing = Some((newest, 0));
+                    }
+                }
+            }
+            if let Some((path, offset)) = tailing.as_mut() {
+                drain_tail(&app, path, offset);
+            }
+
+            match child.try_wait() {
+                Ok(Some(status)) => {
+                    if let Some((path, offset)) = tailing.as_mut() {
+                        drain_tail(&app, path, offset); // final catch-up
+                    }
+                    let stderr_lines = stderr_tail.lock().unwrap().clone();
+                    let _ = app.emit(
+                        "run:exit",
+                        serde_json::json!({ "code": status.code(), "stderr": stderr_lines }),
+                    );
+                    if let Some(state) = app.try_state::<RunProcessState>() {
+                        *state.lock().unwrap() = None;
+                    }
+                    return;
+                }
+                Ok(None) => {}
+                Err(_) => {
+                    if let Some(state) = app.try_state::<RunProcessState>() {
+                        *state.lock().unwrap() = None;
+                    }
+                    return;
+                }
+            }
+            std::thread::sleep(Duration::from_millis(400));
+        }
+    });
+}
+
+/// Sends the same "ask nicely first" signal the TUI's own stop path uses
+/// (see src/core/src/platform.ts's stopPid/stopProcessTree). POSIX gets a
+/// single SIGTERM, no escalation to SIGKILL — run_job_agent.py's own
+/// handler does the graceful teardown itself (kills the harness subprocess
+/// group, flushes state, releases the lock). Windows gets `taskkill /T
+/// /F`, matching stopProcessTree exactly since Windows has no softer
+/// equivalent anywhere in this codebase. Doesn't block waiting for the
+/// process to actually die, same as both TUI callers.
+fn terminate_pid(pid: u32) {
+    #[cfg(target_os = "windows")]
+    {
+        let mut cmd = Command::new("taskkill");
+        cmd.args(["/PID", &pid.to_string(), "/T", "/F"]);
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+        let _ = cmd.output();
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = Command::new("kill").args(["-TERM", &pid.to_string()]).output();
+    }
+}
+
+/// Best-effort, called on app exit. Without this a live run would keep
+/// going silently after the window closes — same orphan risk as the
+/// search daemon, except this one is doing real work (applying to jobs),
+/// not just serving a cache. Sends the same graceful terminate_pid() an
+/// explicit Stop click would, and doesn't block app shutdown waiting for
+/// it to actually exit.
+fn terminate_active_run(app: &tauri::AppHandle) {
+    if let Some(state) = app.try_state::<RunProcessState>() {
+        if let Some(pid) = state.lock().unwrap().take() {
+            terminate_pid(pid);
+        }
+    }
+}
+
+#[tauri::command]
+fn start_run(app: tauri::AppHandle, root: String, session_cap: Option<String>, extra_prompt: Option<String>) -> Result<Value, String> {
+    {
+        let state = app.state::<RunProcessState>();
+        let guard = state.lock().unwrap();
+        if guard.is_some() {
+            return Err("a run started from this window is already in progress".to_string());
+        }
+    }
+
+    let info = resolve_run_launch_info(&app, &root)?;
+    let before = latest_session_log(&info.log_dir);
+
+    let mut cmd = Command::new(&info.py_cmd);
+    for a in &info.py_prefix {
+        cmd.arg(a);
+    }
+    cmd.arg("src/scripts/runtime/run_job_agent.py");
+    cmd.current_dir(&root);
+    if let Some(cap) = session_cap.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        cmd.env("APLYX_SESSION_CAP", cap);
+    }
+    if let Some(prompt) = extra_prompt.as_deref().filter(|s| !s.trim().is_empty()) {
+        cmd.env("APLYX_EXTRA_PROMPT", prompt);
+    }
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    cmd.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::piped());
+
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| format!("failed to start the run ({}): {e}", info.py_cmd))?;
+    let pid = child.id();
+    let stderr = child.stderr.take();
+
+    let stderr_tail: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
+    if let Some(stderr) = stderr {
+        // Never parsed, just kept around so a crash surfaces something
+        // better than a bare exit code. Same reasoning as the search
+        // daemon's stderr forwarding above, but retained instead of
+        // printed — this is the one piece of failure context the
+        // frontend can actually show the user.
+        let tail = Arc::clone(&stderr_tail);
+        std::thread::spawn(move || {
+            let reader = BufReader::new(stderr);
+            for line in reader.lines().map_while(Result::ok) {
+                let mut buf = tail.lock().unwrap();
+                buf.push(line);
+                if buf.len() > 50 {
+                    buf.remove(0);
+                }
+            }
+        });
+    }
+
+    {
+        let state = app.state::<RunProcessState>();
+        *state.lock().unwrap() = Some(pid);
+    }
+
+    spawn_run_watcher(app.clone(), child, info.log_dir, before, stderr_tail);
+
+    Ok(serde_json::json!({ "ok": true, "pid": pid }))
+}
+
+#[tauri::command]
+fn stop_run(pid: u32) -> Result<Value, String> {
+    terminate_pid(pid);
+    Ok(serde_json::json!({ "ok": true }))
+}
+
+#[tauri::command]
+fn get_run_status(app: tauri::AppHandle) -> Result<Value, String> {
+    let pid = *app.state::<RunProcessState>().lock().unwrap();
+    Ok(serde_json::json!({ "pid": pid }))
+}
+
+/// Whether some other surface (TUI, scheduler, another aplyx window) has
+/// the run lock right now. Lets the desktop app show "already running
+/// elsewhere" and offer Stop instead of a Run button that would just spawn
+/// a process doomed to exit immediately via skipped_overlap. Read-only
+/// lookup through the existing bridge (see state.ts's activeRunPid) —
+/// deliberately not cached here either, matching that function's own doc
+/// comment.
+#[tauri::command]
+fn read_active_run_pid(app: tauri::AppHandle, root: String) -> Result<Value, String> {
+    run_bridge(&app, "activeRunPid", Some(serde_json::json!({ "root": root })))
+}
+
 #[tauri::command]
 fn find_root(app: tauri::AppHandle) -> Result<Value, String> {
     run_bridge(&app, "findRoot", None)
@@ -534,6 +821,24 @@ fn write_harness(app: tauri::AppHandle, root: String, harness: String) -> Result
         &app,
         "writeHarness",
         Some(serde_json::json!({ "root": root, "harness": harness })),
+    )
+}
+
+#[tauri::command]
+fn read_env_override(app: tauri::AppHandle, root: String, key: String, legacy_keys: Option<Vec<String>>, fallback: Option<String>) -> Result<Value, String> {
+    run_bridge(
+        &app,
+        "readEnvOverride",
+        Some(serde_json::json!({ "root": root, "key": key, "legacyKeys": legacy_keys.unwrap_or_default(), "fallback": fallback.unwrap_or_default() })),
+    )
+}
+
+#[tauri::command]
+fn write_env_override(app: tauri::AppHandle, root: String, key: String, value: String) -> Result<Value, String> {
+    run_bridge(
+        &app,
+        "writeEnvOverride",
+        Some(serde_json::json!({ "root": root, "key": key, "value": value })),
     )
 }
 
@@ -880,8 +1185,13 @@ pub fn run() {
         // this pass only needed macOS to work.
         .plugin(tauri_plugin_deep_link::init())
         .manage::<SearchDaemonState>(Mutex::new(None))
+        .manage::<RunProcessState>(Mutex::new(None))
         .invoke_handler(tauri::generate_handler![
             find_root,
+            start_run,
+            stop_run,
+            get_run_status,
+            read_active_run_pid,
             validate_root,
             ensure_targets_file,
             read_profile_field,
@@ -895,6 +1205,8 @@ pub fn run() {
             list_companies,
             read_harness,
             write_harness,
+            read_env_override,
+            write_env_override,
             read_discord_config,
             write_discord_config,
             list_resumes,
@@ -938,6 +1250,7 @@ pub fn run() {
             // running as an orphan after the window closes.
             if let tauri::RunEvent::ExitRequested { .. } = event {
                 kill_search_daemon(app_handle);
+                terminate_active_run(app_handle);
             }
         });
 }

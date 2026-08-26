@@ -65,3 +65,8 @@
     background: var(--border);
   }
 }
+
+:root[data-reduced-motion="1"] .skeleton {
+  animation: none;
+  background: var(--border);
+}

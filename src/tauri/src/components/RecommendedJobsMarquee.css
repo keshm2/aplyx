@@ -185,3 +185,10 @@
     transform: none;
   }
 }
+
+:root[data-reduced-motion="1"] .rec-jobs-track {
+  animation: none;
+}
+:root[data-reduced-motion="1"] .rec-job-card:hover {
+  transform: none;
+}

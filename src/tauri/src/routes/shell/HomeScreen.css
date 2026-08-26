@@ -246,6 +246,10 @@
   }
 }
 
+:root[data-reduced-motion="1"] .home-next-cta:hover {
+  box-shadow: none;
+}
+
 /* The wider dashboard (Phase 14C's original 44rem single column widened to
  * 68rem so the new chart/status widgets have real room instead of stacking
  * in one narrow scrolling column) splits into a wider chart column and a
@@ -278,4 +282,8 @@
   .home-next:hover {
     transform: none;
   }
+}
+
+:root[data-reduced-motion="1"] .home-next:hover {
+  transform: none;
 }

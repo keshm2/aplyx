@@ -6,6 +6,8 @@ import { SupabaseAdapter, type HostedReadiness, type VerificationSessionRow } fr
 import { useAuth } from "../../lib/AuthContext";
 import { readProfileField, getRecommendedJobs, getSchedulerStatus, type RecommendedJob, type SchedulerStatus } from "../../lib/bridge";
 import { useAplyxState, type StateSource } from "../../lib/useAplyxState";
+import { useBoolEnvPref } from "../../lib/useEnvPref";
+import { useRunState, checkForeignRun, triggerRun } from "../../lib/useRunState";
 import { useOnlineAppliedJobs } from "../../lib/useOnlineAppliedJobs";
 import { OUTCOME_LABEL, outcomeDotClass } from "../../lib/outcomeStatus";
 import { isResolved } from "@aplyx/core/stateDerive.js";
@@ -97,6 +99,14 @@ export function HomeScreen() {
   // widgets below are a hosted-account feature regardless of which data
   // source is driving the rest of this dashboard.
   const { onlineJobs } = useOnlineAppliedJobs();
+  const { value: hour24Clock } = useBoolEnvPref(root, "APLYX_24_HOUR_CLOCK", false);
+  const run = useRunState();
+  const [runStarting, setRunStarting] = useState(false);
+
+  useEffect(() => {
+    if (source !== "local" || !root) return;
+    void checkForeignRun(root);
+  }, [source, root]);
 
   useEffect(() => {
     if (source !== "local" || !root) return;
@@ -233,6 +243,39 @@ export function HomeScreen() {
   // what it actually is rather than fabricating finer-grained history that
   // doesn't exist. Local's date has no time component and hosted's does —
   // an imperfect but reasonable sort given what's available.
+  // "Run now" quick action: idle/done start a new run then jump to the
+  // full Run screen for progress; any other phase (checking/foreign/
+  // running/stopping) just jumps there — a run already exists, this
+  // button's job is to get you to it, not start a second one.
+  function runQuickActionLabel(): string {
+    switch (run.phase) {
+      case "checking":
+        return "Checking…";
+      case "foreign":
+        return "Run active elsewhere";
+      case "running":
+        return "Running…";
+      case "stopping":
+        return "Stopping…";
+      case "done":
+        return "Run again";
+      default:
+        return runStarting ? "Starting…" : "Run now";
+    }
+  }
+  async function handleRunQuickAction() {
+    if (run.phase === "idle" || run.phase === "done") {
+      if (!root) return;
+      setRunStarting(true);
+      try {
+        await triggerRun(root);
+      } finally {
+        setRunStarting(false);
+      }
+    }
+    navigate("/app/run");
+  }
+
   const activity = [
     ...(state?.applied ?? []).map((j) => ({
       id: `applied:${j.job_id}`,
@@ -270,7 +313,7 @@ export function HomeScreen() {
             "Running locally — your data stays on this machine."
           )}
         </p>
-        <DigitalClock />
+        <DigitalClock hour24={hour24Clock} />
       </div>
 
       <section className="aplyx-fade-in home-quick-actions">
@@ -292,6 +335,16 @@ export function HomeScreen() {
           <button type="submit" className="btn btn-primary">Search</button>
         </form>
         <div className="home-quick-links">
+          {source === "local" && root && (
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={run.phase === "checking" || run.phase === "stopping" || runStarting}
+              onClick={() => void handleRunQuickAction()}
+            >
+              {runQuickActionLabel()}
+            </button>
+          )}
           <button type="button" className="settings-action-btn" onClick={() => navigate("/app/review")}>
             Review queue{pendingQueueCount > 0 ? ` (${pendingQueueCount})` : ""}
           </button>

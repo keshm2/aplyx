@@ -115,3 +115,14 @@
     transform: translate(-50%, -50%);
   }
 }
+
+:root[data-reduced-motion="1"] .modal-backdrop,
+:root[data-reduced-motion="1"] .modal-backdrop-open,
+:root[data-reduced-motion="1"] .modal,
+:root[data-reduced-motion="1"] .modal-open {
+  transition: opacity var(--duration-quick) linear, visibility 0s linear;
+}
+:root[data-reduced-motion="1"] .modal,
+:root[data-reduced-motion="1"] .modal-open {
+  transform: translate(-50%, -50%);
+}

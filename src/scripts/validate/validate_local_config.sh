@@ -27,6 +27,24 @@ DISCORD="$PROJECT_ROOT/src/config/discord_config.json"
 warn() { echo "validate_local_config: WARNING: $*" >&2; }
 fail() { echo "validate_local_config: ERROR: $*" >&2; exit 1; }
 
+# --- Required Python packages -----------------------------------------------
+# pypdf handles resume PDF -> markdown conversion. playwright renders every
+# tailored resume to the PDF that actually gets attached to an application.
+# install.sh/install.ps1 install both automatically now, but a manual/npm/
+# from-archive install skips the installer's own dependency check entirely.
+# This is the one place guaranteed to catch a missing package before it
+# quietly breaks every apply at the PDF step, instead of failing loudly up
+# front with something to fix.
+
+MISSING_PY_PKGS=""
+if command -v python3 >/dev/null 2>&1; then
+  python3 -c "import pypdf" >/dev/null 2>&1 || MISSING_PY_PKGS="pypdf"
+  python3 -c "import playwright" >/dev/null 2>&1 || MISSING_PY_PKGS="${MISSING_PY_PKGS}${MISSING_PY_PKGS:+ }playwright"
+  [ -z "$MISSING_PY_PKGS" ] || fail "missing required Python package(s): $MISSING_PY_PKGS — run 'python3 -m pip install --user $MISSING_PY_PKGS' and re-run."
+else
+  fail "python3 not found — required to run aplyx at all"
+fi
+
 # --- Existence + JSON validity ---------------------------------------------
 
 [ -f "$TARGETS" ] || fail "missing required config file: $TARGETS"

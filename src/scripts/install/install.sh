@@ -261,25 +261,35 @@ mkdir -p "$HOME/.aplyx"
 printf '%s' "$PROJECT_ROOT" > "$HOME/.aplyx/root"
 
 # --- 1. Prerequisites --------------------------------------------------------
-# Detect everything missing FIRST (tools + the one required Python package,
-# pypdf — resume PDF conversion silently can't work without it) and ask
-# once, rather than hard-failing on the first missing thing: most users
-# running the one-liner have no idea what jq/python3/pypdf even are, and
-# would rather aplyx just installed them.
+# Detect everything missing FIRST — tools plus the required Python packages,
+# pypdf and playwright below — and ask once instead of hard-failing on the
+# first missing thing. Most people running the one-liner have no idea what
+# jq/python3/pypdf/playwright even are, and would rather aplyx just handled it.
 MISSING_TOOLS=""
 command -v jq      >/dev/null 2>&1 || MISSING_TOOLS="$MISSING_TOOLS jq"
 command -v python3 >/dev/null 2>&1 || MISSING_TOOLS="$MISSING_TOOLS python3"
 MISSING_TOOLS="${MISSING_TOOLS# }"
 
+# pypdf handles resume PDF -> markdown conversion. playwright is what
+# render_resume_pdf.py uses to render every tailored resume to the PDF that
+# actually gets attached to an application — Playwright's Python bindings
+# drive the user's own already-installed Chrome (channel="chrome", no
+# bundled-browser download needed, see requirements.txt's comment). Skip
+# this package and every apply fails at the PDF step. It used to be that
+# only pypdf got installed here; playwright was left to an "optional" docs
+# section (Sheets sync / replay_fill.py) that a normal install never runs,
+# so a from-scratch machine that hadn't pip-installed it some other way
+# would silently fail every application.
 MISSING_PY_PKGS=""
 if command -v python3 >/dev/null 2>&1; then
   python3 -c "import pypdf" >/dev/null 2>&1 || MISSING_PY_PKGS="pypdf"
+  python3 -c "import playwright" >/dev/null 2>&1 || MISSING_PY_PKGS="${MISSING_PY_PKGS}${MISSING_PY_PKGS:+ }playwright"
 fi
 
 if [ -n "$MISSING_TOOLS" ] || [ -n "$MISSING_PY_PKGS" ]; then
   echo
   [ -n "$MISSING_TOOLS" ]  && warn "not detected: $MISSING_TOOLS"
-  [ -n "$MISSING_PY_PKGS" ] && warn "not detected (Python package): $MISSING_PY_PKGS — needed for resume PDF conversion"
+  [ -n "$MISSING_PY_PKGS" ] && warn "not detected (Python package): $MISSING_PY_PKGS — needed to render/convert resume PDFs"
   warn "these are needed to continue installing aplyx."
   INSTALL_DEPS="y"
   if [ -t 0 ]; then
@@ -317,9 +327,9 @@ if [ -n "$MISSING_TOOLS" ] || [ -n "$MISSING_PY_PKGS" ]; then
   fi
 
   if [ -n "$MISSING_PY_PKGS" ]; then
-    python3 -m pip install --user pypdf \
-      || fail "failed to install pypdf via pip — run 'python3 -m pip install --user pypdf' manually and re-run."
-    say "installed: pypdf"
+    python3 -m pip install --user $MISSING_PY_PKGS \
+      || fail "failed to install $MISSING_PY_PKGS via pip — run 'python3 -m pip install --user $MISSING_PY_PKGS' manually and re-run."
+    say "installed: $MISSING_PY_PKGS"
   fi
 fi
 
@@ -607,26 +617,40 @@ else
   say "node/npm not found — skipping the optional TUI and browser extension (docs/SETUP.md)."
 fi
 
-# --- 8b. Desktop app (optional, early preview) ----------------------------------
-# Ships ALONGSIDE the TUI at this stage, not in place of it (that flips
-# later). Building it needs Rust + OS-native GUI deps on top of Node — real
-# prerequisites the TUI doesn't have — so this is opt-in and its own script
-# (install_desktop.sh), and a failure here never fails this installer: the
-# TUI install above already succeeded and stays fully usable either way.
+# --- 8b. Desktop app (recommended) ----------------------------------
+# This ships alongside the TUI, not instead of it. The desktop app is the
+# recommended surface now (defaults to yes when there's a TTY to ask), but
+# the TUI stays fully supported, and this step can't fail the installer:
+# building the app needs Rust plus OS-native GUI deps on top of Node, real
+# prerequisites the TUI doesn't have, so it lives in its own script
+# (install_desktop.sh) and a failure here just leaves the already-working
+# TUI install alone. Non-interactive installs (curl|bash, no TTY) still
+# skip it by default — turning a one-line, few-second install into a
+# multi-minute Rust compile with nobody watching isn't a good surprise.
+# Run install_desktop.sh any time afterward to add it.
 if [ -f "src/tauri/package.json" ] && command -v npm >/dev/null 2>&1; then
   echo
-  echo "aplyx also has an early-preview desktop app (Tauri), alongside the TUI."
+  echo "aplyx has a native desktop app — the recommended way to use it day to"
+  echo "day. (The aplyx terminal UI, just installed, works great too and stays"
+  echo "fully supported — the desktop app is an addition, not a replacement.)"
   echo "Building it needs a Rust toolchain and some OS build tools — this script"
   echo "offers to install anything missing, and first-time compiling can take"
   echo "several minutes."
-  INSTALL_APP="n"
+  INSTALL_APP="y"
   if [ -t 0 ]; then
-    printf "Install the desktop app too? [y/N] "
+    printf "Install the desktop app too? [Y/n] "
+    # Fails closed, not open. A failed read — stdin closed or EOF mid-
+    # prompt, or a -t 0 false positive from some automation harness that
+    # reports a tty but has nothing real behind it — means we genuinely
+    # don't know what the user wants. Defaulting to "y" here once actually
+    # triggered an unattended download+install. "n" is the safe failure
+    # mode anyway, since this is opt-in to begin with.
     read -r INSTALL_APP || INSTALL_APP="n"
   else
-    say "non-interactive install — skipping the desktop app (opt-in only; run 'bash src/scripts/install/install_desktop.sh' any time to add it)."
+    say "non-interactive install — skipping the desktop app for now (run 'bash src/scripts/install/install_desktop.sh' any time to add it)."
+    INSTALL_APP="n"
   fi
-  if [ "$INSTALL_APP" = "y" ] || [ "$INSTALL_APP" = "Y" ]; then
+  if [ "$INSTALL_APP" != "n" ] && [ "$INSTALL_APP" != "N" ]; then
     bash "$PROJECT_ROOT/src/scripts/install/install_desktop.sh" \
       || warn "desktop app install failed (see above) — the TUI is unaffected. Fix the issue and retry any time with: bash src/scripts/install/install_desktop.sh"
   fi

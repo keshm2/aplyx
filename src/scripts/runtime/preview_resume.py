@@ -189,7 +189,14 @@ def main(argv=None) -> int:
     cmd = harness_adapter.agent_command(exe, harness, "resume-tailor", prompt, standalone=True, role="agent")
 
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=HARNESS_TIMEOUT_S, cwd=root)
+        # Same fix as run_job_agent.py's _run_harness_cmd: the harness needs
+        # a real PATH for its own children (opencode/Claude spawning `npx
+        # @playwright/mcp@latest`, for instance), not just for us to find
+        # the harness executable itself.
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=HARNESS_TIMEOUT_S, cwd=root,
+            env=harness_adapter.harness_env(),
+        )
     except subprocess.TimeoutExpired:
         emit({"ok": False, "error": f"harness ({harness}) did not finish within {HARNESS_TIMEOUT_S}s"})
         return 2

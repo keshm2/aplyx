@@ -273,15 +273,27 @@ New-Item -ItemType Directory -Force -Path $pinDir | Out-Null
 Set-Content -Path (Join-Path $pinDir "root") -Value $projectRoot -NoNewline
 
 # --- 1. Prerequisites --------------------------------------------------------
-# Detect everything missing FIRST (Python + the one required Python
-# package, pypdf - resume PDF conversion silently can't work without it)
-# and ask once, rather than hard-failing on the first missing thing: most
-# users running the one-liner have no idea what pypdf even is, and would
-# rather aplyx just installed it. No jq here - this path is pure
+# Detect everything missing FIRST - Python plus the required Python
+# packages, pypdf and playwright below - and ask once instead of
+# hard-failing on the first missing thing. Most people running the
+# one-liner have no idea what pypdf/playwright even are, and would rather
+# aplyx just handled it. No jq here since this path is pure
 # PowerShell/Python by design (see the file header).
+#
+# playwright is what render_resume_pdf.py uses to render every tailored
+# resume to the PDF that actually gets attached to an application -
+# Playwright's Python bindings drive the user's own already-installed
+# Chrome (channel="chrome", no bundled-browser download needed, see
+# requirements.txt's comment). Skip this package and every apply fails at
+# the PDF step. It used to be that only pypdf got installed here;
+# playwright was left to an "optional" docs section (Sheets sync /
+# replay_fill.py) that a normal install never runs, so a from-scratch
+# machine that hadn't pip-installed it some other way would silently fail
+# every application.
 $py = Find-Python
 $missingPython = -not $py
 $missingPypdf = $false
+$missingPlaywright = $false
 if ($py) {
   # try/catch, not just a $LASTEXITCODE check: on PowerShell 7.3+ with
   # $PSNativeCommandUseErrorActionPreference on (increasingly the
@@ -298,12 +310,19 @@ if ($py) {
   } catch {
     $missingPypdf = $true
   }
+  try {
+    & $py[0] @($py[1..($py.Length-1)] + @("-c", "import playwright")) *> $null
+    if ($LASTEXITCODE -ne 0) { $missingPlaywright = $true }
+  } catch {
+    $missingPlaywright = $true
+  }
 }
 
-if ($missingPython -or $missingPypdf) {
+if ($missingPython -or $missingPypdf -or $missingPlaywright) {
   Write-Host ""
   if ($missingPython) { Warn "not detected: Python 3" }
-  if ($missingPypdf)  { Warn "not detected (Python package): pypdf - needed for resume PDF conversion" }
+  if ($missingPypdf)  { Warn "not detected (Python package): pypdf - needed to convert resume PDFs" }
+  if ($missingPlaywright) { Warn "not detected (Python package): playwright - needed to render resume PDFs" }
   Warn "these are needed to continue installing aplyx."
   $installDeps = Read-Host "Install them now? [Y/n]"
   if (-not $installDeps) { $installDeps = "y" }
@@ -311,6 +330,7 @@ if ($missingPython -or $missingPypdf) {
     $missing = @()
     if ($missingPython) { $missing += "Python 3" }
     if ($missingPypdf)  { $missing += "pypdf" }
+    if ($missingPlaywright) { $missing += "playwright" }
     Fail "cannot continue without: $($missing -join ', '). Install them yourself and re-run."
   }
 
@@ -337,16 +357,19 @@ if ($missingPython -or $missingPypdf) {
     }
   }
 
-  if ($missingPypdf) {
+  if ($missingPypdf -or $missingPlaywright) {
+    $pyPkgs = @()
+    if ($missingPypdf) { $pyPkgs += "pypdf" }
+    if ($missingPlaywright) { $pyPkgs += "playwright" }
     $pipFailed = $false
     try {
-      & $py[0] @($py[1..($py.Length-1)] + @("-m", "pip", "install", "--user", "pypdf"))
+      & $py[0] @($py[1..($py.Length-1)] + @("-m", "pip", "install", "--user") + $pyPkgs)
       if ($LASTEXITCODE -ne 0) { $pipFailed = $true }
     } catch {
       $pipFailed = $true
     }
-    if ($pipFailed) { Fail "failed to install pypdf - run 'py -3 -m pip install --user pypdf' manually and re-run." }
-    Say "installed: pypdf"
+    if ($pipFailed) { Fail "failed to install $($pyPkgs -join ', ') - run 'py -3 -m pip install --user $($pyPkgs -join ' ')' manually and re-run." }
+    Say "installed: $($pyPkgs -join ', ')"
   }
 }
 
@@ -598,21 +621,24 @@ if (Get-Command npm -ErrorAction SilentlyContinue) {
   Say "node/npm not found - skipping the optional TUI and browser extension (docs/SETUP.md)."
 }
 
-# --- 8b. Desktop app (optional, early preview) --------------------------------
-# Ships ALONGSIDE the TUI at this stage, not in place of it (that flips
-# later). Building it needs Rust + Visual C++ Build Tools on top of Node -
-# real prerequisites the TUI doesn't have - so this is opt-in and its own
-# script (install_desktop.ps1), and a failure here never fails this
-# installer: the TUI install above already succeeded and stays fully
-# usable either way.
+# --- 8b. Desktop app (recommended) --------------------------------
+# This ships alongside the TUI, not instead of it. The desktop app is the
+# recommended surface now (defaults to yes), but the TUI stays fully
+# supported. Building it needs Rust plus Visual C++ Build Tools on top of
+# Node, real prerequisites the TUI doesn't have, so it lives in its own
+# script (install_desktop.ps1) and a failure here can't fail this
+# installer - the TUI install above already succeeded and stays usable
+# either way.
 if ((Test-Path "src\tauri\package.json") -and (Get-Command npm -ErrorAction SilentlyContinue)) {
   Write-Host ""
-  Write-Host "aplyx also has an early-preview desktop app (Tauri), alongside the TUI."
+  Write-Host "aplyx has a native desktop app - the recommended way to use it day to day."
+  Write-Host "(The aplyx terminal UI, just installed, works great too and stays fully"
+  Write-Host "supported - the desktop app is an addition, not a replacement.)"
   Write-Host "Building it needs a Rust toolchain and Visual C++ Build Tools - this script"
   Write-Host "offers to install anything missing, and first-time compiling can take"
   Write-Host "several minutes."
-  $installApp = Read-Host "Install the desktop app too? [y/N]"
-  if ($installApp -eq "y" -or $installApp -eq "Y") {
+  $installApp = Read-Host "Install the desktop app too? [Y/n]"
+  if ($installApp -ne "n" -and $installApp -ne "N") {
     # try/catch, not just a $LASTEXITCODE check: on PowerShell 7.3+ with
     # $PSNativeCommandUseErrorActionPreference on (increasingly the
     # default), a non-zero exit from a native command under

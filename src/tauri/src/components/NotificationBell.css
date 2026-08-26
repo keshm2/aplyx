@@ -57,6 +57,13 @@
   }
 }
 
+:root[data-reduced-motion="1"] .settings-gear-icon {
+  transition: none;
+}
+:root[data-reduced-motion="1"] .settings-gear-btn:hover .settings-gear-icon {
+  transform: none;
+}
+
 .notif-badge {
   position: absolute;
   top: -0.3rem;
@@ -128,6 +135,12 @@
     transform: none;
     transition: opacity var(--duration-quick) linear, visibility 0s linear;
   }
+}
+
+:root[data-reduced-motion="1"] .notif-dropdown,
+:root[data-reduced-motion="1"] .notif-dropdown-open {
+  transform: none;
+  transition: opacity var(--duration-quick) linear, visibility 0s linear;
 }
 
 .notif-header {
@@ -330,4 +343,8 @@
   .notif-row-critical {
     animation: none;
   }
+}
+
+:root[data-reduced-motion="1"] .notif-row-critical {
+  animation: none;
 }

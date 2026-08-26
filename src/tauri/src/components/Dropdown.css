@@ -118,6 +118,15 @@
   }
 }
 
+:root[data-reduced-motion="1"] .dropdown-panel,
+:root[data-reduced-motion="1"] .dropdown-panel-open {
+  transform: none;
+  transition: opacity var(--duration-quick) linear, visibility 0s linear;
+}
+:root[data-reduced-motion="1"] .dropdown-trigger[aria-expanded="true"] .dropdown-chevron {
+  transition: none;
+}
+
 .dropdown-option {
   display: flex;
   align-items: center;

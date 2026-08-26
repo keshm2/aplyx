@@ -1,0 +1,52 @@
+.run-checklist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin: var(--space-3) 0;
+}
+
+.run-checklist-slot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-faint);
+}
+
+.run-checklist-dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--border-strong);
+  flex-shrink: 0;
+}
+
+.run-checklist-done {
+  color: var(--text-muted);
+}
+.run-checklist-done .run-checklist-dot {
+  background: var(--good);
+}
+
+.run-checklist-current {
+  color: var(--text);
+  font-weight: 600;
+}
+.run-checklist-current .run-checklist-dot {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.run-log-tail {
+  margin-top: var(--space-3);
+  max-height: 16rem;
+  overflow-y: auto;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  white-space: pre-wrap;
+  word-break: break-word;
+}

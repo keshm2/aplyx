@@ -44,6 +44,10 @@ up whatever you have and asks if you have more than one.
 
 ## Install
 
+One installer sets up everything, including the **desktop app** —
+the recommended way to run aplyx day to day. A terminal UI (`aplyx`)
+comes with it either way, for anyone who'd rather stay in a shell.
+
 **macOS / Linux:**
 
 ```bash
@@ -56,7 +60,13 @@ curl -fsSL https://raw.githubusercontent.com/keshm2/aplyx/main/src/scripts/insta
 irm https://raw.githubusercontent.com/keshm2/aplyx/main/src/scripts/install/install.ps1 | iex
 ```
 
-**Or via npm:**
+Answer `y` when it asks about the desktop app (the default) and
+it installs to `/Applications` (macOS), via your package manager
+or an AppImage (Linux), or a per-user installer (Windows) — no
+Rust toolchain needed for a released build, just the installer
+itself. Open it from Applications/Start Menu when it's done.
+
+**Just the terminal UI, via npm:**
 
 ```bash
 npm install -g @keshm/aplyx
@@ -72,11 +82,12 @@ agent, your profile (kept **locally only** — gitignored files on
 your machine, never uploaded), and whether you want Discord
 status updates, creates the `data/resumes/` folder (add your base
 resumes there — see [docs/SETUP.md](docs/SETUP.md) for the expected
-filenames), and puts `aplyx` on your PATH. When it finishes, just
-type `aplyx`.
+filenames), and puts `aplyx` on your PATH. When it finishes, open
+the desktop app, or just type `aplyx` for the terminal UI.
 
-You'll also need `python3`, `jq`, and (for the TUI) `node` ≥ 22
-with `npm`. No `git` required.
+You'll also need `python3`, `jq`, and `node` ≥ 22 with `npm` (both
+the desktop app and the terminal UI build on Node). No `git`
+required.
 
 ## What it does each run
 
@@ -93,6 +104,14 @@ your review queue, and you apply by hand.
 
 ## Using it
 
+**Desktop app (recommended):** open aplyx from Applications (macOS),
+your Start Menu (Windows), or your app launcher (Linux). It walks
+you through a guided setup wizard, then gives you Jobs, Review,
+Status, Documents/Resumes, and Settings screens — including turning
+the 30-minute background schedule on or off with a switch.
+
+**Terminal UI**, for anyone who'd rather not leave a shell:
+
 ```bash
 aplyx                    # open the TUI (press ? for keys)
 aplyx status             # one-shot pipeline overview
@@ -103,11 +122,16 @@ aplyx review | history   # jump straight to a screen
 bash src/scripts/runtime/scheduler.sh install    # 30-minute always-on schedule (launchd)
 ```
 
-Updates happen automatically — each run and TUI launch checks for
-a newer build and installs it before continuing (your config,
-data, logs, and resumes are never touched). Opt out with
-`APLYX_AUTO_UPDATE=0`, force one with `aplyx update`. To
-uninstall: `aplyx uninstall`.
+Both surfaces read and write the exact same local files — nothing
+about your setup, resumes, or history depends on which one you use,
+and you can switch between them freely.
+
+Updates happen automatically — each run and terminal-UI launch
+checks for a newer build and installs it before continuing (your
+config, data, logs, and resumes are never touched); the desktop app
+checks for its own updates the same way and prompts from Settings
+when one's available. Opt out with `APLYX_AUTO_UPDATE=0`, force one
+with `aplyx update`. To uninstall: `aplyx uninstall`.
 
 ## Safety & privacy
 
@@ -144,8 +168,8 @@ canonical behavioral docs every coding agent reads first.
 | [`AGENTS.md`](AGENTS.md) | Canonical behavioral rules for any agent operating in this repo |
 | [`docs/SETUP.md`](docs/SETUP.md) | Full install/config walkthrough |
 | [`docs/RELEASE.md`](docs/RELEASE.md) / [`docs/CHANGELOG.md`](docs/CHANGELOG.md) | Release notes / changelog |
-| `src/tui/` | The `aplyx` TUI (Ink/React) |
-| `src/tauri/` | The Tauri desktop app (early preview) |
+| `src/tauri/` | The desktop app (Tauri) — the recommended way to use aplyx |
+| `src/tui/` | The `aplyx` terminal UI (Ink/React) |
 | `src/core/` | Shared TypeScript core (`@aplyx/core`) used by both apps |
 | `src/scripts/` | Deterministic Python/bash helpers — the only things allowed to write state |
 | `src/agents/` | Source of truth for agent prompts (generated into `.claude/`, `.opencode/`, `.github/`, `.codex/`) |

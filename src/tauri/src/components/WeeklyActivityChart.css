@@ -125,3 +125,8 @@
     stroke-dashoffset: 0;
   }
 }
+
+:root[data-reduced-motion="1"] .activity-chart-line {
+  animation: none;
+  stroke-dashoffset: 0;
+}

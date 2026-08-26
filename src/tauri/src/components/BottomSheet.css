@@ -106,3 +106,17 @@
     opacity: 1;
   }
 }
+
+:root[data-reduced-motion="1"] .bottom-sheet-backdrop,
+:root[data-reduced-motion="1"] .bottom-sheet-backdrop-open {
+  transition: opacity var(--duration-quick) linear, visibility 0s linear;
+}
+:root[data-reduced-motion="1"] .bottom-sheet,
+:root[data-reduced-motion="1"] .bottom-sheet-open {
+  transform: none;
+  transition: opacity var(--duration-quick) linear;
+  opacity: 0;
+}
+:root[data-reduced-motion="1"] .bottom-sheet-open {
+  opacity: 1;
+}

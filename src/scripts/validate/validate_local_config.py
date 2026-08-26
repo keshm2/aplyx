@@ -65,6 +65,24 @@ def main(argv: list) -> None:
     targets_path = os.path.join(project_root, "src", "config", "targets.json")
     discord_path = os.path.join(project_root, "src", "config", "discord_config.json")
 
+    # --- Required Python packages --------------------------------------------
+    # pypdf handles resume PDF -> markdown conversion. playwright renders
+    # every tailored resume to the PDF that actually gets attached to an
+    # application. install.sh/install.ps1 install both automatically now,
+    # but a manual/npm/from-archive install skips the installer's own
+    # dependency check entirely. This is the one place guaranteed to catch
+    # a missing package before it quietly breaks every apply at the
+    # PDF step, instead of failing loudly up front with something to fix.
+    missing_py_pkgs = []
+    for pkg in ("pypdf", "playwright"):
+        try:
+            __import__(pkg)
+        except ImportError:
+            missing_py_pkgs.append(pkg)
+    if missing_py_pkgs:
+        fail(f"missing required Python package(s): {', '.join(missing_py_pkgs)} — "
+             f"run 'python3 -m pip install --user {' '.join(missing_py_pkgs)}' and re-run.")
+
     # --- Existence + JSON validity -----------------------------------------
     if not os.path.isfile(targets_path):
         fail(f"missing required config file: {targets_path}")

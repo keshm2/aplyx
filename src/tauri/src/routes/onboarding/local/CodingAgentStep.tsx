@@ -1,13 +1,7 @@
 import { useEffect, useState } from "react";
 import { detectHarnesses } from "../../../lib/bridge";
+import { HarnessPicker } from "../../../components/HarnessPicker";
 import "../../../components/formFields.css";
-
-const LABELS: Record<string, string> = {
-  opencode: "opencode",
-  claude: "Claude Code",
-  codex: "Codex",
-  copilot: "GitHub Copilot",
-};
 
 export function CodingAgentStep({
   selected,
@@ -40,21 +34,5 @@ export function CodingAgentStep({
     );
   }
 
-  return (
-    <div className="option-list" role="radiogroup" aria-label="Coding agent">
-      {detected.map((harness) => (
-        <button
-          key={harness}
-          type="button"
-          className={`option-card ${selected === harness ? "selected" : ""}`}
-          onClick={() => onSelect(harness)}
-          role="radio"
-          aria-checked={selected === harness}
-        >
-          <span className="option-card-title">{LABELS[harness] ?? harness}</span>
-          {selected === harness && <span aria-hidden="true">✓</span>}
-        </button>
-      ))}
-    </div>
-  );
+  return <HarnessPicker options={detected} selected={selected} onSelect={onSelect} />;
 }

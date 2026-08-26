@@ -4,6 +4,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import fs from "node:fs";
 import { activeRunPid, latestSessionLog, readHeartbeat } from "@aplyx/core/state.js";
 import { py, stopPid, stopProcessTree } from "@aplyx/core/platform.js";
+import { parsePhaseChecklist, markersIn, parseCurrentApplication, type PhaseInfo } from "@aplyx/core/runProgress.js";
 import { theme, statusGlyph, capTier, harnessGradient, HARNESS_WAVE_TICK_MS, HARNESS_WAVE_STEP } from "../theme.js";
 import { resolveHarnessId } from "../harness.js";
 import { RainbowText, AutoSparkleText, SpinnerGlyph, GradientProgressBar, KeyHints } from "./KeyHints.js";
@@ -26,143 +27,7 @@ const PROGRESS_BAR_WIDTH = 26;
 
 type Phase = "idle" | "running" | "stopping" | "done" | "stopped";
 
-type ChecklistKey = "scrape" | "fitgate" | "tailor" | "apply" | "report";
-type SlotState = "done" | "current" | "pending";
-
-interface ChecklistSlotDef {
-  key: ChecklistKey;
-  label: string;
-  caption: string;
-  match: RegExp;
-}
-
-/**
- * Recognizable phase-name substrings mapped to the 5 checklist slots the
- * running view shows. Matches the marker lines specified in
- * src/agents/bodies/job-scraper.md's "Progress markers" section
- * (`[ ]`/`[•]`/`[✓]` + a phase name) but is deliberately loose on the
- * text match — this is best-effort cosmetic sugar, not a general
- * log-format parser, so an older or hand-edited agent body still degrades
- * to the generic "running…" indicator instead of showing garbage.
- *
- * Match on verb STEMS, never the full infinitive: every marker the agent
- * actually emits is a present participle ("Scraping job boards",
- * "Filtering + fit-gating"), so /scrape/ and /fit.?gate/ — the original
- * patterns — could never match their own markers, because the participle
- * drops the trailing "e" ("scrap-ing", "fit-gat-ing"). Those two slots sat
- * permanently on "pending", and during the scrape phase (the longest phase
- * of a run) nothing matched at all, so the whole checklist collapsed to
- * null and the screen showed a bare "run in progress…". Any new slot added
- * here must be verified against the literal text in the agent body.
- */
-const CHECKLIST_SLOTS: ChecklistSlotDef[] = [
-  { key: "scrape", label: "Scrape", caption: "Scraping job boards", match: /scrap|fetch/i },
-  {
-    key: "fitgate",
-    label: "Fit-gate",
-    caption: "Filtering + fit-gating",
-    match: /fit.?gat|prefilter|role filter/i,
-  },
-  { key: "tailor", label: "Tailor", caption: "Tailoring resume", match: /tailor/i },
-  { key: "apply", label: "Apply", caption: "Applying to jobs", match: /\bapply(ing)?\b/i },
-  {
-    key: "report",
-    label: "Report",
-    caption: "Sending report",
-    match: /report|summary|discord|cleanup/i,
-  },
-];
-
-interface PhaseInfo {
-  slots: { label: string; state: SlotState }[];
-  currentIndex: number;
-  currentKey: ChecklistKey;
-  caption: string;
-}
-
-/**
- * Best-effort parse of the session-log tail into the 5-slot checklist.
- * Scans from the newest line backward, tagging each slot with the marker
- * ([ ]/[•]/[✓]) nearest its most recent mention. Never throws — any
- * unrecognized shape (different harness, older format, whatever) just
- * falls through to `null`, and the caller shows a generic "running…"
- * indicator instead of guessing at garbage.
- */
-export function parsePhaseChecklist(lines: string[]): PhaseInfo | null {
-  try {
-    const state: Record<ChecklistKey, SlotState> = {
-      scrape: "pending",
-      fitgate: "pending",
-      tailor: "pending",
-      apply: "pending",
-      report: "pending",
-    };
-    const seen = new Set<ChecklistKey>();
-    let matched = false;
-    for (let i = lines.length - 1; i >= 0 && seen.size < CHECKLIST_SLOTS.length; i--) {
-      const raw = lines[i];
-      if (!raw) continue;
-      const clean = raw.replace(/\x1b\[[0-9;]*m/g, "").trim();
-      const m = /^\[( |•|✓)\]\s*(.+)$/.exec(clean);
-      if (!m) continue;
-      const marker = m[1];
-      const text = m[2] ?? "";
-      for (const slot of CHECKLIST_SLOTS) {
-        if (seen.has(slot.key) || !slot.match.test(text)) continue;
-        state[slot.key] = marker === "✓" ? "done" : marker === "•" ? "current" : "pending";
-        seen.add(slot.key);
-        matched = true;
-      }
-    }
-    if (!matched) return null;
-    const slots = CHECKLIST_SLOTS.map((s) => ({ label: s.label, state: state[s.key] }));
-    let currentIndex = slots.findIndex((s) => s.state === "current");
-    if (currentIndex === -1) currentIndex = slots.findIndex((s) => s.state === "pending");
-    if (currentIndex === -1) currentIndex = slots.length - 1;
-    return {
-      slots,
-      currentIndex,
-      currentKey: CHECKLIST_SLOTS[currentIndex]?.key ?? "apply",
-      caption: CHECKLIST_SLOTS[currentIndex]?.caption ?? "Running",
-    };
-  } catch {
-    return null;
-  }
-}
-
-const APPLY_MARKER = /^\[apply\]\s*(.+?)\s*@\s*(.+)$/;
-
-/** Strip SGR color codes so the marker regexes match the agent's plain
- *  text regardless of how the harness colorized the line. */
-const stripAnsi = (line: string) => line.replace(/\x1b\[[0-9;]*m/g, "").trim();
-
-/** The only lines the progress parsers care about. Retaining just these
- *  (rather than the whole transcript) keeps a full run's progress state
- *  bounded to a handful of lines however long the transcript grows. */
-const MARKER_LINE = /^\[( |•|✓|apply)\]/;
-
-/** Reduce raw output to the cleaned marker lines worth keeping. */
-export const markersIn = (raw: string[]) => raw.map(stripAnsi).filter((l) => MARKER_LINE.test(l));
-
-/**
- * Finds the most recent `[apply] <title> @ <company>` marker (see
- * src/agents/bodies/job-scraper.md's "Progress markers" section) so the
- * running view can show which job is currently being applied to. Scans
- * from the newest line backward and stops at the first match — once a
- * later phase starts, an older apply-marker naturally stops being "the
- * current one" because that phase's own state (from parsePhaseChecklist)
- * takes over the caption instead.
- */
-export function parseCurrentApplication(lines: string[]): { title: string; company: string } | null {
-  for (let i = lines.length - 1; i >= 0; i--) {
-    const raw = lines[i];
-    if (!raw) continue;
-    const clean = raw.replace(/\x1b\[[0-9;]*m/g, "").trim();
-    const m = APPLY_MARKER.exec(clean);
-    if (m) return { title: m[1] ?? "", company: m[2] ?? "" };
-  }
-  return null;
-}
+export { parsePhaseChecklist, markersIn, parseCurrentApplication };
 
 /**
  * Trigger a run without leaving the app: spawns run_job_agent.py and

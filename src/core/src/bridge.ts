@@ -8,8 +8,13 @@ import {
   writeDiscordRoute,
   readOnboardingCompleted,
   writeOnboardingCompleted,
+  effectiveEnv,
+  writeEnvOverride,
+  logDir,
 } from "./settings.js";
 import { runValidator, convertResumePdf, setResumeDescription, openPath, reopenApplicationFilled, triggerSingleJobApply, approveReadyToSubmit } from "./helpers.js";
+import { readHeartbeat, latestSessionLog, activeRunPid } from "./state.js";
+import { pythonCmd } from "./platform.js";
 import { LocalAdapter } from "./adapters/local.js";
 import { readSupabaseConfig } from "./supabaseConfig.js";
 import { detectAllHarnessesOnPath, readHarnessConfig, writeHarnessConfig, isKnownHarness } from "./harness.js";
@@ -187,7 +192,7 @@ async function dispatch(command: string, args: Args): Promise<unknown> {
       const root = resolveRoot(args);
       return {
         enabled: readDiscordEnabled(root),
-        applied: readDiscordRoute(root, "applied"),
+        success: readDiscordRoute(root, "success"),
         needs_review: readDiscordRoute(root, "needs_review"),
         failed: readDiscordRoute(root, "failed"),
         summary: readDiscordRoute(root, "summary"),
@@ -510,6 +515,68 @@ async function dispatch(command: string, args: Args): Promise<unknown> {
       const root = resolveRoot(args);
       writeOnboardingCompleted(root, Boolean(args.completed));
       return { ok: true };
+    }
+
+    // Generic src/config/env.json override read/write. Same mechanism the
+    // TUI's Settings screen uses for APLYX_SESSION_CAP, APLYX_24_HOUR_CLOCK,
+    // APLYX_REDUCED_MOTION, etc. (theme.ts, SettingsScreen.tsx). Kept generic
+    // instead of one bridge case per key, so a new env-backed setting just
+    // needs a field in the desktop app's Settings screen, nothing here.
+    case "readEnvOverride": {
+      const root = resolveRoot(args);
+      const key = String(args.key ?? "");
+      const legacyKeys = Array.isArray(args.legacyKeys) ? (args.legacyKeys as unknown[]).map(String) : [];
+      const fallback = typeof args.fallback === "string" ? args.fallback : "";
+      return effectiveEnv(root, [key, ...legacyKeys], fallback);
+    }
+
+    case "writeEnvOverride": {
+      const root = resolveRoot(args);
+      const key = String(args.key ?? "");
+      const value = String(args.value ?? "");
+      writeEnvOverride(root, key, value);
+      return { ok: true };
+    }
+
+    // Live-run support for the desktop app's Run screen, mirroring the
+    // TUI's RunScreen.tsx/run.ts. The long-lived spawn and log-tail have to
+    // happen in Rust (src-tauri/src/lib.rs) since this bridge is one-shot
+    // request/response. But the lookups below are cheap and already exist,
+    // and they need to match run_job_agent.py's contract exactly, so it's
+    // easier to reuse them here than reimplement in Rust.
+    case "activeRunPid": {
+      const root = resolveRoot(args);
+      return { pid: activeRunPid(root) ?? null };
+    }
+
+    case "readHeartbeat": {
+      const root = resolveRoot(args);
+      return readHeartbeat(root) ?? null;
+    }
+
+    case "latestSessionLog": {
+      const root = resolveRoot(args);
+      return { path: latestSessionLog(root) ?? null };
+    }
+
+    // Which interpreter run_job_agent.py should be spawned with. Reuses
+    // pythonCmd()'s existing candidate probing (it prefers whichever
+    // candidate actually has Playwright installed, see platform.ts), so
+    // a Rust-side spawn doesn't end up picking a different, Playwright-less
+    // python than everything else already agreed on.
+    case "resolvePython": {
+      const p = pythonCmd();
+      return { cmd: p.cmd, args: p.prefix };
+    }
+
+    // Resolved log directory. Defaults to root/logs, but it's overridable
+    // via APLYX_LOG_DIR/env.json and can even be absolute (settings.ts's
+    // logDir()). The Rust-side log tailer needs this exact value, not a
+    // hardcoded "root/logs" guess, or a custom log dir would just never
+    // get tailed.
+    case "resolveLogDir": {
+      const root = resolveRoot(args);
+      return { dir: logDir(root) };
     }
 
     default:

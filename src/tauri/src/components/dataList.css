@@ -92,6 +92,10 @@
   }
 }
 
+:root[data-reduced-motion="1"] .stat-card:hover {
+  transform: none;
+}
+
 /* Jobs screen search-in-flight indicator: a rotating ring + a phrase that
  * crossfades to the next one every 1.8s (see JobsScreen.tsx's
  * SEARCH_PHRASES / searchPhrase state) — the phrase span is remounted
@@ -236,6 +240,10 @@
   }
 }
 
+:root[data-reduced-motion="1"] .data-row-open {
+  transition: none;
+}
+
 /* Rows already visible on load cascade in; anything past the first
  * screenful shares the pack's delay instead of queuing further back —
  * a long, ever-growing stagger reads as slow, not polished (Jobs/Status
@@ -280,6 +288,10 @@
   .data-row:hover {
     transform: none;
   }
+}
+
+:root[data-reduced-motion="1"] .data-row:hover {
+  transform: none;
 }
 
 /* Jobs screen only (see CompanyLogo in JobsScreen.tsx) — a favicon

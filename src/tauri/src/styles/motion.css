@@ -45,6 +45,11 @@
   }
 }
 
+:root[data-reduced-motion="1"] .aplyx-fade-in,
+:root[data-reduced-motion="1"] .aplyx-fade-rise {
+  animation: none;
+}
+
 /* Confirms a status actually changed — applied once, on the row whose
  * outcome_status just flipped between two reads, never on first paint
  * or on an unrelated re-render. See StatusScreen.tsx's per-row
@@ -69,4 +74,8 @@
   .aplyx-status-pop {
     animation: none;
   }
+}
+
+:root[data-reduced-motion="1"] .aplyx-status-pop {
+  animation: none;
 }

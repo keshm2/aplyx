@@ -329,3 +329,9 @@
     --duration-slow: 0ms;
   }
 }
+
+:root[data-reduced-motion="1"] {
+  --duration-quick: 0ms;
+  --duration-normal: 0ms;
+  --duration-slow: 0ms;
+}

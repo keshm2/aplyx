@@ -1,8 +1,9 @@
 import { useUiPrefs, FONT_LABELS, type FontPref, type ThemePref } from "../../../lib/uiPrefs";
 import "../../../components/formFields.css";
 
-// Same two option sets as Settings → Appearance (src/tauri/src/routes/shell/
-// SettingsScreen.tsx) — one definition would be cleaner, but onboarding and
+// Same two option sets as Settings → Preferences → Appearance
+// (src/tauri/src/routes/shell/SettingsPreferencesTab.tsx) — one definition
+// would be cleaner, but onboarding and
 // Settings render them in different layouts (a wizard step vs. a settings
 // section) and duplicating two short arrays beats threading a shared
 // component through two very different shells for this little content.

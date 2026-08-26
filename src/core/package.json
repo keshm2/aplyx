@@ -14,6 +14,10 @@
       "types": "./dist/stateDerive.d.ts",
       "default": "./dist/stateDerive.js"
     },
+    "./runProgress.js": {
+      "types": "./dist/runProgress.d.ts",
+      "default": "./dist/runProgress.js"
+    },
     "./jobs.js": {
       "types": "./dist/jobs.d.ts",
       "default": "./dist/jobs.js"

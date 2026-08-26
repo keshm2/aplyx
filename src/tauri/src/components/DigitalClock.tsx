@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import "./DigitalClock.css";
 
-function format(now: Date): { time: string; period: string } {
+function format(now: Date, hour24: boolean): { time: string; period: string } {
   let hours = now.getHours();
-  const period = hours >= 12 ? "PM" : "AM";
-  hours = hours % 12 || 12;
+  const period = hour24 ? "" : hours >= 12 ? "PM" : "AM";
+  if (!hour24) hours = hours % 12 || 12;
+  const hh = hour24 ? String(hours).padStart(2, "0") : String(hours);
   const minutes = String(now.getMinutes()).padStart(2, "0");
   const seconds = String(now.getSeconds()).padStart(2, "0");
-  return { time: `${hours}:${minutes}:${seconds}`, period };
+  return { time: `${hh}:${minutes}:${seconds}`, period };
 }
 
 /** A small live clock — genuinely live content next to the greeting
@@ -17,7 +18,7 @@ function format(now: Date): { time: string; period: string } {
  *  font file needed for the digital-clock feel — --font-mono + tabular
  *  spacing + a colored glow reads as one without shipping a 7-segment
  *  typeface. */
-export function DigitalClock() {
+export function DigitalClock({ hour24 = false }: { hour24?: boolean }) {
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -25,12 +26,12 @@ export function DigitalClock() {
     return () => window.clearInterval(id);
   }, []);
 
-  const { time, period } = format(now);
+  const { time, period } = format(now, hour24);
 
   return (
-    <div className="digital-clock" role="timer" aria-label={`Current time ${time} ${period}`}>
+    <div className="digital-clock" role="timer" aria-label={`Current time ${time} ${period || ""}`}>
       <span className="digital-clock-time">{time}</span>
-      <span className="digital-clock-period">{period}</span>
+      {period && <span className="digital-clock-period">{period}</span>}
     </div>
   );
 }

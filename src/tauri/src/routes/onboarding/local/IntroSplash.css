@@ -57,3 +57,8 @@
     animation: none;
   }
 }
+
+:root[data-reduced-motion="1"] .intro-splash,
+:root[data-reduced-motion="1"] .intro-splash-out {
+  animation: none;
+}

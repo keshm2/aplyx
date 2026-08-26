@@ -105,3 +105,15 @@
     opacity: 0.7;
   }
 }
+
+:root[data-reduced-motion="1"] .apple-switch,
+:root[data-reduced-motion="1"] .apple-switch-thumb {
+  transition: none;
+}
+:root[data-reduced-motion="1"] .apple-switch:active {
+  transform: none;
+}
+:root[data-reduced-motion="1"] .apple-switch-pending {
+  animation: none;
+  opacity: 0.7;
+}

@@ -215,21 +215,16 @@ export function AccountCenterScreen() {
   }
 
   if (status !== "signed-in") {
-    return (
-      <div style={{ maxWidth: "42rem", margin: "0 auto" }}>
-        <h1 style={{ fontSize: "var(--text-3xl)" }}>ATS accounts</h1>
-        <p className="field-help">Sign in to view accounts aplyx created on your behalf.</p>
-      </div>
-    );
+    return <p className="field-help">Sign in to view accounts aplyx created on your behalf.</p>;
   }
 
   return (
-    <div style={{ maxWidth: "42rem", margin: "0 auto", display: "flex", flexDirection: "column", gap: "var(--space-6)" }}>
-      <h1 style={{ fontSize: "var(--text-3xl)" }}>ATS accounts</h1>
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-6)" }}>
       <p className="field-help">
-        Accounts aplyx created using your email or a managed alias, so an application-required ATS account can be
-        reused for document uploads and status checks. Credentials are masked by default — revealing or copying one
-        needs your password again if you haven't confirmed it recently.
+        aplyx creates these accounts for you — using your email or a managed alias — so an
+        application-required ATS account can be reused for document uploads and status checks.
+        Credentials are masked by default — revealing or copying one needs your password again if
+        you haven't confirmed it recently.
       </p>
 
       {message ? (
