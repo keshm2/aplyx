@@ -140,20 +140,23 @@ function looseTitleFilterWords(titleWords: string[]): string[] {
 const inMemorySnapshots = new Map<JobSource, SearchJob[]>();
 let inMemoryRefreshTimer: ReturnType<typeof setInterval> | undefined;
 
-// 3 minutes: short enough that the daemon's snapshot never meaningfully
-// lags what the shared cache itself has (CI warms it every other day as
-// of 2026-08-26 — was daily — so anything on this order just tracks it
-// closely regardless; this
-// interval was already far tighter than the old hourly cadence and is
-// only more so now; it stays at 3 minutes because what it's really
-// bounding is how long a long-lived daemon can hold a snapshot from
-// BEFORE a refresh landed, not the refresh cadence itself), long enough
-// that this loop's
-// own Redis/Postgres reads are a rounding error against how long the
-// daemon process actually stays alive for (a whole app session, not a
-// few seconds) — this is a background refresh cost, not something a
-// live search ever waits on.
-const IN_MEMORY_REFRESH_INTERVAL_MS = 3 * 60 * 1000;
+// 60 minutes (was 3, changed 2026-08-26 as a direct egress-reduction
+// measure — this loop's own POST-per-source-per-tick traffic, pulling up
+// to IN_MEMORY_PER_COMPANY_LIMIT rows with full jd_text each, run for the
+// entire lifetime of every open desktop-app/TUI daemon session, was a
+// real contributor to job_cache pushing past its free-tier egress cap).
+// A live search never waits on this loop either way — readJobCache()
+// answers from the in-memory Map (sub-10ms) regardless of how often it's
+// refreshed, so this interval has zero effect on perceived search speed;
+// it only bounds how stale a long-lived daemon's snapshot can get before
+// a refresh lands. Now that CI itself only refreshes job_cache every
+// other day (~48h), even 60 minutes of in-memory lag is trivial by
+// comparison — 20x fewer of this loop's own reads for no meaningful
+// freshness cost. (IN_MEMORY_PER_COMPANY_LIMIT below is the other lever
+// if more headroom is ever needed — a smaller per-refresh payload rather
+// than a less frequent one — left untouched here since this interval
+// change alone already gets a 20x reduction on its own.)
+const IN_MEMORY_REFRESH_INTERVAL_MS = 60 * 60 * 1000;
 
 /**
  * Starts a background loop that keeps an in-memory browse-all snapshot
