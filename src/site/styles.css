@@ -1399,6 +1399,21 @@ button {
   box-shadow: var(--shadow-lift);
 }
 
+/* .hero-mockup-chrome's default background/text colors are tuned to sit
+   on top of a light-in-light-theme card — fine for the hero mockups,
+   which have exactly that underneath. This card is unconditionally dark
+   (it's a recreation of the app's own dark UI, not theme-following), so
+   the chrome bar needs its own fixed-dark colors or its title goes
+   low-contrast in light theme. */
+.review-card .hero-mockup-chrome {
+  background: #17171f;
+  border-bottom-color: #2a2a35;
+}
+
+.review-card .hero-mockup-chrome-title {
+  color: #8b8fa3;
+}
+
 .review-panel {
   padding: var(--space-4);
   color: #d8dae0;
