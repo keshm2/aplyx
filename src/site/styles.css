@@ -1,5 +1,4 @@
 /* aplyx.app marketing site — plain CSS, no framework.
- * (deploy trigger check)
  *
  * Theme tokens mirror src/tauri/src/styles/tokens.css's Moss palette (the
  * desktop app's actual default as of the 2026-08-22 retheme — a muted
@@ -1477,10 +1476,17 @@ button {
   color: #8b8fa3;
 }
 
+/* Log/terminal register, not a card register — deliberately unlike the
+   bento grid's soft rounded icon tiles above. Monospace throughout,
+   lowercase section labels prefixed like a shell prompt, rows read as
+   log lines rather than list-item cards. */
 .review-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
   padding: var(--space-4);
   color: #d8dae0;
-  font-family: var(--font-body);
+  font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
 }
 
 .review-panel-head {
@@ -1492,6 +1498,23 @@ button {
   padding-bottom: var(--space-3);
   margin-bottom: var(--space-3);
   border-bottom: 1px solid #2a2a35;
+  letter-spacing: 0.02em;
+}
+
+.review-panel-head::before {
+  content: "$ ";
+  color: #565a6e;
+  font-weight: 400;
+}
+
+/* .feature-badge's default accent tokens are theme-following, tuned for
+   a light-in-light-theme surface (same issue as .hero-mockup-chrome
+   above) — this panel is unconditionally dark, so it needs its own
+   fixed-dark override. Reuses the violet already used for this
+   mockup's scan-sweep accent rather than introducing a new hue. */
+.review-panel .feature-badge {
+  background: color-mix(in srgb, #8b5cf6 22%, #16161d);
+  color: #b9a3f5;
 }
 
 .review-panel-count {
@@ -1590,6 +1613,56 @@ button {
 
 .review-demo-mockup[data-reveal].is-visible .review-badge-anim {
   animation: term-check-loop 4.5s ease-in-out infinite;
+}
+
+/* A job that never reaches the queue at all (fit-check filtered it
+   before a human would ever see it) — dimmed rather than styled like
+   an active row, so it visually reads as "backgrounded," not pending. */
+.review-row-skipped {
+  background: #131318;
+}
+
+.review-row-skipped .review-row-text {
+  color: #6b6f80;
+}
+
+/* Static single-span pills for statuses that don't animate in this
+   demo (skipped, and every status-tracking outcome) — same pill shape
+   as .review-badge for a consistent visual language, just without the
+   two-layer stack .review-badge needs for its Pending<->Applied loop.
+   Colors are the dark-theme values of this site's own --info/--special/
+   --good status tokens (docs/application-status-tracking-plan.md),
+   fixed rather than theme-following since this panel always renders
+   dark regardless of site theme. */
+.review-status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.22em 0.65em;
+  border-radius: var(--radius-pill);
+  font-size: 0.58rem;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.review-status-pill-skipped {
+  background: color-mix(in srgb, #8b8fa3 18%, #131318);
+  color: #8b8fa3;
+}
+
+.review-status-pill-oa {
+  background: color-mix(in srgb, #7bafd4 20%, #16161d);
+  color: #7bafd4;
+}
+
+.review-status-pill-interview {
+  background: color-mix(in srgb, #b79ac7 20%, #16161d);
+  color: #b79ac7;
+}
+
+.review-status-pill-offer {
+  background: color-mix(in srgb, #6fbe8a 20%, #16161d);
+  color: #6fbe8a;
 }
 
 @media (max-width: 56rem) {
