@@ -178,14 +178,23 @@
         </div>
         <div class="bento">
           <article class="bento-card bento-card-lead" data-reveal>
+            <span class="mini-peek mini-peek-lead" aria-hidden="true">
+              <img src="assets/screenshots/jobs-screen.png" alt="" loading="lazy" />
+            </span>
             <h3>Multi-board search</h3>
             <p>Ashby, Lever, Greenhouse, Workday, and more, searched in one pass and deduplicated automatically.</p>
           </article>
           <article class="bento-card" data-reveal>
+            <span class="mini-peek" aria-hidden="true">
+              <img src="assets/screenshots/resumes-screen.png" alt="" loading="lazy" />
+            </span>
             <h3>Resume tailoring</h3>
             <p>Bullets and cover letters rewritten per job description, grounded in your actual resume.</p>
           </article>
           <article class="bento-card" data-reveal>
+            <span class="mini-peek" aria-hidden="true">
+              <img src="assets/screenshots/review-screen.png" alt="" loading="lazy" />
+            </span>
             <h3>Review before it goes out</h3>
             <p>Every application is reviewable. Nothing goes out without a decision you control.</p>
           </article>
@@ -205,31 +214,47 @@
 
     <section class="how">
       <div class="wrap">
-        <h2 data-reveal>How it actually works</h2>
+        <h2 data-reveal>How it works</h2>
         <p class="section-subhead" data-reveal>
           Four steps, the same ones every time. Nothing skipped, nothing submitted without a
           decision along the way.
         </p>
         <ol class="steps">
           <li class="step" data-reveal>
+            <span class="step-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
+            </span>
             <span class="step-number">1</span>
             <h3>Search</h3>
             <p>Every configured board is scanned in one pass, deduplicated automatically against what you've already seen.</p>
+            <span class="step-fact">6+ boards, one pass</span>
           </li>
           <li class="step" data-reveal>
+            <span class="step-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
+            </span>
             <span class="step-number">2</span>
             <h3>Fit-check</h3>
             <p>Each posting is checked against your role, level, and location preferences with plain, deterministic logic, not a model's guess.</p>
+            <span class="step-fact">Rule-based, not a guess</span>
           </li>
           <li class="step" data-reveal>
+            <span class="step-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
+            </span>
             <span class="step-number">3</span>
             <h3>Tailor</h3>
             <p>Bullets are rewritten and a cover letter drafted for that specific posting, grounded strictly in your real resume.</p>
+            <span class="step-fact">Grounded in your real resume</span>
           </li>
           <li class="step" data-reveal>
+            <span class="step-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" /></svg>
+            </span>
             <span class="step-number">4</span>
             <h3>Review &amp; apply</h3>
             <p>Anything ready lands in your review queue. You decide before anything is ever submitted on your behalf.</p>
+            <span class="step-fact">You approve every send</span>
           </li>
         </ol>
       </div>
@@ -237,24 +262,36 @@
 
     <section class="faq">
       <div class="wrap">
-        <h2 data-reveal>Questions people actually ask</h2>
+        <h2 data-reveal>FAQs</h2>
         <div class="faq-list">
-          <div class="faq-item" data-reveal>
-            <h3>Do I need a coding agent?</h3>
+          <details class="faq-item" data-reveal>
+            <summary class="faq-question">
+              <h3>Do I need a coding agent?</h3>
+              <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+            </summary>
             <p>Yes, today: aplyx drives whichever you already have installed. Full capability, including browser-automated applies, with opencode or Claude Code. Codex CLI and GitHub Copilot CLI work too, on a smaller path: API-fed boards only, with browser-only applications routed to your review queue instead.</p>
-          </div>
-          <div class="faq-item" data-reveal>
-            <h3>Is my data private?</h3>
+          </details>
+          <details class="faq-item" data-reveal>
+            <summary class="faq-question">
+              <h3>Is my data private?</h3>
+              <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+            </summary>
             <p>Locally, yes: your profile, resumes, and application history stay on your machine unless you opt into Discord updates or a Google Sheets sync, both off by default. See the <a class="link" href="privacy.html">Privacy page</a> for the specifics.</p>
-          </div>
-          <div class="faq-item" data-reveal>
-            <h3>Will it apply to jobs without me knowing?</h3>
+          </details>
+          <details class="faq-item" data-reveal>
+            <summary class="faq-question">
+              <h3>Will it apply to jobs without me knowing?</h3>
+              <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+            </summary>
             <p>No. Anything uncertain, or anything that needs browser automation your setup can't do unattended, lands in a review queue instead of going out. Nothing is submitted without a decision you control.</p>
-          </div>
-          <div class="faq-item" data-reveal>
-            <h3>What platforms does it run on?</h3>
+          </details>
+          <details class="faq-item" data-reveal>
+            <summary class="faq-question">
+              <h3>What platforms does it run on?</h3>
+              <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+            </summary>
             <p>macOS, Linux, and Windows: as a terminal app for a fast, keyboard-first workflow, or a native desktop app for the same thing visually. Same core either way.</p>
-          </div>
+          </details>
         </div>
       </div>
     </section>
