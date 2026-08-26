@@ -914,44 +914,16 @@ button {
   }
 }
 
-/* Small "peek" accent reused wherever a section specifically talks about
-   the desktop app or TUI (the home page's "TUI + desktop" bento card,
-   the /features row of the same name) — the same glass-card treatment
-   as the hero mockups, just scaled down. Two placement variants rather
-   than one, because the two parents have different internal layouts:
-   .bento-card anchors its text to the BOTTOM (justify-content: flex-end),
-   so a top-right absolute corner accent never risks overlapping it;
-   .feature-row's icon+text fills the row edge-to-edge, so its peek is a
-   normal flex sibling (margin-left: auto) instead of absolutely
-   positioned, which sidesteps any text-collision risk entirely rather
-   than trying to carve out safe empty space for it.
-   Both reveal off the parent's own .is-visible (added by the same
-   staggered-reveal observer already watching the parent's [data-reveal])
-   rather than needing a separate reveal target, with a short delay so
-   they settle in just after the parent's own fade/rise finishes. */
-.mini-peek {
-  position: absolute;
-  top: var(--space-3);
-  right: var(--space-3);
-  width: 6.5rem;
-  height: 4.4rem;
-  border-radius: var(--radius-md);
-  border: 1px solid color-mix(in srgb, var(--border-strong) 70%, transparent);
-  background: var(--surface);
-  backdrop-filter: blur(10px) saturate(140%);
-  -webkit-backdrop-filter: blur(10px) saturate(140%);
-  box-shadow: var(--shadow-lift);
-  overflow: hidden;
-  opacity: 0;
-  transform: translateY(-8px) scale(0.92);
-  filter: blur(4px);
-  transition:
-    opacity var(--duration-slow) var(--ease-out) 80ms,
-    transform var(--duration-slow) var(--ease-out) 80ms,
-    filter var(--duration-slow) var(--ease-out) 80ms;
-  pointer-events: none;
-}
-
+/* Small "peek" accent for the /features TUI+desktop row — the same
+   glass-card treatment as the hero mockups, just scaled down. A normal
+   flex sibling (margin-left: auto) rather than absolutely positioned,
+   since .feature-row's icon+text fills the row edge-to-edge and this
+   sidesteps any text-collision risk entirely rather than trying to
+   carve out safe empty space for it. Reveals off the parent's own
+   .is-visible (added by the same staggered-reveal observer already
+   watching the parent's [data-reveal]) rather than needing a separate
+   reveal target, with a short delay so it settles in just after the
+   parent's own fade/rise finishes. */
 .feature-row-peek {
   flex-shrink: 0;
   margin-left: auto;
@@ -974,7 +946,6 @@ button {
     filter var(--duration-slow) var(--ease-out) 80ms;
 }
 
-.mini-peek img,
 .feature-row-peek img {
   display: block;
   width: 230%;
@@ -984,81 +955,17 @@ button {
   object-position: top left;
 }
 
-/* desktop-home.png's actual content ("Welcome back, Kesh") is
-   horizontally centered in the source screenshot, unlike the other
-   three peeks' top-left-anchored content. object-position has no effect
-   here — width:230%/height:auto makes the img's own box exactly match
-   its scaled content, so there's no size mismatch left for object-fit
-   to resolve; what's actually visible is just the parent's
-   overflow:hidden clipping the image's natural top-left corner. A
-   negative margin shifts the image itself before that clip happens. */
-.mini-peek-desktop img {
-  margin-left: -4.2rem;
-  margin-top: -0.5rem;
-}
-
-.bento-card.is-visible .mini-peek {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-  filter: blur(0);
-}
-
-/* Icon-tile corner accent for bento cards whose real screenshot doesn't
-   read at 6.5rem — the resume and review screens are dense, text-heavy
-   UI that turns to mush cropped that small, unlike the jobs list and
-   desktop welcome screen (which stay legible at .mini-peek size). Same
-   corner slot and reveal motion as .mini-peek, just a glyph instead of
-   a cropped screenshot, so nothing is illegible at a glance. */
-.bento-icon {
-  position: absolute;
-  top: var(--space-3);
-  right: var(--space-3);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 3.25rem;
-  height: 3.25rem;
-  border-radius: var(--radius-md);
-  background: var(--accent-soft);
-  color: var(--accent);
-  opacity: 0;
-  transform: translateY(-8px) scale(0.92);
-  transition:
-    opacity var(--duration-slow) var(--ease-out) 80ms,
-    transform var(--duration-slow) var(--ease-out) 80ms;
-  pointer-events: none;
-}
-
-.bento-icon svg {
-  width: 1.5rem;
-  height: 1.5rem;
-}
-
-.bento-card.is-visible .bento-icon {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-}
-
 .feature-row.is-visible .feature-row-peek {
   opacity: 1;
   transform: translateY(0) scale(1) rotate(-3deg);
   filter: blur(0);
 }
 
-/* Bigger variant for .bento-card-lead — it spans 2 rows, so the standard
-   6.5rem corner peek would look sparse against all that extra height. */
-.mini-peek-lead {
-  width: 14rem;
-  height: 9rem;
-}
-
 @media (max-width: 30rem) {
-  /* Nowhere comfortable for either variant to sit once these lay out at
-     full mobile width without crowding the card's own text — simplest to
-     hide them there rather than fight for the space. */
-  .mini-peek,
-  .feature-row-peek,
-  .bento-icon {
+  /* Nowhere comfortable for it to sit once the row lays out at full
+     mobile width without crowding the row's own text — simplest to
+     hide it there rather than fight for the space. */
+  .feature-row-peek {
     display: none;
   }
 }
@@ -1165,87 +1072,64 @@ button {
   letter-spacing: -0.01em;
 }
 
-.bento {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  grid-auto-rows: 11rem;
-  gap: var(--space-5);
+/* Alternating showcase rows — real product screenshots at actual
+   legible size (reusing .feature-shot from /features, which already
+   proves these same four screenshots read fine at this size) instead
+   of the card-grid-with-corner-accent this replaced. Deliberately not
+   a card: no per-item border/background box, just a media/copy pair
+   whose side alternates so the section doesn't read as a repeated
+   tile. */
+.showcase-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-7);
   margin-top: var(--space-7);
 }
 
-.bento-card {
-  position: relative;
-  grid-column: span 2;
-  padding: var(--space-6);
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--border);
-  background: var(--surface);
+.showcase-row {
   display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  gap: var(--space-2);
-  transition:
-    transform var(--duration-quick) var(--ease-out-expo),
-    border-color var(--duration-quick) var(--ease-out-expo),
-    box-shadow var(--duration-quick) var(--ease-out-expo);
+  align-items: center;
+  gap: var(--space-6);
 }
 
-.bento-card:hover {
-  border-color: var(--accent);
+.showcase-rows .showcase-row:nth-child(even) {
+  flex-direction: row-reverse;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  /* Scoped through the .bento parent (not just .bento-card:hover) so this
-     outranks [data-reveal].is-visible's own transform on specificity —
-     equal-specificity selectors otherwise let source order decide, and the
-     reveal rule sits later in this file, silently winning the `transform`
-     property and killing the hover-lift on every card once it's scrolled
-     into view. */
-  .bento .bento-card:hover {
-    transform: translateY(-3px);
-    box-shadow: var(--shadow-lift);
-  }
+.showcase-media {
+  flex: 0 0 44%;
+  min-width: 0;
+  margin-top: 0;
 }
 
-.bento-card-lead {
-  grid-column: span 2;
-  grid-row: span 2;
+.showcase-copy {
+  flex: 1;
+  min-width: 0;
 }
 
-.bento-card h3 {
-  font-size: var(--text-lg);
+.showcase-copy .feature-row-icon {
+  margin-bottom: var(--space-3);
+}
+
+.showcase-copy h3 {
+  font-size: var(--text-xl);
   font-family: var(--font-body);
 }
 
-.bento-card p {
+.showcase-copy p {
+  margin-top: var(--space-2);
   color: var(--text-muted);
   font-size: var(--text-sm);
 }
 
-@media (max-width: 56rem) {
-  .bento {
-    grid-template-columns: repeat(2, 1fr);
+@media (max-width: 48rem) {
+  .showcase-row,
+  .showcase-rows .showcase-row:nth-child(even) {
+    flex-direction: column;
+    align-items: stretch;
   }
-  .bento-card-lead {
-    grid-column: span 2;
-    grid-row: span 1;
-  }
-  /* Lead card drops to the same 1-row height as the rest at this width —
-     the enlarged peek would crowd the text, so it matches the standard
-     .mini-peek size here instead. */
-  .mini-peek-lead {
-    width: 6.5rem;
-    height: 4.4rem;
-  }
-}
-
-@media (max-width: 32rem) {
-  .bento {
-    grid-template-columns: 1fr;
-  }
-  .bento-card,
-  .bento-card-lead {
-    grid-column: span 1;
+  .showcase-media {
+    flex-basis: auto;
   }
 }
 
@@ -1368,9 +1252,12 @@ button {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  /* Scoped through .steps — see the .bento .bento-card:hover comment above
-     for why: without it, [data-reveal].is-visible's own transform wins the
-     cascade tie by source order and this lift never shows. */
+  /* Scoped through .steps (not just .step:hover) so this outranks
+     [data-reveal].is-visible's own transform on specificity —
+     equal-specificity selectors otherwise let source order decide, and the
+     reveal rule sits later in this file, silently winning the `transform`
+     property and killing the hover-lift on every card once it's scrolled
+     into view. */
   .steps .step:hover {
     transform: translateY(-3px);
     box-shadow: var(--shadow-lift);
@@ -1477,9 +1364,9 @@ button {
 }
 
 /* Log/terminal register, not a card register — deliberately unlike the
-   bento grid's soft rounded icon tiles above. Monospace throughout,
-   lowercase section labels prefixed like a shell prompt, rows read as
-   log lines rather than list-item cards. */
+   showcase rows above. Monospace throughout, lowercase section labels
+   prefixed like a shell prompt, rows read as log lines rather than
+   list-item cards. */
 .review-panel {
   display: flex;
   flex-direction: column;
@@ -1938,7 +1825,7 @@ button {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  /* Scoped through .feature-rows — see the .bento .bento-card:hover comment
+  /* Scoped through .feature-rows — see the .steps .step:hover comment
      above for why: without it, [data-reveal].is-visible's own transform
      wins the cascade tie by source order and this lift never shows. */
   .feature-rows .feature-row:hover {
@@ -2441,7 +2328,7 @@ button {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  /* Scoped through .pricing-grid — see the .bento .bento-card:hover comment
+  /* Scoped through .pricing-grid — see the .steps .step:hover comment
      above for why: without it, [data-reveal].is-visible's own transform
      wins the cascade tie by source order and this lift never shows. */
   .pricing-grid .price-card:hover {
