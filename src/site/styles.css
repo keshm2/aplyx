@@ -979,10 +979,15 @@ button {
 
 /* desktop-home.png's actual content ("Welcome back, Kesh") is
    horizontally centered in the source screenshot, unlike the other
-   three peeks' top-left-anchored content — top-left cropping here cut
-   off the headline instead of centering it. */
+   three peeks' top-left-anchored content. object-position has no effect
+   here — width:230%/height:auto makes the img's own box exactly match
+   its scaled content, so there's no size mismatch left for object-fit
+   to resolve; what's actually visible is just the parent's
+   overflow:hidden clipping the image's natural top-left corner. A
+   negative margin shifts the image itself before that clip happens. */
 .mini-peek-desktop img {
-  object-position: 50% 20%;
+  margin-left: -4.2rem;
+  margin-top: -0.5rem;
 }
 
 .bento-card.is-visible .mini-peek {
