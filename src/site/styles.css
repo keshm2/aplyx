@@ -1003,6 +1003,42 @@ button {
   filter: blur(0);
 }
 
+/* Icon-tile corner accent for bento cards whose real screenshot doesn't
+   read at 6.5rem — the resume and review screens are dense, text-heavy
+   UI that turns to mush cropped that small, unlike the jobs list and
+   desktop welcome screen (which stay legible at .mini-peek size). Same
+   corner slot and reveal motion as .mini-peek, just a glyph instead of
+   a cropped screenshot, so nothing is illegible at a glance. */
+.bento-icon {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  color: var(--accent);
+  opacity: 0;
+  transform: translateY(-8px) scale(0.92);
+  transition:
+    opacity var(--duration-slow) var(--ease-out) 80ms,
+    transform var(--duration-slow) var(--ease-out) 80ms;
+  pointer-events: none;
+}
+
+.bento-icon svg {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.bento-card.is-visible .bento-icon {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
 .feature-row.is-visible .feature-row-peek {
   opacity: 1;
   transform: translateY(0) scale(1) rotate(-3deg);
@@ -1021,7 +1057,8 @@ button {
      full mobile width without crowding the card's own text — simplest to
      hide them there rather than fight for the space. */
   .mini-peek,
-  .feature-row-peek {
+  .feature-row-peek,
+  .bento-icon {
     display: none;
   }
 }
