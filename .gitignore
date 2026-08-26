@@ -32,6 +32,8 @@
 # subdirectory — same reasoning, not portable, never meant to be tracked.
 /supabase/.temp/
 /supabase/.branches/
+# Same CLI state, preserved under this pre-migration backup dir name.
+/supabase.pre-src-migration.bak/.temp/
 
 # Anthropic API key for the direct-API judgment call (interest-letter) —
 # see src/scripts/runtime/generate_interest_letter.py's read_anthropic_key.
