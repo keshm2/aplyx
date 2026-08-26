@@ -69,6 +69,7 @@ const sourceChips = document.querySelectorAll("[data-source-filter]");
 const dashboardTabs = document.querySelectorAll("[data-dashboard-tab]");
 const dashboardTabPanels = {
   activity: document.getElementById("dashboard-tab-activity"),
+  profile: document.getElementById("dashboard-tab-profile"),
   search: document.getElementById("dashboard-tab-search"),
 };
 const activityStats = document.getElementById("activity-stats");
@@ -783,4 +784,208 @@ async function loadAndRenderActivity() {
   renderReviewQueue();
   renderAppliedJobs();
   renderJobEvents();
+  renderProfileForm();
 }
+
+/* --- Profile — the same 18 PII fields + 3 preference fields
+ * src/core/src/onboarding/fields.ts's wizard collects, one page at a time,
+ * in the desktop app. Here as one scrollable form instead of 8 wizard
+ * pages (no "next page" ceremony needed for an edit, unlike first-time
+ * setup), writing all fields in a single upsert rather than
+ * SupabaseAdapter.writeProfileField's one-upsert-per-field loop — same
+ * end state, far fewer round trips for a form with 21 fields.
+ *
+ * This is genuinely the same account.js is already reading via
+ * loadMyState()'s myState.profile — no separate fetch. */
+
+const PROFILE_PAGES = [
+  {
+    title: "Basics",
+    fields: [
+      { id: "preferred_name", label: "Preferred name (optional)", kind: "text", placeholder: "how aplyx addresses you" },
+      { id: "first_name", label: "Legal first name", kind: "text" },
+      { id: "last_name", label: "Legal last name", kind: "text" },
+    ],
+  },
+  {
+    title: "Contact",
+    fields: [
+      { id: "email", label: "Email applications are sent from", kind: "text", placeholder: "you@example.com" },
+      { id: "phone", label: "Phone number", kind: "text", placeholder: "555-0142" },
+      { id: "address_line1", label: "Address line 1", kind: "text", placeholder: "123 Example St" },
+      { id: "address_line2", label: "Address line 2 (optional)", kind: "text", placeholder: "Apt 4B" },
+      { id: "zip_code", label: "Zip code", kind: "text", placeholder: "12345" },
+    ],
+  },
+  {
+    title: "Location",
+    fields: [{ id: "location", label: "Home location (city, state)", kind: "text", placeholder: "e.g. Seattle, WA" }],
+  },
+  {
+    title: "Profiles",
+    fields: [
+      { id: "linkedin_username", label: "LinkedIn username", kind: "text", placeholder: "your-username" },
+      { id: "github_username", label: "GitHub username", kind: "text", placeholder: "your-username" },
+    ],
+  },
+  {
+    title: "Work eligibility",
+    fields: [
+      { id: "authorized_to_work", label: "Authorized to work in the US?", kind: "yesno" },
+      { id: "require_sponsorship", label: "Need visa sponsorship?", kind: "yesno" },
+    ],
+  },
+  {
+    title: "Education",
+    fields: [{ id: "graduation_date", label: "Graduation date", kind: "text", placeholder: "June 2027" }],
+  },
+  {
+    title: "Demographics",
+    fields: [
+      { id: "gender", label: "Gender (optional)", kind: "text", placeholder: "e.g. Woman / Man / Non-binary / Decline" },
+      { id: "ethnicity", label: "Ethnicity (optional)", kind: "text", placeholder: "e.g. Asian / Decline" },
+      { id: "hispanic_or_latino", label: "Hispanic or Latino?", kind: "yesno" },
+      { id: "date_of_birth", label: "Date of birth (optional)", kind: "text", placeholder: "MM/DD/YYYY" },
+      {
+        id: "veteran_status",
+        label: "Veteran status",
+        kind: "select3",
+        options: [
+          { value: "not_veteran", label: "Not a veteran" },
+          { value: "veteran", label: "Veteran" },
+          { value: "decline", label: "Prefer not to answer" },
+        ],
+      },
+      {
+        id: "disability_status",
+        label: "Disability status",
+        kind: "select3",
+        options: [
+          { value: "no", label: "No" },
+          { value: "yes", label: "Yes" },
+          { value: "decline", label: "Prefer not to answer" },
+        ],
+      },
+    ],
+  },
+  {
+    title: "Roles",
+    fields: [{ id: "role_keywords", label: "Roles you're targeting (comma-separated)", kind: "list", placeholder: "software engineer, swe, ..." }],
+  },
+  {
+    title: "Job targets",
+    fields: [
+      { id: "preferred_locations", label: "Preferred job locations, comma-separated (optional)", kind: "list", placeholder: "Seattle, WA; Remote" },
+      { id: "target_companies", label: "Target companies, comma-separated (optional)", kind: "list", placeholder: "Stripe, Figma, ..." },
+    ],
+  },
+];
+
+const PREFERENCE_FIELD_IDS = new Set(["role_keywords", "preferred_locations", "target_companies"]);
+
+const profileForm = document.getElementById("profile-form");
+const profileFormFields = document.getElementById("profile-form-fields");
+const profileMessage = document.getElementById("profile-message");
+let profileDirty = false;
+
+function buildProfileForm() {
+  const fragment = document.createDocumentFragment();
+  PROFILE_PAGES.forEach((page) => {
+    const fieldset = document.createElement("fieldset");
+    fieldset.className = "profile-fieldset";
+    const legend = document.createElement("legend");
+    legend.textContent = page.title;
+    fieldset.appendChild(legend);
+
+    page.fields.forEach((field) => {
+      const label = document.createElement("label");
+      label.className = "account-field profile-field";
+      const span = document.createElement("span");
+      span.textContent = field.label;
+      label.appendChild(span);
+
+      let input;
+      if (field.kind === "yesno" || field.kind === "select3") {
+        input = document.createElement("select");
+        const options = field.kind === "yesno" ? [{ value: "", label: "—" }, { value: "yes", label: "Yes" }, { value: "no", label: "No" }] : [{ value: "", label: "—" }, ...field.options];
+        options.forEach((opt) => {
+          const optionEl = document.createElement("option");
+          optionEl.value = opt.value;
+          optionEl.textContent = opt.label;
+          input.appendChild(optionEl);
+        });
+      } else {
+        input = document.createElement("input");
+        input.type = "text";
+        if (field.placeholder) input.placeholder = field.placeholder;
+      }
+      input.id = `profile-field-${field.id}`;
+      input.dataset.fieldId = field.id;
+      input.dataset.fieldKind = field.kind;
+      input.addEventListener("input", () => {
+        profileDirty = true;
+      });
+      label.appendChild(input);
+      fieldset.appendChild(label);
+    });
+    fragment.appendChild(fieldset);
+  });
+  profileFormFields.appendChild(fragment);
+}
+buildProfileForm();
+
+/** Re-populates form values from myState.profile — skipped while the form
+ *  is dirty (the user has typed something not yet saved) so a Realtime
+ *  update from another device/tab never silently overwrites an
+ *  in-progress edit. The dirty flag clears on a successful save, so the
+ *  next sync after that is free to refresh the form again. */
+function renderProfileForm() {
+  if (!myState || profileDirty) return;
+  const profile = myState.profile ?? {};
+  const preferences = profile.preferences ?? {};
+  profileFormFields.querySelectorAll("[data-field-id]").forEach((input) => {
+    const id = input.dataset.fieldId;
+    if (PREFERENCE_FIELD_IDS.has(id)) {
+      input.value = Array.isArray(preferences[id]) ? preferences[id].join(", ") : "";
+    } else {
+      input.value = profile[id] != null ? String(profile[id]) : "";
+    }
+  });
+}
+
+profileForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (!currentUserId) return;
+  const saveButton = document.getElementById("profile-save");
+  saveButton.disabled = true;
+  profileMessage.textContent = "Saving…";
+  profileMessage.classList.remove("is-error");
+
+  const payload = { user_id: currentUserId };
+  const preferences = {};
+  profileFormFields.querySelectorAll("[data-field-id]").forEach((input) => {
+    const id = input.dataset.fieldId;
+    if (PREFERENCE_FIELD_IDS.has(id)) {
+      preferences[id] = input.value
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+    } else {
+      payload[id] = input.value.trim();
+    }
+  });
+  payload.preferences = preferences;
+
+  try {
+    const { error } = await supabase.from("profiles").upsert(payload, { onConflict: "user_id" });
+    if (error) throw error;
+    profileDirty = false;
+    profileMessage.textContent = "Saved.";
+    void loadAndRenderActivity();
+  } catch (err) {
+    profileMessage.textContent = err?.message ?? "Couldn't save. Try again.";
+    profileMessage.classList.add("is-error");
+  } finally {
+    saveButton.disabled = false;
+  }
+});

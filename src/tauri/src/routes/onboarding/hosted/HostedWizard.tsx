@@ -97,6 +97,14 @@ export function HostedWizard() {
     await goNext();
   }
 
+  // "Import your existing account details" — the profile step has nothing
+  // left to do (the account's profile is already populated), so this jumps
+  // straight to candidate_email instead of goNext's usual one-step advance.
+  function skipToCandidateEmail() {
+    setWizardError(undefined);
+    setStepIndex(STEPS.indexOf("candidate_email"));
+  }
+
   function goBack() {
     if (stepIndex > 0) setStepIndex((i) => i - 1);
   }
@@ -141,7 +149,7 @@ export function HostedWizard() {
   if (step === "import") {
     return (
       <WizardShell stepIndex={stepIndex} stepCount={STEPS.length} title="Bring over your data?" onBack={goBack} error={wizardError}>
-        <ImportOrFreshStep client={client} userId={userId} onDone={goNextFromImport} />
+        <ImportOrFreshStep client={client} userId={userId} onDone={goNextFromImport} onImportHosted={skipToCandidateEmail} />
       </WizardShell>
     );
   }

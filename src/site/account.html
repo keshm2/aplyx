@@ -114,6 +114,7 @@
 
           <div class="dashboard-tabs" role="tablist">
             <button type="button" class="account-tab is-active" data-dashboard-tab="activity" role="tab" aria-selected="true">My activity</button>
+            <button type="button" class="account-tab" data-dashboard-tab="profile" role="tab" aria-selected="false">Profile</button>
             <button type="button" class="account-tab" data-dashboard-tab="search" role="tab" aria-selected="false">Browse jobs</button>
           </div>
 
@@ -139,6 +140,17 @@
               <h2>Recent activity</h2>
               <div id="job-events-list" class="activity-list activity-list-compact" aria-live="polite"></div>
             </div>
+          </div>
+
+          <div id="dashboard-tab-profile" class="dashboard-tab-panel" hidden>
+            <p class="account-fineprint">Also live &mdash; saved here, it's what a fresh desktop-app or TUI install signing into this account can import instead of re-entering everything (or a returning install just sees the same values, kept in sync). This info is used for job applications and can be changed any time.</p>
+            <form id="profile-form">
+              <div id="profile-form-fields" class="profile-form-fields"></div>
+              <div class="profile-form-actions">
+                <button type="submit" class="btn btn-primary" id="profile-save">Save profile</button>
+                <span id="profile-message" class="account-message" role="status"></span>
+              </div>
+            </form>
           </div>
 
           <div id="dashboard-tab-search" class="dashboard-tab-panel" hidden>
