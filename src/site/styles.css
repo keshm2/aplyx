@@ -1530,12 +1530,17 @@ button {
   border-radius: var(--radius-pill);
   font-size: 0.58rem;
   font-weight: 700;
-  background: color-mix(in srgb, #f6c344 20%, transparent);
+  /* Mixed against the row's actual solid background, not transparent —
+     the badges stack (Applied absolutely over Pending), and a
+     translucent background let the layer underneath show through for
+     the entire time it was "on" (not just during a transition), which
+     is what was actually causing the two words to overlap. */
+  background: color-mix(in srgb, #f6c344 20%, #16161d);
   color: #f6c344;
 }
 
 .review-badge-on {
-  background: color-mix(in srgb, #4caf6d 20%, transparent);
+  background: color-mix(in srgb, #4caf6d 20%, #16161d);
   color: #4caf6d;
   opacity: 0;
 }
