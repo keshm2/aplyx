@@ -1519,39 +1519,61 @@ button {
   font-size: 0.75rem;
 }
 
+/* Slot-flip badge: "Pending" and "Applied" are two full-size rows
+   stacked in a track, clipped by a same-height wrap. The track slides
+   via transform, so only one row is ever inside the visible window —
+   they can never visually overlap, unlike a prior crossfade attempt
+   where both rows occupied the same box and any translucency let one
+   show through the other. transform is compositor-accelerated, so this
+   also sidesteps the stutter risk of animating background/opacity. */
 .review-badge-wrap {
-  position: relative;
   display: inline-block;
   width: 3.4rem;
   height: 1.05rem;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+}
+
+.review-badge-track {
+  display: flex;
+  flex-direction: column;
+  will-change: transform;
+}
+
+.review-demo-mockup[data-reveal].is-visible .review-badge-anim {
+  animation: review-badge-flip 4.5s ease-in-out infinite;
 }
 
 .review-badge {
-  position: absolute;
-  inset: 0;
+  flex: 0 0 1.05rem;
+  height: 1.05rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-pill);
   font-size: 0.58rem;
   font-weight: 700;
-  /* Mixed against the row's actual solid background, not transparent —
-     the badges stack (Applied absolutely over Pending), and a
-     translucent background let the layer underneath show through for
-     the entire time it was "on" (not just during a transition), which
-     is what was actually causing the two words to overlap. */
+}
+
+.review-badge-pending {
   background: color-mix(in srgb, #f6c344 20%, #16161d);
   color: #f6c344;
 }
 
-.review-badge-on {
+.review-badge-applied {
   background: color-mix(in srgb, #4caf6d 20%, #16161d);
   color: #4caf6d;
-  opacity: 0;
 }
 
-.review-demo-mockup[data-reveal].is-visible .review-badge-anim {
-  animation: term-check-loop 4.5s ease-in-out infinite;
+@keyframes review-badge-flip {
+  0%,
+  58% {
+    transform: translateY(0);
+  }
+  65%,
+  100% {
+    /* -50% of the track's own (two-row) box height == exactly one row. */
+    transform: translateY(-50%);
+  }
 }
 
 @media (max-width: 56rem) {
