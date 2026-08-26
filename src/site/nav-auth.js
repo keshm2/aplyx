@@ -54,6 +54,15 @@ function showSignedInNav(email) {
   });
 }
 
+function showSignedOutNav() {
+  document.querySelectorAll(".nav-link-account").forEach((link) => {
+    link.classList.remove("nav-avatar-link");
+    link.removeAttribute("aria-label");
+    link.title = "";
+    link.textContent = "Sign in";
+  });
+}
+
 // Exported so account.js can reuse this exact instance instead of
 // creating a second GoTrueClient against the same storage key — two
 // independent clients for one session produces exactly the "Multiple
@@ -70,19 +79,16 @@ supabase.auth.getSession().then(({ data }) => {
 });
 
 supabase.auth.onAuthStateChange((_event, session) => {
+  // Fires on every page, including account.html — account.js listens to
+  // the same shared client and handles its own auth-panel/dashboard-panel
+  // swap independently, but never touches .nav-link-account itself, so
+  // this is the only thing that reverts the nav avatar there too. (An
+  // earlier version skipped account.html here on the assumption account.js
+  // already covered it — it didn't, which left the avatar showing after
+  // sign-out until something else re-triggered a check.)
   if (session) {
     showSignedInNav(session.user.email);
   } else {
-    // Signed out in another tab — only revert pages that aren't
-    // account.html itself, which already owns its own signed-out view
-    // via account.js and would otherwise fight this for the same element.
-    if (!document.getElementById("auth-panel")) {
-      document.querySelectorAll(".nav-link-account").forEach((link) => {
-        link.classList.remove("nav-avatar-link");
-        link.removeAttribute("aria-label");
-        link.title = "";
-        link.textContent = "Sign in";
-      });
-    }
+    showSignedOutNav();
   }
 });
