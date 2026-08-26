@@ -795,6 +795,58 @@ button {
   color: #4caf6d;
 }
 
+/* Two of the four rows start unchecked and check themselves off once the
+   mockup scrolls into view — a one-shot animation, not an infinite
+   toggle, since the real TUI never un-applies a job either. The "[x]"
+   layer sits absolutely over the static "[ ]" (same 3-character cell,
+   same monospace font, so they align exactly) and fades in once. */
+.term-check-wrap {
+  position: relative;
+  display: inline-block;
+  width: 3ch;
+}
+
+.term-check-anim {
+  position: absolute;
+  left: 0;
+  top: 0;
+  opacity: 0;
+}
+
+.hero-mockup-tui[data-reveal].is-visible .term-check-anim {
+  animation: term-check-in 500ms var(--ease-out) forwards;
+}
+
+@keyframes term-check-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.term-cursor {
+  display: inline-block;
+  width: 0.5em;
+  height: 1em;
+  margin-left: 0.3em;
+  vertical-align: -0.15em;
+  background: #8b5cf6;
+  animation: term-cursor-blink 1s step-end infinite;
+}
+
+@keyframes term-cursor-blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  50.01%,
+  100% {
+    opacity: 0;
+  }
+}
+
 .term-hint {
   margin-top: var(--space-3);
   padding-top: var(--space-2);
@@ -2070,7 +2122,9 @@ button {
 
 .price-card.is-featured {
   border-color: var(--accent);
+  border-width: 2px;
   background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 6%, var(--surface)), var(--surface));
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 10%, transparent);
   position: relative;
 }
 
@@ -2078,17 +2132,24 @@ button {
   border-color: var(--accent-strong);
 }
 
+.price-card.is-featured .price-amount .amount {
+  font-size: var(--text-4xl);
+}
+
 .price-badge {
   position: absolute;
-  top: -0.7rem;
-  left: var(--space-6);
-  padding: var(--space-1) var(--space-3);
+  top: -0.8rem;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: var(--space-1) var(--space-4);
   border-radius: var(--radius-pill);
   background: var(--accent);
   color: var(--accent-ink);
   font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.02em;
+  box-shadow: var(--shadow-lift);
+  white-space: nowrap;
 }
 
 .price-card h3 {
@@ -2124,7 +2185,11 @@ button {
 .price-features {
   list-style: none;
   margin: var(--space-6) 0 0;
-  padding: 0;
+  padding-top: var(--space-5);
+  padding-left: 0;
+  padding-right: 0;
+  padding-bottom: 0;
+  border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
