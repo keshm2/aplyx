@@ -854,11 +854,16 @@ button {
   100% {
     opacity: 0;
   }
-  15%,
+  /* Quick snap in/out rather than a slow fade — the layer underneath
+     stays fully opaque the whole time (it's a static base state, not
+     itself animated), so a long fade window meant both layers were
+     visibly blended together mid-transition instead of reading as one
+     value replacing another. */
+  3%,
   55% {
     opacity: 1;
   }
-  70% {
+  58% {
     opacity: 0;
   }
 }
@@ -970,6 +975,14 @@ button {
   height: auto;
   object-fit: cover;
   object-position: top left;
+}
+
+/* desktop-home.png's actual content ("Welcome back, Kesh") is
+   horizontally centered in the source screenshot, unlike the other
+   three peeks' top-left-anchored content — top-left cropping here cut
+   off the headline instead of centering it. */
+.mini-peek-desktop img {
+  object-position: 50% 20%;
 }
 
 .bento-card.is-visible .mini-peek {
@@ -1497,8 +1510,8 @@ button {
 .review-badge-wrap {
   position: relative;
   display: inline-block;
-  width: 4rem;
-  height: 1.35rem;
+  width: 3.4rem;
+  height: 1.05rem;
 }
 
 .review-badge {
@@ -1508,7 +1521,7 @@ button {
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-pill);
-  font-size: 0.65rem;
+  font-size: 0.58rem;
   font-weight: 700;
   background: color-mix(in srgb, #f6c344 20%, transparent);
   color: #f6c344;
