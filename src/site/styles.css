@@ -1519,60 +1519,67 @@ button {
   font-size: 0.75rem;
 }
 
-/* Slot-flip badge: "Pending" and "Applied" are two full-size rows
-   stacked in a track, clipped by a same-height wrap. The track slides
-   via transform, so only one row is ever inside the visible window —
-   they can never visually overlap, unlike a prior crossfade attempt
-   where both rows occupied the same box and any translucency let one
-   show through the other. transform is compositor-accelerated, so this
-   also sidesteps the stutter risk of animating background/opacity. */
-.review-badge-wrap {
-  display: inline-block;
-  width: 3.4rem;
-  height: 1.05rem;
-  overflow: hidden;
-  border-radius: var(--radius-pill);
-}
-
-.review-badge-track {
-  display: flex;
-  flex-direction: column;
-  will-change: transform;
-}
-
-.review-demo-mockup[data-reveal].is-visible .review-badge-anim {
-  animation: review-badge-flip 4.5s ease-in-out infinite;
-}
-
-.review-badge {
-  flex: 0 0 1.05rem;
-  height: 1.05rem;
-  display: flex;
+/* Status dot + label, not a badge pill. "Applied" starts at
+   display:none and is switched on with a single discrete keyframe
+   step (step-end, one "to" stop) — display isn't an interpolable
+   property, so the browser can't blend, crossfade, or partially
+   render both labels at once the way opacity/transform-stacked
+   attempts could. Plays once per page load (staggered per row via
+   --d), not on an infinite loop, so there's no loop-reset edge to
+   glitch either. */
+.review-status {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  font-size: 0.58rem;
+  gap: 0.4rem;
+  font-size: 0.72rem;
   font-weight: 700;
-}
-
-.review-badge-pending {
-  background: color-mix(in srgb, #f6c344 20%, #16161d);
   color: #f6c344;
 }
 
-.review-badge-applied {
-  background: color-mix(in srgb, #4caf6d 20%, #16161d);
+.review-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: #f6c344;
+  flex-shrink: 0;
+}
+
+.review-status-applied {
+  display: none;
   color: #4caf6d;
 }
 
-@keyframes review-badge-flip {
-  0%,
-  58% {
-    transform: translateY(0);
+.review-demo-mockup[data-reveal].is-visible .review-status-anim .review-dot {
+  animation: review-dot-resolve 1ms step-end forwards;
+  animation-delay: calc(1.1s + var(--d));
+}
+
+.review-demo-mockup[data-reveal].is-visible .review-status-anim .review-status-pending {
+  animation: review-hide 1ms step-end forwards;
+  animation-delay: calc(1.1s + var(--d));
+}
+
+.review-demo-mockup[data-reveal].is-visible .review-status-anim .review-status-applied {
+  animation: review-show 1ms step-end forwards;
+  animation-delay: calc(1.1s + var(--d));
+}
+
+@keyframes review-dot-resolve {
+  to {
+    background: #4caf6d;
+    box-shadow: 0 0 0 3px color-mix(in srgb, #4caf6d 25%, transparent);
   }
-  65%,
-  100% {
-    /* -50% of the track's own (two-row) box height == exactly one row. */
-    transform: translateY(-50%);
+}
+
+@keyframes review-hide {
+  to {
+    display: none;
+  }
+}
+
+@keyframes review-show {
+  to {
+    display: inline-flex;
   }
 }
 
