@@ -931,32 +931,13 @@ button {
   box-shadow: var(--shadow-lift);
   overflow: hidden;
   opacity: 0;
-  transform: translateY(-8px) scale(0.92) rotate(var(--peek-rotate, 3deg));
+  transform: translateY(-8px) scale(0.92);
   filter: blur(4px);
   transition:
     opacity var(--duration-slow) var(--ease-out) 80ms,
     transform var(--duration-slow) var(--ease-out) 80ms,
     filter var(--duration-slow) var(--ease-out) 80ms;
   pointer-events: none;
-}
-
-/* Each bento card's peek tilts a different way and, for the lead card,
-   sits at a different scale — otherwise all four read as the same
-   element repeated instead of four distinct screenshots. */
-.mini-peek-a {
-  --peek-rotate: -4deg;
-}
-
-.mini-peek-b {
-  --peek-rotate: 3deg;
-}
-
-.mini-peek-c {
-  --peek-rotate: -3deg;
-}
-
-.mini-peek-d {
-  --peek-rotate: 5deg;
 }
 
 .feature-row-peek {
@@ -993,7 +974,7 @@ button {
 
 .bento-card.is-visible .mini-peek {
   opacity: 1;
-  transform: translateY(0) scale(1) rotate(var(--peek-rotate, 3deg));
+  transform: translateY(0) scale(1);
   filter: blur(0);
 }
 
@@ -1381,6 +1362,155 @@ button {
 
 @media (max-width: 32rem) {
   .steps {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- Review queue demo: a second live mockup, same techniques as the
+   hero TUI panel (term-scan-sweep, term-check-loop) reapplied to the
+   desktop app's actual Review queue screen instead of the terminal —
+   real row content lifted from the multi-board search screenshot
+   elsewhere on this page, for continuity. --- */
+.review-demo {
+  padding: var(--space-8) 0;
+}
+
+.review-demo .wrap {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-8);
+  align-items: center;
+}
+
+.review-demo-copy h2 {
+  font-size: var(--text-2xl);
+}
+
+.review-demo-copy p {
+  margin-top: var(--space-3);
+  color: var(--text-muted);
+}
+
+.review-card {
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  background: #0d0d12;
+  overflow: hidden;
+  box-shadow: var(--shadow-lift);
+}
+
+.review-panel {
+  padding: var(--space-4);
+  color: #d8dae0;
+  font-family: var(--font-body);
+}
+
+.review-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-weight: 700;
+  font-size: var(--text-sm);
+  padding-bottom: var(--space-3);
+  margin-bottom: var(--space-3);
+  border-bottom: 1px solid #2a2a35;
+}
+
+.review-panel-count {
+  font-weight: 400;
+  color: #8b8fa3;
+  font-size: var(--text-xs);
+}
+
+.review-rows {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  overflow: hidden;
+  border-radius: var(--radius-md);
+}
+
+.review-rows::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 40%,
+    color-mix(in srgb, #8b5cf6 20%, transparent) 50%,
+    transparent 60%
+  );
+  background-size: 250% 100%;
+  pointer-events: none;
+}
+
+.review-demo-mockup[data-reveal].is-visible .review-rows::after {
+  animation: term-scan-sweep 4.5s linear infinite;
+}
+
+.review-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: #16161d;
+  font-size: 0.8rem;
+}
+
+.review-row-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.review-row-right {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.review-score {
+  color: #8b8fa3;
+  font-size: 0.75rem;
+}
+
+.review-badge-wrap {
+  position: relative;
+  display: inline-block;
+  width: 4rem;
+  height: 1.35rem;
+}
+
+.review-badge {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-pill);
+  font-size: 0.65rem;
+  font-weight: 700;
+  background: color-mix(in srgb, #f6c344 20%, transparent);
+  color: #f6c344;
+}
+
+.review-badge-on {
+  background: color-mix(in srgb, #4caf6d 20%, transparent);
+  color: #4caf6d;
+  opacity: 0;
+}
+
+.review-demo-mockup[data-reveal].is-visible .review-badge-anim {
+  animation: term-check-loop 4.5s ease-in-out infinite;
+}
+
+@media (max-width: 56rem) {
+  .review-demo .wrap {
     grid-template-columns: 1fr;
   }
 }
