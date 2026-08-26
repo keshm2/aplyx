@@ -112,23 +112,54 @@
             <button type="button" class="btn btn-secondary" id="sign-out">Sign out</button>
           </div>
 
-          <div class="dashboard-search">
-            <form id="search-form" class="job-search-form">
-              <input type="text" id="search-query" placeholder="Search cached postings, e.g. software engineer intern" aria-label="Search cached job postings" />
-              <button type="submit" class="btn btn-primary">Search</button>
-            </form>
-            <div class="job-source-filters" role="group" aria-label="Filter by board">
-              <button type="button" class="job-source-chip is-active" data-source-filter="all">All boards</button>
-              <button type="button" class="job-source-chip" data-source-filter="ashbyhq">Ashby</button>
-              <button type="button" class="job-source-chip" data-source-filter="lever">Lever</button>
-              <button type="button" class="job-source-chip" data-source-filter="greenhouse">Greenhouse</button>
-              <button type="button" class="job-source-chip" data-source-filter="smartrecruiters">SmartRecruiters</button>
+          <div class="dashboard-tabs" role="tablist">
+            <button type="button" class="account-tab is-active" data-dashboard-tab="activity" role="tab" aria-selected="true">My activity</button>
+            <button type="button" class="account-tab" data-dashboard-tab="search" role="tab" aria-selected="false">Browse jobs</button>
+          </div>
+
+          <div id="dashboard-tab-activity" class="dashboard-tab-panel">
+            <p class="account-fineprint">Live from your aplyx install &mdash; anything applied, reviewed, or tracked from the desktop app or TUI shows up here the moment it happens, and any action you take here syncs back the same way. No separate copy, no refresh needed.</p>
+
+            <div id="activity-stats" class="activity-stats"></div>
+
+            <div class="activity-section">
+              <div class="activity-section-head">
+                <h2>Review queue</h2>
+                <button type="button" class="activity-toggle" id="toggle-resolved" aria-pressed="false">Show resolved</button>
+              </div>
+              <div id="review-queue-list" class="activity-list" aria-live="polite"></div>
+            </div>
+
+            <div class="activity-section">
+              <h2>Applied</h2>
+              <div id="applied-jobs-list" class="activity-list" aria-live="polite"></div>
+            </div>
+
+            <div class="activity-section">
+              <h2>Recent activity</h2>
+              <div id="job-events-list" class="activity-list activity-list-compact" aria-live="polite"></div>
             </div>
           </div>
-          <p class="account-fineprint">Searches a cached snapshot from Ashby, Lever, Greenhouse, and SmartRecruiters boards &mdash; not a live fetch, and narrower than what a local install can search. For every board plus tailoring, review, and applying, <a class="link" href="install.html">install aplyx locally</a>.</p>
 
-          <div id="search-status" class="job-results-status" role="status"></div>
-          <div id="search-results" class="job-results" aria-live="polite"></div>
+          <div id="dashboard-tab-search" class="dashboard-tab-panel" hidden>
+            <div class="dashboard-search">
+              <form id="search-form" class="job-search-form">
+                <input type="text" id="search-query" placeholder="Search cached postings, e.g. software engineer intern" aria-label="Search cached job postings" />
+                <button type="submit" class="btn btn-primary">Search</button>
+              </form>
+              <div class="job-source-filters" role="group" aria-label="Filter by board">
+                <button type="button" class="job-source-chip is-active" data-source-filter="all">All boards</button>
+                <button type="button" class="job-source-chip" data-source-filter="ashbyhq">Ashby</button>
+                <button type="button" class="job-source-chip" data-source-filter="lever">Lever</button>
+                <button type="button" class="job-source-chip" data-source-filter="greenhouse">Greenhouse</button>
+                <button type="button" class="job-source-chip" data-source-filter="smartrecruiters">SmartRecruiters</button>
+              </div>
+            </div>
+            <p class="account-fineprint">Searches a cached snapshot from Ashby, Lever, Greenhouse, and SmartRecruiters boards &mdash; not a live fetch, and narrower than what a local install can search. For every board plus tailoring, review, and applying, <a class="link" href="install.html">install aplyx locally</a>.</p>
+
+            <div id="search-status" class="job-results-status" role="status"></div>
+            <div id="search-results" class="job-results" aria-live="polite"></div>
+          </div>
         </div>
       </div>
     </section>

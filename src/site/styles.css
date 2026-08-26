@@ -3308,6 +3308,175 @@ button {
   }
 }
 
+/* --- "My activity" — live read-write mirror of the desktop app's own
+   synced state (account.js's startActivitySync/loadMyState). --- */
+
+.dashboard-tabs {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+  padding: var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+}
+
+.activity-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--space-3);
+  margin: var(--space-5) 0;
+}
+
+.activity-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--ground);
+}
+
+.activity-stat-value {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 800;
+  color: var(--accent);
+}
+
+.activity-stat-label {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.activity-section {
+  margin-top: var(--space-7);
+}
+
+.activity-section h2 {
+  font-size: var(--text-lg);
+}
+
+.activity-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.activity-toggle {
+  padding: 0.25em var(--space-3);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.activity-toggle[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.activity-empty {
+  padding: var(--space-4);
+  color: var(--text-faint);
+  font-size: var(--text-sm);
+}
+
+.activity-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--ground);
+}
+
+.activity-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15em;
+  flex: 1;
+  min-width: 12rem;
+}
+
+.activity-row-title {
+  font-weight: 600;
+}
+
+.activity-row-meta {
+  color: var(--text-faint);
+  font-size: var(--text-xs);
+}
+
+.activity-row-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.activity-action {
+  padding: 0.4em var(--space-4);
+  font-size: var(--text-xs);
+}
+
+.activity-badge {
+  flex-shrink: 0;
+  padding: 0.2em var(--space-3);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.activity-badge-pending {
+  background: var(--info-soft);
+  color: var(--info);
+}
+
+.activity-badge-good {
+  background: var(--good-soft);
+  color: var(--good);
+}
+
+.activity-badge-danger {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.activity-badge-muted {
+  background: var(--surface-raised);
+  color: var(--text-faint);
+}
+
+.activity-list-compact .activity-event {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-1);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.activity-event-when {
+  flex-shrink: 0;
+  color: var(--text-faint);
+  font-size: var(--text-xs);
+}
+
 @media (max-width: 30rem) {
   .account-panel {
     padding: var(--space-5) var(--space-4);
@@ -3317,5 +3486,15 @@ button {
   }
   .job-results {
     grid-template-columns: 1fr;
+  }
+  .activity-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .activity-row-actions {
+    justify-content: stretch;
+  }
+  .activity-action {
+    flex: 1;
   }
 }

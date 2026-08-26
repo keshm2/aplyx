@@ -66,12 +66,36 @@ const searchQuery = document.getElementById("search-query");
 const searchStatus = document.getElementById("search-status");
 const searchResults = document.getElementById("search-results");
 const sourceChips = document.querySelectorAll("[data-source-filter]");
+const dashboardTabs = document.querySelectorAll("[data-dashboard-tab]");
+const dashboardTabPanels = {
+  activity: document.getElementById("dashboard-tab-activity"),
+  search: document.getElementById("dashboard-tab-search"),
+};
+const activityStats = document.getElementById("activity-stats");
+const reviewQueueList = document.getElementById("review-queue-list");
+const appliedJobsList = document.getElementById("applied-jobs-list");
+const jobEventsList = document.getElementById("job-events-list");
+const toggleResolvedButton = document.getElementById("toggle-resolved");
 
 // Rows from the last real fetch, unfiltered — source-chip clicks filter
 // this in place (no refetch) since it's already the full merged set.
 let lastRows = [];
 let activeSourceFilter = "all";
 let hasSearchedOnce = false;
+
+dashboardTabs.forEach((tab) => {
+  tab.addEventListener("click", () => {
+    const target = tab.getAttribute("data-dashboard-tab");
+    dashboardTabs.forEach((t) => {
+      const active = t === tab;
+      t.classList.toggle("is-active", active);
+      t.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    Object.entries(dashboardTabPanels).forEach(([key, panel]) => {
+      panel.hidden = key !== target;
+    });
+  });
+});
 
 let authMode = "signin"; // "signin" | "signup"
 
@@ -103,6 +127,7 @@ function showAuthed(session) {
     hasSearchedOnce = true;
     void runSearch("");
   }
+  startActivitySync(session.user.id);
 }
 
 function showSignedOut() {
@@ -112,6 +137,7 @@ function showSignedOut() {
   searchStatus.textContent = "";
   lastRows = [];
   hasSearchedOnce = false;
+  stopActivitySync();
 }
 
 supabase.auth.getSession().then(({ data }) => {
@@ -372,3 +398,389 @@ sourceChips.forEach((chip) => {
     applySourceFilter();
   });
 });
+
+/* --- "My activity" — a live, read-write mirror of exactly what
+ * src/core/src/adapters/supabase.ts's SupabaseAdapter reads and writes for
+ * the desktop app/TUI (loadState, markQueueEntryApplied, dismissQueueEntry)
+ * and what src/core/src/stateDerive.ts derives (isResolved,
+ * hasAppliedOrFailed, isDismissed) — same tables, same status vocabulary,
+ * same guard logic, ported by hand since the browser can't import that
+ * TypeScript module directly. Kept deliberately faithful rather than
+ * reinvented: any drift between this file and supabase.ts is a bug, not a
+ * design choice. Realtime (migration 0034) is what makes this live in both
+ * directions — a change from the desktop app pushes here instantly, and an
+ * action taken here (mark applied / dismiss) writes through the same
+ * tables the desktop app reads, so it shows up there the same way. */
+
+let realtimeChannel;
+let activitySyncDebounce;
+let myState; // { jobs, applied, queue, events, profile }
+let currentUserId; // from the session, not myState.profile — a profiles row
+// may not exist yet if this user never completed hosted onboarding.
+
+function stopActivitySync() {
+  if (realtimeChannel) {
+    supabase.removeChannel(realtimeChannel);
+    realtimeChannel = undefined;
+  }
+  clearTimeout(activitySyncDebounce);
+  myState = undefined;
+  currentUserId = undefined;
+  showResolved = false;
+  toggleResolvedButton.setAttribute("aria-pressed", "false");
+  toggleResolvedButton.textContent = "Show resolved";
+  activityStats.replaceChildren();
+  reviewQueueList.replaceChildren();
+  appliedJobsList.replaceChildren();
+  jobEventsList.replaceChildren();
+}
+
+function startActivitySync(userId) {
+  currentUserId = userId;
+  void loadAndRenderActivity();
+
+  // One channel, all five tables, each filtered server-side to this user's
+  // own rows — RLS already enforces this at the row level, the filter here
+  // just avoids paying for events this session would immediately discard.
+  // Any change on any of them just reloads the whole state and re-renders;
+  // at this data volume (a single user's own job history) that's simpler
+  // and far less bug-prone than hand-rolled incremental patching, and the
+  // debounce below keeps a burst of writes (e.g. a fit-gate batch) from
+  // triggering a reload per row.
+  realtimeChannel = supabase
+    .channel(`activity-${userId}`)
+    .on("postgres_changes", { event: "*", schema: "public", table: "jobs", filter: `user_id=eq.${userId}` }, scheduleActivityReload)
+    .on("postgres_changes", { event: "*", schema: "public", table: "job_events", filter: `user_id=eq.${userId}` }, scheduleActivityReload)
+    .on("postgres_changes", { event: "*", schema: "public", table: "applied_jobs", filter: `user_id=eq.${userId}` }, scheduleActivityReload)
+    .on("postgres_changes", { event: "*", schema: "public", table: "review_queue", filter: `user_id=eq.${userId}` }, scheduleActivityReload)
+    .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `user_id=eq.${userId}` }, scheduleActivityReload)
+    .subscribe();
+}
+
+function scheduleActivityReload() {
+  clearTimeout(activitySyncDebounce);
+  activitySyncDebounce = setTimeout(() => void loadAndRenderActivity(), 400);
+}
+
+/** Same Range-header pagination as supabase.ts's fetchAllRows — a plain
+ *  unranged .select("*") silently caps at 1,000 rows server-side, which
+ *  was a real, previously-fixed bug there (see that file's own comment).
+ *  Ordered by orderCol ascending, looping until a page comes back short. */
+async function fetchAllRows(table, orderCol) {
+  const pageSize = 1000;
+  const rows = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase
+      .from(table)
+      .select("*")
+      .order(orderCol, { ascending: true })
+      .range(offset, offset + pageSize - 1);
+    if (error) throw error;
+    const page = data ?? [];
+    rows.push(...page);
+    if (page.length < pageSize) break;
+  }
+  return rows;
+}
+
+async function loadMyState() {
+  const [{ data: profile }, jobs, applied, queue, events] = await Promise.all([
+    supabase.from("profiles").select("*").maybeSingle(),
+    fetchAllRows("jobs", "created_at"),
+    fetchAllRows("applied_jobs", "created_at"),
+    fetchAllRows("review_queue", "created_at"),
+    fetchAllRows("job_events", "recorded_at"),
+  ]);
+  return { profile: profile ?? undefined, jobs, applied, queue, events };
+}
+
+// --- Derivation logic, ported verbatim from src/core/src/stateDerive.ts ---
+
+function registryByJobId(jobs, jobId) {
+  return jobs.find((r) => r.job_id === jobId);
+}
+
+function isResolved(state, entry) {
+  const outcome = state.applied.find((a) => a.job_id === entry.job_id && a.status !== "needs_review");
+  if (outcome) return true;
+  const rec = registryByJobId(state.jobs, entry.job_id);
+  return rec?.latest_status === "applied" || rec?.latest_status === "failed" || rec?.latest_status === "skipped_unfit";
+}
+
+function hasAppliedOrFailed(state, entry) {
+  const outcome = state.applied.find((a) => a.job_id === entry.job_id && (a.status === "applied" || a.status === "failed"));
+  if (outcome) return true;
+  const rec = registryByJobId(state.jobs, entry.job_id);
+  return rec?.latest_status === "applied" || rec?.latest_status === "failed";
+}
+
+function isDismissed(state, entry) {
+  const rec = registryByJobId(state.jobs, entry.job_id);
+  return rec?.latest_status === "skipped_unfit";
+}
+
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+// --- Actions, ported from SupabaseAdapter.markQueueEntryApplied/dismissQueueEntry ---
+
+async function recordJobEvent(userId, jobKey, status, reasoning, company, title, url) {
+  const { error: insertError } = await supabase
+    .from("job_events")
+    .insert({ user_id: userId, job_key: jobKey, status, reasoning, company, title, url });
+  if (insertError) throw insertError;
+  const { error: updateError } = await supabase.from("jobs").update({ latest_status: status }).eq("user_id", userId).eq("job_key", jobKey);
+  if (updateError) throw updateError;
+}
+
+async function markQueueEntryApplied(userId, entry) {
+  const reg = registryByJobId(myState.jobs, entry.job_id);
+  if (!reg?.job_key) {
+    throw new Error(`Cannot mark applied: no registry record for "${entry.company} — ${entry.title}". This job was never canonicalized.`);
+  }
+  const reasoning = "Marked applied manually via the web dashboard";
+  const payload = {
+    user_id: userId,
+    job_id: entry.job_id,
+    company: entry.company,
+    title: entry.title,
+    url: entry.url,
+    date_applied: todayIso(),
+    status: "applied",
+    role_type: entry.role_type,
+    source: entry.source,
+    resume_used: entry.resume_used,
+    ats_score: entry.ats_score,
+    location_tier: entry.location_tier,
+    cover_letter_used: entry.cover_letter_used ?? false,
+    reasoning,
+  };
+  const { data: existing, error: existingError } = await supabase
+    .from("applied_jobs")
+    .select("status")
+    .eq("user_id", userId)
+    .eq("job_id", entry.job_id)
+    .maybeSingle();
+  if (existingError) throw existingError;
+  if (existing?.status === "needs_review") {
+    const { error: updateError } = await supabase.from("applied_jobs").update(payload).eq("user_id", userId).eq("job_id", entry.job_id);
+    if (updateError) throw updateError;
+  } else {
+    const { error: insertError } = await supabase.from("applied_jobs").insert(payload);
+    if (insertError && insertError.code !== "23505") throw insertError;
+  }
+  await recordJobEvent(userId, reg.job_key, "applied", reasoning, entry.company, entry.title, entry.url);
+}
+
+async function dismissQueueEntry(userId, entry) {
+  if (hasAppliedOrFailed(myState, entry)) {
+    throw new Error(`Cannot dismiss: "${entry.company} — ${entry.title}" already has an applied/failed outcome.`);
+  }
+  if (isDismissed(myState, entry)) {
+    return; // already dismissed — no-op, matches SupabaseAdapter's own idempotent behavior
+  }
+  const reg = registryByJobId(myState.jobs, entry.job_id);
+  if (!reg?.job_key) {
+    throw new Error(`Cannot dismiss: no registry record for "${entry.company} — ${entry.title}".`);
+  }
+  await recordJobEvent(userId, reg.job_key, "skipped_unfit", "Dismissed via the web dashboard", entry.company, entry.title, entry.url);
+}
+
+// --- Rendering ---
+
+let showResolved = false;
+
+toggleResolvedButton.addEventListener("click", () => {
+  showResolved = !showResolved;
+  toggleResolvedButton.setAttribute("aria-pressed", String(showResolved));
+  toggleResolvedButton.textContent = showResolved ? "Hide resolved" : "Show resolved";
+  renderReviewQueue();
+});
+
+function renderStats() {
+  activityStats.replaceChildren();
+  if (!myState) return;
+  const counts = { applied: 0, needs_review: 0, skipped_unfit: 0, failed: 0 };
+  myState.jobs.forEach((row) => {
+    if (row.latest_status in counts) counts[row.latest_status] += 1;
+  });
+  const pendingReview = myState.queue.filter((entry) => !isResolved(myState, entry)).length;
+  const stats = [
+    { label: "Applied", value: counts.applied },
+    { label: "Waiting in review", value: pendingReview },
+    { label: "Skipped (not a fit)", value: counts.skipped_unfit },
+    { label: "Failed", value: counts.failed },
+  ];
+  const fragment = document.createDocumentFragment();
+  stats.forEach(({ label, value }) => {
+    const card = document.createElement("div");
+    card.className = "activity-stat";
+    const num = document.createElement("span");
+    num.className = "activity-stat-value";
+    num.textContent = String(value);
+    const lab = document.createElement("span");
+    lab.className = "activity-stat-label";
+    lab.textContent = label;
+    card.append(num, lab);
+    fragment.appendChild(card);
+  });
+  activityStats.appendChild(fragment);
+}
+
+function activityRow(entry, { badge, badgeClass, actions } = {}) {
+  const row = document.createElement("div");
+  row.className = "activity-row";
+
+  const text = document.createElement("div");
+  text.className = "activity-row-text";
+  const title = document.createElement("span");
+  title.className = "activity-row-title";
+  title.textContent = `${entry.company ?? ""} — ${entry.title ?? ""}`;
+  text.appendChild(title);
+  if (entry.date_applied || entry.location_tier) {
+    const meta = document.createElement("span");
+    meta.className = "activity-row-meta";
+    meta.textContent = [entry.date_applied, entry.location_tier].filter(Boolean).join(" · ");
+    text.appendChild(meta);
+  }
+  row.appendChild(text);
+
+  if (badge) {
+    const badgeEl = document.createElement("span");
+    badgeEl.className = `activity-badge ${badgeClass ?? ""}`;
+    badgeEl.textContent = badge;
+    row.appendChild(badgeEl);
+  }
+
+  if (actions && actions.length > 0) {
+    const actionsEl = document.createElement("div");
+    actionsEl.className = "activity-row-actions";
+    actions.forEach(({ label, onClick, variant }) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = `btn ${variant === "primary" ? "btn-primary" : "btn-secondary"} activity-action`;
+      btn.textContent = label;
+      btn.addEventListener("click", onClick);
+      actionsEl.appendChild(btn);
+    });
+    row.appendChild(actionsEl);
+  }
+
+  return row;
+}
+
+function renderReviewQueue() {
+  reviewQueueList.replaceChildren();
+  if (!myState) return;
+  const userId = currentUserId;
+  const entries = myState.queue.filter((entry) => showResolved || !isResolved(myState, entry));
+  if (entries.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "activity-empty";
+    empty.textContent = showResolved ? "No review-queue entries yet." : "Nothing waiting on a decision.";
+    reviewQueueList.appendChild(empty);
+    return;
+  }
+  const fragment = document.createDocumentFragment();
+  entries.forEach((entry) => {
+    const resolved = isResolved(myState, entry);
+    const dismissed = isDismissed(myState, entry);
+    const row = activityRow(entry, {
+      badge: resolved ? (dismissed ? "Skipped" : "Resolved") : "Pending",
+      badgeClass: resolved ? "activity-badge-muted" : "activity-badge-pending",
+      actions: resolved
+        ? []
+        : [
+            {
+              label: "Mark applied",
+              variant: "primary",
+              onClick: async (e) => {
+                e.currentTarget.disabled = true;
+                try {
+                  await markQueueEntryApplied(userId, entry);
+                } catch (err) {
+                  alert(err?.message ?? "Couldn't mark this applied.");
+                  e.currentTarget.disabled = false;
+                }
+              },
+            },
+            {
+              label: "Dismiss",
+              onClick: async (e) => {
+                e.currentTarget.disabled = true;
+                try {
+                  await dismissQueueEntry(userId, entry);
+                } catch (err) {
+                  alert(err?.message ?? "Couldn't dismiss this.");
+                  e.currentTarget.disabled = false;
+                }
+              },
+            },
+          ],
+    });
+    fragment.appendChild(row);
+  });
+  reviewQueueList.appendChild(fragment);
+}
+
+function renderAppliedJobs() {
+  appliedJobsList.replaceChildren();
+  if (!myState) return;
+  const rows = [...myState.applied].sort((a, b) => (b.date_applied ?? "").localeCompare(a.date_applied ?? "")).slice(0, 20);
+  if (rows.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "activity-empty";
+    empty.textContent = "Nothing applied yet.";
+    appliedJobsList.appendChild(empty);
+    return;
+  }
+  const fragment = document.createDocumentFragment();
+  rows.forEach((entry) => {
+    fragment.appendChild(
+      activityRow(entry, {
+        badge: entry.status === "needs_review" ? "Needs review" : entry.status === "failed" ? "Failed" : "Applied",
+        badgeClass: entry.status === "failed" ? "activity-badge-danger" : entry.status === "needs_review" ? "activity-badge-pending" : "activity-badge-good",
+      }),
+    );
+  });
+  appliedJobsList.appendChild(fragment);
+}
+
+function renderJobEvents() {
+  jobEventsList.replaceChildren();
+  if (!myState) return;
+  const rows = [...myState.events].sort((a, b) => (b.recorded_at ?? "").localeCompare(a.recorded_at ?? "")).slice(0, 15);
+  if (rows.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "activity-empty";
+    empty.textContent = "No activity yet — once a search runs on your install, it'll show up here.";
+    jobEventsList.appendChild(empty);
+    return;
+  }
+  const fragment = document.createDocumentFragment();
+  rows.forEach((event) => {
+    const row = document.createElement("div");
+    row.className = "activity-event";
+    const label = document.createElement("span");
+    label.textContent = `${event.status} — ${event.company ?? ""} ${event.title ?? ""}`.trim();
+    const when = document.createElement("span");
+    when.className = "activity-event-when";
+    when.textContent = relativePostedAt(event.recorded_at) || "";
+    row.append(label, when);
+    fragment.appendChild(row);
+  });
+  jobEventsList.appendChild(fragment);
+}
+
+async function loadAndRenderActivity() {
+  try {
+    myState = await loadMyState();
+  } catch {
+    return; // transient fetch failure — next Realtime event or tab revisit retries
+  }
+  renderStats();
+  renderReviewQueue();
+  renderAppliedJobs();
+  renderJobEvents();
+}
