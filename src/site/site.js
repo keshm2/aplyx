@@ -295,5 +295,18 @@
     revealEls.forEach(function (el) {
       observer.observe(el);
     });
+
+    // Safety net: IntersectionObserver callbacks can be delayed or never
+    // fire at all in some circumstances (a backgrounded/inactive tab,
+    // slow initial layout, browser quirks) — since [data-reveal]'s base
+    // CSS state is invisible until .is-visible lands, a callback that
+    // never comes means permanently blank content instead of a merely
+    // missed animation. Force-reveal anything still hidden after a grace
+    // period, so the worst case is a skipped fade-in, never a blank page.
+    window.setTimeout(function () {
+      document.querySelectorAll("[data-reveal]:not(.is-visible)").forEach(function (el) {
+        el.classList.add("is-visible");
+      });
+    }, 2000);
   });
 })();
