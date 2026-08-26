@@ -2990,3 +2990,228 @@ button {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* --- Account page (account.html) — free hosted tier sign-in/sign-up and
+   Tier 0 cached job search, per docs/hosted-paid-tier-plan.md. --- */
+
+.nav-link-account {
+  padding: 0.35em var(--space-4);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-strong);
+}
+
+.account-wrap {
+  max-width: 30rem;
+  margin: 0 auto;
+}
+
+.account-panel {
+  padding: var(--space-6);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-lift);
+}
+
+.account-tabs {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+  padding: var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+}
+
+.account-tab {
+  flex: 1;
+  padding: var(--space-2) var(--space-4);
+  border: none;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 650;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: background var(--duration-quick) var(--ease-out), color var(--duration-quick) var(--ease-out);
+}
+
+.account-tab.is-active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-lift);
+}
+
+.account-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.account-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.account-field input {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--ground);
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-family: var(--font-body);
+}
+
+.account-field input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.account-submit {
+  justify-content: center;
+  width: 100%;
+}
+
+.account-message {
+  min-height: 1.2em;
+  margin-top: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--accent);
+}
+
+.account-message.is-error {
+  color: var(--danger);
+}
+
+.account-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-5) 0;
+  color: var(--text-faint);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.account-divider::before,
+.account-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.account-google {
+  width: 100%;
+  justify-content: center;
+}
+
+.account-fineprint {
+  margin-top: var(--space-5);
+  color: var(--text-faint);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+}
+
+.account-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.account-label {
+  color: var(--text-faint);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.account-email {
+  font-weight: 650;
+}
+
+.job-search-form {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.job-search-form input {
+  flex: 1;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--ground);
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-family: var(--font-body);
+}
+
+.job-search-form input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.job-results-status {
+  margin-top: var(--space-4);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.job-results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.job-result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--ground);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color var(--duration-quick) var(--ease-out);
+}
+
+.job-result:hover {
+  border-color: var(--accent);
+}
+
+.job-result-company {
+  font-size: var(--text-xs);
+  font-weight: 650;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.job-result-title {
+  font-weight: 600;
+}
+
+.job-result-meta {
+  display: flex;
+  gap: var(--space-3);
+  color: var(--text-faint);
+  font-size: var(--text-xs);
+}
+
+@media (max-width: 30rem) {
+  .account-panel {
+    padding: var(--space-5) var(--space-4);
+  }
+  .job-search-form {
+    flex-direction: column;
+  }
+}
