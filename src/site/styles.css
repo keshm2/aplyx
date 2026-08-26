@@ -218,6 +218,20 @@
   box-sizing: border-box;
 }
 
+/* Author stylesheet rules always beat the UA stylesheet's own
+   `[hidden] { display: none }`, regardless of specificity — so any
+   element that both carries the `hidden` attribute AND matches an
+   author `display:` rule (e.g. account.html's #dashboard-panel, which
+   also matches .account-dashboard { display: grid }) renders visible
+   despite being hidden, a real bug found live: the signed-out dashboard
+   was showing empty stats under the sign-in form, worst on mobile's
+   single-column stacking. `!important` here is the correct, narrow use
+   of it — `[hidden]` must always mean hidden, full stop, and this is
+   the one rule in the whole file allowed to force that. */
+[hidden] {
+  display: none !important;
+}
+
 html,
 body {
   margin: 0;
@@ -3415,22 +3429,54 @@ button {
   .account-dashboard {
     grid-template-columns: 1fr;
   }
+  /* Row/wrap, not a stacked column — identity and Sign out share the top
+     line, and the nav becomes its own full-width horizontal scroll strip
+     below rather than wrapping into a cramped multi-line block alongside
+     the other two (a plain row+wrap of all three children in DOM order
+     used to do exactly that). Flex-wrap only wraps in *visual* (order-
+     adjusted) sequence, not DOM sequence — .dashboard-nav's source
+     position is between identity and sign-out, so explicit `order` here
+     is load-bearing, not decorative: without it, sign-out follows nav's
+     forced line break and drops to its own third line instead of sharing
+     line one with identity. */
   .dashboard-sidebar {
     flex-direction: row;
     flex-wrap: wrap;
     align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3) var(--space-4);
     padding-right: 0;
-    padding-bottom: var(--space-5);
+    padding-bottom: var(--space-4);
     border-right: none;
     border-bottom: 1px solid var(--border);
   }
-  .dashboard-nav {
-    flex-direction: row;
-    flex: 1;
-    min-width: 12rem;
+  .dashboard-sidebar-identity {
+    order: 1;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .dashboard-sidebar-identity .account-email {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .dashboard-sidebar-signout {
+    order: 2;
+    flex-shrink: 0;
     margin-top: 0;
+  }
+  .dashboard-nav {
+    order: 3;
+    flex-direction: row;
+    flex-basis: 100%;
+    gap: var(--space-2);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: var(--space-1);
+  }
+  .dashboard-nav-item {
+    flex-shrink: 0;
+    white-space: nowrap;
   }
 }
 
