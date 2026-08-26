@@ -24,10 +24,11 @@
  * volume (~14k rows across 47 companies, refreshed hourly at the time)
  * pushed it toward the free-tier limit, producing Cloudflare 522s on
  * unrelated requests. See supabaseConfig.ts's readJobCacheSupabaseConfig
- * for the full reasoning — and note the move to a daily cadence
- * (2026-07-30) cut that write volume by ~24x on its own, which is the
- * single biggest thing keeping this workload inside the free tier. In CI
- * (.github/workflows/refresh-job-cache.yml, daily — well under
+ * for the full reasoning — the move to a daily cadence (2026-07-30) cut
+ * that write volume by ~24x on its own, and it moved again to every
+ * other day (2026-08-26, halving it again) once real egress usage showed
+ * even daily wasn't enough margin against the free tier. In CI
+ * (.github/workflows/refresh-job-cache.yml, every other day — well under
  * job_cache's 7-day retention window) that file doesn't exist on a fresh
  * checkout, so SUPABASE_URL is read as a direct override first — not
  * secret, just the project's own URL, stored as a plain repo secret
@@ -87,13 +88,15 @@ import type { SearchJob, JobSource } from "./jobsSort.js";
 //
 // Two things forced it up together (2026-07-30):
 //
-// 1. The refresh moved to daily (see .github/workflows/refresh-job-cache.yml
-//    — job boards don't post often enough to justify hourly, and hourly
-//    scheduled runs were being throttled to 2-3h apart by GitHub anyway,
-//    which meant a 2h TTL was already letting the cache go fully cold
-//    between real runs). A TTL at or near the cadence means the table
-//    reads as empty for most of the interval; 7 days is 7 consecutive
-//    missed daily runs of margin before a single row drops out.
+// 1. The refresh moved to daily, then to every other day (see
+//    .github/workflows/refresh-job-cache.yml — job boards don't post
+//    often enough to justify hourly, and hourly scheduled runs were
+//    being throttled to 2-3h apart by GitHub anyway, which meant a 2h
+//    TTL was already letting the cache go fully cold between real runs).
+//    A TTL at or near the cadence means the table reads as empty for
+//    most of the interval; 7 days is still 3+ consecutive missed runs
+//    of margin before a single row drops out, even at the longer
+//    every-other-day cadence.
 //
 // 2. The refresh is deliberately ADDITIVE — every run only ever adds
 //    newly-discovered postings and extends the window on ones it sees
@@ -107,12 +110,18 @@ import type { SearchJob, JobSource } from "./jobsSort.js";
 //    fetch hiccups.
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
-// 25 hours: just past the daily refresh cadence (1h grace so one
-// slow/late CI run doesn't let the warm entry go cold before the next
-// one lands), and far under job_cache's own 7-day Postgres expires_at —
-// a served-at-expiry Redis entry can never be staler than Postgres
-// would already allow. Shorter buys no real freshness (the underlying
-// data only changes once a day now) and only throws away hit rate.
+// 49 hours: just past the every-other-day refresh cadence (1h grace so
+// one slow/late CI run doesn't let the warm entry go cold before the
+// next one lands — same +1h-grace reasoning as before, just applied to
+// the new ~48h gap instead of 24h), and far under job_cache's own 7-day
+// Postgres expires_at — a served-at-expiry Redis entry can never be
+// staler than Postgres would already allow. Shorter buys no real
+// freshness (the underlying data only changes every other day now) and
+// only throws away hit rate — and, worse on a longer cadence, a TTL that
+// expires mid-gap means the fallback-to-Postgres path (not a cache miss
+// with nothing to fall back to) starts absorbing reads for the back half
+// of every cycle, working directly against the reason this cadence
+// changed at all.
 //
 // Note this entry holds only what the CURRENT run fetched live, while
 // Postgres additionally retains everything seen in the last 7 days. The
@@ -120,7 +129,7 @@ const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 // capped (UNFILTERED_PER_COMPANY_LIMIT) browse-all case, so it returns a
 // *fresher subset*, and any real query falls through to the fuller
 // Postgres set anyway (see jobCache.ts's readFromRedisOrPostgres).
-const REDIS_WARM_TTL_SECONDS = 25 * 60 * 60;
+const REDIS_WARM_TTL_SECONDS = 49 * 60 * 60;
 
 interface JobCacheTargets {
   ashby_company_slugs?: string[];
@@ -414,10 +423,10 @@ async function main(): Promise<void> {
   const now = new Date();
   // Per-source isolation: one source's failure must not cost the other
   // three their refresh. This mattered much less hourly (the next
-  // attempt was 60 minutes away); on a daily cadence, letting an Ashby
-  // outage abort the run before Greenhouse is even attempted means
-  // Greenhouse goes a full 24h without a refresh for no reason of its
-  // own. Failures are collected and re-raised at the end instead of
+  // attempt was 60 minutes away); on an every-other-day cadence, letting
+  // an Ashby outage abort the run before Greenhouse is even attempted
+  // means Greenhouse goes a full ~48h without a refresh for no reason of
+  // its own. Failures are collected and re-raised at the end instead of
   // swallowed, so the run still goes red in CI and nothing fails
   // silently — it just fails AFTER everything that could succeed has.
   const failures: string[] = [];

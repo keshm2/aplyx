@@ -4,28 +4,24 @@
 # have fresh data to hit instead of always falling back to a live
 # per-source fetch.
 #
-# CADENCE: daily, not hourly (changed 2026-07-30). Two independent
-# reasons, either of which alone would justify it:
+# CADENCE: every other day, not daily (changed 2026-08-26 — daily was
+# itself a change from the original hourly on 2026-07-30, see git history
+# for that earlier reasoning). Companies don't post new listings every
+# single day either — a run that finds nothing new is still a full ~14k-row
+# chunked upsert against the exact resource (Supabase egress/disk I/O) that
+# already pushed this project past its free-tier budget once before (see
+# refreshJobCache.ts) and did so again under the daily cadence. Halving run
+# frequency halves this workflow's own contribution to that directly.
 #
-#  1. Job boards don't move that fast. Companies post in batches on
-#     business days; 24 consecutive fetches of a board that gained
-#     nothing is 24x the write volume for ~0 additional postings. That
-#     write volume is not free here — it is what pushed the previous
-#     Supabase project past its free-tier disk I/O budget and produced
-#     Cloudflare 522s on unrelated requests (see refreshJobCache.ts).
-#
-#  2. The hourly schedule was never actually hourly. GitHub explicitly
-#     does not guarantee scheduled-workflow start times and drops runs
-#     under load, and minute 0 of the hour is the single most contended
-#     slot on the platform. Measured against the real run history on
-#     2026-07-30, consecutive "hourly" runs landed 2-3 HOURS apart
-#     (00:08, 22:12, 20:18, 18:21, 16:40, 14:19, 11:13, 08:38, 05:48,
-#     02:50 UTC). With the old 2h row TTL that meant the cache was
-#     routinely expiring completely between runs — the schedule was
-#     lying, and the TTL was tuned against the lie. An explicitly daily
-#     cadence paired with a 7-day retention window (CACHE_TTL_MS) has 7
-#     consecutive missed runs of margin, so GitHub's scheduling jitter
-#     stops being able to affect correctness at all.
+# `*/2 * *` on the day-of-month field, not a true rolling "every 48 hours"
+# — GitHub Actions cron has no native interval-since-last-run primitive,
+# only standard 5-field cron. This means day-of-month parity resets every
+# month, so a month boundary can occasionally produce two runs on
+# consecutive calendar days (e.g. day 31 then day 1) instead of a clean
+# gap — a known, accepted imprecision, not a bug. The 7-day retention
+# window (CACHE_TTL_MS) already gives several consecutive missed-or-doubled
+# runs of margin, same cushion this project already leaned on when it
+# accepted GitHub's scheduling jitter for the daily cadence.
 #
 # 08:37 UTC, deliberately not on the hour: off-peak for GitHub's
 # scheduler (~1:30am US Pacific), so the run is far less likely to be
@@ -56,7 +52,7 @@
 name: refresh-job-cache
 on:
   schedule:
-    - cron: "37 8 * * *"
+    - cron: "37 8 */2 * *"
   workflow_dispatch: {}
 
 # This job is the only writer to job_cache, and a run takes ~20 minutes.

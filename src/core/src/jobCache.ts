@@ -141,8 +141,9 @@ const inMemorySnapshots = new Map<JobSource, SearchJob[]>();
 let inMemoryRefreshTimer: ReturnType<typeof setInterval> | undefined;
 
 // 3 minutes: short enough that the daemon's snapshot never meaningfully
-// lags what the shared cache itself has (CI warms it daily as of
-// 2026-07-30, so anything on this order just tracks it closely — this
+// lags what the shared cache itself has (CI warms it every other day as
+// of 2026-08-26 — was daily — so anything on this order just tracks it
+// closely regardless; this
 // interval was already far tighter than the old hourly cadence and is
 // only more so now; it stays at 3 minutes because what it's really
 // bounding is how long a long-lived daemon can hold a snapshot from
