@@ -10,6 +10,26 @@
 # Triggers on any `v*` tag push (the same tags src/scripts/install/uninstall.py
 # and the release process already use) and via workflow_dispatch so
 # existing tags can get assets attached retroactively.
+#
+# Windows had NO release assets for the last three tags (v1.0.0b,
+# v1.0.0b1, v1.0.1b) — confirmed live via `gh run view --json jobs`:
+# macOS/Linux succeeded every time; Windows failed every time, always at
+# the exact same step (`tauri.conf.json`'s "targets": "all" makes every
+# platform attempt every bundle format it supports, and on Windows that
+# includes MSI). The actual error: "optional pre-release identifier in
+# app version must be numeric-only... for msi target" — a hard WiX/MSI
+# constraint this project's `-beta.N` version scheme (tauri.conf.json's
+# "version": "1.0.1-beta.0") can never satisfy, unlike macOS/Linux's
+# bundlers, which don't share that rule. The Windows .exe itself was
+# already building successfully before this (confirmed in the failure
+# log: "Built application at: ...desktop.exe" precedes the MSI-bundling
+# failure) — only the MSI wrapping step ever failed, which was enough to
+# fail the whole `tauri build` command and lose every asset for that
+# platform, not just the MSI one. Fixed by scoping Windows to NSIS only
+# via src-tauri/tauri.windows.conf.json (Tauri v2 merges a per-platform
+# config file over the base one — see
+# https://v2.tauri.app/develop/configuration-files/), leaving the base
+# config's "all" untouched for macOS/Linux, which were never broken.
 name: desktop-release
 on:
   push:

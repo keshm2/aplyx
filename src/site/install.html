@@ -126,6 +126,19 @@ aplyx</pre>
             </div>
           </div>
 
+          <div class="direct-download" data-reveal>
+            <h2>Just want the app?</h2>
+            <p>
+              Skip the terminal — download the desktop app directly and it walks you through setup
+              itself. Same app the installer above offers as a step; this just skips straight to it.
+              (The terminal path above still sets up more: the TUI, and your profile ahead of time.)
+            </p>
+            <div id="direct-download-primary" class="direct-download-primary">
+              <span class="direct-download-status">Checking the latest release&hellip;</span>
+            </div>
+            <div id="direct-download-all" class="direct-download-all" hidden></div>
+          </div>
+
           <h2>You need a coding agent</h2>
           <p>
             aplyx doesn't work without one: it's the workflow, the agent is the executor. Full
@@ -179,5 +192,126 @@ aplyx</pre>
 
   <script src="site.js"></script>
   <script type="module" src="nav-auth.js"></script>
+  <script>
+    (function () {
+      // Real, one-click direct downloads for the desktop app's actual
+      // GitHub Release binaries (confirmed live: macOS arm64+x64 dmg,
+      // Linux AppImage/deb/rpm exist on every recent release; Windows
+      // will once a pending CI fix ships in a future release). Never a
+      // hardcoded/versioned link — Tauri's own bundle filenames embed
+      // the exact version string per release (e.g.
+      // "aplyx_1.0.1-beta.0_aarch64.dmg"), so a static link goes stale
+      // on every single release. Instead this fetches the GitHub API
+      // client-side and matches assets by filename suffix, same "check
+      // live, don't hardcode" discipline the account.js job-search page
+      // already follows for its own backend calls — this needs no site
+      // update ever again as new versions ship.
+      //
+      // Deliberately GET /releases (the list), NOT /releases/latest —
+      // confirmed live this matters: GitHub's own "latest release"
+      // convenience endpoint explicitly excludes every release flagged
+      // prerelease, and every real aplyx release IS flagged prerelease
+      // (still in beta), so /releases/latest actually resolved to a
+      // stale pre-rename release from before "applyr" became "aplyx"
+      // (assets literally named applyr_0.1.0_*) — it would have quietly
+      // shipped a badly outdated download to every visitor. The list
+      // endpoint returns newest-first regardless of prerelease status;
+      // index 0 is the real latest release either way.
+      var primary = document.getElementById("direct-download-primary");
+      var allWrap = document.getElementById("direct-download-all");
+      if (!primary) return;
+
+      var MATCHERS = [
+        { id: "mac-arm", label: "macOS — Apple Silicon", test: function (n) { return n.endsWith("_aarch64.dmg"); } },
+        { id: "mac-intel", label: "macOS — Intel", test: function (n) { return n.endsWith("_x64.dmg"); } },
+        { id: "win", label: "Windows", test: function (n) { return n.endsWith("-setup.exe"); } },
+        { id: "linux-appimage", label: "Linux — AppImage", test: function (n) { return n.endsWith(".AppImage"); } },
+        { id: "linux-deb", label: "Linux — .deb", test: function (n) { return n.endsWith(".deb"); } },
+        { id: "linux-rpm", label: "Linux — .rpm", test: function (n) { return n.endsWith(".rpm"); } },
+      ];
+
+      function detectedPlatform() {
+        var ua = navigator.userAgent;
+        if (/Mac/.test(ua)) return "mac";
+        if (/Win/.test(ua)) return "win";
+        if (/Linux/.test(ua)) return "linux";
+        return "unknown";
+      }
+
+      function makeLink(match, url) {
+        var a = document.createElement("a");
+        a.className = "btn btn-primary direct-download-btn";
+        a.href = url;
+        a.textContent = "Download for " + match.label;
+        return a;
+      }
+
+      fetch("https://api.github.com/repos/keshm2/aplyx/releases?per_page=1")
+        .then(function (r) {
+          if (!r.ok) throw new Error("release lookup failed");
+          return r.json();
+        })
+        .then(function (releases) {
+          var release = releases[0];
+          if (!release) throw new Error("no releases found");
+          var assets = release.assets || [];
+          var found = {};
+          MATCHERS.forEach(function (m) {
+            var asset = assets.find(function (a) { return m.test(a.name); });
+            if (asset) found[m.id] = { match: m, url: asset.browser_download_url };
+          });
+
+          primary.innerHTML = "";
+          var platform = detectedPlatform();
+          var primaryIds =
+            platform === "mac" ? ["mac-arm", "mac-intel"] :
+            platform === "win" ? ["win"] :
+            platform === "linux" ? ["linux-appimage"] :
+            [];
+          var shown = 0;
+          primaryIds.forEach(function (id) {
+            if (found[id]) {
+              primary.appendChild(makeLink(found[id].match, found[id].url));
+              shown += 1;
+            }
+          });
+          if (shown === 0) {
+            var fallback = document.createElement("a");
+            fallback.className = "btn btn-secondary";
+            fallback.href = release.html_url;
+            fallback.target = "_blank";
+            fallback.rel = "noopener";
+            fallback.textContent = "View all downloads on GitHub";
+            primary.appendChild(fallback);
+          }
+
+          var allIds = Object.keys(found).filter(function (id) { return primaryIds.indexOf(id) === -1; });
+          if (allIds.length > 0) {
+            var toggle = document.createElement("button");
+            toggle.type = "button";
+            toggle.className = "direct-download-toggle";
+            toggle.textContent = "Other platforms / formats";
+            toggle.addEventListener("click", function () {
+              allWrap.hidden = !allWrap.hidden;
+            });
+            primary.appendChild(toggle);
+
+            allIds.forEach(function (id) {
+              allWrap.appendChild(makeLink(found[id].match, found[id].url));
+            });
+          }
+        })
+        .catch(function () {
+          primary.innerHTML = "";
+          var fallback = document.createElement("a");
+          fallback.className = "btn btn-secondary";
+          fallback.href = "https://github.com/keshm2/aplyx/releases/latest";
+          fallback.target = "_blank";
+          fallback.rel = "noopener";
+          fallback.textContent = "View downloads on GitHub";
+          primary.appendChild(fallback);
+        });
+    })();
+  </script>
 </body>
 </html>

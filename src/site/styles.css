@@ -3994,3 +3994,59 @@ button {
     width: calc(100% - 2rem);
   }
 }
+
+/* --- Direct app download (install.html) --- */
+
+.direct-download {
+  margin: var(--space-7) 0;
+  padding: var(--space-6);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+}
+
+.direct-download h2 {
+  margin-top: 0;
+}
+
+.direct-download-primary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+
+.direct-download-status {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.direct-download-btn {
+  white-space: nowrap;
+}
+
+.direct-download-toggle {
+  padding: 0.4em var(--space-4);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.direct-download-toggle:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.direct-download-all {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
