@@ -3785,6 +3785,30 @@ button {
   }
 }
 
+/* Routes a brand-new signup (no profiles row yet) straight to this tab
+   — see account.js's loadAndRenderActivity(). Accent-tinted so it reads
+   as a call-to-action, not another neutral info card like
+   .account-fineprint right below it. */
+.setup-banner {
+  margin-bottom: var(--space-5);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  background: var(--accent-soft);
+}
+
+.setup-banner-title {
+  color: var(--accent);
+  font-weight: 700;
+  font-size: var(--text-sm);
+}
+
+.setup-banner-body {
+  margin-top: var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
 /* Hosted daily-run quota — see account.js's renderUsageBar(). Two
    states: a real progress bar once an active paid subscription exists
    (none do yet — no Stripe integration is live), or a plain free-tier

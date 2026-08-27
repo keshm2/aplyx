@@ -66,6 +66,7 @@ const dashboardTabPanels = {
   search: document.getElementById("dashboard-tab-search"),
 };
 const usageBar = document.getElementById("usage-bar");
+const setupBanner = document.getElementById("setup-banner");
 const activityStats = document.getElementById("activity-stats");
 const reviewQueueList = document.getElementById("review-queue-list");
 const appliedJobsList = document.getElementById("applied-jobs-list");
@@ -78,17 +79,20 @@ let lastRows = [];
 let activeSourceFilter = "all";
 let hasSearchedOnce = false;
 
+function activateDashboardTab(target) {
+  dashboardTabs.forEach((t) => {
+    const active = t.getAttribute("data-dashboard-tab") === target;
+    t.classList.toggle("is-active", active);
+    t.setAttribute("aria-selected", active ? "true" : "false");
+  });
+  Object.entries(dashboardTabPanels).forEach(([key, panel]) => {
+    panel.hidden = key !== target;
+  });
+}
+
 dashboardTabs.forEach((tab) => {
   tab.addEventListener("click", () => {
-    const target = tab.getAttribute("data-dashboard-tab");
-    dashboardTabs.forEach((t) => {
-      const active = t === tab;
-      t.classList.toggle("is-active", active);
-      t.setAttribute("aria-selected", active ? "true" : "false");
-    });
-    Object.entries(dashboardTabPanels).forEach(([key, panel]) => {
-      panel.hidden = key !== target;
-    });
+    activateDashboardTab(tab.getAttribute("data-dashboard-tab"));
   });
 });
 
@@ -412,6 +416,7 @@ let activitySyncDebounce;
 let myState; // { jobs, applied, queue, events, profile }
 let currentUserId; // from the session, not myState.profile — a profiles row
 // may not exist yet if this user never completed hosted onboarding.
+let setupPromptShown; // one nudge per session — see maybePromptSetup()
 
 function stopActivitySync() {
   if (realtimeChannel) {
@@ -426,6 +431,8 @@ function stopActivitySync() {
   toggleResolvedButton.textContent = "Show resolved";
   usageBar.hidden = true;
   usageBar.replaceChildren();
+  setupBanner.hidden = true;
+  setupPromptShown = false;
   activityStats.replaceChildren();
   reviewQueueList.replaceChildren();
   appliedJobsList.replaceChildren();
@@ -833,6 +840,21 @@ async function loadAndRenderActivity() {
   renderAppliedJobs();
   renderJobEvents();
   renderProfileForm();
+
+  // A brand-new signup has no profiles row at all yet — same "has this
+  // account entered anything" check the desktop/TUI hosted wizard's own
+  // ImportOrFreshStep.tsx uses before offering to import. Route straight
+  // to the Profile tab with an explanatory banner instead of leaving
+  // them to notice it on their own (or skip it and hit an empty profile
+  // when they later install the app) — but only once per session, so
+  // manually switching tabs afterward isn't fought.
+  if (myState.profile?.first_name) {
+    setupBanner.hidden = true;
+  } else if (!setupPromptShown) {
+    setupPromptShown = true;
+    setupBanner.hidden = false;
+    activateDashboardTab("profile");
+  }
 }
 
 /* --- Profile — the same 18 PII fields + 3 preference fields
