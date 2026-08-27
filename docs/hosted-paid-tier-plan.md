@@ -360,6 +360,17 @@ ephemeral.
 
 ## Usage-limit tracking — the bar the operator asked for
 
+> **Update (2026-08-27): the hosted half of this shipped.** Migration
+> `0035_hosted_usage_quota.sql` adds `subscriptions` (schema only — no
+> Stripe integration exists yet, so every row stays absent/inactive for
+> now) and `get_own_usage()`, exactly the `count(hosted_runs)` /
+> `subscriptions`-derived-cap design below. `src/site/account.js`'s
+> `renderUsageBar()` calls it once signed in and renders either a real
+> progress bar (once an active subscription exists) or the free-tier
+> note (every account today). The local half below — reading a
+> provider's own usage API, or a self-reported cap — is not built; it's
+> unrelated local-install work, not a website change.
+
 Two genuinely different problems, because "usage limit" means something
 different in each mode. Building one honest mechanism per mode, not a
 single fake unified number.

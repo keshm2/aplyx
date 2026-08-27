@@ -3785,6 +3785,61 @@ button {
   }
 }
 
+/* Hosted daily-run quota — see account.js's renderUsageBar(). Two
+   states: a real progress bar once an active paid subscription exists
+   (none do yet — no Stripe integration is live), or a plain free-tier
+   note reusing .account-tier-badge, matching the sidebar's own label
+   instead of a second, differently-styled badge. */
+.usage-bar {
+  margin: var(--space-5) 0;
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--ground);
+}
+
+.usage-bar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.usage-bar-count {
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-bar-track {
+  margin-top: var(--space-2);
+  height: 0.5rem;
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  overflow: hidden;
+}
+
+.usage-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  transition: width var(--duration-normal) var(--ease-out-expo);
+}
+
+.usage-bar-free {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.usage-bar-free .account-tier-badge {
+  margin-top: 0;
+}
+
 .activity-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));

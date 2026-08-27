@@ -65,6 +65,7 @@ const dashboardTabPanels = {
   profile: document.getElementById("dashboard-tab-profile"),
   search: document.getElementById("dashboard-tab-search"),
 };
+const usageBar = document.getElementById("usage-bar");
 const activityStats = document.getElementById("activity-stats");
 const reviewQueueList = document.getElementById("review-queue-list");
 const appliedJobsList = document.getElementById("applied-jobs-list");
@@ -423,6 +424,8 @@ function stopActivitySync() {
   showResolved = false;
   toggleResolvedButton.setAttribute("aria-pressed", "false");
   toggleResolvedButton.textContent = "Show resolved";
+  usageBar.hidden = true;
+  usageBar.replaceChildren();
   activityStats.replaceChildren();
   reviewQueueList.replaceChildren();
   appliedJobsList.replaceChildren();
@@ -591,6 +594,57 @@ toggleResolvedButton.addEventListener("click", () => {
   toggleResolvedButton.textContent = showResolved ? "Hide resolved" : "Show resolved";
   renderReviewQueue();
 });
+
+/* Hosted daily-run quota, per docs/hosted-paid-tier-plan.md's
+ * "Usage-limit tracking" section — get_own_usage() (migration 0035)
+ * returns a real count against hosted_runs and a cap derived from
+ * subscriptions.status = 'active', or plan = 'free_hosted' / cap = null
+ * when there's no active subscription, which is every account today (no
+ * Stripe integration exists yet). Only ever called from
+ * loadAndRenderActivity(), itself only reachable once signed in
+ * (startActivitySync) — never runs for a signed-out visitor, and this
+ * whole dashboard is unreachable without a hosted account in the first
+ * place, so a local-only install never sees it either. */
+async function renderUsageBar() {
+  usageBar.replaceChildren();
+  const { data, error } = await supabase.rpc("get_own_usage");
+  if (error || !data || data.length === 0) {
+    usageBar.hidden = true;
+    return;
+  }
+  const { used_today, cap, plan } = data[0];
+  usageBar.hidden = false;
+
+  if (cap === null) {
+    const note = document.createElement("p");
+    note.className = "usage-bar-free";
+    const badge = document.createElement("span");
+    badge.className = "account-tier-badge";
+    badge.textContent = "Free account";
+    note.append(badge, document.createTextNode(" — search and autofill included, no daily cap."));
+    usageBar.appendChild(note);
+    return;
+  }
+
+  const pct = Math.min(100, Math.round((used_today / cap) * 100));
+  const head = document.createElement("div");
+  head.className = "usage-bar-head";
+  const label = document.createElement("span");
+  label.textContent = `${plan[0].toUpperCase()}${plan.slice(1)} plan — hosted runs today`;
+  const count = document.createElement("span");
+  count.className = "usage-bar-count";
+  count.textContent = `${used_today} / ${cap}`;
+  head.append(label, count);
+
+  const track = document.createElement("div");
+  track.className = "usage-bar-track";
+  const fill = document.createElement("div");
+  fill.className = "usage-bar-fill";
+  fill.style.width = `${pct}%`;
+  track.appendChild(fill);
+
+  usageBar.append(head, track);
+}
 
 function renderStats() {
   activityStats.replaceChildren();
@@ -774,6 +828,7 @@ async function loadAndRenderActivity() {
     return; // transient fetch failure — next Realtime event or tab revisit retries
   }
   renderStats();
+  void renderUsageBar();
   renderReviewQueue();
   renderAppliedJobs();
   renderJobEvents();
