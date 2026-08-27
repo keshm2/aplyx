@@ -3309,6 +3309,14 @@ button {
   padding: 0.35em var(--space-4);
   border-radius: var(--radius-pill);
   border: 1px solid var(--border-strong);
+  /* Without this, a flex item can shrink below its text's single-line
+     width and "Sign in" wraps to two lines — the pill stretches into a
+     tall stadium shape and the wrapped lines default to left-aligned
+     text, reading as badly off-center. Confirmed live on a real phone
+     (not reproducible by resizing a desktop window, which wouldn't go
+     narrow enough here to trigger it). */
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* Signed-in state, applied by nav-auth.js on every page — a generic
