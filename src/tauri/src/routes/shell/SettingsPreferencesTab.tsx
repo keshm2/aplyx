@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useAuth } from "../../lib/AuthContext";
 import {
   getSchedulerStatus,
@@ -311,6 +312,36 @@ export function SettingsPreferencesTab() {
         <section className="settings-section">
           <h2 style={{ fontSize: "var(--text-lg)", marginBottom: "var(--space-3)" }}>Discord notifications</h2>
           <DiscordSettings root={root} />
+        </section>
+      )}
+
+      {/* Local-install-scoped like Discord/Run defaults above — the
+       * extension talks to a localhost bridge reading this install's own
+       * config, so it means nothing without root. Chrome extensions have
+       * no scriptable install path (only chrome://extensions or the
+       * Chrome Web Store can enable one; see docs/SETUP.md §2.6's note on
+       * this), so this section links out to the full walkthrough instead
+       * of duplicating it a fourth place (already on aplyx.app/
+       * extension.html, aplyx.app/install.html#extension, and
+       * docs/SETUP.md). */}
+      {root && (
+        <section className="settings-section">
+          <h2 style={{ fontSize: "var(--text-lg)", marginBottom: "var(--space-3)" }}>Browser extension</h2>
+          <p className="field-help">
+            A Chrome extension for manual, browser-driven applications: it notices a real
+            application form on Greenhouse, Lever, Ashby, or Workday, asks before doing anything,
+            and autofills it from this profile — you still review every field and click submit
+            yourself. The installer already built it (
+            <code style={CODE_STYLE}>src/extension/dist/</code>); loading it into Chrome is a
+            manual step Chrome itself requires.
+          </p>
+          <button
+            type="button"
+            className="settings-action-btn"
+            onClick={() => void openUrl("https://aplyx.app/extension.html")}
+          >
+            View setup instructions
+          </button>
         </section>
       )}
 

@@ -270,25 +270,30 @@ out only to the repo's standard state helpers.
 
 ```bash
 # 1. Start the bridge:
-python3 src/scripts/runtime/extension_bridge.py     # or: py -3 scripts\extension_bridge.py
+python3 src/scripts/runtime/extension_bridge.py     # or: py -3 src\scripts\runtime\extension_bridge.py
 
 # 2. Build and load the extension:
-cd extension && npm install && npm run build
+cd src/extension && npm install && npm run build
 ```
 
 First bridge start generates `src/config/extension_bridge.json`
 (gitignored, `chmod 600`, token + default port `8377`; print it with
 `--show-token`). In Chrome: `chrome://extensions` → **Developer mode**
-→ **Load unpacked** → `extension/dist/`. Then open the extension's
+→ **Load unpacked** → `src/extension/dist/`. Then open the extension's
 **Options** page, paste the token, and click **Test connection**.
 
-**Use it:** on a Greenhouse/Lever/Ashby/Workday posting, a small
-**aplyx** panel appears (bottom-right) — **Fit check** (verdict +
-score + duplicate warning), **Autofill from profile** (fills mapped
-empty fields, amber for unanswerable ones, never overwrites), **Save
-for review** (`needs_review` entry), and **I submitted this — record
-it** (`applied` outcome, dedup-guarded, syncs the Sheet tracker).
-"Bridge unreachable" means the bridge isn't running.
+**Use it:** open a real application form on Greenhouse, Lever, Ashby,
+or Workday — not a listing or search page, an actual form — and aplyx
+notices it and asks, top-center: **"Autofill this application with
+aplyx?"**. It stays invisible everywhere else, including listing pages
+on those same sites. Say yes (or "Not now," which still reveals the
+rest without autofilling) to get to: **Fit check** (verdict + score +
+duplicate warning), **Autofill** (fills mapped empty fields, amber for
+unanswerable ones, never overwrites), **Save for review**
+(`needs_review` entry), and **I submitted this — record it** (`applied`
+outcome, dedup-guarded, syncs the Sheet tracker). "Bridge unreachable"
+means the bridge isn't running. See `aplyx.app/extension.html` for what
+this looks like.
 
 ## 2.7 Two users on one machine
 

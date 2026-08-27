@@ -617,6 +617,16 @@ if (Get-Command npm -ErrorAction SilentlyContinue) {
   }
   Build-NodeSurface "src\tui" "the TUI"
   Build-NodeSurface "src\extension" "the browser extension"
+  # Build-NodeSurface only builds dist\ -- a Chrome extension has no
+  # scriptable install path (Chrome refuses to let anything but the
+  # user themselves, via chrome://extensions, or the Chrome Web Store
+  # enable one). Printed unconditionally, same as the bash installer's
+  # matching step -- the load-unpacked step is still owed even when
+  # this run's build was a no-op ("already installed" from a previous
+  # run).
+  if (Test-Path "src\extension\dist") {
+    Say "browser extension built - load it in Chrome: chrome://extensions -> Developer mode -> Load unpacked -> src\extension\dist\. See docs/SETUP.md section 2.6 or aplyx.app/extension.html."
+  }
 } else {
   Say "node/npm not found - skipping the optional TUI and browser extension (docs/SETUP.md)."
 }

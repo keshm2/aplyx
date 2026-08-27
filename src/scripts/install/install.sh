@@ -613,6 +613,20 @@ if command -v npm >/dev/null 2>&1; then
   fi
   build_node_surface src/tui "the TUI"
   build_node_surface src/extension "the browser extension"
+  # build_node_surface only builds dist/ — a Chrome extension has no
+  # scriptable install path (Chrome refuses to let anything but the user
+  # themselves, via chrome://extensions, or the Chrome Web Store enable
+  # one), so this step can't finish the job for them the way the TUI/
+  # desktop-app steps do. Printed unconditionally (not gated on this
+  # run's own build having just succeeded) since the same load-unpacked
+  # step is still owed even when the build was a no-op ("already
+  # installed" from a previous run) — this used to only ever be
+  # documented on the website, never here, so a from-scratch installer
+  # run with no browser in sight left a built dist/ folder and no next
+  # step at all.
+  if [ -d "src/extension/dist" ]; then
+    say "browser extension built — load it in Chrome: chrome://extensions -> Developer mode -> Load unpacked -> src/extension/dist/. See docs/SETUP.md §2.6 or aplyx.app/extension.html."
+  fi
 else
   say "node/npm not found — skipping the optional TUI and browser extension (docs/SETUP.md)."
 fi
