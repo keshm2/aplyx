@@ -67,6 +67,21 @@
     <section class="content">
       <div class="wrap">
         <div class="prose">
+          <div class="direct-download" data-reveal>
+            <h2>Get aplyx</h2>
+            <p>
+              The desktop app installs itself and walks you through setup — profile, resumes, the
+              rest. Rather use a terminal, or want the TUI too? Skip to the commands below.
+            </p>
+            <div class="download-stage">
+              <div id="direct-download-primary" class="direct-download-primary">
+                <span class="direct-download-status">Checking the latest release&hellip;</span>
+              </div>
+              <div id="direct-download-all" class="direct-download-all" hidden></div>
+            </div>
+          </div>
+
+          <h2>Prefer not to run an installer?</h2>
           <div class="os-tabs" data-reveal>
             <div class="os-tablist" role="tablist" aria-label="Install instructions by platform">
               <button class="os-tab is-active" type="button" data-os-tab="mac" role="tab" aria-selected="true">macOS / Linux</button>
@@ -88,7 +103,7 @@
                 </button>
                 <pre>curl -fsSL https://raw.githubusercontent.com/keshm2/aplyx/main/src/scripts/install/install.sh | bash</pre>
               </div>
-              <p>Installs to <code>~/aplyx</code> (override with <code>APLYX_HOME</code>). Detects your coding agent, walks you through your profile (kept local-only), and offers the optional desktop app.</p>
+              <p>One line. Installs to <code>~/aplyx</code> (override with <code>APLYX_HOME</code>).</p>
             </div>
 
             <div class="os-panel" data-os-panel="win">
@@ -104,7 +119,7 @@
                 </button>
                 <pre>irm https://raw.githubusercontent.com/keshm2/aplyx/main/src/scripts/install/install.ps1 | iex</pre>
               </div>
-              <p>Run in PowerShell. Installs to <code>%USERPROFILE%\aplyx</code> (override with <code>APLYX_HOME</code>).</p>
+              <p>One line, in PowerShell. Installs to <code>%USERPROFILE%\aplyx</code>.</p>
             </div>
 
             <div class="os-panel" data-os-panel="npm">
@@ -118,47 +133,38 @@
                     <path d="M20 6 9 17l-5-5" />
                   </svg>
                 </button>
-                <pre>npm install -g @keshm/aplyx
-aplyx</pre>
+                <pre>npm install -g @keshm/aplyx && aplyx</pre>
               </div>
-              <p>If you'd rather go through npm directly. Same installer runs underneath either way.</p>
+              <p>One line, via npm instead. Same installer runs underneath either way.</p>
             </div>
             </div>
           </div>
 
-          <div class="direct-download" data-reveal>
-            <h2>Just want the app?</h2>
-            <p>
-              Skip the terminal — download the desktop app directly and it walks you through setup
-              itself. Same app the installer above offers as a step; this just skips straight to it.
-              (The terminal path above still sets up more: the TUI, and your profile ahead of time.)
-            </p>
-            <div class="download-stage">
-              <div id="direct-download-primary" class="direct-download-primary">
-                <span class="direct-download-status">Checking the latest release&hellip;</span>
-              </div>
-              <div id="direct-download-all" class="direct-download-all" hidden></div>
-            </div>
-          </div>
-
-          <h2>You need a coding agent</h2>
+          <h2>A coding agent — only if you're running locally</h2>
           <p>
-            aplyx doesn't work without one: it's the workflow, the agent is the executor. Full
-            capability (browser-automated applies included) with
+            Running aplyx yourself, offline, needs a coding agent to drive it: full capability
+            (browser-automated applies included) with
             <a class="link" href="https://opencode.ai" target="_blank" rel="noopener">opencode</a>
             or
             <a class="link" href="https://claude.com/claude-code" target="_blank" rel="noopener">Claude Code</a>.
             Codex CLI and GitHub Copilot CLI work too, on a smaller path: API-fed boards only, with
             browser-only applications routed to your review queue.
+            <a class="link" href="pricing.html">Hosted plans</a> skip this requirement entirely:
+            no coding agent, no local install. They aren't live yet, though.
           </p>
 
-          <h2>What the installer does</h2>
+          <h2>What the installer installs</h2>
           <ul>
-            <li>Detects whichever coding agent(s) you already have installed</li>
-            <li>Walks you through your profile (kept local-only, never uploaded)</li>
-            <li>Creates a <code>data/resumes/</code> folder for your base resumes</li>
-            <li>Offers Discord status updates and the desktop app, both optional</li>
+            <li>The aplyx checkout, into <code>~/aplyx</code> (override with <code>APLYX_HOME</code>)</li>
+            <li>The <code>aplyx</code> command, into <code>~/.local/bin</code> (override with <code>APLYX_BIN</code>)</li>
+            <li>A <code>data/resumes/</code> folder for your base resumes</li>
+            <li>Your profile and job-target config, kept local-only and never uploaded</li>
           </ul>
+          <p>
+            Env vars worth knowing: <code>APLYX_HARNESS</code> forces a specific coding agent
+            instead of auto-detecting one, <code>APLYX_SESSION_CAP</code> caps applications per run
+            (1&ndash;25), and <code>APLYX_AUTO_UPDATE=0</code> turns off the update-on-launch check.
+          </p>
 
           <h2 id="extension">The browser extension</h2>
           <p>

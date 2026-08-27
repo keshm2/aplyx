@@ -345,10 +345,16 @@ button {
   box-shadow: 0 8px 24px -20px rgb(0 0 0 / 0.4);
 }
 
+/* Nav links sit close to the logo rather than stretched to the far edge
+   of the bar — space-between put a growing dead gap between them as
+   the viewport widened, worse once the Extension link made the group
+   itself wider too. Reverts to space-between on mobile (below), where
+   the toggle/theme buttons need to stay pinned to the right edge. */
 .site-nav .wrap {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
+  gap: var(--space-7);
   padding-top: var(--space-4);
   padding-bottom: var(--space-4);
 }
@@ -533,6 +539,10 @@ button {
 }
 
 @media (max-width: 46rem) {
+  .site-nav .wrap {
+    justify-content: space-between;
+  }
+
   .nav-toggle {
     display: inline-flex;
   }

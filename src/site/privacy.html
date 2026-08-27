@@ -158,6 +158,12 @@
             to us. This site sets no cookies and loads no analytics, advertising, or third-party
             scripts of any kind.
           </p>
+          <p>
+            Two pages are the exception, and both only ever read public data: the install page
+            fetches GitHub's public releases API, client-side, to show a download button matched
+            to your OS; the changelog page fetches this repository's public <code>CHANGELOG.md</code>
+            the same way. Neither request includes or returns anything about you.
+          </p>
 
           <h2>Billing</h2>
           <p>
@@ -269,7 +275,10 @@
             <strong>2.3.</strong> Information collected automatically: our marketing website stores a theme
             preference and, for the current browser tab only, which inline links you've clicked,
             both in your browser's local storage. Neither is transmitted to us. We do not use
-            cookies, analytics, advertising, or crash-reporting tools anywhere in aplyx.
+            cookies, analytics, advertising, or crash-reporting tools anywhere in aplyx. The
+            install page and the changelog page each make a client-side request to a public GitHub
+            endpoint (the releases API and a raw <code>CHANGELOG.md</code> file, respectively) to
+            display current content; neither request carries or returns any information about you.
           </p>
           <p>
             <strong>2.4.</strong> Information from third parties: we do not receive information about you from
@@ -337,7 +346,8 @@
           <p><strong>5.3.</strong> Discord: if you opt in, receives outcome-level status messages via a webhook URL you provide.</p>
           <p><strong>5.4.</strong> Google Sheets: if you opt in, receives the user-facing application-tracking fields you choose to sync.</p>
           <p><strong>5.5.</strong> GitHub Pages: hosts this public website; no account or personal information passes through it beyond standard web-server access logs kept by GitHub, not by us.</p>
-          <p><strong>5.6.</strong> We do not use any analytics, advertising, or crash-reporting service.</p>
+          <p><strong>5.6.</strong> GitHub's public API and raw-content endpoints: queried client-side by the install page (releases, for download links) and the changelog page (<code>CHANGELOG.md</code>); neither request includes personal information.</p>
+          <p><strong>5.7.</strong> We do not use any analytics, advertising, or crash-reporting service.</p>
 
           <h2>6. Data retention</h2>
           <p>
