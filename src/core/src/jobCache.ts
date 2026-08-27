@@ -149,10 +149,10 @@ let inMemoryRefreshTimer: ReturnType<typeof setInterval> | undefined;
 // answers from the in-memory Map (sub-10ms) regardless of how often it's
 // refreshed, so this interval has zero effect on perceived search speed;
 // it only bounds how stale a long-lived daemon's snapshot can get before
-// a refresh lands. Now that CI itself only refreshes job_cache every
-// other day (~48h), even 60 minutes of in-memory lag is trivial by
-// comparison — 20x fewer of this loop's own reads for no meaningful
-// freshness cost. (IN_MEMORY_PER_COMPANY_LIMIT below is the other lever
+// a refresh lands. Now that CI itself only refreshes job_cache 3x/week
+// (Mon/Wed/Fri — up to ~72h between runs), even 60 minutes of in-memory
+// lag is trivial by comparison — 20x fewer of this loop's own reads for
+// no meaningful freshness cost. (IN_MEMORY_PER_COMPANY_LIMIT below is the other lever
 // if more headroom is ever needed — a smaller per-refresh payload rather
 // than a less frequent one — left untouched here since this interval
 // change alone already gets a 20x reduction on its own.)

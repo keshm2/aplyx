@@ -4,24 +4,31 @@
 # have fresh data to hit instead of always falling back to a live
 # per-source fetch.
 #
-# CADENCE: every other day, not daily (changed 2026-08-26 — daily was
-# itself a change from the original hourly on 2026-07-30, see git history
-# for that earlier reasoning). Companies don't post new listings every
-# single day either — a run that finds nothing new is still a full ~14k-row
-# chunked upsert against the exact resource (Supabase egress/disk I/O) that
-# already pushed this project past its free-tier budget once before (see
-# refreshJobCache.ts) and did so again under the daily cadence. Halving run
-# frequency halves this workflow's own contribution to that directly.
+# CADENCE: Monday/Wednesday/Friday, not daily (fixed 2026-08-26, second
+# attempt — see below). Companies don't post new listings every single
+# day either — a run that finds nothing new is still a full ~14k-row
+# chunked upsert against the exact resource (Supabase egress/disk I/O)
+# that already pushed this project past its free-tier budget once before
+# (see refreshJobCache.ts) and did so again under the daily cadence.
+# Cutting to 3 runs/week (from 7) cuts this workflow's own contribution
+# to that by more than half.
 #
-# `*/2 * *` on the day-of-month field, not a true rolling "every 48 hours"
-# — GitHub Actions cron has no native interval-since-last-run primitive,
-# only standard 5-field cron. This means day-of-month parity resets every
-# month, so a month boundary can occasionally produce two runs on
-# consecutive calendar days (e.g. day 31 then day 1) instead of a clean
-# gap — a known, accepted imprecision, not a bug. The 7-day retention
-# window (CACHE_TTL_MS) already gives several consecutive missed-or-doubled
-# runs of margin, same cushion this project already leaned on when it
-# accepted GitHub's scheduling jitter for the daily cadence.
+# NOT a day-of-month step value (`*/2 * *`) — that was this fix's first
+# attempt, and it silently didn't work: confirmed live via
+# `gh run list --workflow=refresh-job-cache.yml`, which showed the
+# workflow still firing every single calendar day after that change
+# shipped and was live on main for a week. Step values in cron's
+# day-of-month field are a documented GitHub Actions unreliability, not
+# something specific to this expression — day-of-week fields (a 7-value
+# range, not day-of-month's 31) don't share that problem, so an explicit
+# weekday list is what's actually used here instead. Confirm any future
+# cadence change the same way (`gh run list`, not just "the YAML looks
+# right") — a syntactically valid cron expression silently not firing as
+# written is exactly the failure mode that already happened once.
+#
+# Max gap is Friday -> Monday (3 days, not 2) — CACHE_TTL_MS and
+# REDIS_WARM_TTL_SECONDS below are sized against that 3-day worst case,
+# not a uniform 48h.
 #
 # 08:37 UTC, deliberately not on the hour: off-peak for GitHub's
 # scheduler (~1:30am US Pacific), so the run is far less likely to be
@@ -52,7 +59,7 @@
 name: refresh-job-cache
 on:
   schedule:
-    - cron: "37 8 */2 * *"
+    - cron: "37 8 * * 1,3,5"
   workflow_dispatch: {}
 
 # This job is the only writer to job_cache, and a run takes ~20 minutes.
