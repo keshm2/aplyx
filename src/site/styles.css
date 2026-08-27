@@ -1097,9 +1097,11 @@ button {
   font-size: var(--text-sm);
 }
 
-/* The hero download button: platform glyph + two-line label, a soft
-   specular highlight along the top edge, and a lift-and-settle motion on
-   hover/press rather than a flat color swap. */
+/* The hero download button: platform glyph + two-line label, built as a
+   genuine layered glass surface — translucent, blurred, and saturated so
+   the stage's own texture reads faintly through it — with inset specular
+   highlights on the top/bottom edges and a diagonal sheen that drifts on
+   hover, rather than a single flat gradient trying to fake the material. */
 .download-card {
   display: inline-flex;
   align-items: center;
@@ -1108,24 +1110,44 @@ button {
   min-width: 15rem;
   border-radius: var(--radius-lg);
   text-decoration: none;
-  background: var(--accent);
   color: var(--accent-ink);
   position: relative;
   overflow: hidden;
-  box-shadow: 0 1px 0 0 color-mix(in srgb, white 25%, transparent) inset,
-    0 10px 24px -12px color-mix(in srgb, var(--accent) 65%, transparent);
+  isolation: isolate;
+  background: linear-gradient(155deg,
+    color-mix(in srgb, var(--accent) 92%, white 8%) 0%,
+    color-mix(in srgb, var(--accent-strong) 94%, black 6%) 100%);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid color-mix(in srgb, white 30%, transparent);
+  box-shadow:
+    0 1px 0 0 color-mix(in srgb, white 55%, transparent) inset,
+    0 -1px 0 0 color-mix(in srgb, black 12%, transparent) inset,
+    0 14px 30px -14px color-mix(in srgb, var(--accent) 70%, transparent),
+    0 3px 8px -3px color-mix(in srgb, black 18%, transparent);
   transition:
     transform var(--duration-normal) var(--ease-out-expo),
-    box-shadow var(--duration-normal) var(--ease-out-expo),
-    background var(--duration-normal) var(--ease-out-expo);
+    box-shadow var(--duration-normal) var(--ease-out-expo);
 }
 
 .download-card::before {
   content: "";
   position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, color-mix(in srgb, white 18%, transparent), transparent 55%);
+  inset: -20% -10%;
+  z-index: 0;
+  background: linear-gradient(115deg,
+    transparent 30%,
+    color-mix(in srgb, white 35%, transparent) 48%,
+    transparent 62%);
+  transform: translateX(-8%);
+  transition: transform var(--duration-slow) var(--ease-out-expo);
   pointer-events: none;
+}
+
+.download-card-icon,
+.download-card-text {
+  position: relative;
+  z-index: 1;
 }
 
 .download-card-icon {
@@ -1169,8 +1191,15 @@ button {
 @media (hover: hover) and (pointer: fine) {
   .download-card:hover {
     transform: translateY(-3px);
-    box-shadow: 0 1px 0 0 color-mix(in srgb, white 25%, transparent) inset,
-      0 18px 32px -14px color-mix(in srgb, var(--accent) 75%, transparent);
+    box-shadow:
+      0 1px 0 0 color-mix(in srgb, white 60%, transparent) inset,
+      0 -1px 0 0 color-mix(in srgb, black 12%, transparent) inset,
+      0 22px 40px -16px color-mix(in srgb, var(--accent) 78%, transparent),
+      0 4px 10px -3px color-mix(in srgb, black 20%, transparent);
+  }
+
+  .download-card:hover::before {
+    transform: translateX(8%);
   }
 }
 
@@ -1178,20 +1207,28 @@ button {
   transform: translateY(-1px) scale(0.98);
 }
 
-/* Compact variant, used for the secondary formats revealed by the
-   "Other platforms" disclosure — same glass material as the stage
-   around it, sized down, no eyebrow line. */
+/* Compact variant — used both for the alt-arch Mac link (kept visible,
+   right next to the hero, not buried) and the secondary formats behind
+   the disclosure. Same layered-glass construction as the hero card,
+   just neutral instead of accent-tinted and without the eyebrow line. */
 .download-card-compact {
   min-width: 0;
   padding: var(--space-3) var(--space-4);
-  background: color-mix(in srgb, var(--surface) 70%, transparent);
   color: var(--text);
-  box-shadow: none;
-  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 65%, transparent);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  border: 1px solid color-mix(in srgb, var(--border-strong) 55%, transparent);
+  box-shadow:
+    0 1px 0 0 color-mix(in srgb, white 22%, transparent) inset,
+    0 8px 18px -12px color-mix(in srgb, black 35%, transparent);
 }
 
 .download-card-compact::before {
-  display: none;
+  background: linear-gradient(115deg,
+    transparent 30%,
+    color-mix(in srgb, white 16%, transparent) 48%,
+    transparent 62%);
 }
 
 .download-card-compact .download-card-icon {
@@ -1215,31 +1252,24 @@ button {
   }
 }
 
-.download-alt-link {
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-  text-decoration: underline;
-  text-decoration-color: color-mix(in srgb, var(--text-muted) 40%, transparent);
-  transition: color var(--duration-quick) var(--ease-out-expo);
-}
-
-.download-alt-link:hover {
-  color: var(--accent);
-}
-
 .direct-download-toggle {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
   margin-top: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border: none;
-  background: none;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-pill);
+  border: 1px solid color-mix(in srgb, var(--border-strong) 50%, transparent);
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
+  backdrop-filter: blur(10px) saturate(150%);
+  -webkit-backdrop-filter: blur(10px) saturate(150%);
   color: var(--text-muted);
   font-size: var(--text-sm);
   font-weight: 550;
   cursor: pointer;
-  transition: color var(--duration-quick) var(--ease-out-expo);
+  transition:
+    color var(--duration-quick) var(--ease-out-expo),
+    border-color var(--duration-quick) var(--ease-out-expo);
 }
 
 .direct-download-toggle svg {
@@ -1264,14 +1294,25 @@ button {
   padding-top: var(--space-2);
 }
 
-@media (max-width: 640px) {
+@media (max-width: 40rem) {
   .download-stage {
     padding: var(--space-6) var(--space-4);
   }
 
-  .download-card {
+  .direct-download-primary,
+  .direct-download-all {
+    width: 100%;
+  }
+
+  .download-card,
+  .download-card-compact {
     min-width: 0;
     width: 100%;
+  }
+
+  .direct-download-toggle {
+    width: 100%;
+    justify-content: center;
   }
 }
 
@@ -4204,57 +4245,14 @@ button {
 }
 
 /* --- Direct app download (install.html) --- */
+/* Layout/spacing only — the actual glass card, buttons, and toggle are
+   defined once, near .btn-secondary, so the material has a single
+   source of truth instead of two competing definitions. */
 
 .direct-download {
   margin: var(--space-7) 0;
-  padding: var(--space-6);
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--border);
-  background: var(--surface-raised);
 }
 
 .direct-download h2 {
   margin-top: 0;
-}
-
-.direct-download-primary {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-  margin-top: var(--space-5);
-}
-
-.direct-download-status {
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-}
-
-.direct-download-btn {
-  white-space: nowrap;
-}
-
-.direct-download-toggle {
-  padding: 0.4em var(--space-4);
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--border-strong);
-  background: transparent;
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.direct-download-toggle:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.direct-download-all {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  margin-top: var(--space-4);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--border);
 }
