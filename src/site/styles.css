@@ -380,10 +380,17 @@ button {
   letter-spacing: -0.02em;
 }
 
+/* Grows to fill the rest of .wrap (which no longer stretches nav-actions
+   there itself via space-between — see .site-nav .wrap) so the
+   margin-left: auto on .nav-link-account below has room to push the
+   account link and everything after it to the far right edge, while
+   .nav-links stays put, close to the logo. */
 .nav-actions {
   display: flex;
   align-items: center;
   gap: var(--space-4);
+  flex: 1;
+  min-width: 0;
 }
 
 .nav-links {
@@ -584,29 +591,6 @@ button {
 
   .nav-links .nav-link::after {
     display: none;
-  }
-
-  /* The signed-in avatar badge is a fixed 2.25rem circle (deliberately
-     not stretched, unlike the plain text rows above it) — but the
-     generic `.nav-links .nav-link` rule above has higher specificity
-     (two classes vs. one) than `.nav-avatar-link` alone, so its padding
-     was silently winning here too, leaving the circle squeezed into a
-     mismatched box with no full-width border-bottom to match its
-     siblings. Centered instead of left-pinned so it reads as a
-     deliberate account row, not a stray leftover fixed-size element. */
-  .nav-links .nav-avatar-link {
-    width: 100%;
-    height: auto;
-    padding: var(--space-3) 0;
-    justify-content: center;
-    border-radius: 0;
-  }
-
-  .nav-links .nav-avatar {
-    width: 2.25rem;
-    height: 2.25rem;
-    border-radius: 50%;
-    flex-shrink: 0;
   }
 }
 
@@ -3321,6 +3305,7 @@ button {
    Tier 0 cached job search, per docs/hosted-paid-tier-plan.md. --- */
 
 .nav-link-account {
+  margin-left: auto;
   padding: 0.35em var(--space-4);
   border-radius: var(--radius-pill);
   border: 1px solid var(--border-strong);
