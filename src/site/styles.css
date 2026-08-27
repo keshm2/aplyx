@@ -575,6 +575,29 @@ button {
   .nav-links .nav-link::after {
     display: none;
   }
+
+  /* The signed-in avatar badge is a fixed 2.25rem circle (deliberately
+     not stretched, unlike the plain text rows above it) — but the
+     generic `.nav-links .nav-link` rule above has higher specificity
+     (two classes vs. one) than `.nav-avatar-link` alone, so its padding
+     was silently winning here too, leaving the circle squeezed into a
+     mismatched box with no full-width border-bottom to match its
+     siblings. Centered instead of left-pinned so it reads as a
+     deliberate account row, not a stray leftover fixed-size element. */
+  .nav-links .nav-avatar-link {
+    width: 100%;
+    height: auto;
+    padding: var(--space-3) 0;
+    justify-content: center;
+    border-radius: 0;
+  }
+
+  .nav-links .nav-avatar {
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1097,11 +1120,12 @@ button {
   font-size: var(--text-sm);
 }
 
-/* The hero download button: platform glyph + two-line label, built as a
-   genuine layered glass surface — translucent, blurred, and saturated so
-   the stage's own texture reads faintly through it — with inset specular
-   highlights on the top/bottom edges and a diagonal sheen that drifts on
-   hover, rather than a single flat gradient trying to fake the material. */
+/* The hero download button: platform glyph + two-line label, built as
+   Apple's own description of Liquid Glass — a highlight layer, a shadow
+   layer, and an illumination/tint layer, kept genuinely translucent
+   (not a near-opaque fill) so the stage's texture and blurred page color
+   actually show through, with a one-shot light-catching sweep that only
+   plays on hover. */
 .download-card {
   display: inline-flex;
   align-items: center;
@@ -1111,37 +1135,57 @@ button {
   border-radius: var(--radius-lg);
   text-decoration: none;
   color: var(--accent-ink);
+  text-shadow: 0 1px 3px color-mix(in srgb, black 20%, transparent);
   position: relative;
   overflow: hidden;
   isolation: isolate;
+  /* Illumination layer: a low-opacity accent tint, not a fill — this is
+     the part that makes it read as tinted glass instead of a color chip. */
   background: linear-gradient(155deg,
-    color-mix(in srgb, var(--accent) 92%, white 8%) 0%,
-    color-mix(in srgb, var(--accent-strong) 94%, black 6%) 100%);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid color-mix(in srgb, white 30%, transparent);
+    color-mix(in srgb, var(--accent) 40%, transparent) 0%,
+    color-mix(in srgb, var(--accent-strong) 46%, transparent) 100%);
+  backdrop-filter: blur(24px) saturate(220%);
+  -webkit-backdrop-filter: blur(24px) saturate(220%);
+  border: 1px solid color-mix(in srgb, white 38%, transparent);
+  /* Highlight layer (bright top rim, dim bottom rim) + shadow layer
+     (ambient ground shadow) as separate box-shadow entries, matching
+     Apple's own three-layer description rather than one gradient
+     standing in for all of it. */
   box-shadow:
-    0 1px 0 0 color-mix(in srgb, white 55%, transparent) inset,
-    0 -1px 0 0 color-mix(in srgb, black 12%, transparent) inset,
-    0 14px 30px -14px color-mix(in srgb, var(--accent) 70%, transparent),
-    0 3px 8px -3px color-mix(in srgb, black 18%, transparent);
+    0 1px 0 0 color-mix(in srgb, white 70%, transparent) inset,
+    0 -1px 0 0 color-mix(in srgb, black 15%, transparent) inset,
+    0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent) inset,
+    0 16px 34px -16px color-mix(in srgb, var(--accent) 55%, transparent),
+    0 4px 10px -4px color-mix(in srgb, black 22%, transparent);
   transition:
     transform var(--duration-normal) var(--ease-out-expo),
     box-shadow var(--duration-normal) var(--ease-out-expo);
 }
 
+/* Sweep highlight: invisible at rest, plays exactly once, left to right,
+   only while the pointer is actually over the button — not a persistent
+   or idle animation. */
+@keyframes glass-sweep {
+  from { transform: translateX(-160%) skewX(-14deg); }
+  to { transform: translateX(160%) skewX(-14deg); }
+}
+
 .download-card::before {
   content: "";
   position: absolute;
-  inset: -20% -10%;
+  top: -40%;
+  bottom: -40%;
+  left: 0;
+  width: 32%;
   z-index: 0;
   background: linear-gradient(115deg,
-    transparent 30%,
-    color-mix(in srgb, white 35%, transparent) 48%,
-    transparent 62%);
-  transform: translateX(-8%);
-  transition: transform var(--duration-slow) var(--ease-out-expo);
+    transparent,
+    color-mix(in srgb, white 70%, transparent) 50%,
+    transparent);
+  transform: translateX(-160%) skewX(-14deg);
+  opacity: 0;
   pointer-events: none;
+  transition: opacity var(--duration-quick) var(--ease-out-expo);
 }
 
 .download-card-icon,
@@ -1192,14 +1236,16 @@ button {
   .download-card:hover {
     transform: translateY(-3px);
     box-shadow:
-      0 1px 0 0 color-mix(in srgb, white 60%, transparent) inset,
-      0 -1px 0 0 color-mix(in srgb, black 12%, transparent) inset,
-      0 22px 40px -16px color-mix(in srgb, var(--accent) 78%, transparent),
-      0 4px 10px -3px color-mix(in srgb, black 20%, transparent);
+      0 1px 0 0 color-mix(in srgb, white 75%, transparent) inset,
+      0 -1px 0 0 color-mix(in srgb, black 15%, transparent) inset,
+      0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent) inset,
+      0 24px 44px -18px color-mix(in srgb, var(--accent) 65%, transparent),
+      0 6px 14px -4px color-mix(in srgb, black 24%, transparent);
   }
 
   .download-card:hover::before {
-    transform: translateX(8%);
+    opacity: 1;
+    animation: glass-sweep 0.85s var(--ease-out-expo);
   }
 }
 
@@ -1215,20 +1261,22 @@ button {
   min-width: 0;
   padding: var(--space-3) var(--space-4);
   color: var(--text);
-  background: color-mix(in srgb, var(--surface) 65%, transparent);
-  backdrop-filter: blur(14px) saturate(160%);
-  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  text-shadow: none;
+  background: color-mix(in srgb, var(--surface) 38%, transparent);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
   border: 1px solid color-mix(in srgb, var(--border-strong) 55%, transparent);
   box-shadow:
-    0 1px 0 0 color-mix(in srgb, white 22%, transparent) inset,
+    0 1px 0 0 color-mix(in srgb, white 30%, transparent) inset,
+    0 -1px 0 0 color-mix(in srgb, black 10%, transparent) inset,
     0 8px 18px -12px color-mix(in srgb, black 35%, transparent);
 }
 
 .download-card-compact::before {
   background: linear-gradient(115deg,
-    transparent 30%,
-    color-mix(in srgb, white 16%, transparent) 48%,
-    transparent 62%);
+    transparent,
+    color-mix(in srgb, white 55%, transparent) 50%,
+    transparent);
 }
 
 .download-card-compact .download-card-icon {
@@ -1249,6 +1297,11 @@ button {
   .download-card-compact:hover {
     transform: translateY(-2px);
     border-color: var(--border-strong);
+  }
+
+  .download-card-compact:hover::before {
+    opacity: 1;
+    animation: glass-sweep 0.85s var(--ease-out-expo);
   }
 }
 

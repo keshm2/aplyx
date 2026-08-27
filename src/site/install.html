@@ -223,6 +223,24 @@ aplyx</pre>
       var allWrap = document.getElementById("direct-download-all");
       if (!primary) return;
 
+      // aplyx is a desktop app — it cannot run on a phone regardless of
+      // what a release happens to have assets for, so a real mobile
+      // device gets an explanatory note instead of functional download
+      // links. Deliberately a device check (UA), not a viewport-width
+      // check — a desktop browser window narrowed below the mobile CSS
+      // breakpoint is still a desktop and should stay fully functional.
+      function isMobileDevice() {
+        return /Android|iPhone|iPod|Mobi|BlackBerry|IEMobile|Windows Phone/i.test(navigator.userAgent);
+      }
+      if (isMobileDevice()) {
+        primary.innerHTML = "";
+        var note = document.createElement("p");
+        note.className = "direct-download-status";
+        note.textContent = "aplyx is a desktop app — open this page on a Mac, Windows, or Linux computer to download it.";
+        primary.appendChild(note);
+        return;
+      }
+
       // Icon glyphs, one per OS family — same stroke-based line-icon idiom
       // as the rest of the site (viewBox 24x24, currentColor), except the
       // mac glyph, which is a filled apple silhouette since that shape
