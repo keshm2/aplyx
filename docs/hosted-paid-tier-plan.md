@@ -1,56 +1,151 @@
-# Hosted, paid agent tier — server-side runs behind aplyx's own domain
+# aplyx accounts — free hosted tier, paid hosted tiers, and usage tracking
 
-> **Status: planned, not started.** This is a design document, not a phase
-> in progress — nothing here has been built. It extends Phase 17 ("Hosted
-> service," `docs/PLAN.md` §3.18) with a paid dimension Phase 17 itself does
-> not cover, and depends on Phase 12's model-tier registry (§3.13, also not
-> built). Needs its own explicit operator go-ahead before any part of it
-> starts, per this project's one-phase-at-a-time rule.
+> **Status: planned, not started.** A design document, not a phase in
+> progress — nothing in the free/paid-tier or usage-tracking sections below
+> has been built. This supersedes the previous, narrower version of this
+> same file (titled "Hosted, paid agent tier"), which covered paid hosted
+> plans only. Everything from that version that's still true is folded
+> forward here (Stripe choice, worker-host bake-off findings, reliability
+> pattern, security/PII, the concrete open questions) — nothing below is a
+> rewrite-from-scratch of settled decisions, only an extension of them.
+> Extends Phase 17 ("Hosted service," `docs/PLAN.md` §3.18) and depends on
+> Phase 12's model-tier registry (§3.13, not built). Needs its own explicit
+> operator go-ahead before any part of it starts, per this project's
+> one-phase-at-a-time rule.
 
-## Context
+## What's new in this version, and why
 
-Today aplyx requires a user to bring their own coding-agent CLI (Claude Code
-or opencode) running locally. The operator wants a **paid, hosted** option:
-a user without a coding-agent subscription pays aplyx, and aplyx's own
-backend — at aplyx's own domain — runs the job-search/tailoring pipeline
-server-side using aplyx's own Anthropic API key, instead of the user's local
-CLI.
+Two things the operator asked for, directly:
 
-The operator's original framing ("call the opencode API, claude code API
-from our domain") is based on a misconception worth naming directly: neither
-opencode nor Claude Code offers a hosted multi-tenant API. `opencode serve`
-and Claude Code's `-p` headless mode are both things *you* run on
-infrastructure *you* control; under the hood both just call the standard
-Anthropic Messages API with a supplied key. Two research passes confirmed
-the real building block is calling that API directly — either raw (the
-pattern already proven in `src/scripts/runtime/generate_interest_letter.py`,
-which forces structured tool-use output instead of free text) or via the
-**Claude Agent SDK** (`@anthropic-ai/claude-agent-sdk`), Claude Code's own
-harness packaged as an embeddable library, billed as plain per-token API
-usage with no CLI-seat fee.
+1. **A free hosted account tier**, distinct from both today's local/no-account
+   mode and the paid hosted tiers this doc already designed. This is
+   **additive, not a reversal** — Phase 11's shipped principle ("local-only
+   mode remains first-class, no account, no network") is untouched. Local
+   stays exactly as it is: `LocalAdapter` takes a filesystem path, nothing
+   else, no user_id, no network call, ever. What's new is a *second*,
+   parallel free path — sign in, get an account, get a narrower but real
+   set of hosted capabilities — sitting between local and the paid tiers.
+   This resolves the open question `docs/hosted-no-agent-tiers-plan.md`
+   deliberately left unanswered ("free or paid — a real pricing/positioning
+   decision, not this document's to make"): **free**, decided here.
+2. **A usage-limit progress bar**, so a user can see how much of their plan's
+   usage they've consumed — for a hosted paid tier, aplyx's own per-day
+   quota; for local mode, aplyx's own consumption against whatever the
+   user's coding-agent provider actually exposes (see "Usage-limit tracking"
+   below — this is the part that needed real design, not just a UI
+   component, because "the coding agent's own usage limit" isn't a single
+   knowable number across providers).
 
-This maps onto the project's own roadmap: **Phase 17** ("hosted service,"
-`docs/PLAN.md:2130-2410`) already specs a free, review-first, consent-gated
-hosted tier, and depends on **Phase 12**'s not-yet-built model-tier
-registry. Neither phase says anything about *paid* plans or billing — that
-dimension is entirely new and needs its own design. A repo-wide search
-confirmed zero billing/Stripe/payment/quota infrastructure exists today, and
-zero server-compute surface exists either (no `server/`, no API routes, no
-Supabase Edge Functions) — the only "runs on a schedule, not on someone's
-laptop" precedent is `.github/workflows/refresh-job-cache.yml`, a stateless
-hourly cron job, not a fit for a paid multi-tenant agent worker.
+## The three-way account model
 
-The operator confirmed, when asked: build the review-only/auto-apply split
-as a first-class **toggle**, not an either/or; use whichever worker host is
-best suited to running agents (Fly.io, per research at the time — reopened
-2026-07-27 as a two-candidate bake-off against Upstash Box, see "Worker
-host" below); reuse the *existing*
-Supabase auth/profile project rather than spin up a third (free-tier
-Supabase caps out at 2 projects, both already in use); and pick a billing
-processor by lowest fees + easiest setup + support for both subscription and
-pay-as-you-go billing.
+| | Local | Free hosted | Paid hosted |
+|---|---|---|---|
+| Account required? | No | Yes | Yes |
+| Auth mechanism | none | email/password or Google OAuth (already built, `AuthContext.tsx`) | same |
+| Coding agent required? | Yes (bring your own) | No | No |
+| Data location | local JSON/JSONL files | Supabase, RLS-scoped to `auth.uid()` | same |
+| Capabilities | everything (search, tailor, apply, review) | Tier 0 (cached job search) + Tier 1 (hosted extension autofill) — see below | + `review_only` server-side runs, then `auto_apply` once shipped |
+| Cost to aplyx | $0 (runs on the user's own machine + their own coding-agent spend) | ~$0 (cached reads + a stateless subprocess service, no LLM call, no persistent browser) | real (Anthropic API + worker compute), billed via Stripe |
 
-## Architecture
+Local and free-hosted are not a ladder a user is pushed up — they're
+different trade-offs. Local gets full capability (including `auto_apply`
+today, and the eventual local `apply` flow generally) in exchange for
+bringing a coding agent. Free hosted gets a real but narrower slice (no
+tailoring, no auto-apply — see Tier 0/1 below) with nothing to install and
+no coding-agent bill. Paid hosted removes that narrowing at the cost of a
+subscription.
+
+**No new `account_tier` column.** A tier is derived, not stored redundantly:
+
+```
+tier = (subscriptions.status = 'active') ? subscriptions.plan : 'free_hosted'
+```
+
+A free-hosted user has no `subscriptions` row at all (not an inactive one —
+none). This keeps `subscriptions` exactly as already designed (only
+paying-customer rows ever exist in it) rather than introducing a second
+source of truth that could drift from it. `profiles` needs no schema change
+for tier tracking at all.
+
+## Account creation / what "linked to that account" means
+
+**Signup itself is unchanged and tier-agnostic.** `AuthContext.tsx`'s
+existing email/password (with Supabase's built-in "already registered"
+handling) and Google OAuth flows, already shipped in Phase 11, are the
+entire account-creation mechanism for every hosted tier — free and paid
+alike. There is no new signup flow to build. What's new is only: (a) this
+flow becoming reachable/promoted without implying "hosted = paid" (today's
+in-app copy and onboarding wizard need a pass to stop conflating the two —
+tracked in "Critical files" below), and (b) capability gating happening at
+the point of *use*, not at signup. A free account and a Basic-tier account
+go through the identical `AuthContext` call.
+
+**"Linked" has a concrete, per-surface meaning:**
+
+- **Desktop app / TUI.** Once signed in, the app's active adapter is
+  `SupabaseAdapter` (mode `"hosted"`) instead of `LocalAdapter`. Profile
+  fields, jobs, job_events, applied_jobs, and review_queue read/write
+  against the user's own RLS-scoped rows — this sync already exists
+  end-to-end (`docs/supabase-user-data-plan.md`, shipped 2026-08-10). A
+  user can sign out and fall back to local mode at any time; the two modes
+  are not exclusive, they're just which adapter is active right now.
+- **Browser extension (Tier 1, free).** The extension has no Supabase
+  session today — it only knows a local bridge bearer token. Linking here
+  means the **hosted personal-access-token** concept
+  `hosted-no-agent-tiers-plan.md` already proposed: a new, long-lived,
+  revocable token, distinct from a Supabase session JWT, issued from the
+  desktop app's Settings screen and pasted into a new "aplyx account" mode
+  on the extension's options page (alongside today's unchanged "Local
+  install" mode). This doc adopts that proposal as-is rather than
+  redesigning it — see that document for the full mechanism.
+- **Multiple devices, one account.** Already true today, unchanged: RLS is
+  scoped by `user_id`, not by device, so signing into the desktop app on two
+  machines (or the desktop app plus the extension via a token) is already
+  "linked to the same account" with no new work — worth stating explicitly
+  since it's a natural question, not because anything needs building for it.
+
+## Free hosted tier — Tier 0 + Tier 1
+
+Adopted from `docs/hosted-no-agent-tiers-plan.md` without redesign; summarized
+here because this doc is what decides they're **free**, not paid:
+
+- **Tier 0 — cached job search.** `readJobCache()`
+  (`src/core/src/jobCache.ts`) is a plain anon-key Supabase RPC call, no
+  Python, no LLM. Needs a `DEFAULT_JOB_CACHE_CONFIG` baked-in fallback
+  (mirrors the existing `DEFAULT_SUPABASE_CONFIG` pattern in
+  `supabaseConfig.ts`) so it works with no local config file. Covers
+  Ashby/Lever/Greenhouse/SmartRecruiters only (the four cacheable sources) —
+  narrower than local search, and the UI should say so plainly.
+- **Tier 1 — hosted hybrid autofill.** The extension's existing fit-check +
+  autofill + human-clicks-submit flow, reachable via the new
+  personal-access-token connection mode instead of a local bridge. Backend
+  is a small, stateless (or scale-to-zero) service that subprocess-execs
+  `job_state.py`/`evaluate_job_fit.py`/`append_state_entry.py` unmodified —
+  the same deterministic, no-LLM logic the local extension already uses,
+  just fed by `profiles.safe_fields` instead of local `targets.json`.
+
+**Why free is the right call, not just the operator's preference:** neither
+tier costs aplyx an Anthropic API call or a persistent browser session — the
+two things that actually cost money and carry CAPTCHA/anti-bot risk per the
+paid-tier analysis below. A free account that only ever uses Tier 0/1 costs
+aplyx close to nothing to serve. The thing that needs real gating is
+tailoring and auto-apply, not search-and-autofill.
+
+**Abuse surface this introduces that paid-only signup didn't have.** A
+free, no-payment-required hosted account is a classic spam/abuse vector for
+the Tier 0/1 backend services even though they're cheap per-call — flagged
+as a real open question below (rate limiting per free account, whether
+email verification alone is sufficient friction), not solved here.
+
+## Paid hosted tiers — folded forward, reconciled against current pricing
+
+Everything in this section is unchanged from the prior version of this
+document except the "Concrete tiers" numbers, which are corrected to match
+what's actually live on the marketing site today (the old numbers were
+already stale — flagged in `docs/website.md` as an unreconciled
+contradiction before this rewrite).
+
+### Architecture
 
 ```
   aplyx.app (thin front door — Vercel or Cloudflare Workers, stateless)
@@ -73,16 +168,13 @@ pay-as-you-go billing.
 ```
 
 **Front door.** Stateless and cheap — verify auth, check billing, insert one
-row, let the client poll. It never runs the agent loop itself; that's the
-wrong workload for an edge/serverless duration model and the wrong place for
-a future browser process. Platform choice (Vercel vs. Cloudflare Workers) is
+row, let the client poll. Platform choice (Vercel vs. Cloudflare Workers) is
 low-stakes and can be decided at implementation time.
 
 **Queue: a `hosted_runs` table, not Redis/BullMQ.** Postgres is already the
-system of record. A `status` column + `SELECT ... FOR UPDATE SKIP LOCKED` (or
-an atomic conditional `UPDATE ... RETURNING`) is the right-sized choice at
-solo-operator scale — a real queue engine is only worth the operational
-overhead once poll latency or fan-out volume actually becomes a bottleneck.
+system of record; `SELECT ... FOR UPDATE SKIP LOCKED` (or an atomic
+conditional `UPDATE ... RETURNING`) is the right-sized choice at
+solo-operator scale.
 
 ```sql
 create table public.hosted_runs (
@@ -101,233 +193,74 @@ create table public.hosted_runs (
 );
 ```
 
-The `mode` column is the toggle the operator asked for — first-class from
-day one, not bolted on later. See "Review-only vs. auto-apply" below for how
-the two modes are sequenced.
+Note: a simpler `hosted_runs` table (no `tier`/`input` columns, no
+`subscriptions` FK) already shipped as part of Phase 17's first increment
+(migration `0004`) and is live-verified against a real test account. This
+richer shape is what the paid tier needs on top of that — extend the
+existing table, don't create a second one.
+
+The `mode` column is the review-only/auto-apply toggle, first-class from day
+one — see "Review-only vs. auto-apply" below.
 
 **Worker host: undecided — Fly.io vs. Upstash Box, pending a bake-off spike.**
-Originally this plan picked Fly.io outright. A 2026-07-27 research pass
-surfaced **Upstash Box** (`upstash.com/docs/box`, developer preview since
-2026-03-09) as a real second candidate worth testing rather than assuming —
-it directly targets the same "give a worker persistent compute + a real
-browser" problem this section exists to solve. Both candidates are
-documented here; neither is chosen until the spike below produces a result.
-Needs its own explicit operator go-ahead before any real account/billing
-setup happens, same as the rest of this document.
+Upstash Box side tested hands-on 2026-07-27 (see `docs/online-hosting.md`);
+Fly.io side not started. Real open concerns on the Box side: container-level
+(not microVM) isolation with no SOC2/pen-test claim, preview status with no
+SLA, several open GitHub issues including a false-500 on long-running
+commands, and per-tenant (not shared-pool) pricing for persistent sessions.
+Fly.io's justification: long-lived process support, Docker deploys fit a
+Node+Python hybrid worker, scale-to-zero keeps early cost near $0, but no
+real free tier as of 2026 (~$2-10/month fixed once a worker is always-on).
+Decision criteria and the narrow worker-only spike scope (no Stripe, no
+migrations, no front door — just cold-start latency, memory footprint,
+Node+Python coexistence, egress IP behavior, and metered cost, measured
+identically on both) are unchanged from before this rewrite.
 
-**Fly.io** — justification specific to this project's needs, not a generic
-pick:
-- Needs a long-lived process (poll loop now, persistent Playwright browser
-  sessions once auto-apply mode is implemented) — rules out pure serverless.
-- Docker-image deploys fit a Node+Python hybrid worker cleanly in one image
-  (Node for `@aplyx/core` + the Claude Agent SDK, Python for
-  `src/scripts/state/*.py` subprocess calls).
-- Scale-to-zero keeps early cost near $0 with no paying users yet, while
-  supporting an always-on machine once there's real traffic.
-- Fly's per-region machine model is a better fit than a centralized platform
-  for the eventual auto-apply phase's IP-diversity/anti-bot needs.
-- Known cost: no real free tier as of 2026 — a small always-on machine is
-  ~$2-10/month, fixed, regardless of signups (see "Concrete tiers" below).
+**Supabase: reuse the existing auth/profile project** — not `job_cache`
+(already I/O-constrained), not a new third project (free tier caps at 2,
+both already spoken for). `hosted_runs` and `subscriptions` are low-volume,
+on-demand tables, a different shape from `job_cache`'s bulk hourly refresh.
 
-**Upstash Box** — real Linux containers (not restricted serverless),
-`node`/`python` runtimes (plus `golang`/`ruby`/`rust`, each in Debian or
-`-alpine` variants), durable block storage, and — directly relevant here —
-Upstash's own docs describe *exactly* this project's Playwright pattern:
-pre-install Chromium into a box, snapshot it, then spin up warm boxes from
-that snapshot instead of reinstalling per run
-(`upstash.com/docs/box/guides/web-scraping-playwright`). The agent-harness
-feature (`Agent.ClaudeCode`, etc.) is optional — a box works as plain
-sandboxed compute (`box.exec.command()`, no agent configured), so adopting
-Box would **not** require reversing this plan's "narrow forced-tool-use
-calls, not a broad-tool-access agent loop" reliability stance (see
-"Reliability" below).
+### Reusing `src/core` and the Python helpers — not forking
 
-Real open concerns, not yet resolved by Upstash's own documentation:
-- **Isolation is container-level** (own filesystem/process tree/network
-  stack per box), not a microVM boundary like Firecracker/gVisor — no
-  audit/SOC2/pen-test claim exists for Box specifically. Matters more here
-  than for a single local user, since a hosted worker runs on behalf of
-  multiple paying tenants.
-- **Preview status**: launched 2026-03-09, still "APIs and pricing may
-  change" ~4.5 months in, no SLA/uptime commitment, no stated GA date.
-- **Six open, unresolved GitHub issues** on `upstash/box` as of the
-  research pass, including `exec.command`/`exec.stream` returning a false
-  HTTP 500 after ~5 minutes even when the command succeeds server-side
-  (#160) — directly relevant to any long-running scrape/apply automation —
-  and idle-timeout-before-freeze behavior not matching documented numbers
-  (#161).
-- **Pricing shape is per-tenant, not shared-pool.** A persistent, logged-in
-  auto-apply browser session needs Box's fixed-rate "keep-alive" tier
-  ($8/mo Small / $16/mo Medium / $32/mo Large *per box*), and Upstash's own
-  "Agent Servers" use case recommends one box per end user — cost scales
-  linearly per paying tenant, unlike a Fly.io fleet that can bin-pack
-  several tenants' sessions onto fewer shared machines.
-- **Undocumented**: whether egress IPs are static/shared/rotating (matters
-  for ATS anti-bot fingerprinting), real cold-start latency, headless
-  Chromium's RAM/CPU footprint inside a box, and whether a `node` runtime
-  box reliably supports installing Python alongside it (implied by their
-  own Playwright guide's `apt-get` usage, never explicitly documented).
+The worker is a new workspace (`packages/worker`, matching the existing
+`workspaces` glob). It imports `@aplyx/core` directly and reuses
+`SupabaseAdapter` with a service-role client (the worker acts on a user's
+behalf, unlike the desktop webview's anon-key client) —
+`SupabaseAdapter.loadState()` is what this plan builds out for the worker's
+translation step. It subprocess-execs the Python helpers unmodified, never
+ports them to TypeScript (directly required by `CLAUDE.md`), against a
+per-run ephemeral scratch directory — the Python helpers never need to know
+hosted mode exists. Needs a minimal hosted model-tier registry — a small
+`src/config/models.hosted.json` mapping `{"flash", "mid", "premium"}` to
+concrete Anthropic model IDs, looked up live at build time and explicitly
+operator-approved, never guessed from memory (narrower than Phase 12's full
+multi-provider registry — Anthropic-only, since the worker calls Anthropic
+directly with aplyx's own key).
 
-### Bake-off spike (before either candidate is chosen)
+### Review-only vs. auto-apply — the toggle
 
-Scope, per the operator's direction: a **narrow worker-layer spike only** —
-not the full hosted stack (no Stripe, no `hosted_runs`/`subscriptions`
-migrations, no front door). Build the same minimal representative worker
-twice, once per platform, and measure the open concerns above directly
-instead of guessing from docs:
+Both modes exist in the schema from day one but ship in sequence:
 
-1. A persistent process that (a) execs a Python subprocess the way
-   `src/core/src/helpers.ts` already shells out to `src/scripts/`, (b)
-   installs and launches Playwright/headless Chromium, and (c) holds one
-   browser session open across several sequential actions (simulating a
-   logged-in multi-step apply flow — the one pattern neither platform's own
-   docs directly address).
-2. Metrics to record identically on both: cold-start/wake latency, memory
-   footprint of Node + Python + Chromium together, whether Node+Python
-   coexist in one deploy unit without friction, egress IP behavior across
-   repeated requests (via a public IP-echo check), and actual metered cost
-   for a realistic test run.
-3. Decision criteria: whichever platform clears the persistent-session and
-   Node+Python requirements with acceptable latency/cost wins the worker-host
-   slot in this plan; a tie or both-fail result is itself a valid outcome
-   worth recording rather than forcing a pick.
-
-**Status: Upstash Box side complete, hands-on (2026-07-27)** — see
-`docs/online-hosting.md` for the full research + spike writeup
-(persistent-session, Node+Python, Playwright install gotcha, real
-Greenhouse-board testing, usability score, and a third "box-per-customer"
-architecture option not yet decided on). **Fly.io side not started** — no
-account was set up this pass (operator chose to test Upstash only).
-
-**Supabase: reuse the existing auth/profile project**, not the `job_cache`
-project (already I/O-constrained under its own hourly refresh load — same
-failure mode this would risk repeating) and not a new third project (free
-tier caps at 2 projects; both slots are already spoken for). `hosted_runs`
-and `subscriptions` are low-volume, on-demand-per-user tables, a different
-shape from `job_cache`'s ~14k-row hourly bulk refresh, so this is a
-reasonable initial fit. If/when write volume from paying users makes this
-project's I/O a real constraint the way `job_cache` did, the mitigation is
-upgrading that project to Supabase Pro (removes the 2-project cap too) —
-justified once the feature is generating revenue, called out here so it
-isn't a surprise later.
-
-## Reusing `src/core` and the Python helpers — not forking
-
-The worker is a new workspace, `packages/worker` (consistent with the
-existing `workspaces: ["packages/*", "app", "desktop"]` glob in root
-`package.json`). It:
-
-1. **Imports `@aplyx/core` directly** — same seam `src/tui/` and
-   `src/tauri/src-tauri`'s bridge already use. Reuses `SupabaseAdapter`
-   (`src/core/src/adapters/supabase.ts`) with a **service-role**
-   client instead of the anon-key client the desktop webview uses, since the
-   worker acts on a user's behalf rather than as that user's own session.
-   `SupabaseAdapter.loadState()` currently returns `undefined` (comment:
-   "Hosted pipeline-state sync ... is Phase 14B scope") — this plan is what
-   actually builds that sync, via the translation step below rather than by
-   changing the adapter's contract.
-
-2. **Subprocess-execs the Python helpers, never ports them to TypeScript** —
-   directly required by `CLAUDE.md`'s "Do not port helper logic into
-   TypeScript without an explicitly approved decision" and AGENTS.md's "all
-   state writes go through the helpers." Follows the existing
-   `src/core/src/helpers.ts` pattern (`runValidator`,
-   `convertResumePdf` already shell out to Python) —
-   `child_process.execFile("python3", ["src/scripts/state/job_state.py", ...])`
-   against a **per-run, ephemeral scratch directory**
-   (`/tmp/hosted-runs/<run_id>/data/...`), not the shared repo checkout a
-   local install uses. The Python helpers stay completely unmodified — they
-   don't need to know hosted mode exists — and the worker owns the
-   mechanical translation from that scratch dir's JSON/JSONL back into
-   Supabase rows (`jobs`/`job_events`/`review_queue`), matching the shape
-   `supabase/migrations/0001_init.sql`'s own comments already describe as a
-   mirror of the local JSON files. The worker's Docker image needs a copy of
-   `src/scripts/` baked in alongside `src/core/dist` — new deployment
-   surface, `src/scripts/` has never run anywhere but a user's own machine or
-   the GitHub Actions cron before.
-
-3. **Minimal hosted model-tier registry (a real prerequisite, not a
-   nice-to-have).** Phase 12's full tier registry isn't built; today model
-   IDs are hardcoded per-agent (`opencode-go/...`, `openai/gpt-5.4`) — none
-   of which the hosted worker can use, since it calls Anthropic directly
-   with aplyx's own key. Add a small `src/config/models.hosted.json` (or a
-   `hosted` block once Phase 12 lands) mapping `{"flash": ..., "mid": ...,
-   "premium": ...}` to concrete Anthropic model IDs — **the exact IDs need a
-   live lookup at build time, never guessed from memory, and explicit
-   operator sign-off per the "no new model name without approval" rule**,
-   same discipline Phase 12 already requires locally. This stays narrower
-   than full Phase 12 (Anthropic-only, no multi-provider opencode-go
-   catalog) — full Phase 12 remains separate, later, local-mode work.
-
-## Review-only vs. auto-apply — the toggle
-
-Both modes are part of this plan's architecture (the `mode` column exists
-from day one), but they are **built and shipped in sequence**, not
-simultaneously, because they carry very different risk:
-
-**Ships first — `review_only`.** Server-side scrape (API-fed boards only:
-Ashby/Lever/Greenhouse/SmartRecruiters/Amazon/Oracle — the same set
+**Ships first — `review_only`.** Server-side scrape (the API-fed boards
 `job-scraper.md` already routes to when browser tools aren't available) →
-canonicalize/dedupe/fit-gate via the unmodified Python helpers → tailor
-(resume bullets + cover letter) via narrow, forced-tool-use Anthropic calls
-→ results land in `review_queue`/`jobs`/`job_events`, surfaced in a hosted
-dashboard. No apply action of any kind runs server-side; the user applies
-manually. This isn't a new behavior invented for hosted mode — it's the
-existing "no browser tools" fallback path in `job-scraper.md` becoming the
-default path for hosted runs, which is a strong signal it's the right seam
-to build against first and validate the rest of the pipeline (billing,
-queue, worker, reliability pattern) before adding the highest-risk piece.
+canonicalize/dedupe/fit-gate via the unmodified Python helpers → tailor via
+narrow, forced-tool-use Anthropic calls → results land in
+`review_queue`/`jobs`/`job_events`. No apply action runs server-side.
 
-**Ships second — `auto_apply`.** Reuses the existing local Playwright
-apply-flow logic (`ats.ts` selector logic, currently local/single-user/
-single-IP) ported to run from the worker, gated by an explicit per-user
-opt-in with its own consent screen (Phase 17's own requirement — "load-
-bearing, not polish"). This is a substantially larger lift: persistent
-browser sessions on the worker host, proxy/anti-bot handling, per-tenant ATS
-selector reliability at multi-tenant scale, and real liability for applying
-on someone's behalf from operator-run infrastructure. Because of that gap in
-risk and effort, `auto_apply` should get its own dedicated design pass and
-explicit go-ahead once `review_only` is live and validated — the schema and
-toggle exist now so that isn't a redesign later, but flipping it on for real
-users is a separate approval, consistent with this project's one-thing-at-
-a-time phase discipline.
+**Ships second — `auto_apply`.** Its own dedicated design pass is already
+written: `docs/hosted-auto-apply-plan.md`. Incorporates the completed Box
+spike's finding that real Greenhouse postings universally carry CAPTCHA — a
+hard constraint on full automation, not an edge case. Needs its own
+operator go-ahead layered on top of `review_only`'s, unchanged from before.
 
-**That dedicated design pass is now written: see
-[`docs/hosted-auto-apply-plan.md`](./hosted-auto-apply-plan.md)
-(2026-08-10).** It resolves the narrow-forced-tool-use-vs-broad-browser-loop
-tension this section only flags, incorporates the completed Box spike's
-CAPTCHA finding (real Greenhouse postings universally carry it — a hard
-constraint, not an edge case), and proposes a staged confirm-before-submit
-rollout. Still not started, still needs its own operator go-ahead layered
-on top of `review_only`'s.
+### Billing
 
-**Cheaper on-ramp before either mode ships (2026-08-10).** Re-reading the
-local code with the question "does this actually need a coding agent"
-found two pieces that don't: job search over the shared cache
-(`jobCache.ts` is a plain anon-key `fetch()`, no Python) and the browser
-extension's hybrid autofill (`extension_bridge.py`'s three endpoints are
-confirmed deterministic, stdlib-only Python — no LLM call anywhere). Both
-are gated behind "local install" today as an implementation artifact, not
-a real requirement.
-[`docs/hosted-no-agent-tiers-plan.md`](./hosted-no-agent-tiers-plan.md)
-proposes shipping both as much cheaper, lower-risk tiers before this
-plan's worker or `auto_apply` — no LLM spend, no persistent browser, no
-CAPTCHA exposure, no Stripe/queue infra. Also planned, not started, needs
-its own operator go-ahead.
-
-## Billing
-
-**Processor: Stripe.** Against the operator's stated criteria (lowest fees,
-easy setup, subscription + pay-as-you-go both): Stripe's standard fee
-(2.9% + $0.30, US card payments) is at or below every mainstream
-easy-setup alternative (Paddle/LemonSqueezy both run higher, typically 5%+,
-because they act as Merchant of Record and absorb global tax
-remittance for you). Stripe Billing natively supports both flat
-subscriptions and metered/usage-based prices, so "subscription or
-pay-as-you-go" is one product, not two integrations. The real tradeoff:
-Stripe is not a Merchant of Record, so the operator — not Stripe — is
-responsible for their own sales-tax/VAT handling; Stripe Tax is a low-effort
-add-on for that once it matters, not a blocker for getting started.
+**Processor: Stripe**, unchanged — lowest fees among easy-setup options
+(2.9% + $0.30 vs. Paddle/LemonSqueezy's 5%+ Merchant-of-Record model),
+native support for both flat subscriptions and metered pricing. The
+operator carries their own sales-tax/VAT responsibility (Stripe is not a
+Merchant of Record); Stripe Tax is a low-effort add-on once it matters.
 
 ```sql
 create table public.subscriptions (
@@ -344,191 +277,250 @@ create table public.subscriptions (
 -- (service-role key) ever inserts/updates this table.
 ```
 
-`POST /api/v1/runs` gates on `subscriptions.status = 'active'` before it will
-insert a `hosted_runs` row (402 if not). The Stripe webhook handler
-(`POST /api/v1/stripe/webhook`) verifies the signature and upserts this table
-on `checkout.session.completed` / `customer.subscription.updated` /
-`customer.subscription.deleted`, using the service-role key — never the
-anon key, same custody discipline as `SUPABASE_SECRET_KEY` today.
+`POST /api/v1/runs` gates on `subscriptions.status = 'active'` (402 if not
+— a free-hosted account, which has no row here at all, is exactly the same
+402 path as a lapsed paid one). The Stripe webhook handler verifies the
+signature and upserts this table on `checkout.session.completed` /
+`customer.subscription.updated` / `customer.subscription.deleted`, using
+the service-role key.
 
 **Usage metering.** Every Anthropic response carries
 `usage.input_tokens`/`output_tokens`. The worker accumulates per-run totals
-into `hosted_runs.result` (no new table needed yet) and logs
-`{step, tier, model_id, input_tokens, output_tokens}` per call — cheap now,
-and what makes a future pay-as-you-go price or a free/paid cost split
-possible later without re-instrumenting. Actual quota *enforcement* (vs.
-just measuring) is explicitly follow-on work, not v1.
+into `hosted_runs.result` and logs `{step, tier, model_id, input_tokens,
+output_tokens}` per call. This is also the data source the usage-limit bar
+(below) reads for hosted users — no separate metering system needed, the
+paid-tier plan already produces exactly what the bar needs to display.
 
-## Concrete tiers + quota capacity analysis (2026-07-27)
+### Concrete tiers + quota reconciliation (updated against live pricing)
 
-The marketing site's pricing page (`site/pricing.html`) now shows concrete
-numbers — Free / Pro $13 / Business $33, differentiated mainly by a daily
-auto-apply quota (3 / 10 / 25 per day) rather than by which features are
-gated at all. Checked this against the actual free-tier limits of the
-infra this plan already picked, rather than choosing numbers first and
-hoping:
+The previous version of this document analyzed a **Free / Pro $13 /
+Business $33** three-tier shape with 3/10/25-per-day quotas. The marketing
+site has since been rewritten (`docs/website.md` flags this exact drift) to
+the current four-paid-tier shape, with no free *hosted* tier on the
+pricing page at all (the free tier shown there is local-only, $0, no
+account — this document's new free-hosted tier is not yet reflected on
+`pricing.html` and should be added there once this plan is approved):
 
-- **Storage (Supabase, 500MB DB / 5GB egress free) is not the real
-  constraint.** Each application's full footprint — job record, JD text,
-  tailored-resume snippet, event log — is generously ~10KB. Even a fully
-  generous free tier (3/day × a few hundred free users, retained forever
-  with no cleanup) stays in the tens-of-MB range for months — nowhere
-  near the 500MB cap. Storage only becomes a real concern at a much
-  larger free-tier user count with no retention policy at all, which is
-  a data-lifecycle problem worth a future note, not a launch blocker.
-- **Fly.io no longer has a real free tier as of 2026** — confirmed live:
-  new accounts get a 2-hour/7-day trial only; a real always-on worker is
-  a small (~$2-10/month for a single shared-cpu-1x machine) but *real*
-  fixed cost from day one, not the "$0 with no users" this plan
-  originally assumed. Doesn't change the architecture, just the framing:
-  the operator carries a small fixed infra cost regardless of free-tier
-  signups, which is fine at solo-operator scale but isn't literally free
-  anymore.
-- **The actual bottlenecks are Anthropic API cost and Playwright
-  browser-automation concurrency, not storage.** Every auto-apply needs
-  a real Chromium session (~300-500MB RAM alone) plus a tailoring API
-  call — a minimal single worker machine can realistically run only a
-  handful of concurrent browser sessions, and free-tier usage generates
-  real per-call API cost with zero revenue behind it. This is the
-  argument for the daily-quota shape itself (a hard per-user cap, not
-  "unlimited until we notice"), and for treating `hosted_runs` as a real
-  queue whose *drain rate* is bounded by worker capacity — quotas cap
-  demand per user; worker fleet size (funded by paid-tier revenue) is
-  what determines how fast the queue actually processes. Start with one
-  worker handling everything sequentially; add machines as paid
-  conversions fund them, not ahead of it.
-- **Conclusion: 3 / 10 / 25 per day are reasonable starting caps**, sized
-  well within what a single small worker can plausibly sustain during
-  early access, not because storage allows it (it allows far more) but
-  because compute concurrency and API cost don't. Treat these as a
-  starting allocation to re-measure against real usage once any of this
-  is actually live — not a permanent commitment, same as the pricing
-  page's own "illustrative, not final" framing already says.
-- **Auto-apply still isn't built.** These quotas describe the *planned*
-  free/paid split for a capability (`auto_apply`) that this same document
-  already scoped as "ships second," after `review_only` — the marketing
-  copy describes the intended future state, consistent with the pricing
-  page's existing disclaimer, not a claim that it's live today.
+| Tier | Price | Daily cap | Scope |
+|---|---|---|---|
+| Local | $0, no account | unbounded (bounded by the user's own coding agent) | full local capability |
+| *Free hosted (new, this doc)* | $0, account required | n/a — Tier 0/1 aren't quota-gated, they're capability-gated | search + autofill only |
+| Basic | $5/mo | 5/day | internship postings only |
+| Intern | $9/mo | 10/day | internship-only |
+| Pro | $13/mo | 17/day | internship + new-grad |
+| Premier | $25/mo | 25/day | all levels/markets |
 
-Sources checked live rather than assumed from memory: [Supabase pricing/free-tier limits, 2026](https://uibakery.io/blog/supabase-pricing); [Fly.io's free trial replacing its old free tier, 2026](https://fly.io/docs/about/pricing/).
+The original capacity analysis's conclusion still holds at these numbers:
+storage is not the constraint (each application's footprint is ~10KB;
+even generous free-tier volume stays well under Supabase's 500MB free
+cap for months), Fly.io has no real free tier as of 2026 (~$2-10/month
+fixed cost regardless of signups), and the actual bottleneck is Anthropic
+API cost plus Playwright browser-automation concurrency (a real Chromium
+session is 300-500MB RAM alone) — a single worker machine can only sustain
+a handful of concurrent `auto_apply` sessions, which is the argument for
+hard per-user daily caps rather than "unlimited until we notice." 5/10/17/25
+are, like the original 3/10/25, a starting allocation to re-measure against
+real usage once live, not a permanent commitment — consistent with the
+pricing page's own "illustrative, not final" disclaimer.
 
-## Reliability — carrying the pattern forward, not just the transport
+**Auto-apply still isn't built.** These caps describe the planned free/paid
+split for a capability (`auto_apply`) that ships second, after
+`review_only` — not a claim that daily quotas are enforced today.
 
-This is where the operator's actual concern lives (an API call alone
-doesn't fix hallucination risk). The hosted pipeline generalizes the
-pattern already proven in `generate_interest_letter.py`, not just its
-transport:
+### Reliability
 
-1. **Forced structured tool-use output per step.** Every model call that
-   produces something destined for state uses `tool_choice: {"type": "tool",
-   "name": "..."}` with a strict `input_schema` — exactly
-   `_SUBMIT_LETTER_TOOL`'s shape, generalized to each pipeline step
-   (tailoring, ambiguous fit-gate calls). This is the actual reliability
-   mechanism, not the direct-API-call by itself.
-2. **Deterministic validation before any state write, every time.** Reuses
-   `job_state.py`'s existing canonicalize/fit-gate schema checks unchanged;
-   tailored-content output gets the same grounding-flag checks
-   `generate_interest_letter.py` already does (company-name mismatch,
-   word-count self-report vs. actual, `grounding_confidence`) before a
-   `review_queue` row is written. Flagged output still lands in review
-   (never silently dropped) but visibly marked for extra scrutiny.
-3. **Narrow per-step tool surfaces, not one giant do-everything agent.**
-   `job-scraper.md`'s current 80-max-turn orchestrator with broad tool
-   access is the right shape for a trusted, single-user local run — wrong
-   for a multi-tenant server. The worker decomposes the pipeline into
-   discrete, narrowly-scoped calls: a tailoring step gets no tool access
-   beyond its one `submit_*` tool, matching
-   `generate_interest_letter.py` exactly. Smaller blast radius, easier to
-   validate, no single step gets broad execution rights against
-   multi-tenant infrastructure.
-4. **Human-in-the-loop gate before anything touches an ATS** — already the
-   default by construction in `review_only` mode; carried forward as a
-   standing principle (explicit opt-in, own consent language) once
-   `auto_apply` ships.
+Unchanged from before — the actual mechanism, not just the transport:
 
-## Security / PII
+1. **Forced structured tool-use output per step**, exactly
+   `generate_interest_letter.py`'s `_SUBMIT_LETTER_TOOL` pattern,
+   generalized to every pipeline step.
+2. **Deterministic validation before any state write** — reuses
+   `job_state.py`'s canonicalize/fit-gate checks and
+   `generate_interest_letter.py`'s grounding-flag checks unchanged. Flagged
+   output still lands in review, never silently dropped.
+3. **Narrow per-step tool surfaces**, not one broad-access agent loop — the
+   worker decomposes the pipeline into discrete, narrowly-scoped calls.
+4. **Human-in-the-loop before anything touches an ATS** — the default by
+   construction in `review_only`, carried forward as a standing principle
+   once `auto_apply` ships.
 
-- **Secret custody.** `ANTHROPIC_API_KEY` and the Supabase service-role key
-  live only as Fly.io app secrets (`fly secrets set`) — never in the front
-  door's client-reachable environment, never in a shipped bundle. Same
-  discipline as `SUPABASE_SECRET_KEY`/`UPSTASH_REDIS_WRITE_TOKEN` today; the
-  service-role key on a worker is new secret-custody surface for this repo
-  (previously only a GitHub Actions runner held anything equivalent).
-- **`safe_fields`/resume encryption at rest.** Phase 17 already requires
-  this and it isn't designed yet. Supabase's infra provides disk-level
-  encryption by default — confirm explicitly whether that satisfies the bar
-  or whether field-level `pgcrypto` encryption is wanted on top; the private
-  `resumes` bucket (already RLS-scoped) needs the same confirmation.
-- **Consent screen.** Explicit, plain-language, at hosted-onboarding time —
-  what's stored, why, that it's server-side now (a real reversal of Phase
-  11's local-only-PII default), and a link to deletion. Gates onboarding
-  completion, not a buried settings checkbox.
-- **Deletion path.** One deterministic, testable function: `auth.users`
-  cascade already covers table rows (`on delete cascade` wired on every
-  `user_id` FK per `0001_init.sql`); storage bucket objects need an explicit
-  delete step (cascade doesn't reach Storage); the Stripe customer/
-  subscription needs an explicit Stripe API call (lives outside Supabase
-  entirely); worker scratch directories are already ephemeral. Verify on a
-  real account, not just typechecked — matches Phase 17's existing bar.
+### Security / PII
+
+Unchanged: secrets (`ANTHROPIC_API_KEY`, Supabase service-role key) live
+only as worker-host app secrets, never client-reachable. `safe_fields`/resume
+encryption-at-rest still needs an explicit decision (disk-level default vs.
+field-level `pgcrypto`). Consent screen at hosted-onboarding time — what's
+stored, why, that it's server-side now, link to deletion — gates onboarding
+completion for **any** hosted tier, free or paid, since a free-hosted
+account's `profiles`/`safe_fields` data is real PII too, not just paid
+accounts'. Deletion path: `auth.users` cascade covers table rows already;
+storage bucket objects and the Stripe customer/subscription (paid accounts
+only) need explicit delete steps; worker scratch directories are already
+ephemeral.
+
+## Usage-limit tracking — the bar the operator asked for
+
+Two genuinely different problems, because "usage limit" means something
+different in each mode. Building one honest mechanism per mode, not a
+single fake unified number.
+
+### Hosted (paid or free-with-Tier-1): aplyx's own quota
+
+Straightforward — aplyx fully controls this number. For a paid tier, the
+bar is:
+
+```
+used_today = count(hosted_runs) where user_id = X and created_at > now() - interval '1 day' and status != 'canceled'
+cap = tier's daily cap (5 / 10 / 17 / 25, from the table above)
+```
+
+No new table needed at this scale (the capacity analysis above already
+established volume is nowhere near a real constraint) — a `COUNT(*)`
+against the existing `hosted_runs` table, exposed via a small RPC
+(`get_own_daily_run_count`, same SECURITY DEFINER pattern the ATS-account-
+credentials RPCs already use) so the client never needs a broad `hosted_runs`
+read. Tier 0/1 (free hosted) aren't quota-gated at all per this doc's own
+design (capability-gated instead, not cost-gated) — no bar needed there,
+just a plain "included in your free account" label.
+
+### Local: aplyx's own consumption, honestly labeled against what's actually knowable
+
+This is the part that needed real design. "How much of the coding agent's
+usage limit have I used" is not one queryable number across providers —
+some expose a real usage/remaining-credits API, most don't, and aplyx has
+no visibility into a user's total usage from *other* tools sharing the same
+provider account regardless. The honest design, consistent with this
+project's existing convention of never fabricating a stat the product can't
+back (the same convention behind `feature-badge`'s "Planned" labels on the
+marketing site):
+
+1. **aplyx's own consumption is always knowable and always the base
+   number.** Every local run already goes through the same Anthropic-call
+   surface the paid-tier worker's usage metering targets — extend that same
+   `{step, tier, model_id, input_tokens, output_tokens}` logging to local
+   runs, appended to a new local, gitignored `data/usage_events.jsonl`
+   (same append-only convention as `data/job_events.jsonl`, same helper
+   pattern — a small addition to `job_state.py` or a sibling helper, never
+   hand-written). This is real and buildable regardless of provider.
+2. **Where a provider exposes a real usage/remaining-budget API, query it
+   and show a true fraction.** Confirmed candidates: OpenRouter (used by
+   several opencode-go model routes) exposes a `/api/v1/credits` endpoint
+   returning remaining balance; OpenAI exposes an organization usage/billing
+   API. For these, the bar can show `aplyx's own usage this period / actual
+   remaining budget` — a real fraction, not an estimate.
+3. **Where no such API exists — this includes Claude Code's own
+   consumer-plan weekly caps, which Anthropic does not expose via a
+   documented per-user usage API — do not fabricate a denominator.** Two
+   honest options, not mutually exclusive: show aplyx's own consumption as
+   a plain count ("aplyx has made 42 requests this week"), or let the user
+   manually enter their own known plan cap as a **self-reported**
+   denominator, explicitly labeled as self-reported in the UI (e.g. a small
+   "you told us" tag next to the bar) so it's never confused with a number
+   aplyx actually verified. This is the same honesty bar the pricing page
+   already holds itself to for unshipped features — a silently-guessed
+   "80% used" bar for a provider aplyx can't actually query would be a
+   regression from that standard, not a UI nicety.
+4. **Per-coding-agent, not per-provider globally**, since the operator's
+   original framing was "for any of their coding agents" — a user may have
+   both Claude Code and an opencode-go provider configured; the bar (or a
+   small set of bars) is scoped to whichever agent/provider combination
+   actually ran a given aplyx session, read from the same harness-selection
+   config (`src/config/harness.json`) already driving `run_job_agent.sh`'s
+   agent choice.
+
+**Where this surfaces in the UI.** TUI: a `?`-help-adjacent status line or
+a dedicated panel, consistent with the existing Status tab. Desktop app:
+most naturally the Home screen, near the existing "Applications sent /
+Waiting in review / Jobs seen" stat tiles already shown there (per the
+homepage showcase-row screenshot of `desktop-home.png`) — a fourth stat
+tile or a small bar beneath them, not a new screen.
 
 ## Explicitly out of scope for this pass
 
 - Auto-apply's actual execution (schema/toggle included now; execution
-  ships second, separately gated — see above).
+  ships second — see `hosted-auto-apply-plan.md`).
 - Phase 12's full multi-provider tier registry (only the narrow
   Anthropic-only hosted subset is in scope here).
-- Multi-plan/tiered pricing beyond the `subscriptions.plan` column existing.
-- Hard quota enforcement (v1 measures usage; enforcing a cap is separate).
-- Anthropic's Managed Agents beta as a replacement for the worker — worth a
-  future re-evaluation once it's more mature, not a v1 bet.
+- Hard quota *enforcement* for hosted paid tiers (this pass measures and
+  displays usage; enforcing a hard cutoff at the quota is separate,
+  follow-on work).
+- The hosted personal-access-token issuance/revocation UI's detailed design
+  (deferred to `hosted-no-agent-tiers-plan.md`, adopted here as-is).
+- Provider usage-API integrations beyond identifying OpenRouter and OpenAI
+  as real candidates — actual client code for each is a separate,
+  narrower build.
+- Rate limiting / anti-abuse specifics for free-hosted signups (flagged as
+  an open question below, not designed here).
+- Anthropic's Managed Agents beta as a worker replacement — a future
+  re-evaluation, not a v1 bet.
 
 ## Critical files
 
+- `src/tauri/src/lib/AuthContext.tsx` — the existing signup/signin flow
+  this whole account model reuses unmodified
 - `src/core/src/adapter.ts`, `adapters/supabase.ts` — the `Adapter`
-  interface and hosted adapter to extend (service-role variant, real
-  `loadState()`), not fork
-- `supabase/migrations/0001_init.sql` — existing RLS-scoped schema pattern;
-  extend with `hosted_runs` and `subscriptions`
+  interface; service-role variant + real `loadState()` for the worker
+- `src/core/src/jobCache.ts`, `supabaseConfig.ts` — Tier 0's read path and
+  the `DEFAULT_SUPABASE_CONFIG` baked-in-default pattern `DEFAULT_JOB_CACHE_CONFIG`
+  extends
+- `src/scripts/runtime/extension_bridge.py` — Tier 1's unmodified
+  subprocess target
+- `src/extension/src/options.ts`, `background.ts` — the local-only guard
+  Tier 1's new "aplyx account" connection mode extends
+- `src/supabase/migrations/0001_init.sql`, `0004_hosted_runs.sql` — existing
+  schema to extend, not replace
 - `src/scripts/runtime/generate_interest_letter.py` — the forced-tool-use +
   grounding-confidence pattern every pipeline step generalizes
-- `src/scripts/state/job_state.py` — subprocess-exec target, per-run scratch
-  dir, never ported to TypeScript
-- `src/agents/bodies/job-scraper.md` — existing pipeline logic and the "no
-  browser tools" fallback path the worker's `review_only` mode mirrors
-- `.github/workflows/refresh-job-cache.yml` — existing secret-custody
-  precedent to mirror on Fly.io
-- `docs/PLAN.md` (Phase 12 §1393-1493, Phase 17 §2130-2410) — the roadmap
-  constraints this plan is scoped against (tier registry dependency,
-  review-first default, PII-boundary reversal, "don't fork business logic")
+- `src/scripts/state/job_state.py` — subprocess-exec target for both the
+  worker and the new local usage-event logging
+- `src/config/harness.json` — the per-install agent selection the local
+  usage bar scopes against
+- `src/site/pricing.html` — needs a free-hosted-tier card added once this
+  plan is approved (does not exist there today); the "usage-hook" copy
+  already there ("bounded by your own coding agent's own usage limits")
+  is what this plan's local usage bar makes concretely true
+- `docs/hosted-no-agent-tiers-plan.md` — Tier 0/1's full design, adopted
+  here, not re-derived
+- `docs/hosted-auto-apply-plan.md` — auto-apply's dedicated design pass
+- `docs/PLAN.md` (Phase 11 §3.12, Phase 12 §3.13, Phase 17 §3.18) — the
+  roadmap constraints this plan is scoped against
 
 ## Verification (once implementation starts)
 
 - `hosted_runs`/`subscriptions` migrations apply cleanly against the
   existing auth/profile Supabase project; RLS re-verified with two real
-  accounts (mirrors Phase 11's own still-open verification item).
+  accounts.
+- A free-hosted signup, with no Stripe interaction at all, can use Tier 0
+  search and Tier 1 autofill end to end.
 - A real Stripe test-mode subscription drives `POST /api/v1/runs` from 402
-  (inactive) to accepted (active) via the webhook path, end to end.
-- One full `review_only` run, against a real test account, produces
-  tailored review-queue entries visible in the hosted dashboard, with every
-  tailored item passing through the grounding-flag checks before being
-  written — spot-check a deliberately mismatched job/resume pair to confirm
-  a flagged, not silently-dropped, result.
+  (inactive/free) to accepted (active) via the webhook path.
+- One full `review_only` run against a real test account produces tailored
+  review-queue entries visible in the hosted dashboard, every item passing
+  through the grounding-flag checks first.
+- The daily-quota bar shows a correct count against a real account's actual
+  `hosted_runs` rows; the local usage bar shows a correct count against a
+  real `data/usage_events.jsonl` on a real local install, with the
+  self-reported-cap path visibly labeled as such.
 - Deletion path removes auth row, table rows, storage objects, and the
-  Stripe subscription for one real test account — verified by direct
-  inspection after, not just a 200 response.
+  Stripe subscription (paid accounts) for one real test account.
 - Local-only mode (no account, no network) continues to pass unchanged —
-  hosted is additive per Phase 17's own constraint.
+  everything in this document is additive per Phase 17's own constraint.
 
 ## Open questions for the operator, still unresolved
 
-- Hosting budget — approved monthly infra spend (Fly.io + Anthropic API
-  usage) before build starts?
-- Timeline/urgency relative to the Phase 16B ATS-expansion and pre-beta
-  positioning-review gates already called out in Phase 17.
-- Pricing itself — flat monthly vs. usage-based, and the actual number.
-  This document deliberately doesn't guess one.
-- Worker-host bake-off (Fly.io vs. Upstash Box) — Upstash side tested
-  hands-on, see `docs/online-hosting.md`; Fly.io side still not started.
-  Whether to formalize the "box-per-customer, Supabase-as-system-of-record"
-  hybrid option from that doc into this plan is still an open operator
-  decision.
+- Hosting budget — approved monthly infra spend (Fly.io/Upstash + Anthropic
+  API usage) before build starts?
+- Pricing itself for the four paid tiers — still marked "illustrative, not
+  final" on the marketing site; this document doesn't fix a final number.
+- Worker-host bake-off (Fly.io vs. Upstash Box) — Upstash tested hands-on,
+  Fly.io still not started.
+- **New**: free-hosted signup abuse/rate-limiting — email verification
+  alone, or something stronger, before Tier 0/1 backends are reachable by
+  an unlimited number of free accounts?
+- **New**: build order — free-hosted tier (Tier 0/1) first since it's
+  cheaper and validates hosted demand per `hosted-no-agent-tiers-plan.md`'s
+  own sequencing argument, or alongside the paid-tier build since both now
+  share the same signup/account layer?
+- **New**: which provider usage APIs (OpenRouter, OpenAI) are worth
+  building real integrations for first, versus shipping the self-reported-
+  cap fallback everywhere initially and adding real API reads later?
