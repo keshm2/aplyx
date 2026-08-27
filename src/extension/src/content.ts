@@ -28,7 +28,59 @@ import type {
 } from "./shared.js";
 
 const ats = detectAts(location.hostname);
-if (ats) init();
+if (ats) watchForForm();
+
+/** How long to keep watching a page for a form that isn't there yet at
+ *  document_idle before giving up quietly. Several supported ATS
+ *  families (Ashby, Workday) hydrate their application form client-side
+ *  well after the initial page load — a single one-shot scan would miss
+ *  those and never prompt at all. Bounded, not indefinite: a page that
+ *  genuinely never gets a form (a board index, a "thanks for applying"
+ *  page) must not leave an observer running for the rest of the tab's
+ *  life. */
+const FORM_WATCH_TIMEOUT_MS = 12_000;
+
+function hasApplicationForm(): boolean {
+  const { mapped, unmappedRequired } = scanForm();
+  return mapped.length > 0 || unmappedRequired.length > 0;
+}
+
+/** Detect-then-prompt, not always-on: the extension now stays completely
+ *  invisible on any page that isn't an actual application form (a job
+ *  listing, a search results page, a "thanks for applying" page) — a
+ *  real improvement over the previous design, which showed a persistent
+ *  corner panel on every matched-hostname page regardless of whether a
+ *  fillable form was anywhere on it. */
+function watchForForm(): void {
+  if (hasApplicationForm()) {
+    init();
+    return;
+  }
+  // Debounced, not scanned on every callback — a React/Vue app hydrating
+  // (Ashby, Workday) can fire dozens of mutation records in the same
+  // burst, and each scan walks every input/textarea/select on the page
+  // plus a getComputedStyle() call per element. Re-running that on every
+  // single mutation would be real, visible jank on a busy page; waiting
+  // for mutations to settle for a beat first costs nothing a user would
+  // notice (this is a background detector, not something anyone is
+  // staring at waiting for) and turns a burst of N mutations into one
+  // scan instead of N.
+  let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+  const observer = new MutationObserver(() => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      if (hasApplicationForm()) {
+        observer.disconnect();
+        init();
+      }
+    }, 200);
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+  setTimeout(() => {
+    clearTimeout(debounceTimer);
+    observer.disconnect();
+  }, FORM_WATCH_TIMEOUT_MS);
+}
 
 interface MappedControl {
   el: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
@@ -170,109 +222,165 @@ async function autofill(): Promise<string> {
 }
 
 // ---------------------------------------------------------------------------
-// Panel UI (shadow DOM so page CSS can't corrupt it and vice versa)
+// Prompt UI (shadow DOM so page CSS can't corrupt it and vice versa) —
+// only mounted once watchForForm() above has confirmed a real
+// application form is present. Slides down from top-center asking a
+// single yes/no question first, matching the "detects a form, asks
+// before acting" pattern rather than the previous design's always-there
+// corner panel.
 
 function init(): void {
   const host = document.createElement("div");
-  host.id = "aplyx-panel-host";
+  host.id = "aplyx-prompt-host";
   const shadow = host.attachShadow({ mode: "closed" });
   const iconUrl = chrome.runtime.getURL("icons/icon32.png");
   shadow.innerHTML = `
     <style>
       :host { all: initial; }
-      /* Moss — the app's actual dark palette (src/tauri/src/styles/tokens.css),
-         not an invented panel-specific scheme. This used to be a violet/indigo
-         palette that matched nothing else aplyx ships. */
-      .panel {
-        position: fixed; right: 16px; bottom: 16px; z-index: 2147483647;
-        width: 300px; padding: 12px 14px; border-radius: 12px;
-        background: #1e1b14; color: #ede6d6;
+      /* Moss — the app's actual dark palette (src/tauri/src/styles/tokens.css)
+         — plus a frosted-glass material (translucent + backdrop blur) over
+         it, and the site's own --ease-out-expo curve (src/site/styles.css:
+         cubic-bezier(.16,1,.3,1)) for the entrance, instead of an invented
+         easing. Always dark regardless of the host page's own light/dark
+         styling — deliberate, same reasoning as the homepage's review-demo
+         mockup: this is a fixed recreation of a specific product surface,
+         not a surface that should chameleon to whatever page it's overlaid
+         on.
+         Starts translated up + scaled down + transparent (not fully
+         off-screen) — closer to how a real macOS notification banner
+         actually enters than a hard slide from off-canvas, and
+         pointer-events:none while hidden matters here specifically: unlike
+         the old off-screen-translate version, this hidden state still sits
+         near the top of the viewport, so without this it would silently
+         eat clicks on whatever the host page has in that spot (its own nav,
+         a banner) before the prompt is ever visible. */
+      .prompt {
+        position: fixed; top: 14px; left: 50%; z-index: 2147483647;
+        width: 340px; max-width: calc(100vw - 24px);
+        padding: 14px 16px; border-radius: 16px;
+        background: rgba(30, 27, 20, 0.72);
+        backdrop-filter: blur(24px) saturate(180%);
+        -webkit-backdrop-filter: blur(24px) saturate(180%);
+        color: #ede6d6;
         font: 13px/1.45 -apple-system, "SF Pro Text", "Segoe UI", Roboto, system-ui, sans-serif;
-        box-shadow: 0 10px 32px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.06);
-        transition: width .18s ease, padding .18s ease;
+        box-shadow: 0 20px 48px -12px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.08), inset 0 1px 0 rgba(255,255,255,.07);
+        transform: translate(-50%, -14px) scale(.94);
+        opacity: 0;
+        pointer-events: none;
+        transition: transform .4s cubic-bezier(.16,1,.3,1), opacity .3s cubic-bezier(.16,1,.3,1);
       }
-      .panel.collapsed { width: auto; padding: 8px 10px; cursor: pointer; }
+      .prompt.visible {
+        transform: translate(-50%, 0) scale(1);
+        opacity: 1;
+        pointer-events: auto;
+      }
       .head { display: flex; align-items: center; gap: 8px; }
       .head img { width: 18px; height: 18px; border-radius: 4px; display: block; }
       .brand { font-weight: 700; color: #ede6d6; letter-spacing: .02em; }
       .spacer { flex: 1; }
-      button {
-        font: inherit; font-weight: 600; border: 0; border-radius: 8px; cursor: pointer;
-        padding: 7px 10px; margin-top: 8px; width: 100%;
-        background: #7fae86; color: #17140f;
-        transition: background .12s ease, opacity .12s ease, transform .08s ease;
+      .close {
+        display: flex; align-items: center; justify-content: center;
+        width: 20px; height: 20px;
+        background: rgba(255,255,255,.06); border: 0; border-radius: 50%; color: #b0a68e; cursor: pointer;
+        font-size: 13px; line-height: 1; padding: 0;
+        transition: background .12s ease, color .12s ease;
       }
+      .close:hover { background: rgba(255,255,255,.12); color: #ede6d6; }
+      .ask-text { margin-top: 10px; font-weight: 600; }
+      .ask-row { display: flex; gap: 8px; margin-top: 12px; }
+      button {
+        font: inherit; font-weight: 600; border: 0; border-radius: 10px; cursor: pointer;
+        padding: 8px 10px;
+        background: #7fae86; color: #17140f;
+        transition: background .15s cubic-bezier(.16,1,.3,1), opacity .12s ease, transform .12s cubic-bezier(.16,1,.3,1);
+      }
+      .ask-row button { flex: 1; }
+      button.secondary { background: rgba(255,255,255,.08); color: #ede6d6; }
       button:hover:not(:disabled) { background: #9cc4a1; }
-      button:active:not(:disabled) { transform: scale(.98); }
-      button.secondary { background: #322c1f; color: #ede6d6; }
-      button.secondary:hover:not(:disabled) { background: #3d3524; }
+      button.secondary:hover:not(:disabled) { background: rgba(255,255,255,.14); }
+      button:active:not(:disabled) { transform: scale(.97); }
       button:disabled { opacity: .5; cursor: default; }
-      .toggle { background: none; color: #b0a68e; width: auto; margin: 0; padding: 2px 6px; }
-      .toggle:hover:not(:disabled) { background: none; color: #ede6d6; }
-      .body { overflow: hidden; max-height: 0; opacity: 0; transition: max-height .18s ease, opacity .15s ease; }
-      .body.open { max-height: 22rem; opacity: 1; }
+      .body { overflow: hidden; max-height: 0; opacity: 0; transition: max-height .3s cubic-bezier(.16,1,.3,1), opacity .2s ease; }
+      .body.open { max-height: 22rem; opacity: 1; margin-top: 6px; }
+      .body button { width: 100%; margin-top: 8px; }
       .status { margin-top: 8px; min-height: 1.2em; color: #b0a68e; word-break: break-word; }
       .fit { margin-top: 8px; padding: 6px 8px; border-radius: 8px; display: none; font-weight: 600; }
-      .fit.candidate { display: block; background: rgba(111,190,138,.16); color: #6fbe8a; }
-      .fit.needs_review { display: block; background: rgba(224,172,82,.16); color: #e0ac52; }
-      .fit.skipped_unfit { display: block; background: rgba(224,135,112,.16); color: #e08770; }
-      .note { margin-top: 8px; color: #7a7260; font-size: 11px; }
+      .fit.candidate { display: block; background: rgba(111,190,138,.18); color: #6fbe8a; }
+      .fit.needs_review { display: block; background: rgba(224,172,82,.18); color: #e0ac52; }
+      .fit.skipped_unfit { display: block; background: rgba(224,135,112,.18); color: #e08770; }
+      .note { margin-top: 8px; color: #a89d84; font-size: 11px; }
+      @media (prefers-reduced-motion: reduce) {
+        .prompt, button, .body { transition-duration: .01ms !important; }
+      }
     </style>
-    <div class="panel collapsed" id="panel">
+    <div class="prompt" id="prompt">
       <div class="head">
         <img src="${iconUrl}" alt="" />
         <span class="brand">aplyx</span>
         <span class="spacer"></span>
-        <button class="toggle" id="toggle" title="expand / collapse">▴</button>
+        <button class="close" id="close" title="dismiss" aria-label="dismiss">×</button>
+      </div>
+      <div class="ask" id="ask">
+        <div class="ask-text">Autofill this application with aplyx?</div>
+        <div class="ask-row">
+          <button id="autofill">Autofill</button>
+          <button class="secondary" id="notNow">Not now</button>
+        </div>
       </div>
       <div class="body" id="body">
+        <div class="status" id="status"></div>
         <button id="fit">Fit check</button>
         <div class="fit" id="fitResult"></div>
-        <button id="autofill">Autofill from profile</button>
+        <button id="autofillAgain">Autofill again</button>
         <button id="save" class="secondary">Save for review</button>
         <button id="applied" class="secondary">I submitted this — record it</button>
-        <div class="status" id="status"></div>
         <div class="note">aplyx never submits a form — you review and click submit yourself.</div>
       </div>
     </div>`;
   document.documentElement.appendChild(host);
 
-  const panel = shadow.getElementById("panel")!;
+  const prompt = shadow.getElementById("prompt")!;
+  const ask = shadow.getElementById("ask")!;
   const body = shadow.getElementById("body")!;
-  const toggle = shadow.getElementById("toggle")!;
   const status = shadow.getElementById("status")!;
   const fitResult = shadow.getElementById("fitResult")!;
-  const actionButtons = ["fit", "autofill", "save", "applied"].map(
+  const actionButtons = ["autofill", "autofillAgain", "fit", "save", "applied"].map(
     (id) => shadow.getElementById(id) as HTMLButtonElement,
   );
 
-  let expanded = false;
-  const setExpanded = (value: boolean) => {
-    expanded = value;
-    body.classList.toggle("open", expanded);
-    panel.classList.toggle("collapsed", !expanded);
-    toggle.textContent = expanded ? "▾" : "▴";
-  };
-  toggle.addEventListener("click", (event) => {
-    event.stopPropagation();
-    setExpanded(!expanded);
-  });
-  panel.addEventListener("click", () => {
-    if (!expanded) setExpanded(true);
-  });
+  // Two rAFs, not one — the element has to actually paint once at its
+  // off-screen transform before adding .visible, or the browser can
+  // coalesce both style changes into a single frame and the slide-down
+  // never animates, it just appears already in place.
+  requestAnimationFrame(() => requestAnimationFrame(() => prompt.classList.add("visible")));
+
+  function dismiss(): void {
+    prompt.classList.remove("visible");
+  }
+  shadow.getElementById("close")!.addEventListener("click", dismiss);
+
+  // "Not now" means "don't autofill yet," not "go away" — it still
+  // reveals the same fit-check/save/record actions the old panel always
+  // had reachable together, just without running autofill. Only the ×
+  // in the header actually dismisses the whole thing.
+  function reveal(): void {
+    ask.style.display = "none";
+    body.classList.add("open");
+  }
+  shadow.getElementById("notNow")!.addEventListener("click", reveal);
 
   const say = (message: string) => {
     status.textContent = message;
   };
 
-  // All four actions talk to the same single-threaded bridge and read/
-  // write the same job's state — running two at once (a fast double-click,
-  // or clicking Autofill while Fit check is still in flight) previously
-  // had no guard at all, risking overlapping bridge calls racing each
-  // other. Disabling every action button for the duration of any one of
-  // them, not just the clicked one, is the simplest correct fix — these
-  // are all quick, sequential, single-user actions with no legitimate
-  // reason to overlap.
+  // All actions talk to the same single-threaded bridge and read/write
+  // the same job's state — running two at once (a fast double-click, or
+  // clicking Autofill while Fit check is still in flight) has no guard
+  // otherwise, risking overlapping bridge calls racing each other.
+  // Disabling every action button for the duration of any one of them,
+  // not just the clicked one, is the simplest correct fix — these are
+  // all quick, sequential, single-user actions with no legitimate reason
+  // to overlap.
   let busy = false;
   async function runExclusive<T>(task: () => Promise<T>): Promise<T | undefined> {
     if (busy) return undefined;
@@ -288,6 +396,19 @@ function init(): void {
 
   const job = (): ExtractedJob | null => extractJob(ats!, document, new URL(location.href));
 
+  const runAutofill = () =>
+    runExclusive(async () => {
+      reveal();
+      say("Scanning the form…");
+      try {
+        say(await autofill());
+      } catch (err) {
+        say(err instanceof Error ? err.message : String(err));
+      }
+    });
+  shadow.getElementById("autofill")!.addEventListener("click", () => void runAutofill());
+  shadow.getElementById("autofillAgain")!.addEventListener("click", () => void runAutofill());
+
   shadow.getElementById("fit")!.addEventListener("click", () =>
     runExclusive(async () => {
       const extracted = job();
@@ -300,17 +421,6 @@ function init(): void {
       fitResult.textContent = `${result.fit_status} · score ${result.fit_score}` +
         (result.can_apply === false ? " · already recorded" : "");
       say(result.reasoning ?? "");
-    }),
-  );
-
-  shadow.getElementById("autofill")!.addEventListener("click", () =>
-    runExclusive(async () => {
-      say("Scanning the form…");
-      try {
-        say(await autofill());
-      } catch (err) {
-        say(err instanceof Error ? err.message : String(err));
-      }
     }),
   );
 

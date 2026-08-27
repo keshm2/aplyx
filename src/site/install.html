@@ -34,6 +34,7 @@
         <a class="nav-link" href="features.html">Features</a>
         <a class="nav-link" href="pricing.html">Pricing</a>
         <a class="nav-link is-active" href="install.html" aria-current="page">Install</a>
+        <a class="nav-link" href="extension.html">Extension</a>
         <a class="nav-link" href="https://github.com/keshm2/aplyx" target="_blank" rel="noopener">GitHub</a>
         <a class="nav-link nav-link-account" href="account.html">Sign in</a>
         </div>
@@ -143,6 +144,23 @@ aplyx</pre>
             <li>Creates a <code>data/resumes/</code> folder for your base resumes</li>
             <li>Offers Discord status updates and the desktop app, both optional</li>
           </ul>
+
+          <h2 id="extension">The browser extension</h2>
+          <p>
+            Submitted to the Chrome Web Store &mdash; once it's approved, this section switches to
+            a one-click "Add to Chrome" link. Until then, install it the same way any Manifest V3
+            extension gets loaded during development:
+          </p>
+          <ol>
+            <li>Clone or download the <a class="link" href="https://github.com/keshm2/aplyx" target="_blank" rel="noopener">aplyx repository</a>.</li>
+            <li>In a terminal, run <code>cd src/extension &amp;&amp; npm install &amp;&amp; npm run build</code>.</li>
+            <li>Open <code>chrome://extensions</code> in Chrome, and turn on <strong>Developer mode</strong> (top right).</li>
+            <li>Click <strong>Load unpacked</strong>, and select the <code>src/extension/dist</code> folder.</li>
+            <li>Start the local bridge: <code>python3 src/scripts/runtime/extension_bridge.py</code>, then run <code>python3 src/scripts/runtime/extension_bridge.py --show-token</code> and paste that token into the extension's Options page.</li>
+          </ol>
+          <p>
+            See the <a class="link" href="extension.html">extension page</a> for what it actually does once it's installed.
+          </p>
         </div>
       </div>
     </section>

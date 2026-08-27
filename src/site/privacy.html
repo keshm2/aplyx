@@ -34,6 +34,7 @@
         <a class="nav-link" href="features.html">Features</a>
         <a class="nav-link" href="pricing.html">Pricing</a>
         <a class="nav-link" href="install.html">Install</a>
+        <a class="nav-link" href="extension.html">Extension</a>
         <a class="nav-link" href="https://github.com/keshm2/aplyx" target="_blank" rel="noopener">GitHub</a>
         <a class="nav-link nav-link-account" href="account.html">Sign in</a>
         </div>
@@ -74,7 +75,7 @@
       <div class="wrap">
         <div class="os-panels">
         <div class="prose os-panel is-active" data-view-panel="plain">
-          <p><em>Last updated July 29, 2026.</em></p>
+          <p><em>Last updated August 26, 2026.</em></p>
 
           <h2>Two ways to run aplyx</h2>
           <p>
@@ -124,6 +125,23 @@
             same way using the coding agent directly would. This is inherent to how the tailoring
             step works, not something aplyx adds on top, and it's the same for local and hosted
             accounts.
+          </p>
+
+          <h2>The browser extension</h2>
+          <p>
+            The aplyx browser extension activates only on the four job-application platforms it
+            supports (Greenhouse, Lever, Ashby, and Workday), and only once it detects an actual
+            application form on the page &mdash; not on every page you visit. When it does, it
+            reads that page's form field labels and, if you ask it to, the job posting's title,
+            company, description, and location, so it can offer to autofill the form and check
+            whether the role fits your profile.
+          </p>
+          <p>
+            Everything the extension does today talks only to your own local bridge process
+            (<code>http://127.0.0.1</code>) running on your own machine &mdash; the same local
+            data flow as the rest of local mode, described above. Nothing it reads from a page is
+            sent anywhere else. It fills form fields for you to review but never clicks submit;
+            you always decide when (or whether) to send an application.
           </p>
 
           <h2>Discord and Google Sheets: both opt-in, both off by default</h2>
@@ -258,6 +276,29 @@
             third parties beyond what you provide directly, or what naturally results from using
             a service listed in Section 5 (for example, your coding agent's model provider
             processes resume and job-description text on your instruction, not on ours).
+          </p>
+
+          <h2>2A. The browser extension</h2>
+          <p>
+            <strong>2A.1.</strong> The extension activates only on pages matching Greenhouse, Lever, Ashby, or
+            Workday application-form URLs, and only once it detects a fillable application form on
+            the page.
+          </p>
+          <p>
+            <strong>2A.2.</strong> When active, it reads that page's form field labels (to identify which of your
+            profile fields, if any, map to them) and, at your request, the job posting's title,
+            company name, description text, and location.
+          </p>
+          <p>
+            <strong>2A.3.</strong> As of this policy's date, the extension communicates only with a bridge process
+            running on your own machine at <code>http://127.0.0.1</code>; it does not send any of
+            the above to us or to any third party. If a hosted (no-local-bridge) mode of the
+            extension ships in the future, this section will be updated first, with its own
+            explicit disclosure, before that applies to you.
+          </p>
+          <p>
+            <strong>2A.4.</strong> The extension fills form fields for your review but never submits a form on your
+            behalf under any circumstance.
           </p>
 
           <h2>3. How we use your information</h2>
