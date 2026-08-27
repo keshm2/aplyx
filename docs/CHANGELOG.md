@@ -7,6 +7,61 @@ but trimmed to fit a small in-repo doc.
 > Per-`docs/RELEASE.md` is the canonical, deep-dive release
 > document for each tagged build. This file is the index.
 
+## [1.0.2b] — 2026-08-26
+
+Fourth beta. Two threads: a free hosted-account tier (sign-in, live
+desktop↔web sync, a real dashboard) went in alongside a full redesign
+of the browser extension — rebranded, rebuilt as a detect-then-ask
+overlay instead of an always-visible panel, and given its own
+marketing page. Also fixes a real bug: Windows desktop builds had been
+silently failing for the last three releases. Full write-up in
+[`RELEASE.md`](./RELEASE.md).
+
+### Added
+
+- **Free hosted account tier.** Sign in on the website with no paid
+  plan required; the desktop app can import an existing hosted profile
+  and syncs live to the web dashboard via Supabase Realtime. The
+  dashboard was rebuilt around a sidebar layout with a fixed mobile
+  bleed-through bug (signed-out state was visible on signed-in mobile
+  sessions).
+- **Browser extension redesign.** Rebranded to Moss; the UI is now a
+  top-center "Autofill this application with aplyx?" overlay that
+  appears only when a `MutationObserver`-based, debounced form
+  detector finds a real application form, instead of an always-visible
+  bottom-right panel. Visual style matches the desktop app's frosted-
+  glass material. New marketing page at `/extension.html`; install
+  docs, `install.sh`/`install.ps1`, and the desktop Settings screen all
+  now point to it.
+- **Direct-download buttons on the install page**, fetched live from
+  the GitHub Releases API and matched to the visitor's OS/arch — no
+  more manually maintained download links.
+- Homepage bento-grid feature cards replaced with alternating
+  full-width showcase rows using real screenshots; the review-queue
+  demo is now a two-panel terminal-log view showing both review-queue
+  and post-application tracking statuses.
+- `docs/hosted-paid-tier-plan.md` / `docs/hosted-no-agent-tiers-plan.md`:
+  planning only, nothing shipped — a three-way account model
+  (local/free-hosted/paid-hosted) and a Cloud-Run-hosted extension
+  backend design for a future paid tier.
+
+### Fixed
+
+- **Windows desktop builds had no release assets for the last three
+  tags** (`v1.0.0b`, `v1.0.0b1`, `v1.0.1b`). Root cause: WiX/MSI
+  requires a numeric-only pre-release version identifier, incompatible
+  with this project's `-beta.N` scheme — the `.exe` itself built fine,
+  but the MSI-bundling step failed and took down the whole `tauri
+  build` command with it. Fixed by scoping Windows to NSIS-only via a
+  new `tauri.windows.conf.json`, leaving macOS/Linux (never broken)
+  untouched.
+- `job_cache` refresh cron: a day-of-month step value was silently
+  ignored, and refresh cadence was tuned twice more (3 min → 1 hour →
+  every other day) to cut Supabase egress.
+- Job search returning zero results on the hosted dashboard.
+- Nav avatar not reverting to "Sign in" after sign-out on
+  `account.html`.
+
 ## [1.0.1b] — 2026-08-24
 
 Hotfix. The desktop app crashed starting a run —

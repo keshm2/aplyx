@@ -1,6 +1,6 @@
 {
   "name": "aplyx-extension",
-  "version": "1.0.1-beta.0",
+  "version": "1.0.2-beta.0",
   "private": true,
   "description": "aplyx browser extension \u2014 user-driven hybrid mode: autofill from safe_fields, fit badge, helper-backed outcome recording via the local bridge. Never submits a form.",
   "license": "MIT",

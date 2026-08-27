@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "aplyx — application assistant",
-  "version": "0.8.2",
+  "version": "1.0.2",
   "description": "Autofill job applications from your local aplyx profile, see the deterministic fit verdict, and record outcomes locally. Never submits a form for you.",
   "icons": {
     "16": "icons/icon16.png",

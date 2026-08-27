@@ -1,27 +1,201 @@
-# Release notes — aplyx 1.0.1b
+# Release notes — aplyx 1.0.2b
 
-> **Build:** `1.0.1b` — third beta build (`1.0.0b`/`beta.0` shipped a
-> broken desktop-app production build; `1.0.0b1`/`beta.1` fixed that and
-> added a harness-launch fix, both folded in below; the `0.9.x` line was
-> the alpha series).
-> **Branch:** `main`, tagged `v1.0.1b` (`v1.0.0b`/`v1.0.0b1` stay tagged
-> too — neither was removed from git, only superseded).
+> **Build:** `1.0.2b` — fourth beta build. `1.0.1b` fixed a desktop
+> harness-launch crash; `1.0.0b`/`1.0.0b1` are the two builds before
+> that (see below); the `0.9.x` line was the alpha series.
+> **Branch:** `main`, tagged `v1.0.2b` (all prior beta tags stay tagged
+> too — none were removed from git, only superseded).
 > **TUI in-app marker:** `src/core/src/version.ts` →
-> `BUILD_MARKER = "1.0.1b"` (re-exported from `src/tui/src/theme.ts`,
+> `BUILD_MARKER = "1.0.2b"` (re-exported from `src/tui/src/theme.ts`,
 > visible in the TUI side-panel footer and the desktop app's Settings
 > screen — one shared constant, both surfaces agree).
-> **npm package:** `@keshm/aplyx` version `1.0.1-beta.0`. `1.0.0-beta.0`
-> and `1.0.0-beta.1` are both already published and stay that way — npm
-> never allows reusing a version number once unpublished, so each fix
-> gets a new version rather than a swap-in-place. The unscoped npm name
-> `aplyx` belongs to an unrelated package — never `npm install aplyx`.
-> **Desktop app:** `1.0.1-beta.0` (Tauri app + `Cargo.toml`).
-> **Browser extension:** `1.0.1-beta.0` (previously `0.8.2a`).
+> **npm package:** `@keshm/aplyx` version `1.0.2-beta.0`. Every prior
+> `1.0.x-beta.N` stays published — npm never allows reusing a version
+> number once unpublished, so each release gets a new version rather
+> than a swap-in-place. The unscoped npm name `aplyx` belongs to an
+> unrelated package — never `npm install aplyx`.
+> **Desktop app:** `1.0.2-beta.0` (Tauri app + `Cargo.toml`).
+> **Browser extension:** `1.0.2` — Chrome's `manifest.json` "version"
+> field only accepts up to four dot-separated integers, no prerelease
+> suffix, so it can never actually carry a `-beta.N` string. (`1.0.1b`'s
+> release notes claimed `1.0.1-beta.0` here; that was never valid and
+> never applied — the manifest stayed at `0.8.2` until this release.)
 > **Previous releases:** the `0.9.x` alpha history is preserved under
 > git tags `v0.9.945a` and earlier; see
 > [`CHANGELOG.md`](./CHANGELOG.md) for the index. `v0.9.946a` through
 > `v0.9.950a` were never tagged — that backlog is unrelated to this
 > release and still outstanding.
+
+## What's new in 1.0.2b
+
+Two threads, both large. First, a free hosted-account tier: sign in on
+the website (no paid plan required), the desktop app can import an
+existing hosted profile, and changes sync live to the web dashboard
+over Supabase Realtime — the dashboard itself was rebuilt around a
+sidebar layout, fixing a real bug where signed-out dashboard content
+was visible on mobile even for a signed-in session. Second, a full
+redesign of the browser extension: rebranded to Moss, rebuilt from an
+always-visible bottom-right panel into a top-center "Autofill this
+application with aplyx?" overlay that only appears once a debounced
+`MutationObserver`-based detector finds a real application form on the
+page, styled to match the desktop app's frosted-glass material, with
+its own marketing page at `/extension.html` and install docs/scripts/
+Settings screen all updated to point to it. The install page also
+gained direct-download buttons that fetch the latest release from the
+GitHub API live and match the visitor's OS/arch, replacing static
+links. Full detail lives in
+[`CHANGELOG.md`](./CHANGELOG.md#102b--2026-08-26); this section
+covers the parts worth a longer explanation.
+
+### Fixed: Windows desktop builds had no release assets for three releases
+
+Confirmed via `gh run view --json jobs`/`--log`: macOS and Linux
+succeeded on every one of the last three tags (`v1.0.0b`, `v1.0.0b1`,
+`v1.0.1b`); Windows failed every time, at the same step. `tauri.conf.json`'s
+`"targets": "all"` makes every platform attempt every bundle format it
+supports, and on Windows that includes MSI — which requires a
+numeric-only pre-release version identifier, a hard WiX constraint
+this project's `-beta.N` scheme can never satisfy. The `.exe` itself
+was already building successfully (the failure log shows `Built
+application at: ...desktop.exe` immediately before the MSI-bundling
+error) — only the MSI step failed, but that was enough to fail the
+whole `tauri build` invocation and lose the entire Windows asset, not
+just the MSI one. Fixed with a new `src-tauri/tauri.windows.conf.json`
+scoping Windows to NSIS only (Tauri v2 merges a per-platform config
+file over the base one via JSON Merge Patch), leaving the base
+config's `"all"` untouched for macOS/Linux, which were never broken.
+This fix only takes effect on a new tag — the existing failed
+workflow runs checked out the old, unfixed source and can't be
+re-run into passing.
+
+### Added: browser extension redesign and marketing
+
+The extension's content-script UI (`src/extension/src/content.ts`) was
+rewritten: a debounced (200ms), timeout-bounded (12s) `MutationObserver`
+watches for a real application form before showing anything, replacing
+a panel that was visible on every page regardless of whether there was
+anything to autofill. The prompt itself moved from a collapsed
+bottom-right panel to a top-center overlay (`translate(-50%,-14px)
+scale(.94)` → `translate(-50%,0) scale(1)`, frosted-glass
+`background: rgba(30,27,20,.72)` + `backdrop-filter: blur(24px)
+saturate(180%)`), with `pointer-events: none` while hidden so the
+near-position hidden state (needed for the slide/fade transition)
+can't silently intercept clicks on the host page underneath it before
+becoming visible. Respects `prefers-reduced-motion`.
+
+New marketing page `src/site/extension.html` reuses the extension's
+actual CSS for its mockup rather than a separate illustration, so the
+site and the real product can't visually drift apart. `privacy.html`
+gained a real section describing exactly what the extension reads and
+where it goes today (only the user's own local bridge). Chrome Web
+Store submission prep (single-purpose description, per-permission
+justification for `host_permissions: ["http://127.0.0.1/*"]`, privacy
+policy URL) is ready; the store listing itself, developer account, and
+one-time $5 fee are still the user's own step.
+
+### Fixed: install docs and scripts were stale, only documented on the website
+
+An audit of every surface a new user might land on (install scripts,
+`docs/SETUP.md`, the desktop app's own Settings screen) found the
+extension's existence and setup steps were only ever documented on the
+marketing site. `docs/SETUP.md` also had two stale facts: a `cd
+extension` path that doesn't exist (real path is `cd src/extension`),
+and a description of the old bottom-right panel UI. Both fixed;
+`install.sh`/`install.ps1` now print a load-unpacked pointer after a
+successful build, and the desktop Settings screen links to
+`/extension.html` directly.
+
+### Added: direct-download buttons, verified against the live GitHub API
+
+`install.html` now fetches `GET /repos/keshm2/aplyx/releases?per_page=1`
+and matches the newest release's assets by filename suffix
+(`_aarch64.dmg`, `-setup.exe`, `.AppImage`, etc.), auto-detecting the
+visitor's OS from `navigator.userAgent`. Deliberately not
+`/releases/latest` — tested live via curl and found that endpoint
+excludes every prerelease-flagged release, and this repo's latest
+release is always prerelease-flagged, so it actually resolved to
+`v0.9.7a`, a pre-rename release with assets still named `applyr_...`.
+That would have shipped a badly outdated, wrongly-branded download to
+real visitors had it not been caught before merging. The corrected
+logic was re-verified in a standalone Node script against the live API
+before shipping.
+
+## Install / update / uninstall
+
+```bash
+# install (one command; puts `aplyx` on your PATH):
+curl -fsSL https://raw.githubusercontent.com/keshm2/aplyx/main/src/scripts/install/install.sh | bash
+
+# or via npm:
+npm install -g @keshm/aplyx
+
+# optionally also install the desktop app (or from TUI Settings > Desktop app):
+bash src/scripts/install/install_desktop.sh        # macOS / Linux
+powershell -ExecutionPolicy Bypass -File src\scripts\install\install_desktop.ps1   # Windows
+
+# or download the matching bundle directly from aplyx.app/install.html
+
+# check the installed version:
+aplyx version
+
+# update now (also happens automatically on runs and launches):
+aplyx update
+
+# uninstall (removes the desktop app too, if installed):
+aplyx uninstall          # add --keep-data to keep config/data/resumes
+```
+
+Windows: `powershell -ExecutionPolicy Bypass -File src\scripts\install\install.ps1`
+(or `irm .../src/scripts/install/install.ps1 | iex`), native PowerShell, no WSL.
+
+## Verification
+
+- `npm run build:core`, `tsc --noEmit` for `src/tui` and `src/tauri`,
+  the extension's `npm run build`, and `cargo check` in
+  `src-tauri` are all clean on this release, each correctly picked up
+  `1.0.2-beta.0`.
+- The direct-download matching logic was verified against the live
+  GitHub API via a standalone Node script (see above) before shipping,
+  not assumed to work from reading the code.
+- The Windows CI fix (`tauri.windows.conf.json`) is config-only and
+  scoped to a platform this release couldn't build/test locally
+  (no Windows hardware) — it takes effect for the first time on this
+  tag's own CI run. If that run fails, the Windows asset will be
+  missing from the GitHub Release and the install page's Windows
+  download button will silently fall back to the generic releases
+  link.
+- The hosted-account/dashboard and extension-detection features were
+  built and reviewed across this whole release cycle but not
+  re-verified end-to-end as part of this specific version-bump pass;
+  see the individual commits for what testing each one already had.
+
+## Release artifacts
+
+- Git tag `v1.0.2b` on `main` (all prior beta/alpha tags stay tagged,
+  none removed — only superseded).
+- npm: `@keshm/aplyx@1.0.2-beta.0` under the `latest` dist-tag
+  (`cd src/tui && npm publish` — `publishConfig` sets `access: public`
+  and the tag). Every earlier `1.0.x-beta.N` stays published — npm
+  blocks reusing a version number once unpublished.
+- CI workflow `.github/workflows/tui.yml` runs on every push touching
+  the TUI/core. `.github/workflows/desktop-release.yml` builds and
+  attaches desktop app bundles (now including a working Windows NSIS
+  installer) once the tag above exists.
+- Browser extension: not yet published to the Chrome Web Store —
+  submission material is prepared (single-purpose description,
+  per-permission justification, privacy policy) but the store listing,
+  developer account, and one-time $5 fee are a manual step for the
+  account owner. Until then, install is load-unpacked only (documented
+  in `docs/SETUP.md` §2.6 and `/extension.html`).
+
+## Known gaps
+
+- Chrome Web Store submission hasn't happened yet (see above) — the
+  extension only installs via load-unpacked for now.
+- Everything under "Known gaps" in the `1.0.1b` entry below still
+  applies; nothing in this release touches those paths.
+
+## Older releases
 
 ## Fixed in 1.0.0b1 (folded into this release): broken desktop-app production build
 
