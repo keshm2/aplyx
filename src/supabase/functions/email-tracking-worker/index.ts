@@ -36,6 +36,7 @@ const CRON_SECRET = Deno.env.get("CRON_SECRET") ?? "";
 
 import { ImapFlow, type FetchMessageObject } from "npm:imapflow@1";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { timingSafeEqual } from "../_shared/timingSafeEqual.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -443,7 +444,8 @@ Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return new Response("method not allowed", { status: 405 });
   }
-  if (!CRON_SECRET || req.headers.get("x-cron-secret") !== CRON_SECRET) {
+  const providedSecret = req.headers.get("x-cron-secret");
+  if (!CRON_SECRET || !providedSecret || !(await timingSafeEqual(providedSecret, CRON_SECRET))) {
     return new Response("unauthorized", { status: 401 });
   }
 

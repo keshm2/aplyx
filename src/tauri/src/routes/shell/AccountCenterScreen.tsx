@@ -46,7 +46,10 @@ function familyLabel(family: string): string {
   return family.charAt(0).toUpperCase() + family.slice(1);
 }
 
-type PendingAction = { accountId: string; kind: "reveal" | "rotate" | "sync" };
+// "import-device" carries no accountId — that action operates on the
+// form's local-keychain lookup, not an existing account row, so there's
+// nothing to key it by yet.
+type PendingAction = { kind: "reveal" | "rotate" | "sync"; accountId: string } | { kind: "import-device" };
 
 export function AccountCenterScreen() {
   const { status, session, signInWithGoogle } = useAuth();
@@ -167,16 +170,16 @@ export function AccountCenterScreen() {
     return lastReauthAt !== undefined && Date.now() - lastReauthAt < REAUTH_WINDOW_MS;
   }
 
-  /** Reveal and rotate both funnel through here: if re-auth is fresh
-   *  enough, run the action immediately; otherwise stash which action
-   *  was requested and open the password-confirm prompt, which re-runs
-   *  this same function once signInWithPassword succeeds. */
-  function requireRecentAuth(accountId: string, kind: PendingAction["kind"], run: () => void) {
+  /** Reveal, rotate, sync, and import-device all funnel through here: if
+   *  re-auth is fresh enough, run the action immediately; otherwise stash
+   *  which action was requested and open the password-confirm prompt,
+   *  which re-runs this same function once signInWithPassword succeeds. */
+  function requireRecentAuth(action: PendingAction, run: () => void) {
     if (hasRecentAuth()) {
       run();
       return;
     }
-    setPendingAction({ accountId, kind });
+    setPendingAction(action);
     setReauthPassword("");
     setReauthError(undefined);
   }
@@ -195,6 +198,7 @@ export function AccountCenterScreen() {
       const account = accounts?.find((candidate) => candidate.id === action.accountId);
       if (account) void syncToDevice(account);
     }
+    if (action.kind === "import-device") void importDeviceWorkdayAccount();
   }
 
   async function confirmReauth() {
@@ -294,7 +298,7 @@ export function AccountCenterScreen() {
     setRotateUsername("");
     setRotatePassword("");
     setRotateError(undefined);
-    requireRecentAuth(accountId, "rotate", () => setRotateAccountId(accountId));
+    requireRecentAuth({ accountId, kind: "rotate" }, () => setRotateAccountId(accountId));
   }
 
   async function submitRotate() {
@@ -444,7 +448,7 @@ export function AccountCenterScreen() {
           <button
             type="button"
             className="settings-action-btn"
-            onClick={() => void importDeviceWorkdayAccount()}
+            onClick={() => requireRecentAuth({ kind: "import-device" }, () => void importDeviceWorkdayAccount())}
             disabled={workdaySaving || !workdayHost.trim() || !workdayCompany.trim() || !workdayUsername.trim()}
           >
             Import from this device
@@ -503,7 +507,7 @@ export function AccountCenterScreen() {
                       type="button"
                       className="settings-action-btn"
                       disabled={rowBusy}
-                      onClick={() => requireRecentAuth(account.id, "reveal", () => void doReveal(account.id))}
+                      onClick={() => requireRecentAuth({ accountId: account.id, kind: "reveal" }, () => void doReveal(account.id))}
                     >
                       {rowBusy ? "Revealing…" : "Reveal"}
                     </button>
@@ -513,7 +517,7 @@ export function AccountCenterScreen() {
                       type="button"
                       className="settings-action-btn"
                       disabled={rowBusy}
-                      onClick={() => requireRecentAuth(account.id, "sync", () => void syncToDevice(account))}
+                      onClick={() => requireRecentAuth({ accountId: account.id, kind: "sync" }, () => void syncToDevice(account))}
                     >
                       {rowBusy ? "Syncing…" : "Sync to this device"}
                     </button>
@@ -553,7 +557,7 @@ export function AccountCenterScreen() {
       >
         {hasPasswordIdentity ? (
           <>
-            <p className="field-help">Re-enter your password to reveal, rotate, or sync a stored credential.</p>
+            <p className="field-help">Re-enter your password to reveal, rotate, sync, or import a stored credential.</p>
             <div className="field">
               <input
                 type="password"

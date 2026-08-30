@@ -30,6 +30,7 @@ const GOOGLE_CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID") ?? "";
 const GOOGLE_CLIENT_SECRET = Deno.env.get("GOOGLE_CLIENT_SECRET") ?? "";
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { timingSafeEqual } from "../_shared/timingSafeEqual.ts";
 import {
   correlate,
   detectManualRequired,
@@ -248,7 +249,8 @@ Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return new Response("method not allowed", { status: 405 });
   }
-  if (!CRON_SECRET || req.headers.get("x-cron-secret") !== CRON_SECRET) {
+  const providedSecret = req.headers.get("x-cron-secret");
+  if (!CRON_SECRET || !providedSecret || !(await timingSafeEqual(providedSecret, CRON_SECRET))) {
     return new Response("unauthorized", { status: 401 });
   }
 

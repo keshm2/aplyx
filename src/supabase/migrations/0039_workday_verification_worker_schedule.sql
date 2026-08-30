@@ -14,9 +14,17 @@
 -- construction, same as 0009's posture before email-tracking-worker's
 -- own first deploy.
 
-insert into vault.secrets (name, secret, description)
-  select 'workday_verification_worker_secret', gen_random_uuid()::text, 'purpose-scoped invocation secret for the workday-verification-worker pg_cron job'
-  where not exists (select 1 from vault.secrets where name = 'workday_verification_worker_secret');
+-- Supabase Vault secrets are created through vault.create_secret(), not a
+-- raw INSERT into vault.secrets — that table's `secret` column is
+-- encrypted via a trigger create_secret() drives; inserting into it
+-- directly fails (confirmed live, 2026-08-30: "Failed to execute
+-- statement" on the INSERT this replaced).
+select vault.create_secret(
+  gen_random_uuid()::text,
+  'workday_verification_worker_secret',
+  'purpose-scoped invocation secret for the workday-verification-worker pg_cron job'
+)
+where not exists (select 1 from vault.secrets where name = 'workday_verification_worker_secret');
 
 select cron.schedule(
   'workday-verification-worker',
