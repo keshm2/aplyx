@@ -99,6 +99,12 @@
             they're not stuck on one machine.
           </p>
           <p>
+            ATS account credentials you add are stored separately in Supabase Vault, encrypted at
+            rest and scoped to your account. Ordinary account data queries return only masked
+            account details; the password is not stored in a regular database column or shown on
+            this website.
+          </p>
+          <p>
             A few fields (gender, ethnicity, and date of birth) are always optional. Some
             employers ask for these on voluntary self-identification forms; skip them if you'd
             rather not answer, and it won't affect anything else aplyx does.

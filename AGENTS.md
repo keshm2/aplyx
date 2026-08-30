@@ -53,8 +53,9 @@ in each phase's own `docs/PLAN.md` §3.x section, not here.
   `application_accounts`; `atsRegistry.tenantKeyFor()`,
   `applicantPackage.ts`'s `applicationAccount` field, and
   `SupabaseAdapter.createOrReuseApplicationAccount()`/
-  `linkApplyRunAccount()` — hosted-only, local Workday's own account
-  flow untouched by design. Test passed against the real project; core/
+  `linkApplyRunAccount()` — also consumed by the signed-in local desktop's
+  explicit device-cache flow; the local runtime still keeps only its OS
+  credential-manager cache. Test passed against the real project; core/
   worker/tui/tauri typecheck clean. Package 4 (2026-08-23): new
   `src/scripts/runtime/browser_resilience.py` (bounded retry+backoff,
   stale-safe re-acquire, generalized CAPTCHA/challenge detection,
@@ -78,7 +79,8 @@ in each phase's own `docs/PLAN.md` §3.x section, not here.
   pointer for full detail. Operator said "next phase" covering Package
   6 too — proceeded directly. Package 6 (2026-08-23): new "ATS
   accounts" screen (`AccountCenterScreen.tsx`, reached from Settings,
-  hosted-only) — masked account list, reveal/copy/rotate gated by a
+  cross-device masked account list, Workday Vault save/import, explicit
+  local-device sync, reveal/copy/rotate gated by a
   10-minute in-memory re-auth window, delete via confirm modal, status-
   tracking toggle. New `SupabaseAdapter` methods + migration `0033`
   (had to drop/recreate `get_application_account_metadata` to add
@@ -97,7 +99,7 @@ in each phase's own `docs/PLAN.md` §3.x section, not here.
   mid-work — see `docs/PLAN.md` pointer for full detail.
 - **Previous phase: 16B (ATS/source expansion) — reached a natural
   pause.** Shipped:
-  Greenhouse, Lever, Ashby, Workday (review-only), SmartRecruiters,
+  Greenhouse, Lever, Ashby, Workday, SmartRecruiters,
   **Workable (2026-08-10)**, **JazzHR (2026-08-10)**, Amazon, Oracle
   Recruiting Cloud, Eightfold, Apple, Google, Stripe, Gem, The Muse.
   **BambooHR — spiked 2026-08-10, deferred (operator-directed).** Its
@@ -111,11 +113,30 @@ in each phase's own `docs/PLAN.md` §3.x section, not here.
   Every originally-scoped platform is now shipped or deferred-for-cause;
   there is no queued "next adapter" right now. Full research:
   `docs/ATS.md`'s 2026-08-10 section.
-- **Workday stays review-only — re-confirmed 2026-08-10, not a gap.**
-  Workday's own ToS prohibits automated submission, candidate accounts
-  are per-tenant with no shared identity, and even the best-resourced
-  competitors researched stop at autofill-then-human-submits. Do not
-  build full auto-submit for Workday.
+- **Workday auto-apply enabled (phase 7D, 2026-08-28).** Workday
+  candidates now proceed through tailoring and application like every
+  other family — the prior review-only policy is lifted. The
+  deterministic local runtime `src/scripts/runtime/approve_submit_workday.py`
+  owns the account-creation / verification / multi-step page-fill /
+  final-submit flow with the same fail-closed safety as the other
+  approve_submit runtimes (no CAPTCHA/challenge bypass, no guessed
+  fields, mandatory review/submit-page confirmation before the final
+  Submit click, no blind retry of that click, ambiguous post-submit
+  pages recorded as needs_review — never "applied"). **Concrete
+  blocker on the scheduled path:** the local harness has no
+  inbox/alias service to retrieve the Workday account verification
+  mail/OTP (see "Inbox status detection (hosted-only, optional)"), so
+  every Workday application stops at the `awaiting_verification`
+  checkpoint on the scheduled path and requires a human-supplied
+  verification link or OTP — via the existing Continue Workday TUI
+  action, which calls the same runtime — to cross the verification
+  boundary. The agent never pretends the account was verified and
+  never proceeds to fill/submit on a page that is still the
+  verification step. A managed alias email
+  (`src/config/targets.json "workday_alias_email"`) is required before
+  the runtime can create an account at all; a missing/placeholder
+  alias routes the job to needs_review with a clear configuration
+  message, not a Workday-specific rejection.
 - **Queued up**, each needing its own explicit go-ahead: the rest of
   Phase 17 itself (real hosted onboarding, quotas/abuse controls,
   encryption-at-rest + deletion path, wiring the GitHub Actions
@@ -459,32 +480,47 @@ has just because the TOML files exist.
     an empty JD skips every deterministic hard-reject check.
   - The helper's `sponsorship` field is informational/audit-only. Do
     not filter on it — the phase 4 fit gate is the only classifier.
-- Workday (phase 7, REVIEW-ONLY): tenants are configured in
-  src/config/targets.json "workday_tenants" as "<host>/<site>" strings —
-  the tenant is the unit of configuration; board URLs follow
-  `https://<company>.wd<n>.myworkdayjobs.com/<site>` (each company
-  tenant differs in subdomain and site name). Use the deterministic
-  fetch helper — it calls the tenant's public, auth-free CXS JSON
-  endpoints; only fall back to Playwright on a posting when the helper
-  fails for it:
-  `python3 src/scripts/jobs/fetch_workday_listings.py --search "intern" --limit 200`
-  One raw-job JSON object per line (source "workday"), ready for
-  canonicalize.
-  - Missing/empty/placeholder "workday_tenants" → helper warns, prints
-    nothing, exits 0; skip the board, continue the run. Non-zero exit
-    (every tenant failed) → one warning, skip, continue.
-  - Listings carry NO JD text. After role filtering and BEFORE the fit
-    gate, fetch the JD per surviving candidate with
-    `python3 src/scripts/jobs/fetch_workday_listings.py --jd-url '<posting-url>'`
-    and re-canonicalize/upsert with the fetched jd_text. Never fit-gate
-    a Workday job with empty jd_text.
-  - **No auto-apply path exists for Workday.** A Workday job whose fit
-    gate returns "candidate" routes to needs_review (applied_jobs +
-    review_queue + record-event + needs_review Discord notification)
-    with reasoning "Workday review-only path: <title> at <company>;
-    user to apply manually". Never tailor, never form-fill, never
-    submit a Workday application. needs_review items are not
-    applications and do not count against the 25-per-session cap.
+- Workday (phase 7 / 7D): tenants are configured in
+   src/config/targets.json "workday_tenants" as "<host>/<site>" strings —
+   the tenant is the unit of configuration; board URLs follow
+   `https://<company>.wd<n>.myworkdayjobs.com/<site>` (each company
+   tenant differs in subdomain and site name). Use the deterministic
+   fetch helper — it calls the tenant's public, auth-free CXS JSON
+   endpoints; only fall back to Playwright on a posting when the helper
+   fails for it:
+   `python3 src/scripts/jobs/fetch_workday_listings.py --search "intern" --limit 200`
+   One raw-job JSON object per line (source "workday"), ready for
+   canonicalize.
+   - Missing/empty/placeholder "workday_tenants" → helper warns, prints
+     nothing, exits 0; skip the board, continue the run. Non-zero exit
+     (every tenant failed) → one warning, skip, continue.
+   - Listings carry NO JD text. After role filtering and BEFORE the fit
+     gate, fetch the JD per surviving candidate with
+     `python3 src/scripts/jobs/fetch_workday_listings.py --jd-url '<posting-url>'`
+     and re-canonicalize/upsert with the fetched jd_text. Never fit-gate
+     a Workday job with empty jd_text.
+   - **Workday candidates proceed through tailoring and application
+     (phase 7D, 2026-08-28).** A Workday job whose fit gate returns
+     "candidate" is kept for @resume-tailor and @cover-letter-tailor
+     like any other family, then applied via the deterministic local
+     Workday runtime in Phase 3 step 2W (see src/agents/bodies/job-
+     scraper.md). The runtime owns account creation, verification
+     continuation, multi-step page-fill, and the final submit with
+     fail-closed safety. The verification boundary is real: the local
+      harness has no inbox/alias service, so the scheduled path
+      checkpoints at `awaiting_verification` and the user must supply
+      the verification link/OTP via Continue Workday to cross it. A
+      temporary `awaiting_verification` checkpoint is not a terminal
+      `needs_review` outcome and must not be appended to applied_jobs.json or
+      recorded as a terminal event. It may remain as an unresolved
+      queue-only continuation row so the Review screen can supply the OTP or
+      link; the queue row must use status `awaiting_verification` and must not
+      be treated as a final outcome.
+      missing/placeholder `workday_alias_email` in targets.json routes
+     the job to needs_review with a configuration message — not a
+     Workday-specific rejection. `workday_prefill_for_review` is a
+     documented no-op now that Workday reaches the real fill step;
+     leave it false.
 - LinkedIn, Indeed, Handshake, Greenhouse, Wellfound: use Playwright MCP for
   browser-based scraping.
 
@@ -668,8 +704,6 @@ has just because the TOML files exist.
     payment info not present in `safe_fields`.
   - `non_candidate_fit` — the deterministic fit gate did not return
     `candidate`.
-  - `workday_review_only` — the job is on Workday, which has no auto-apply
-    path by design (see "Board-specific fetch method").
   - `submit_outcome_unclear` — after clicking Submit (Phase 3 step 7), the
     resulting page did not clearly show a success indicator (a confirmation
     message, a redirect to a thank-you/success page, or an
@@ -775,8 +809,9 @@ has just because the TOML files exist.
   triggering signal, not just one) — and `fill_record_path` when
   `src/scripts/state/record_fill.py` was called for this job (see "Fill records"
   below); omit `fill_record_path` (do not send an empty string) when no
-  fields were ever filled for this job, e.g. a Workday entry or a Phase
-  1/Phase 2 pre-tailoring reject. `doubt_signals` is optional (and normally
+  fields were ever filled for this job, e.g. a Workday job that stopped
+  at the awaiting-verification checkpoint before any field was filled,
+  or a Phase 1/Phase 2 pre-tailoring reject. `doubt_signals` is optional (and normally
   empty/omitted) when status is "applied" or "failed".
 - Never overwrite the file — always append new entries.
 - Use the deterministic state helper for all JSON state writes — never
@@ -817,9 +852,12 @@ has just because the TOML files exist.
   path as `fill_record_path` in the applied_jobs.json/review_queue.json
   entry (see "File write discipline").
 - Do not call this for a job where no field was ever filled (e.g. a Phase
-  1/Phase 2 pre-tailoring reject, or a Workday entry while
-  `workday_prefill_for_review` is false) — there is nothing to record, and
-  `fill_record_path` should simply be omitted for those entries.
+  1/Phase 2 pre-tailoring reject, or a Workday job that stopped at the
+  awaiting-verification checkpoint before any field was filled) — there is
+  nothing to record, and `fill_record_path` should simply be omitted for
+  those entries. For a Workday job whose runtime returned a
+  `fill_record_path`, carry it through verbatim — the runtime owns the
+  fill record for the Workday flow.
 
 ## Scheduler (phase 8)
 - The production cadence is a launchd user agent (macOS) running

@@ -63,15 +63,23 @@ const dashboardTabs = document.querySelectorAll("[data-dashboard-tab]");
 const dashboardTabPanels = {
   activity: document.getElementById("dashboard-tab-activity"),
   profile: document.getElementById("dashboard-tab-profile"),
+  "ats-accounts": document.getElementById("dashboard-tab-ats-accounts"),
   search: document.getElementById("dashboard-tab-search"),
 };
 const usageBar = document.getElementById("usage-bar");
-const setupBanner = document.getElementById("setup-banner");
 const activityStats = document.getElementById("activity-stats");
 const reviewQueueList = document.getElementById("review-queue-list");
 const appliedJobsList = document.getElementById("applied-jobs-list");
 const jobEventsList = document.getElementById("job-events-list");
 const toggleResolvedButton = document.getElementById("toggle-resolved");
+const atsAccountForm = document.getElementById("ats-account-form");
+const atsTenant = document.getElementById("ats-tenant");
+const atsCompany = document.getElementById("ats-company");
+const atsUsername = document.getElementById("ats-username");
+const atsPassword = document.getElementById("ats-password");
+const atsAccountSave = document.getElementById("ats-account-save");
+const atsAccountMessage = document.getElementById("ats-account-message");
+const atsAccountsList = document.getElementById("ats-accounts-list");
 
 // Rows from the last real fetch, unfiltered — source-chip clicks filter
 // this in place (no refetch) since it's already the full merged set.
@@ -414,6 +422,7 @@ sourceChips.forEach((chip) => {
 let realtimeChannel;
 let activitySyncDebounce;
 let myState; // { jobs, applied, queue, events, profile }
+let applicationAccounts = [];
 let currentUserId; // from the session, not myState.profile — a profiles row
 // may not exist yet if this user never completed hosted onboarding.
 let setupPromptShown; // one nudge per session — see maybePromptSetup()
@@ -431,12 +440,14 @@ function stopActivitySync() {
   toggleResolvedButton.textContent = "Show resolved";
   usageBar.hidden = true;
   usageBar.replaceChildren();
-  setupBanner.hidden = true;
+  setupPanel.hidden = true;
   setupPromptShown = false;
   activityStats.replaceChildren();
   reviewQueueList.replaceChildren();
   appliedJobsList.replaceChildren();
   jobEventsList.replaceChildren();
+  atsAccountsList.replaceChildren();
+  applicationAccounts = [];
 }
 
 function startActivitySync(userId) {
@@ -458,6 +469,7 @@ function startActivitySync(userId) {
     .on("postgres_changes", { event: "*", schema: "public", table: "applied_jobs", filter: `user_id=eq.${userId}` }, scheduleActivityReload)
     .on("postgres_changes", { event: "*", schema: "public", table: "review_queue", filter: `user_id=eq.${userId}` }, scheduleActivityReload)
     .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `user_id=eq.${userId}` }, scheduleActivityReload)
+    .on("postgres_changes", { event: "*", schema: "public", table: "application_accounts", filter: `user_id=eq.${userId}` }, scheduleActivityReload)
     .subscribe();
 }
 
@@ -828,42 +840,119 @@ function renderJobEvents() {
   jobEventsList.appendChild(fragment);
 }
 
+async function loadApplicationAccounts() {
+  const { data, error } = await supabase.rpc("get_application_account_metadata");
+  if (error) throw error;
+  return (data ?? []).map((row) => ({
+    company_name: String(row.company_name ?? ""),
+    ats_family: String(row.ats_family ?? ""),
+    tenant_key: String(row.tenant_key ?? ""),
+    login_hint: row.login_hint ? String(row.login_hint) : "",
+    status: String(row.status ?? ""),
+    verification_status: String(row.verification_status ?? ""),
+  }));
+}
+
+function renderApplicationAccounts() {
+  atsAccountsList.replaceChildren();
+  if (applicationAccounts.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "activity-empty";
+    empty.textContent = "No ATS accounts stored yet.";
+    atsAccountsList.appendChild(empty);
+    return;
+  }
+  applicationAccounts.forEach((account) => {
+    const row = document.createElement("div");
+    row.className = "activity-row";
+    const text = document.createElement("div");
+    text.className = "activity-row-text";
+    const title = document.createElement("span");
+    title.className = "activity-row-title";
+    title.textContent = `${account.company_name} — ${account.ats_family}`;
+    const meta = document.createElement("span");
+    meta.className = "activity-row-meta";
+    meta.textContent = [account.login_hint || "login masked", account.tenant_key, account.verification_status.replaceAll("_", " ")].join(" · ");
+    text.append(title, meta);
+    const badge = document.createElement("span");
+    badge.className = "activity-badge activity-badge-good";
+    badge.textContent = account.status.replaceAll("_", " ");
+    row.append(text, badge);
+    atsAccountsList.appendChild(row);
+  });
+}
+
 async function loadAndRenderActivity() {
   try {
     myState = await loadMyState();
   } catch {
     return; // transient fetch failure — next Realtime event or tab revisit retries
   }
+  try {
+    applicationAccounts = await loadApplicationAccounts();
+  } catch {
+    applicationAccounts = [];
+  }
   renderStats();
   void renderUsageBar();
   renderReviewQueue();
   renderAppliedJobs();
   renderJobEvents();
+  renderApplicationAccounts();
   renderProfileForm();
-
-  // A brand-new signup has no profiles row at all yet — same "has this
-  // account entered anything" check the desktop/TUI hosted wizard's own
-  // ImportOrFreshStep.tsx uses before offering to import. Route straight
-  // to the Profile tab with an explanatory banner instead of leaving
-  // them to notice it on their own (or skip it and hit an empty profile
-  // when they later install the app) — but only once per session, so
-  // manually switching tabs afterward isn't fought.
-  if (myState.profile?.first_name) {
-    setupBanner.hidden = true;
-  } else if (!setupPromptShown) {
-    setupPromptShown = true;
-    setupBanner.hidden = false;
-    activateDashboardTab("profile");
-  }
+  updateSetupGate();
 }
 
-/* --- Profile — the same 18 PII fields + 3 preference fields
- * src/core/src/onboarding/fields.ts's wizard collects, one page at a time,
- * in the desktop app. Here as one scrollable form instead of 8 wizard
- * pages (no "next page" ceremony needed for an edit, unlike first-time
- * setup), writing all fields in a single upsert rather than
- * SupabaseAdapter.writeProfileField's one-upsert-per-field loop — same
- * end state, far fewer round trips for a form with 21 fields.
+atsAccountForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  atsAccountSave.disabled = true;
+  atsAccountMessage.textContent = "";
+  atsAccountMessage.classList.remove("is-error");
+  try {
+    const rawTenant = atsTenant.value.trim();
+    const tenantUrl = new URL(rawTenant.includes("://") ? rawTenant : `https://${rawTenant}`);
+    const tenantKey = tenantUrl.hostname.toLowerCase();
+    if (!tenantKey.endsWith(".myworkdayjobs.com") || tenantKey === ".myworkdayjobs.com") {
+      throw new Error("Workday tenant must be a hostname ending in .myworkdayjobs.com");
+    }
+    const company = atsCompany.value.trim();
+    const username = atsUsername.value.trim();
+    const password = atsPassword.value;
+    if (!company || !username || !password) throw new Error("Company, account email, and password are required.");
+    const { data: accountId, error: createError } = await supabase.rpc("create_application_account", {
+      p_ats_family: "workday",
+      p_tenant_key: tenantKey,
+      p_company_name: company,
+      p_username: username,
+      p_password: password,
+    });
+    if (createError) throw createError;
+    const { error: rotateError } = await supabase.rpc("rotate_application_account_secret", {
+      p_account_id: accountId,
+      p_new_username: username,
+      p_new_password: password,
+    });
+    if (rotateError) throw rotateError;
+    atsPassword.value = "";
+    atsAccountMessage.textContent = "Workday credential saved to the online vault. Sign into the desktop app to sync it to a local device.";
+    applicationAccounts = await loadApplicationAccounts();
+    renderApplicationAccounts();
+  } catch (err) {
+    atsAccountMessage.textContent = err?.message ?? "Couldn't save the ATS credential.";
+    atsAccountMessage.classList.add("is-error");
+  } finally {
+    atsAccountSave.disabled = false;
+  }
+});
+
+/* --- Profile — the same PII fields + 3 preference fields
+ * src/core/src/onboarding/fields.ts's wizard collects (FIELD_IDS.length,
+ * kept in sync by hand here since this file has no bundler to import that
+ * constant from), one page at a time, in the desktop app. Here as one
+ * scrollable form instead of 8 wizard pages (no "next page" ceremony
+ * needed for an edit, unlike first-time setup), writing all fields in a
+ * single upsert rather than SupabaseAdapter.writeProfileField's
+ * one-upsert-per-field loop — same end state, far fewer round trips.
  *
  * This is genuinely the same account.js is already reading via
  * loadMyState()'s myState.profile — no separate fetch. */
@@ -903,11 +992,16 @@ const PROFILE_PAGES = [
     fields: [
       { id: "authorized_to_work", label: "Authorized to work in the US?", kind: "yesno" },
       { id: "require_sponsorship", label: "Need visa sponsorship?", kind: "yesno" },
+      { id: "citizenship_status", label: "Citizenship status (optional)", kind: "text", placeholder: "e.g. U.S. Citizen, Permanent Resident, F-1 visa" },
     ],
   },
   {
     title: "Education",
-    fields: [{ id: "graduation_date", label: "Graduation date", kind: "text", placeholder: "June 2027" }],
+    fields: [
+      { id: "graduation_date", label: "Graduation date", kind: "text", placeholder: "June 2027" },
+      { id: "gpa", label: "GPA (optional)", kind: "text", placeholder: "3.8" },
+      { id: "currently_enrolled", label: "Currently enrolled in school?", kind: "yesno" },
+    ],
   },
   {
     title: "Demographics",
@@ -958,62 +1052,66 @@ const profileFormFields = document.getElementById("profile-form-fields");
 const profileMessage = document.getElementById("profile-message");
 let profileDirty = false;
 
-function buildProfileForm() {
+/** One <fieldset> of a page's fields, `idPrefix` keeping element ids
+ *  unique between the two forms that now render this same PROFILE_PAGES
+ *  data (the Profile tab's full form and the setup walkthrough's
+ *  step-one form below). */
+function buildProfileFieldset(page, idPrefix) {
+  const fieldset = document.createElement("fieldset");
+  fieldset.className = "profile-fieldset";
+  const legend = document.createElement("legend");
+  legend.textContent = page.title;
+  fieldset.appendChild(legend);
+
+  page.fields.forEach((field) => {
+    const label = document.createElement("label");
+    label.className = "account-field profile-field";
+    const span = document.createElement("span");
+    span.textContent = field.label;
+    label.appendChild(span);
+
+    let input;
+    if (field.kind === "yesno" || field.kind === "select3") {
+      input = document.createElement("select");
+      const options = field.kind === "yesno" ? [{ value: "", label: "—" }, { value: "yes", label: "Yes" }, { value: "no", label: "No" }] : [{ value: "", label: "—" }, ...field.options];
+      options.forEach((opt) => {
+        const optionEl = document.createElement("option");
+        optionEl.value = opt.value;
+        optionEl.textContent = opt.label;
+        input.appendChild(optionEl);
+      });
+    } else {
+      input = document.createElement("input");
+      input.type = "text";
+      if (field.placeholder) input.placeholder = field.placeholder;
+    }
+    input.id = `${idPrefix}${field.id}`;
+    input.dataset.fieldId = field.id;
+    input.dataset.fieldKind = field.kind;
+    label.appendChild(input);
+    fieldset.appendChild(label);
+  });
+  return fieldset;
+}
+
+function buildProfileFormInto(container, idPrefix, onInput) {
   const fragment = document.createDocumentFragment();
   PROFILE_PAGES.forEach((page) => {
-    const fieldset = document.createElement("fieldset");
-    fieldset.className = "profile-fieldset";
-    const legend = document.createElement("legend");
-    legend.textContent = page.title;
-    fieldset.appendChild(legend);
-
-    page.fields.forEach((field) => {
-      const label = document.createElement("label");
-      label.className = "account-field profile-field";
-      const span = document.createElement("span");
-      span.textContent = field.label;
-      label.appendChild(span);
-
-      let input;
-      if (field.kind === "yesno" || field.kind === "select3") {
-        input = document.createElement("select");
-        const options = field.kind === "yesno" ? [{ value: "", label: "—" }, { value: "yes", label: "Yes" }, { value: "no", label: "No" }] : [{ value: "", label: "—" }, ...field.options];
-        options.forEach((opt) => {
-          const optionEl = document.createElement("option");
-          optionEl.value = opt.value;
-          optionEl.textContent = opt.label;
-          input.appendChild(optionEl);
-        });
-      } else {
-        input = document.createElement("input");
-        input.type = "text";
-        if (field.placeholder) input.placeholder = field.placeholder;
-      }
-      input.id = `profile-field-${field.id}`;
-      input.dataset.fieldId = field.id;
-      input.dataset.fieldKind = field.kind;
-      input.addEventListener("input", () => {
-        profileDirty = true;
-      });
-      label.appendChild(input);
-      fieldset.appendChild(label);
-    });
+    const fieldset = buildProfileFieldset(page, idPrefix);
+    if (onInput) fieldset.querySelectorAll("[data-field-id]").forEach((input) => input.addEventListener("input", onInput));
     fragment.appendChild(fieldset);
   });
-  profileFormFields.appendChild(fragment);
+  container.appendChild(fragment);
 }
-buildProfileForm();
+buildProfileFormInto(profileFormFields, "profile-field-", () => {
+  profileDirty = true;
+});
 
-/** Re-populates form values from myState.profile — skipped while the form
- *  is dirty (the user has typed something not yet saved) so a Realtime
- *  update from another device/tab never silently overwrites an
- *  in-progress edit. The dirty flag clears on a successful save, so the
- *  next sync after that is free to refresh the form again. */
-function renderProfileForm() {
-  if (!myState || profileDirty) return;
-  const profile = myState.profile ?? {};
+/** Re-populates a profile form's inputs from a profile row. Shared by the
+ *  Profile tab's renderProfileForm() below and the setup walkthrough. */
+function populateProfileFields(container, profile) {
   const preferences = profile.preferences ?? {};
-  profileFormFields.querySelectorAll("[data-field-id]").forEach((input) => {
+  container.querySelectorAll("[data-field-id]").forEach((input) => {
     const id = input.dataset.fieldId;
     if (PREFERENCE_FIELD_IDS.has(id)) {
       input.value = Array.isArray(preferences[id]) ? preferences[id].join(", ") : "";
@@ -1023,17 +1121,23 @@ function renderProfileForm() {
   });
 }
 
-profileForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  if (!currentUserId) return;
-  const saveButton = document.getElementById("profile-save");
-  saveButton.disabled = true;
-  profileMessage.textContent = "Saving…";
-  profileMessage.classList.remove("is-error");
+/** Re-populates form values from myState.profile — skipped while the form
+ *  is dirty (the user has typed something not yet saved) so a Realtime
+ *  update from another device/tab never silently overwrites an
+ *  in-progress edit. The dirty flag clears on a successful save, so the
+ *  next sync after that is free to refresh the form again. */
+function renderProfileForm() {
+  if (!myState || profileDirty) return;
+  populateProfileFields(profileFormFields, myState.profile ?? {});
+}
 
-  const payload = { user_id: currentUserId };
+/** Reads a profile form's current input values into an upsert-ready
+ *  payload. Shared by the Profile tab's submit handler and the setup
+ *  walkthrough's per-step saves. */
+function collectProfilePayload(container, userId) {
+  const payload = { user_id: userId };
   const preferences = {};
-  profileFormFields.querySelectorAll("[data-field-id]").forEach((input) => {
+  container.querySelectorAll("[data-field-id]").forEach((input) => {
     const id = input.dataset.fieldId;
     if (PREFERENCE_FIELD_IDS.has(id)) {
       preferences[id] = input.value
@@ -1045,10 +1149,23 @@ profileForm.addEventListener("submit", async (e) => {
     }
   });
   payload.preferences = preferences;
+  return payload;
+}
 
+async function saveProfilePayload(payload) {
+  const { error } = await supabase.from("profiles").upsert(payload, { onConflict: "user_id" });
+  if (error) throw error;
+}
+
+profileForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (!currentUserId) return;
+  const saveButton = document.getElementById("profile-save");
+  saveButton.disabled = true;
+  profileMessage.textContent = "Saving…";
+  profileMessage.classList.remove("is-error");
   try {
-    const { error } = await supabase.from("profiles").upsert(payload, { onConflict: "user_id" });
-    if (error) throw error;
+    await saveProfilePayload(collectProfilePayload(profileFormFields, currentUserId));
     profileDirty = false;
     profileMessage.textContent = "Saved.";
     void loadAndRenderActivity();
@@ -1059,3 +1176,199 @@ profileForm.addEventListener("submit", async (e) => {
     saveButton.disabled = false;
   }
 });
+
+/* --- Setup walkthrough (account.html #setup-panel) — the guided sequence
+ * a brand-new signup ("no profiles row yet") sees instead of the
+ * dashboard, replacing the single banner-to-a-tab nudge this used to be.
+ * Reuses the same PROFILE_PAGES field set and save path as the Profile
+ * tab above (buildProfileFormInto/populateProfileFields/
+ * collectProfilePayload/saveProfilePayload) — a different *sequence* over
+ * the identical data, not a second data model.
+ *
+ * Deliberately does NOT write profiles.onboarding_completed: that flag
+ * also gates the desktop hosted wizard's own "Finish hosted setup" step
+ * (HostedReadinessStep.tsx), which additionally requires an inbox
+ * connection this walkthrough doesn't collect (out of scope here — see
+ * docs/web-onboarding-hosted-sync-plan.md). Finishing this walkthrough
+ * only means "don't show it again this session," tracked the same
+ * once-per-session way setupPromptShown already worked before. */
+
+const setupPanel = document.getElementById("setup-panel");
+const setupProgressLabel = document.getElementById("setup-progress-label");
+const setupProgressFill = document.getElementById("setup-progress-fill");
+const SETUP_STEP_ORDER = ["profile", "email", "resume", "finish"];
+const setupStepEls = {
+  profile: document.getElementById("setup-step-profile"),
+  email: document.getElementById("setup-step-email"),
+  resume: document.getElementById("setup-step-resume"),
+  finish: document.getElementById("setup-step-finish"),
+};
+const setupProfileFields = document.getElementById("setup-profile-fields");
+const setupProfileMessage = document.getElementById("setup-profile-message");
+const setupEmailInput = document.getElementById("setup-email-input");
+const setupEmailMessage = document.getElementById("setup-email-message");
+const setupResumeInput = document.getElementById("setup-resume-input");
+const setupResumeChoose = document.getElementById("setup-resume-choose");
+const setupResumeMessage = document.getElementById("setup-resume-message");
+const setupChecklist = document.getElementById("setup-checklist");
+
+buildProfileFormInto(setupProfileFields, "setup-field-");
+
+// Tracked locally rather than read back from myState.profile at checklist
+// time — myState only refreshes on the next Realtime tick or an explicit
+// loadAndRenderActivity() call, neither of which happens between a step
+// save and viewing the finish step's checklist a few seconds later.
+let setupProfileFilled = false;
+
+function showSetupStep(step) {
+  setupStepEls[step].hidden = false;
+  SETUP_STEP_ORDER.filter((key) => key !== step).forEach((key) => {
+    setupStepEls[key].hidden = true;
+  });
+  const index = SETUP_STEP_ORDER.indexOf(step);
+  setupProgressLabel.textContent = `Step ${index + 1} of ${SETUP_STEP_ORDER.length}`;
+  setupProgressFill.style.width = `${((index + 1) / SETUP_STEP_ORDER.length) * 100}%`;
+}
+
+/** Shown for a brand-new signup instead of the dashboard, once per
+ *  session — same "has this account entered anything" check
+ *  ImportOrFreshStep.tsx (and the banner this replaced) already used. */
+function updateSetupGate() {
+  if (myState.profile?.first_name) {
+    setupPanel.hidden = true;
+    return;
+  }
+  if (setupPromptShown) return; // already shown (or finished/dismissed) this session
+  setupPromptShown = true;
+  populateProfileFields(setupProfileFields, myState.profile ?? {});
+  setupEmailInput.value = myState.profile?.email ?? "";
+  showSetupStep("profile");
+  dashboardPanel.hidden = true;
+  setupPanel.hidden = false;
+}
+
+document.getElementById("setup-profile-continue").addEventListener("click", async function saveSetupProfile() {
+  if (!currentUserId) return;
+  this.disabled = true;
+  setupProfileMessage.textContent = "Saving…";
+  setupProfileMessage.classList.remove("is-error");
+  try {
+    const payload = collectProfilePayload(setupProfileFields, currentUserId);
+    await saveProfilePayload(payload);
+    setupProfileFilled = Boolean(payload.first_name && payload.last_name);
+    setupEmailInput.value = payload.email || "";
+    setupProfileMessage.textContent = "";
+    showSetupStep("email");
+  } catch (err) {
+    setupProfileMessage.textContent = err?.message ?? "Couldn't save. Try again.";
+    setupProfileMessage.classList.add("is-error");
+  } finally {
+    this.disabled = false;
+  }
+});
+
+document.getElementById("setup-email-back").addEventListener("click", () => showSetupStep("profile"));
+
+document.getElementById("setup-email-continue").addEventListener("click", async function saveSetupEmail() {
+  if (!currentUserId) return;
+  this.disabled = true;
+  setupEmailMessage.textContent = "Saving…";
+  setupEmailMessage.classList.remove("is-error");
+  try {
+    await saveProfilePayload({ user_id: currentUserId, email: setupEmailInput.value.trim() });
+    setupEmailMessage.textContent = "";
+    showSetupStep("resume");
+  } catch (err) {
+    setupEmailMessage.textContent = err?.message ?? "Couldn't save. Try again.";
+    setupEmailMessage.classList.add("is-error");
+  } finally {
+    this.disabled = false;
+  }
+});
+
+document.getElementById("setup-resume-back").addEventListener("click", () => showSetupStep("email"));
+
+setupResumeChoose.addEventListener("click", () => setupResumeInput.click());
+
+setupResumeInput.addEventListener("change", async () => {
+  const file = setupResumeInput.files?.[0];
+  if (!file || !currentUserId) return;
+  setupResumeChoose.disabled = true;
+  setupResumeMessage.textContent = "Uploading…";
+  setupResumeMessage.classList.remove("is-error");
+  try {
+    const { error } = await supabase.storage.from("resumes").upload(`${currentUserId}/${file.name}`, file, { upsert: true });
+    if (error) throw error;
+    setupResumeMessage.textContent = `Uploaded ${file.name}.`;
+    setupResumeChoose.textContent = `Replace ${file.name}…`;
+  } catch (err) {
+    setupResumeMessage.textContent = err?.message ?? "Upload failed. Try again.";
+    setupResumeMessage.classList.add("is-error");
+  } finally {
+    setupResumeChoose.disabled = false;
+  }
+});
+
+document.getElementById("setup-resume-continue").addEventListener("click", () => {
+  void renderSetupChecklist();
+  showSetupStep("finish");
+});
+
+document.getElementById("setup-finish-back").addEventListener("click", () => showSetupStep("resume"));
+
+document.getElementById("setup-finish-done").addEventListener("click", () => {
+  setupPanel.hidden = true;
+  dashboardPanel.hidden = false;
+  void loadAndRenderActivity();
+});
+
+function setupChecklistRow(ok, label, detail) {
+  const row = document.createElement("div");
+  row.className = "setup-checklist-row";
+  const icon = document.createElement("span");
+  icon.className = `setup-checklist-icon ${ok ? "setup-checklist-icon-ok" : "setup-checklist-icon-pending"}`;
+  icon.textContent = ok ? "✓" : "–";
+  const text = document.createElement("div");
+  const labelEl = document.createElement("div");
+  labelEl.className = "setup-checklist-label";
+  labelEl.textContent = label;
+  const detailEl = document.createElement("div");
+  detailEl.className = "setup-checklist-detail";
+  detailEl.textContent = detail;
+  text.append(labelEl, detailEl);
+  row.append(icon, text);
+  return row;
+}
+
+/** Resume-presence check — same storage.list()-then-filter-dotfiles logic
+ *  as SupabaseAdapter.readHostedReadiness(), reimplemented here since the
+ *  browser can't import that Node module (see loadMyState's neighboring
+ *  functions for the same constraint elsewhere on this page). */
+async function checkResumeUploaded() {
+  if (!currentUserId) return false;
+  try {
+    const { data, error } = await supabase.storage.from("resumes").list(currentUserId);
+    if (error) throw error;
+    return (data ?? []).some((entry) => entry.name && !entry.name.startsWith("."));
+  } catch {
+    return false;
+  }
+}
+
+async function renderSetupChecklist() {
+  const email = setupEmailInput.value.trim();
+  const resumeUploaded = await checkResumeUploaded();
+  setupChecklist.replaceChildren(
+    setupChecklistRow(
+      setupProfileFilled,
+      "Profile",
+      setupProfileFilled ? "Name, contact, and preferences saved." : "Not filled in yet. Finish it any time from the Profile tab.",
+    ),
+    setupChecklistRow(Boolean(email), "Applying-from email", email || "Not set yet."),
+    setupChecklistRow(
+      resumeUploaded,
+      "Resume",
+      resumeUploaded ? "Uploaded and ready." : "Not uploaded yet. Add one any time from the Profile tab.",
+    ),
+  );
+}

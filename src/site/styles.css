@@ -777,7 +777,7 @@ button {
 /* --- TUI mockup: plain HTML/CSS, not a screenshot — a terminal render
    can't be captured the same way the desktop app's browser-based UI can.
    Colors and labels are the TUI's real ones (src/tui/src/theme.ts's "Aplyx
-   Default" violet accent #8B5CF6; tab names and [x]/[ ] row styling from
+   Default" moss accent #7FAE86; tab names and [x]/[ ] row styling from
    src/tui/src/ui/App.tsx and SearchScreen.tsx) so this reads as an accurate
    likeness rather than an invented mockup. --- */
 .term {
@@ -808,7 +808,7 @@ button {
 }
 
 .term-tab-active {
-  color: #8b5cf6;
+  color: #7fae86;
   font-weight: 700;
 }
 
@@ -843,7 +843,7 @@ button {
   background: linear-gradient(
     100deg,
     transparent 40%,
-    color-mix(in srgb, #8b5cf6 22%, transparent) 50%,
+    color-mix(in srgb, #7fae86 22%, transparent) 50%,
     transparent 60%
   );
   pointer-events: none;
@@ -912,7 +912,7 @@ button {
   height: 1em;
   margin-left: 0.3em;
   vertical-align: -0.15em;
-  background: #8b5cf6;
+  background: #7fae86;
   animation: term-cursor-blink 1s step-end infinite;
 }
 
@@ -1707,11 +1707,11 @@ button {
 /* .feature-badge's default accent tokens are theme-following, tuned for
    a light-in-light-theme surface (same issue as .hero-mockup-chrome
    above) — this panel is unconditionally dark, so it needs its own
-   fixed-dark override. Reuses the violet already used for this
+   fixed-dark override. Reuses the moss green already used for this
    mockup's scan-sweep accent rather than introducing a new hue. */
 .review-panel .feature-badge {
-  background: color-mix(in srgb, #8b5cf6 22%, #16161d);
-  color: #b9a3f5;
+  background: color-mix(in srgb, #7fae86 22%, #16161d);
+  color: #9cc4a1;
 }
 
 .review-panel-count {
@@ -1736,7 +1736,7 @@ button {
   background: linear-gradient(
     100deg,
     transparent 40%,
-    color-mix(in srgb, #8b5cf6 20%, transparent) 50%,
+    color-mix(in srgb, #7fae86 20%, transparent) 50%,
     transparent 60%
   );
   pointer-events: none;
@@ -3438,6 +3438,19 @@ button {
   width: 100%;
 }
 
+.ats-account-form-section {
+  margin: var(--space-6) 0;
+  padding: var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+}
+
+.ats-account-form-section h2 {
+  margin-bottom: var(--space-4);
+  font-size: var(--text-lg);
+}
+
 .account-message {
   min-height: 1.2em;
   margin-top: var(--space-3);
@@ -3785,28 +3798,129 @@ button {
   }
 }
 
-/* Routes a brand-new signup (no profiles row yet) straight to this tab
-   — see account.js's loadAndRenderActivity(). Accent-tinted so it reads
-   as a call-to-action, not another neutral info card like
-   .account-fineprint right below it. */
-.setup-banner {
-  margin-bottom: var(--space-5);
-  padding: var(--space-4) var(--space-5);
-  border-radius: var(--radius-md);
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
-  background: var(--accent-soft);
+/* --- Setup walkthrough (account.html #setup-panel) — shown instead of
+   the dashboard for a brand-new signup (no profiles row yet), in place of
+   the single banner-to-a-tab nudge this replaced. See account.js's
+   updateSetupGate()/showSetupStep(). --- */
+
+#setup-panel {
+  max-width: 30rem;
+  margin: 0 auto;
 }
 
-.setup-banner-title {
-  color: var(--accent);
+.setup-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+}
+
+.setup-progress-label {
+  flex-shrink: 0;
+  color: var(--text-faint);
+  font-size: var(--text-xs);
   font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.setup-progress-bar {
+  flex: 1;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--border);
+  overflow: hidden;
+}
+
+.setup-progress-fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  transition: width var(--duration-normal) var(--ease-out);
+}
+
+.setup-step h2 {
+  margin-bottom: var(--space-2);
+  font-size: var(--text-xl);
+}
+
+/* Each step arrives with the same fade+rise .changelog-entry-in already
+   uses elsewhere on the site — replays automatically every time
+   showSetupStep() toggles a step's `hidden` attribute, since a step
+   re-enters the render tree (display:none -> block) rather than just
+   changing position. */
+.setup-step:not([hidden]) {
+  animation: changelog-entry-in var(--duration-normal) var(--ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .setup-step:not([hidden]) {
+    animation: none;
+  }
+}
+
+.setup-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--border);
+}
+
+.setup-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: var(--space-5) 0;
+}
+
+.setup-checklist-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
   font-size: var(--text-sm);
 }
 
-.setup-banner-body {
-  margin-top: var(--space-1);
+.setup-checklist-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.setup-checklist-icon-ok {
+  background: var(--good-soft);
+  color: var(--good);
+}
+
+.setup-checklist-icon-pending {
+  background: var(--border);
+  color: var(--text-faint);
+}
+
+.setup-checklist-label {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.setup-checklist-detail {
   color: var(--text-muted);
-  font-size: var(--text-sm);
+}
+
+/* The setup panel is narrower than the profile tab's own dashboard-width
+   form (30rem vs. the dashboard's full main column), so its fields always
+   stack label-above-input — the >40rem side-by-side layout below assumes
+   more horizontal room than this panel ever has, regardless of viewport
+   width. */
+.setup-step .profile-form-fields .profile-field {
+  grid-template-columns: 1fr;
+  gap: var(--space-1);
 }
 
 /* Hosted daily-run quota — see account.js's renderUsageBar(). Two

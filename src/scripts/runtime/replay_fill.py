@@ -201,21 +201,39 @@ def try_combobox(page, locator, value):
     (src/agents/bodies/job-scraper.md). No exact match -> leave unfilled rather
     than commit whatever the widget happened to highlight."""
     try:
-        locator.fill(value)
+        tag = (locator.evaluate("el => el.tagName") or "").lower()
+        has_popup = (locator.get_attribute("aria-haspopup") or "").lower() == "listbox"
+    except Exception:
+        tag = ""
+        has_popup = False
+    try:
+        if tag == "button" and has_popup:
+            locator.click()
+        else:
+            locator.fill(value)
     except Exception:
         return False
     target = value.strip().lower()
     deadline = time.monotonic() + 2.0
     while time.monotonic() < deadline:
         try:
-            options = page.get_by_role("option")
-            n = options.count()
-            for i in range(n):
-                opt = options.nth(i)
-                text = (opt.inner_text() or "").strip().lower()
-                if text == target:
-                    opt.click()
-                    return True
+            option_locators = [page.get_by_role("option")]
+            # Some Workday tenants render prompt choices without an ARIA
+            # role, using their stable automation marker instead.
+            option_locators.append(page.locator("[data-automation-id='promptOption']"))
+            for options in option_locators:
+                n = options.count()
+                for i in range(n):
+                    opt = options.nth(i)
+                    try:
+                        if not opt.is_visible():
+                            continue
+                    except Exception:
+                        pass
+                    text = (opt.inner_text() or "").strip().lower()
+                    if text == target:
+                        opt.click()
+                        return True
         except Exception:
             pass
         time.sleep(0.2)
@@ -225,10 +243,32 @@ def try_combobox(page, locator, value):
     # prevent; a reviewer glancing at the browser must never mistake
     # "unmatched" for "filled".
     try:
-        locator.fill("")
+        if tag == "button" and has_popup:
+            locator.press("Escape")
+        else:
+            locator.fill("")
     except Exception:
         pass
     return False
+
+
+def select_workday_listbox(page, selector, value, option_page=None):
+    """Open a Workday ``button[aria-haspopup="listbox"]`` dropdown located
+    by CSS selector (e.g. ``'button[name="degree"]'``) and pick the option
+    whose visible text matches *value* exactly (case-insensitive, trimmed).
+    Returns True on an exact match, False when the button is absent or no
+    option matches — never commits a highlighted-but-unmatched option, same
+    no-guessing rule as ``try_combobox``."""
+    try:
+        loc = page.locator(selector)
+        if loc.count() < 1:
+            return False
+    except Exception:
+        return False
+    # Workday commonly portals the opened menu under document.body, outside
+    # the entry panel that contains the trigger. Keep the trigger scoped to
+    # its entry, but search for the visible option from the owning page.
+    return try_combobox(option_page or page, loc.first, value)
 
 
 def fill_field(page, field_name, value):
@@ -258,7 +298,12 @@ def fill_field(page, field_name, value):
             aria_expanded = locator.evaluate("el => el.getAttribute('aria-expanded')") or ""
         except Exception:
             pass
-        if role in ("combobox", "listbox") or aria_expanded != "" or tag == "input" and role == "combobox":
+        aria_haspopup = ""
+        try:
+            aria_haspopup = locator.get_attribute("aria-haspopup") or ""
+        except Exception:
+            pass
+        if role in ("combobox", "listbox") or aria_expanded != "" or aria_haspopup.lower() == "listbox" or tag == "input" and role == "combobox":
             ok = try_combobox(page, locator, value)
             return ("filled", "") if ok else ("unmatched", f"no exact dropdown option for '{value}'")
         locator.fill(value)

@@ -103,6 +103,59 @@
           <p class="account-fineprint">Free account &mdash; no card, no coding agent required. Search cached postings from Ashby, Lever, Greenhouse, and SmartRecruiters boards. For tailoring, review, and applying, <a class="link" href="install.html">install aplyx locally</a> instead.</p>
         </div>
 
+        <div id="setup-panel" class="account-panel account-setup" hidden>
+          <div class="setup-progress">
+            <span id="setup-progress-label" class="setup-progress-label">Step 1 of 4</span>
+            <div class="setup-progress-bar"><div id="setup-progress-fill" class="setup-progress-fill"></div></div>
+          </div>
+
+          <div id="setup-step-profile" class="setup-step">
+            <h2>Tell us about you</h2>
+            <p class="account-fineprint">Saved as you go. A desktop-app or TUI install signing into this same account finds it waiting, no re-entering everything from scratch.</p>
+            <div id="setup-profile-fields" class="profile-form-fields"></div>
+            <p id="setup-profile-message" class="account-message" role="status"></p>
+            <div class="setup-actions">
+              <button type="button" class="btn btn-primary" id="setup-profile-continue">Continue</button>
+            </div>
+          </div>
+
+          <div id="setup-step-email" class="setup-step" hidden>
+            <h2>Confirm your applying-from email</h2>
+            <p class="account-fineprint">This is the address employers will see applications come from, and reply to.</p>
+            <label class="account-field">
+              <span>Email applications are sent from</span>
+              <input type="email" id="setup-email-input" placeholder="you@example.com" />
+            </label>
+            <p id="setup-email-message" class="account-message" role="status"></p>
+            <div class="setup-actions">
+              <button type="button" class="btn btn-secondary" id="setup-email-back">Back</button>
+              <button type="button" class="btn btn-primary" id="setup-email-continue">Continue</button>
+            </div>
+          </div>
+
+          <div id="setup-step-resume" class="setup-step" hidden>
+            <h2>Upload a resume</h2>
+            <p class="account-fineprint">PDFs work best, and this step is optional. You can add or replace one any time from the Profile tab.</p>
+            <input type="file" id="setup-resume-input" accept="application/pdf" hidden />
+            <button type="button" class="btn btn-secondary" id="setup-resume-choose">Choose a PDF&hellip;</button>
+            <p id="setup-resume-message" class="account-message" role="status"></p>
+            <div class="setup-actions">
+              <button type="button" class="btn btn-secondary" id="setup-resume-back">Back</button>
+              <button type="button" class="btn btn-primary" id="setup-resume-continue">Continue</button>
+            </div>
+          </div>
+
+          <div id="setup-step-finish" class="setup-step" hidden>
+            <h2>You&rsquo;re set</h2>
+            <div id="setup-checklist" class="setup-checklist"></div>
+            <p class="account-fineprint">Everything above already lives in your account. Sign into the desktop app or TUI with the same email and it&rsquo;s there waiting.</p>
+            <div class="setup-actions">
+              <button type="button" class="btn btn-secondary" id="setup-finish-back">Back</button>
+              <button type="button" class="btn btn-primary" id="setup-finish-done">Go to dashboard</button>
+            </div>
+          </div>
+        </div>
+
         <div id="dashboard-panel" class="account-panel account-dashboard" hidden>
           <aside class="dashboard-sidebar">
             <div class="dashboard-sidebar-identity">
@@ -123,6 +176,10 @@
               <button type="button" class="dashboard-nav-item" data-dashboard-tab="profile" role="tab" aria-selected="false">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.5-6.5 8-6.5s8 2.5 8 6.5" /></svg>
                 Profile
+              </button>
+              <button type="button" class="dashboard-nav-item" data-dashboard-tab="ats-accounts" role="tab" aria-selected="false">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M7 9h10M7 13h6" /></svg>
+                ATS accounts
               </button>
               <button type="button" class="dashboard-nav-item" data-dashboard-tab="search" role="tab" aria-selected="false">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
@@ -161,10 +218,6 @@
             </div>
 
             <div id="dashboard-tab-profile" class="dashboard-tab-panel" hidden>
-              <div id="setup-banner" class="setup-banner" hidden>
-                <p class="setup-banner-title">Finish setting up before you install</p>
-                <p class="setup-banner-body">Fill this in now and the app will find it waiting for you &mdash; sign in during setup and it imports straight in, no re-entering everything from scratch.</p>
-              </div>
               <p class="account-fineprint">Also live &mdash; saved here, it's what a fresh desktop-app or TUI install signing into this account can import instead of re-entering everything (or a returning install just sees the same values, kept in sync). This info is used for job applications and can be changed any time.</p>
               <form id="profile-form">
                 <div id="profile-form-fields" class="profile-form-fields"></div>
@@ -173,6 +226,39 @@
                   <span id="profile-message" class="account-message" role="status"></span>
                 </div>
               </form>
+            </div>
+
+            <div id="dashboard-tab-ats-accounts" class="dashboard-tab-panel" hidden>
+              <p class="account-fineprint">ATS credentials are stored in the online vault and follow your signed-in account across the website and desktop app. Passwords are never shown here.</p>
+              <section class="ats-account-form-section">
+                <h2>Connect a Workday account</h2>
+                <form id="ats-account-form" class="profile-form-fields">
+                  <label class="account-field profile-field">
+                    <span>Workday tenant hostname</span>
+                    <input type="text" id="ats-tenant" required placeholder="expedia.wd108.myworkdayjobs.com" autocomplete="organization" />
+                  </label>
+                  <label class="account-field profile-field">
+                    <span>Company name</span>
+                    <input type="text" id="ats-company" required placeholder="Expedia Group" autocomplete="organization" />
+                  </label>
+                  <label class="account-field profile-field">
+                    <span>Workday account email</span>
+                    <input type="email" id="ats-username" required autocomplete="username" />
+                  </label>
+                  <label class="account-field profile-field">
+                    <span>Workday password</span>
+                    <input type="password" id="ats-password" required autocomplete="new-password" />
+                  </label>
+                  <div class="profile-form-actions">
+                    <button type="submit" class="btn btn-primary" id="ats-account-save">Save to online vault</button>
+                    <span id="ats-account-message" class="account-message" role="status"></span>
+                  </div>
+                </form>
+              </section>
+              <section class="activity-section">
+                <h2>Stored accounts</h2>
+                <div id="ats-accounts-list" class="activity-list" aria-live="polite"></div>
+              </section>
             </div>
 
             <div id="dashboard-tab-search" class="dashboard-tab-panel" hidden>

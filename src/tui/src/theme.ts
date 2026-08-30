@@ -61,9 +61,15 @@ interface Palette {
   glow: string;
 }
 
+// Moss — the same identity src/tauri/src/styles/tokens.css carries (accent
+// here is that file's dark-mode --accent hex verbatim, rule its light-mode
+// --accent used as the dimmer tone), replacing an earlier violet/purple
+// palette for the same reason tokens.css's own header documents: a
+// violet→purple gradient reads as generic "AI product," not this app's
+// actual identity. Forest green in place of that gradient.
 const APLYX_DEFAULT_PALETTE: Palette = {
-  accent: "#8B5CF6", // violet — active tab, selection, titles
-  rule: "#6D28D9", // dim violet — header/footer rules only
+  accent: "#7FAE86", // moss — active tab, selection, titles
+  rule: "#3F6B4A", // deeper forest — header/footer rules only
   good: "green",
   warn: "yellow",
   danger: "red",
@@ -113,9 +119,10 @@ const MINT_FROST_PALETTE: Palette = {
 };
 
 // Dark-terminal assumption like Aplyx Default/Ember Dusk above (named ANSI
-// good/warn/danger are fine there) — true green in place of violet/amber,
-// the terminal counterpart to the desktop app's "Volt Noir" theme family
-// (src/tauri/src/styles/tokens.css). Corrected on explicit feedback: the
+// good/warn/danger are fine there) — a saturated neon green, "noir" in the
+// sense of near-black anchors rather than Aplyx Default's softer, muted
+// moss/honey/clay materials palette; the two stay distinct dark-green
+// options rather than duplicates. Corrected on explicit feedback: the
 // first pass's #B6FF3C leaned yellow (hue ~82°); this is a real green
 // (hue ~117°). rule uses a dimmer, more forest-toned green than accent —
 // same "bright accent, muted rule" relationship every dark palette here
@@ -313,17 +320,20 @@ export const BANNER_ROWS = [
   "╚═╝  ╚═╝╚═╝     ╚══════╝╚═╝   ╚═╝  ╚═╝",
 ] as const;
 
+// Moss's own three materials (moss, honey, clay — tokens.css's --accent/
+// --accent-2/--accent-3, dark-mode hexes) fading into a deep forest anchor,
+// replacing the old violet→purple→plum→maroon run for the same reason the
+// palette above changed.
 export const BANNER_GRADIENT_APLYX_DEFAULT = [
-  "#A78BFA", // violet
-  "#9265F0",
-  "#7C3AED",
-  "#7E22CE", // purple
-  "#8B1E5B", // plum
-  "#800020", // maroon
+  "#C3E4C7", // pale moss
+  "#7FAE86", // moss — same hex as APLYX_DEFAULT_PALETTE.accent
+  "#D9A24E", // honey
+  "#CB8163", // clay
+  "#2E5539", // deep forest
 ] as const;
 
 // Cloud Surf's own identity: a light blue → (near-)white fade, matching
-// its blue accent above rather than Aplyx Default's violet — a
+// its blue accent above rather than Aplyx Default's moss/honey/clay — a
 // deliberate departure from "same hue, different shade" so each theme
 // reads as genuinely its own rather than a recolor of one base. The
 // bottom stop (blue-100) is close enough to white to visibly fade

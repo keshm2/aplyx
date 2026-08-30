@@ -1,0 +1,93 @@
+{
+  "version": "5",
+  "specifiers": {
+    "jsr:@std/assert@1": "1.0.19",
+    "jsr:@std/internal@^1.0.12": "1.0.14"
+  },
+  "jsr": {
+    "@std/assert@1.0.19": {
+      "integrity": "eaada96ee120cb980bc47e040f82814d786fe8162ecc53c91d8df60b8755991e",
+      "dependencies": [
+        "jsr:@std/internal"
+      ]
+    },
+    "@std/internal@1.0.14": {
+      "integrity": "291516b3d4c35024d6ffbc0a9df5bf4c64116e05b50012cf846710152d2ffdf7"
+    }
+  },
+  "workspace": {
+    "packageJson": {
+      "overrides": {
+        "postcss": "^8.5.25",
+        "sharp": "^0.35.3"
+      }
+    },
+    "members": {
+      "src/core": {
+        "packageJson": {
+          "dependencies": [
+            "npm:@supabase/supabase-js@^2.45.0",
+            "npm:@types/node@22",
+            "npm:typescript@^5.5.0"
+          ]
+        }
+      },
+      "src/extension": {
+        "packageJson": {
+          "dependencies": [
+            "npm:@types/chrome@^0.0.268",
+            "npm:esbuild@0.23",
+            "npm:typescript@^5.5.0"
+          ]
+        }
+      },
+      "src/tauri": {
+        "packageJson": {
+          "dependencies": [
+            "npm:@fontsource-variable/atkinson-hyperlegible-next@^5.3.0",
+            "npm:@fontsource-variable/ibm-plex-sans@^5.3.0",
+            "npm:@fontsource-variable/inter@^5.3.0",
+            "npm:@fontsource-variable/manrope@^5.3.0",
+            "npm:@fontsource/ibm-plex-mono@^5.3.0",
+            "npm:@supabase/supabase-js@^2.45.0",
+            "npm:@tauri-apps/api@2",
+            "npm:@tauri-apps/cli@2",
+            "npm:@tauri-apps/plugin-deep-link@2",
+            "npm:@tauri-apps/plugin-dialog@2",
+            "npm:@tauri-apps/plugin-opener@2",
+            "npm:@types/react-dom@^19.1.6",
+            "npm:@types/react@^19.1.8",
+            "npm:@vitejs/plugin-react@^4.6.0",
+            "npm:geist@^1.7.2",
+            "npm:react-dom@^19.1.0",
+            "npm:react-router-dom@^7.18.0",
+            "npm:react@^19.1.0",
+            "npm:typescript@~5.8.3",
+            "npm:vite@^7.0.4"
+          ]
+        }
+      },
+      "src/tui": {
+        "packageJson": {
+          "dependencies": [
+            "npm:@types/node@22",
+            "npm:@types/react@^18.3.3",
+            "npm:esbuild@0.24",
+            "npm:ink@^5.0.1",
+            "npm:react@^18.3.1",
+            "npm:typescript@^5.5.0"
+          ]
+        }
+      },
+      "src/worker": {
+        "packageJson": {
+          "dependencies": [
+            "npm:@supabase/supabase-js@^2.45.0",
+            "npm:@types/node@22",
+            "npm:typescript@^5.5.0"
+          ]
+        }
+      }
+    }
+  }
+}

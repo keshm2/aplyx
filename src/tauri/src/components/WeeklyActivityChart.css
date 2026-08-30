@@ -4,10 +4,10 @@
  * Catmull-Rom curve instead of straight segments between points, an
  * animated draw-in, a hover crosshair+tooltip, and recessive gridlines.
  * Uses this app's own accent tokens (not a separate chart palette) so it
- * follows Prism's light/dark mode automatically — the area/line now paint
- * through a 3-stop gradient (violet/cyan/magenta, defined below and
+ * follows Moss's light/dark mode automatically — the area/line now paint
+ * through a 3-stop gradient (moss/honey/clay, defined below and
  * referenced from the <linearGradient> in WeeklyActivityChart.tsx)
- * instead of a flat single accent, matching Prism's actual identity.
+ * instead of a flat single accent, matching Moss's actual identity.
  */
 
 .activity-chart {

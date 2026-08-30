@@ -6,6 +6,7 @@
 // logic the Ink TUI already uses. Hosted mode bypasses this entirely: the
 // frontend talks to Supabase directly via @supabase/supabase-js.
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
@@ -15,6 +16,8 @@ use std::sync::{mpsc, Arc, Mutex, OnceLock};
 use std::time::Duration;
 use tauri::path::BaseDirectory;
 use tauri::{Emitter, Manager};
+
+const WORKDAY_KEYCHAIN_SERVICE: &str = "com.aplyx.workday";
 
 /// Resolves the bridge script for both a packaged/installed build and a
 /// local `tauri dev` checkout.
@@ -889,6 +892,15 @@ fn import_resume_file(app: tauri::AppHandle, root: String, source_path: String, 
 }
 
 #[tauri::command]
+fn import_resume_bytes(app: tauri::AppHandle, root: String, stem: String, base64: String) -> Result<Value, String> {
+    run_bridge(
+        &app,
+        "importResumeBytes",
+        Some(serde_json::json!({ "root": root, "stem": stem, "base64": base64 })),
+    )
+}
+
+#[tauri::command]
 fn open_extension_folder(app: tauri::AppHandle, root: String) -> Result<Value, String> {
     run_bridge(&app, "openExtensionFolder", Some(serde_json::json!({ "root": root })))
 }
@@ -1119,11 +1131,44 @@ async fn trigger_single_job_apply(app: tauri::AppHandle, root: String, job: Valu
 #[tauri::command]
 async fn approve_submit(app: tauri::AppHandle, root: String, entry: Value, workday: Option<Value>) -> Result<Value, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        run_bridge(
+        let job_id = entry.get("job_id").and_then(Value::as_str).unwrap_or("workday").to_string();
+        let host = workday_host_from_entry(&entry);
+        let mut credential_file: Option<PathBuf> = None;
+        let mut credential_error: Option<String> = None;
+        let safe_workday = workday.map(|mut value| {
+            if let Some(object) = value.as_object_mut() {
+                // Verification credentials must arrive through the transient
+                // file path only; never forward legacy raw fields to Node.
+                object.remove("verificationLink");
+                object.remove("verificationOtp");
+                if let (Some(host), Some(email)) = (host.as_deref(), object.get("accountEmail").and_then(Value::as_str)) {
+                    match read_workday_keychain_password(host, email) {
+                        Ok(Some(password)) => match write_workday_credential_file(&root, &job_id, &password) {
+                            Ok(path) => {
+                                object.insert("credentialFile".to_string(), Value::String(path.to_string_lossy().into_owned()));
+                                credential_file = Some(path);
+                            }
+                            Err(error) => credential_error = Some(error),
+                        },
+                        Ok(None) => {}
+                        Err(error) => credential_error = Some(error),
+                    }
+                }
+            }
+            value
+        });
+        if let Some(error) = credential_error {
+            return Err(error);
+        }
+        let result = run_bridge(
             &app,
             "approveSubmit",
-            Some(serde_json::json!({ "root": root, "entry": entry, "workday": workday })),
-        )
+            Some(serde_json::json!({ "root": root, "entry": entry, "workday": safe_workday })),
+        );
+        if let Some(path) = credential_file {
+            let _ = std::fs::remove_file(path);
+        }
+        result
     })
     .await
     .unwrap_or_else(|e| Err(format!("approve task panicked: {e}")))
@@ -1145,6 +1190,187 @@ fn read_workday_checkpoint(app: tauri::AppHandle, root: String, job_id: String) 
         "readWorkdayCheckpoint",
         Some(serde_json::json!({ "root": root, "jobId": job_id })),
     )
+}
+
+// Writes a one-time verification secret (consumed from a hosted verification
+// session) directly from Rust so the raw value never crosses the Node bridge
+// as JSON argv. The Workday runtime reads the resulting 0600 file.
+#[tauri::command]
+fn write_session_secret_file(_app: tauri::AppHandle, root: String, job_id: String, secret: Value) -> Result<Value, String> {
+    if job_id.is_empty() || !job_id.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | ':' | '-')) {
+        return Err(format!("writeSessionSecretFile: unexpected job id {job_id:?}"));
+    }
+    let link = secret.get("link").and_then(Value::as_str).filter(|v| !v.is_empty());
+    let otp = secret.get("otp").and_then(Value::as_str).filter(|v| !v.is_empty());
+    if link.is_none() && otp.is_none() {
+        return Err("writeSessionSecretFile requires { secret: { link?, otp? } } with at least one value".to_string());
+    }
+    let dir = PathBuf::from(root).join("logs").join("tmp");
+    std::fs::create_dir_all(&dir).map_err(|e| format!("could not create session secret directory: {e}"))?;
+    let path = dir.join(format!("session_secret_{job_id}.json"));
+    let payload = serde_json::json!({ "link": link, "otp": otp }).to_string();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+        let mut options = std::fs::OpenOptions::new();
+        options.create(true).truncate(true).write(true).mode(0o600);
+        let mut file = options.open(&path).map_err(|e| format!("could not open session secret file: {e}"))?;
+        file.write_all(payload.as_bytes()).map_err(|e| format!("could not write session secret file: {e}"))?;
+        file.sync_all().map_err(|e| format!("could not flush session secret file: {e}"))?;
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).ok();
+    }
+    #[cfg(not(unix))]
+    {
+        std::fs::write(&path, payload).map_err(|e| format!("could not write session secret file: {e}"))?;
+    }
+    Ok(serde_json::json!({ "path": path }))
+}
+
+fn workday_credential_account(host: &str, email: &str) -> Result<(String, String, String), String> {
+    let host = host.trim().to_ascii_lowercase();
+    if !host.ends_with(".myworkdayjobs.com")
+        || host.len() <= ".myworkdayjobs.com".len()
+        || !host.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-'))
+    {
+        return Err("Workday tenant must be a hostname ending in .myworkdayjobs.com".to_string());
+    }
+    let email = email.trim().to_ascii_lowercase();
+    if email.is_empty() || email.chars().any(|c| c.is_ascii_whitespace() || c == '\n' || c == '\r') || !email.contains('@') {
+        return Err("Workday account email is invalid".to_string());
+    }
+    Ok((host.clone(), email.clone(), format!("{host}|{email}")))
+}
+
+fn workday_keychain_entry(host: &str, email: &str) -> Result<keyring::Entry, String> {
+    let (_, _, account) = workday_credential_account(host, email)?;
+    keyring::Entry::new(WORKDAY_KEYCHAIN_SERVICE, &account)
+        .map_err(|e| format!("could not access the macOS Keychain: {e}"))
+}
+
+fn workday_sidecar_key(host: &str, email: &str) -> Result<String, String> {
+    let (host, email, _) = workday_credential_account(host, email)?;
+    let raw = format!("{}@{}", email.to_ascii_lowercase(), host.to_ascii_lowercase());
+    let digest = Sha256::digest(raw.as_bytes());
+    Ok(format!("{:x}", digest)[..16].to_string())
+}
+
+fn read_workday_keychain_password(host: &str, email: &str) -> Result<Option<String>, String> {
+    let entry = workday_keychain_entry(host, email)?;
+    match entry.get_password() {
+        Ok(password) if !password.is_empty() => Ok(Some(password)),
+        Ok(_) => Ok(None),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(e) => Err(format!("could not read the Workday credential from the macOS Keychain: {e}")),
+    }
+}
+
+#[tauri::command]
+fn save_workday_credential(host: String, email: String, password: String) -> Result<Value, String> {
+    let (host, email, _) = workday_credential_account(&host, &email)?;
+    if password.is_empty() || password.chars().any(|c| c == '\n' || c == '\r') {
+        return Err("Workday password must be non-empty and single-line".to_string());
+    }
+    workday_keychain_entry(&host, &email)?
+        .set_password(&password)
+        .map_err(|e| format!("could not save the Workday credential to the macOS Keychain: {e}"))?;
+    Ok(serde_json::json!({ "host": host, "email": email, "stored": true }))
+}
+
+#[tauri::command]
+fn workday_credential_status(host: String, email: String) -> Result<Value, String> {
+    let (host, email, _) = workday_credential_account(&host, &email)?;
+    Ok(serde_json::json!({ "host": host, "email": email, "stored": read_workday_keychain_password(&host, &email)?.is_some() }))
+}
+
+// Explicit user action only: this is the migration path from an older
+// device-local Keychain entry into the hosted ATS-account Vault. The raw
+// password is returned over Tauri IPC only to the current renderer and is
+// never logged, written to disk, or passed through the process argv.
+#[tauri::command]
+fn read_workday_credential(host: String, email: String) -> Result<Value, String> {
+    let (host, email, _) = workday_credential_account(&host, &email)?;
+    let password = read_workday_keychain_password(&host, &email)?
+        .ok_or("no Workday credential is stored on this device")?;
+    Ok(serde_json::json!({ "host": host, "email": email, "password": password, "stored": true }))
+}
+
+#[tauri::command]
+fn delete_workday_credential(host: String, email: String) -> Result<Value, String> {
+    let (host, email, _) = workday_credential_account(&host, &email)?;
+    let entry = workday_keychain_entry(&host, &email)?;
+    match entry.delete_credential() {
+        Ok(()) | Err(keyring::Error::NoEntry) => Ok(serde_json::json!({ "host": host, "email": email, "stored": false })),
+        Err(e) => Err(format!("could not delete the Workday credential from the macOS Keychain: {e}")),
+    }
+}
+
+#[tauri::command]
+fn import_workday_credential(root: String, host: String, email: String) -> Result<Value, String> {
+    let (host, email, _) = workday_credential_account(&host, &email)?;
+    let filename = format!("{}.json", workday_sidecar_key(&host, &email)?);
+    let mut pending = vec![
+        PathBuf::from(&root).join("data").join("workday_apply_runs"),
+        PathBuf::from(&root).join("logs").join("tmp"),
+    ];
+    let mut sidecar: Option<PathBuf> = None;
+    while let Some(dir) = pending.pop() {
+        let entries = match std::fs::read_dir(&dir) {
+            Ok(entries) => entries,
+            Err(_) => continue,
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                pending.push(path);
+            } else if path.file_name().and_then(|name| name.to_str()) == Some(filename.as_str())
+                && path.parent().and_then(|parent| parent.file_name()).and_then(|name| name.to_str()) == Some(".secrets")
+            {
+                sidecar = Some(path);
+                break;
+            }
+        }
+        if sidecar.is_some() {
+            break;
+        }
+    }
+    let path = sidecar.ok_or("no existing local Workday credential was found")?;
+    let raw = std::fs::read_to_string(&path).map_err(|e| format!("could not read the existing Workday credential: {e}"))?;
+    let secret: Value = serde_json::from_str(&raw).map_err(|_| "existing Workday credential is not valid JSON".to_string())?;
+    let password = secret.get("password").and_then(Value::as_str).filter(|value| !value.is_empty()).ok_or("existing Workday credential has no password")?;
+    workday_keychain_entry(&host, &email)?.set_password(password).map_err(|e| format!("could not import the Workday credential into the macOS Keychain: {e}"))?;
+    std::fs::remove_file(&path).map_err(|e| format!("credential imported, but the old local sidecar could not be removed: {e}"))?;
+    Ok(serde_json::json!({ "host": host, "email": email, "stored": true }))
+}
+
+fn workday_host_from_entry(entry: &Value) -> Option<String> {
+    let target = entry.get("apply_url").and_then(Value::as_str).or_else(|| entry.get("url").and_then(Value::as_str))?;
+    let host = target.split("//").nth(1)?.split('/').next()?.split(':').next()?;
+    workday_credential_account(host, "placeholder@example.com").ok().map(|(host, _, _)| host)
+}
+
+fn write_workday_credential_file(root: &str, job_id: &str, password: &str) -> Result<PathBuf, String> {
+    if job_id.is_empty() || !job_id.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | ':' | '-')) {
+        return Err(format!("unexpected Workday job id {job_id:?}"));
+    }
+    let dir = PathBuf::from(root).join("logs").join("tmp");
+    std::fs::create_dir_all(&dir).map_err(|e| format!("could not create Workday credential directory: {e}"))?;
+    let path = dir.join(format!("workday_credential_{job_id}.json"));
+    let payload = serde_json::json!({ "password": password }).to_string();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+        let mut options = std::fs::OpenOptions::new();
+        options.create(true).truncate(true).write(true).mode(0o600);
+        let mut file = options.open(&path).map_err(|e| format!("could not open Workday credential handoff: {e}"))?;
+        file.write_all(payload.as_bytes()).map_err(|e| format!("could not write Workday credential handoff: {e}"))?;
+        file.sync_all().map_err(|e| format!("could not flush Workday credential handoff: {e}"))?;
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).ok();
+    }
+    #[cfg(not(unix))]
+    {
+        std::fs::write(&path, payload).map_err(|e| format!("could not write Workday credential handoff: {e}"))?;
+    }
+    Ok(path)
 }
 
 #[tauri::command]
@@ -1213,6 +1439,7 @@ pub fn run() {
             convert_resume,
             set_resume_description,
             import_resume_file,
+            import_resume_bytes,
             open_extension_folder,
             search_jobs,
             check_job_fit,
@@ -1229,6 +1456,12 @@ pub fn run() {
             approve_submit,
             read_screenshot,
             read_workday_checkpoint,
+            write_session_secret_file,
+            save_workday_credential,
+            workday_credential_status,
+            read_workday_credential,
+            delete_workday_credential,
+            import_workday_credential,
             list_resume_details,
             open_resumes_folder,
             get_master_resume,

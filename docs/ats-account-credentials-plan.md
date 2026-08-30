@@ -371,13 +371,13 @@ Password reset must not silently happen because a status check failed.
 
 ## Local Install Strategy
 
-Hosted accounts use Supabase Vault. Local installs must use the operating system credential manager:
+Supabase Vault is the canonical credential store for both hosted sessions and signed-in local installs, so an ATS account follows the user across devices. A local install may keep an explicit, per-device cache in the operating system credential manager for offline/local Workday execution:
 
 - macOS Keychain
 - Windows Credential Manager
 - Linux Secret Service
 
-Local checkpoints may contain an opaque credential key but never the credential. If an OS credential store is unavailable, the flow must stop with `needs_review`; plaintext JSON is not an allowed fallback.
+The cache is never the source of truth and is populated only after an explicit user action from the ATS Accounts screen. Local checkpoints may contain an opaque credential key but never the credential. If an OS credential store is unavailable, the local flow must stop with `needs_review`; plaintext JSON is not an allowed fallback.
 
 ## Proposed Migration Sequence
 
@@ -390,7 +390,7 @@ Local checkpoints may contain an opaque credential key but never the credential.
 7. Add ATS registry account-identity and tenant-key support.
 8. Add user account-management UI.
 9. Add just-in-time status-tracking credential access.
-10. Add local OS-keychain support.
+10. Add the explicit local-device cache for signed-in Vault accounts.
 11. Enable on a controlled test account.
 12. Run security, browser, and recovery tests before broader rollout.
 

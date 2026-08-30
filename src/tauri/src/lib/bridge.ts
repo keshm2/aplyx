@@ -254,6 +254,15 @@ export async function importResumeFile(root: string, sourcePath: string, stem: s
   await invoke("import_resume_file", { root, sourcePath, stem });
 }
 
+/** Counterpart to importResumeFile above for a resume that only exists as
+ *  downloaded bytes (Supabase Storage), not a path already on this
+ *  machine — the hosted-to-local profile pull's resume step. `base64` is
+ *  the whole PDF, base64-encoded (Tauri's invoke IPC round-trips JSON, no
+ *  binary payload type). */
+export async function importResumeBytes(root: string, stem: string, base64: string): Promise<{ ok: boolean; path: string }> {
+  return invoke("import_resume_bytes", { root, stem, base64 });
+}
+
 export async function convertResume(root: string, stem: string, description = "", force = false): Promise<{ ok: boolean; error?: string }> {
   return invoke("convert_resume", { root, stem, description, force });
 }
@@ -332,10 +341,18 @@ export async function reopenApplicationFilled(root: string, jobId: string): Prom
  *  paused and mark consumed verification mails. Other families populate
  *  only ok/message (and confirmationUrl on a real submit). */
 export interface WorkdayApprovalContext {
-  aliasEmail: string;
+  aliasEmail?: string;
   aliasId?: string;
-  verificationLink?: string;
-  verificationOtp?: string;
+  /** Personal candidate email from a connected/verified Gmail profile or
+   *  verification session (docs/workday-personal-inbox-plan.md). Preferred
+   *  over aliasEmail. Exactly one of accountEmail/aliasEmail must be set. */
+  accountEmail?: string;
+  /** Path to a JSON file {"link":...,"otp":...} holding a one-time
+   *  verification secret consumed from a verification session. Keeps the
+   *  raw value out of argv/logs. */
+  sessionSecretFile?: string;
+  /** Internal short-lived credential handoff created by the Rust app. */
+  credentialFile?: string;
 }
 
 export interface ApproveSubmitResult {
@@ -350,6 +367,10 @@ export interface ApproveSubmitResult {
   resumeAttached?: boolean;
   usedVerificationLink?: boolean;
   usedVerificationOtp?: boolean;
+  /** When the runtime detected an MFA/SSO/security-key/push challenge it
+   *  cannot safely automate, this carries the label (totp/push_approval/
+   *  security_key/sso/unsupported_mfa). Never a verified/submitted outcome. */
+  manualRequired?: string;
 }
 
 export async function approveSubmit(
@@ -441,6 +462,48 @@ export interface WorkdayCheckpoint {
 export async function readWorkdayCheckpoint(root: string, jobId: string): Promise<WorkdayCheckpoint | null> {
   const result = await invoke<{ checkpoint: WorkdayCheckpoint | null }>("read_workday_checkpoint", { root, jobId });
   return result.checkpoint;
+}
+
+export interface WorkdayCredentialStatus {
+  host: string;
+  email: string;
+  stored: boolean;
+}
+
+export async function saveWorkdayCredential(host: string, email: string, password: string): Promise<WorkdayCredentialStatus> {
+  return invoke<WorkdayCredentialStatus>("save_workday_credential", { host, email, password });
+}
+
+export async function workdayCredentialStatus(host: string, email: string): Promise<WorkdayCredentialStatus> {
+  return invoke<WorkdayCredentialStatus>("workday_credential_status", { host, email });
+}
+
+/** Reads an older device-local Workday credential only for an explicit
+ * migration into the signed-in user's hosted ATS account. The value stays in
+ * renderer memory and is never persisted by this wrapper. */
+export async function readWorkdayCredential(host: string, email: string): Promise<WorkdayCredentialStatus & { password: string }> {
+  return invoke<WorkdayCredentialStatus & { password: string }>("read_workday_credential", { host, email });
+}
+
+export async function deleteWorkdayCredential(host: string, email: string): Promise<WorkdayCredentialStatus> {
+  return invoke<WorkdayCredentialStatus>("delete_workday_credential", { host, email });
+}
+
+export async function importWorkdayCredential(root: string, host: string, email: string): Promise<WorkdayCredentialStatus> {
+  return invoke<WorkdayCredentialStatus>("import_workday_credential", { root, host, email });
+}
+
+/** Writes a one-time verification secret (consumed from a hosted
+ *  verification session) to logs/tmp/session_secret_<jobId>.json so the
+ *  Workday runtime can read it via --session-secret-file instead of argv.
+ *  Returns the absolute path to pass to approveSubmit. */
+export async function writeSessionSecretFile(
+  root: string,
+  jobId: string,
+  secret: { link?: string; otp?: string },
+): Promise<string> {
+  const result = await invoke<{ path: string }>("write_session_secret_file", { root, jobId, secret });
+  return result.path;
 }
 
 export async function importMasterResumeFromMarkdown(root: string, markdown: string): Promise<MasterResume> {

@@ -1,7 +1,7 @@
 /* Deliberately NOT theme-token-driven for its background — an LCD reads as
  * a dark glass screen regardless of the app's own light/dark mode, same
  * as a real device would. The glow color still comes from --accent-2
- * (Prism's cyan stop) so it ties back to the app's own palette instead of
+ * (Moss's honey stop) so it ties back to the app's own palette instead of
  * introducing an unrelated color. */
 .digital-clock {
   display: inline-flex;

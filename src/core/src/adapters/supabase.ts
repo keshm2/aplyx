@@ -72,6 +72,44 @@ export interface VerificationSessionRow {
   updated_at?: string;
 }
 
+/** Full redacted detail for one session (get_own_verification_session).
+ *  `has_secret` is true when an unconsumed Vault secret exists; the raw
+ *  value is only ever returned by consumeVerificationSecret, never here. */
+export interface VerificationSessionDetail {
+  id: string;
+  job_id: string;
+  family: AtsFamily;
+  tenant_key?: string;
+  company?: string;
+  candidate_email: string;
+  mail_connection_id?: string;
+  apply_run_id?: string;
+  status: VerificationSessionRow["status"];
+  challenge_type: VerificationSessionRow["challenge_type"];
+  expected_sender_domains: string[];
+  expected_subject_tokens: string[];
+  expires_at?: string;
+  attempt_count: number;
+  last_poll_at?: string;
+  resolved_at?: string;
+  failure_reason?: string;
+  has_secret: boolean;
+  message_extracted_kind?: "otp" | "link" | "unknown";
+  created_at?: string;
+  updated_at?: string;
+}
+
+/** Bounded-poll result (poll_own_verification_session) — the redacted
+ *  state after bumping attempt_count/last_poll_at and auto-expiring. */
+export interface VerificationSessionPoll {
+  status: VerificationSessionRow["status"];
+  has_secret: boolean;
+  message_extracted_kind?: "otp" | "link" | "unknown";
+  attempt_count: number;
+  expires_at?: string;
+  failure_reason?: string;
+}
+
 /** get_application_account_metadata's shape (migration 0028) — masked
  *  display fields only. `login_hint` is a masked value ("j***@company.com"),
  *  never the real login identifier; there is no username/password field
@@ -1060,6 +1098,118 @@ export class SupabaseAdapter implements Adapter {
    *  against independently. */
   async consumeInboundEmail(id: string): Promise<void> {
     const { error } = await this.client.rpc("consume_inbound_email", { p_id: id });
+    if (error) throw error;
+  }
+
+  // --- Workday personal-inbox verification sessions
+  // (docs/workday-personal-inbox-plan.md) ---
+  //
+  // These mirror the migration 0038 RPCs. A session binds a user/job/apply
+  // run/tenant/candidate-email/mail-connection/challenge-type with expiry
+  // and attempt count; the hosted Gmail verification worker searches the
+  // connected inbox within the session's window and records a matched
+  // message + Vault secret. The UI polls, then consumes the one-time
+  // secret ONLY after the local runtime reports it used the link/OTP.
+
+  async createVerificationSession(input: {
+    jobId: string;
+    family?: AtsFamily;
+    tenantKey?: string;
+    company?: string;
+    candidateEmail: string;
+    mailConnectionId?: string;
+    applyRunId?: string;
+    challengeType?: "otp" | "link" | "either" | "unknown";
+    expectedSenderDomains?: string[];
+    expectedSubjectTokens?: string[];
+    ttlMinutes?: number;
+  }): Promise<string> {
+    const { data, error } = await this.client.rpc("create_verification_session", {
+      p_job_id: input.jobId,
+      p_family: input.family ?? "workday",
+      p_tenant_key: input.tenantKey ?? null,
+      p_company: input.company ?? null,
+      p_candidate_email: input.candidateEmail,
+      p_mail_connection_id: input.mailConnectionId ?? null,
+      p_apply_run_id: input.applyRunId ?? null,
+      p_challenge_type: input.challengeType ?? "either",
+      p_expected_sender_domains: input.expectedSenderDomains ?? [],
+      p_expected_subject_tokens: input.expectedSubjectTokens ?? [],
+      p_ttl_minutes: input.ttlMinutes ?? 30,
+    });
+    if (error) throw error;
+    return String(data);
+  }
+
+  async getVerificationSession(sessionId: string): Promise<VerificationSessionDetail | undefined> {
+    const { data, error } = await this.client.rpc("get_own_verification_session", { p_session_id: sessionId });
+    if (error) throw error;
+    const row = (Array.isArray(data) ? data[0] : data) as Row | undefined;
+    if (!row) return undefined;
+    return {
+      id: String(row.id ?? ""),
+      job_id: String(row.job_id ?? ""),
+      family: String(row.family ?? "workday") as AtsFamily,
+      tenant_key: str(row.tenant_key),
+      company: str(row.company),
+      candidate_email: String(row.candidate_email ?? ""),
+      mail_connection_id: str(row.mail_connection_id),
+      apply_run_id: str(row.apply_run_id),
+      status: String(row.status ?? "created") as VerificationSessionRow["status"],
+      challenge_type: String(row.challenge_type ?? "unknown") as VerificationSessionRow["challenge_type"],
+      expected_sender_domains: strArray(row.expected_sender_domains) ?? [],
+      expected_subject_tokens: strArray(row.expected_subject_tokens) ?? [],
+      expires_at: str(row.expires_at),
+      attempt_count: num(row.attempt_count) ?? 0,
+      last_poll_at: str(row.last_poll_at),
+      resolved_at: str(row.resolved_at),
+      failure_reason: str(row.failure_reason),
+      has_secret: bool(row.has_secret) ?? false,
+      message_extracted_kind: str(row.message_extracted_kind) as "otp" | "link" | "unknown" | undefined,
+      created_at: str(row.created_at),
+      updated_at: str(row.updated_at),
+    };
+  }
+
+  async pollVerificationSession(sessionId: string): Promise<VerificationSessionPoll | undefined> {
+    const { data, error } = await this.client.rpc("poll_own_verification_session", { p_session_id: sessionId });
+    if (error) throw error;
+    const row = (Array.isArray(data) ? data[0] : data) as Row | undefined;
+    if (!row) return undefined;
+    return {
+      status: String(row.status ?? "created") as VerificationSessionRow["status"],
+      has_secret: bool(row.has_secret) ?? false,
+      message_extracted_kind: str(row.message_extracted_kind) as "otp" | "link" | "unknown" | undefined,
+      attempt_count: num(row.attempt_count) ?? 0,
+      expires_at: str(row.expires_at),
+      failure_reason: str(row.failure_reason),
+    };
+  }
+
+  /** REVEAL (pre-runtime): returns the raw OTP/link for the session's
+   *  latest unconsumed message WITHOUT consuming it, so the caller can
+   *  write it to a 0600 temp file for the runtime. The secret remains
+   *  available for retry if the runtime fails to use it. Stamps a soft
+   *  lease (leased_at) server-side. */
+  async revealVerificationSecret(sessionId: string): Promise<{ extractedKind?: string; secretValue?: string; messageId?: string } | undefined> {
+    const { data, error } = await this.client.rpc("reveal_verification_secret", { p_session_id: sessionId });
+    if (error) throw error;
+    const row = (Array.isArray(data) ? data[0] : data) as Row | undefined;
+    if (!row) return undefined;
+    return {
+      extractedKind: str(row.extracted_kind),
+      secretValue: str(row.secret_value),
+      messageId: str(row.message_id),
+    };
+  }
+
+  /** CONFIRM CONSUME (post-runtime): redacts the secret and deletes the
+   *  underlying Vault secret. Call this ONLY after the local runtime
+   *  reports used_verification_link/used_verification_otp — never before.
+   *  Returns void; the secret value was already revealed via
+   *  revealVerificationSecret. A second call is a no-op. */
+  async consumeVerificationSecret(sessionId: string): Promise<void> {
+    const { error } = await this.client.rpc("consume_verification_secret", { p_session_id: sessionId });
     if (error) throw error;
   }
 

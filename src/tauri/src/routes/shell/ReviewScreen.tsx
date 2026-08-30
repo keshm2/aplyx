@@ -3,7 +3,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import type { QueueEntry, FillRecord } from "@aplyx/core/stateDerive.js";
 import { isResolved } from "@aplyx/core/stateDerive.js";
 import { SupabaseAdapter } from "@aplyx/core/adapters/supabase.js";
-import { markQueueEntryApplied, dismissQueueEntry, reopenApplicationFilled, approveSubmit, readScreenshot, readFillRecord, readWorkdayCheckpoint, type ApproveSubmitResult, type WorkdayCheckpoint } from "../../lib/bridge";
+import { markQueueEntryApplied, dismissQueueEntry, reopenApplicationFilled, approveSubmit, readScreenshot, readFillRecord, readWorkdayCheckpoint, writeSessionSecretFile, readProfileFields, type ApproveSubmitResult, type WorkdayCheckpoint } from "../../lib/bridge";
 import { useAplyxState } from "../../lib/useAplyxState";
 import { useAuth } from "../../lib/AuthContext";
 import { getSupabaseClient } from "../../lib/supabaseClient";
@@ -25,7 +25,17 @@ function isReadyToSubmit(entry: QueueEntry): boolean {
 }
 
 function isWorkdayEntry(entry: QueueEntry): boolean {
-  return (entry.source ?? "") === "workday";
+  // Same source/host detection as helpers.ts approveReadyToSubmit and
+  // bridge.ts approveSubmit: a Workday-hosted entry whose source field
+  // isn't "workday" (e.g. re-sourced from SimplifyJobs but applying on a
+  // myworkdayjobs.com URL) is still a Workday continuation.
+  if ((entry.source ?? "") === "workday") return true;
+  const targetUrl = entry.apply_url || entry.url;
+  try {
+    return new URL(targetUrl).hostname.toLowerCase().endsWith(".myworkdayjobs.com");
+  } catch {
+    return false;
+  }
 }
 
 /** Classifies a Workday checkpoint status (the `status` field the local
@@ -59,6 +69,11 @@ function classifyWorkdayStatus(status: string | undefined): WorkdayCheckpointCat
     case "submit_validation_error":
     case "submit_click_failed":
     case "submit_outcome_unclear":
+    case "challenge_detected":
+    case "login_failed":
+    case "sign_in_choice_unrecognized":
+    case "create_account_path_missing":
+    case "create_account_failed":
     case "account_form_unrecognized":
     case "login_form_unrecognized":
     case "form_unrecognized":
@@ -84,6 +99,11 @@ function workdayStatusLabel(status: string | undefined): string {
     case "submit_validation_error": return "Submit validation error";
     case "submit_click_failed": return "Submit click failed";
     case "submit_outcome_unclear": return "Submit outcome unclear";
+    case "challenge_detected": return "Challenge detected";
+    case "login_failed": return "Login failed";
+    case "sign_in_choice_unrecognized": return "Sign-in choice unrecognized";
+    case "create_account_path_missing": return "Create-account path missing";
+    case "create_account_failed": return "Create account failed";
     case "account_form_unrecognized": return "Account form unrecognized";
     case "login_form_unrecognized": return "Login form unrecognized";
     case "form_unrecognized": return "Form unrecognized";
@@ -104,6 +124,32 @@ function workdayBadgeClass(category: WorkdayCheckpointCategory): string {
   }
 }
 
+/** Derives a Workday tenant key (the full myworkdayjobs.com hostname)
+ *  from a queue entry's apply URL — same convention as
+ *  atsRegistry.tenantKeyFor. Used to bind a verification session to the
+ *  tenant so the Gmail worker can correlate by tenant. */
+function tenantKeyForEntry(entry: QueueEntry): string | undefined {
+  const targetUrl = entry.apply_url || entry.url;
+  try {
+    const host = new URL(targetUrl).hostname.toLowerCase();
+    if (host.endsWith(".myworkdayjobs.com")) return host;
+  } catch { /* fall through */ }
+  return undefined;
+}
+
+/** Expected sender domains for a Workday verification mail: the tenant
+ *  host plus workday.com itself (Workday sends from noreply@workday.com
+ *  across tenants). The verification session uses these for correlation;
+ *  an ambiguous match still becomes manual_required, never a guess. No
+ *  heuristic company-domain guesses — only the tenant host and
+ *  workday.com, both real domains the sender actually uses. */
+function expectedSenderDomainsFor(entry: QueueEntry): string[] {
+  const tenant = tenantKeyForEntry(entry);
+  const domains = ["workday.com"];
+  if (tenant) domains.push(tenant);
+  return domains;
+}
+
 /** Formats the richer Workday continuation result (checkpoint status,
  *  filled-field count, resume attachment, confirmation URL) into a single
  *  message-banner string so the user can see where the resumable flow
@@ -111,6 +157,7 @@ function workdayBadgeClass(category: WorkdayCheckpointCategory): string {
  *  is always the lead; this appends the structured context it carries. */
 function formatWorkdayDetail(result: ApproveSubmitResult): string {
   const parts: string[] = [result.message];
+  if (result.manualRequired) parts.push(`manual required: ${result.manualRequired}`);
   if (result.checkpointStatus) parts.push(`checkpoint: ${result.checkpointStatus}`);
   if (typeof result.filledFields === "number") parts.push(`${result.filledFields} field(s) filled`);
   if (result.resumeAttached) parts.push("resume attached");
@@ -294,76 +341,175 @@ export function ReviewScreen() {
               ? await (async () => {
                   const client = await getSupabaseClient();
                   const adapter = new SupabaseAdapter(client, session.user.id);
-                  const forwardingEmail = String(await adapter.readProfileField("email") ?? "").trim();
-                  if (!forwardingEmail) {
-                    return { ok: false, message: "Workday continuation needs a hosted sign-in with a profile email saved first." };
+                  // Personal-inbox path (docs/workday-personal-inbox-plan.md):
+                  // prefer a connected personal Gmail account over a managed
+                  // alias. The candidate email comes from the authenticated
+                  // profile; the verification secret comes from a hosted
+                  // verification session the Gmail worker populates. A
+                  // managed alias is only used when explicitly configured
+                  // and available — never as a silent fallback when no
+                  // authenticated candidate email exists.
+                  const candidateEmail = (await adapter.readCandidateEmail()).trim();
+                  const inbox = await adapter.getInboxConnection();
+                  const personalInboxReady = Boolean(
+                    candidateEmail &&
+                    inbox &&
+                    inbox.status === "connected" &&
+                    inbox.provider === "gmail" &&
+                    inbox.auth_method === "oauth" &&
+                    inbox.email_address.trim().toLowerCase() === candidateEmail.toLowerCase(),
+                  );
+                  // Managed alias compatibility: only when the user has
+                  // explicitly claimed one. Not a fallback for a missing
+                  // personal inbox — if neither is ready, the entry stays
+                  // queue-only awaiting verification.
+                  let managedAlias: { id: string; alias: string } | undefined;
+                  try {
+                    managedAlias = (await adapter.listManagedAliases("workday")).find((a) => a.status === "active");
+                  } catch { managedAlias = undefined; }
+
+                  if (personalInboxReady) {
+                    // Create/poll a verification session bound to this
+                    // job's apply run + the connected inbox. The hosted
+                    // Gmail worker searches the inbox within the session
+                    // window and records a matched message + Vault secret.
+                    const run = await adapter.ensureApplyRunForJob(entry.job_id, "workday", managedAlias?.id);
+                    const sessionId = await adapter.createVerificationSession({
+                      jobId: entry.job_id,
+                      family: "workday",
+                      tenantKey: tenantKeyForEntry(entry),
+                      company: entry.company,
+                      candidateEmail,
+                      mailConnectionId: inbox!.id,
+                      applyRunId: run.runId,
+                      challengeType: "either",
+                      expectedSenderDomains: expectedSenderDomainsFor(entry),
+                      expectedSubjectTokens: ["verify", "verification", "code", "account"],
+                    });
+                    // Bounded poll: the worker runs on a 5-minute cron,
+                    // so a single poll here picks up a secret the worker
+                    // already recorded. The UI does NOT loop — a still-
+                    // empty session stays queue-only awaiting verification.
+                    const poll = await adapter.pollVerificationSession(sessionId);
+                    let verificationLink: string | undefined;
+                    let verificationOtp: string | undefined;
+                    if (poll?.has_secret) {
+                      // REVEAL the secret (not consume) so it can be
+                      // handed to the runtime via a 0600 file. The secret
+                      // is NOT redacted yet — consumption/redaction happens
+                      // only after the runtime reports
+                      // used_verification_link/used_verification_otp, so a
+                      // failed runtime run can retry with the same secret.
+                      const revealed = await adapter.revealVerificationSecret(sessionId);
+                      verificationLink = revealed?.extractedKind === "link" ? revealed.secretValue : undefined;
+                      verificationOtp = revealed?.extractedKind === "otp" ? revealed.secretValue : undefined;
+                    }
+                    // Write the secret to a transient 0600 file under
+                    // logs/tmp so the runtime reads it via
+                    // --session-secret-file instead of argv. The raw
+                    // value never appears in a process argument list,
+                    // shell history, or log snapshot.
+                    let sessionSecretFile: string | undefined;
+                    if (verificationLink || verificationOtp) {
+                      sessionSecretFile = await writeSessionSecretFile(root!, entry.job_id, { link: verificationLink, otp: verificationOtp });
+                    }
+                    // When a session secret file exists, omit raw
+                    // --verification-link/--otp from argv entirely — the
+                    // file is the sole secret handoff channel, so the raw
+                    // value is never exposed in argv/logs.
+                    const result = await approveSubmit(root, entry, {
+                      accountEmail: candidateEmail,
+                      aliasEmail: managedAlias ? `${managedAlias.alias}@mail.aplyx.app` : undefined,
+                      aliasId: managedAlias?.id,
+                      sessionSecretFile,
+                    });
+                    // Consume/redact the secret ONLY after the runtime
+                    // confirms it used the link or OTP. If the runtime
+                    // failed, checkpointed, or hit manual_required, the
+                    // secret remains available for the next Continue
+                    // Workday retry — we do NOT falsely claim consumed.
+                    if (sessionSecretFile && (result.usedVerificationLink || result.usedVerificationOtp)) {
+                      try { await adapter.consumeVerificationSecret(sessionId); }
+                      catch (e) {
+                        // Best-effort: the secret was used; a consume
+                        // failure means it lingers until retention
+                        // cleanup. Log but don't fail the run.
+                        console.warn("could not consume verification secret:", e instanceof Error ? e.message : String(e));
+                      }
+                    }
+                    const detail = formatWorkdayDetail(result);
+                    return { ...result, message: detail };
                   }
-                  const alias = await adapter.claimManagedAlias("workday", forwardingEmail);
-                  // A managed alias is shared across every Workday
-                  // tenant this user applies to, so "most recent
-                  // unconsumed email at this alias" alone can hand the
-                  // wrong employer's verification code to this job's
-                  // continuation. ensureApplyRunForJob leaves a
-                  // correlation row the inbound-email receiver tags new
-                  // messages with (apply_run_id) — matching on that is
-                  // "recipient/alias/tenant/account correlation data,"
-                  // not company name (docs/ats-account-credentials-plan.md).
-                  const run = await adapter.ensureApplyRunForJob(entry.job_id, "workday", alias.id);
-                  const inbox = await adapter.listInboundEmails(alias.id);
-                  const forThisRun = inbox.filter((row) => row.apply_run_id === run.runId);
-                  const unconsumed = (row: typeof inbox[number]) => !row.consumed_at;
-                  // Prefer a message tagged to this exact job's run; only
-                  // fall back to "most recent at this alias" when no
-                  // run-tagged message exists yet (e.g. the very first
-                  // verification mail can arrive before this run row did).
-                  // A fallback match is lower-confidence, so it's flagged
-                  // in the result message rather than silently treated
-                  // the same as a confirmed match — "require explicit
-                  // user action when a message cannot be confidently
-                  // matched."
-                  let matchedByFallback = false;
-                  let linkRow = forThisRun.find((row) => unconsumed(row) && row.parsed_link);
-                  let otpRow = forThisRun.find((row) => unconsumed(row) && row.parsed_otp);
-                  if (!linkRow) {
-                    linkRow = inbox.find((row) => unconsumed(row) && row.parsed_link);
-                    if (linkRow) matchedByFallback = true;
+
+                  if (managedAlias) {
+                    // Managed-alias compatibility path — unchanged behavior
+                    // for users who have explicitly configured one.
+                    const alias = managedAlias;
+                    const run = await adapter.ensureApplyRunForJob(entry.job_id, "workday", alias.id);
+                    const inboxRows = await adapter.listInboundEmails(alias.id);
+                    const forThisRun = inboxRows.filter((row) => row.apply_run_id === run.runId);
+                    const unconsumed = (row: typeof inboxRows[number]) => !row.consumed_at;
+                    let matchedByFallback = false;
+                    let linkRow = forThisRun.find((row) => unconsumed(row) && row.parsed_link);
+                    let otpRow = forThisRun.find((row) => unconsumed(row) && row.parsed_otp);
+                    if (!linkRow) {
+                      linkRow = inboxRows.find((row) => unconsumed(row) && row.parsed_link);
+                      if (linkRow) matchedByFallback = true;
+                    }
+                    if (!otpRow) {
+                      otpRow = inboxRows.find((row) => unconsumed(row) && row.parsed_otp);
+                      if (otpRow) matchedByFallback = true;
+                    }
+                    let sessionSecretFile: string | undefined;
+                    if (linkRow?.parsed_link || otpRow?.parsed_otp) {
+                      sessionSecretFile = await writeSessionSecretFile(root!, entry.job_id, {
+                        link: linkRow?.parsed_link,
+                        otp: otpRow?.parsed_otp,
+                      });
+                    }
+                    const result = await approveSubmit(root, entry, {
+                      aliasEmail: `${alias.alias}@mail.aplyx.app`,
+                      aliasId: alias.id,
+                      sessionSecretFile,
+                    });
+                    const consumeWarnings: string[] = [];
+                    if (matchedByFallback && (result.usedVerificationLink || result.usedVerificationOtp)) {
+                      consumeWarnings.push("verification mail matched by recency only (no message tagged to this job yet) — confirm it was the right employer");
+                    }
+                    if (result.usedVerificationLink && linkRow) {
+                      try { await adapter.consumeInboundEmail(linkRow.id); }
+                      catch (e) { consumeWarnings.push(`could not mark verification link consumed: ${e instanceof Error ? e.message : String(e)}`); }
+                    }
+                    if (result.usedVerificationOtp && otpRow) {
+                      try { await adapter.consumeInboundEmail(otpRow.id); }
+                      catch (e) { consumeWarnings.push(`could not mark verification OTP consumed: ${e instanceof Error ? e.message : String(e)}`); }
+                    }
+                    const detail = formatWorkdayDetail(result);
+                    const message = consumeWarnings.length > 0
+                      ? `${detail} (${consumeWarnings.join("; ")})`
+                      : detail;
+                    return { ...result, message };
                   }
-                  if (!otpRow) {
-                    otpRow = inbox.find((row) => unconsumed(row) && row.parsed_otp);
-                    if (otpRow) matchedByFallback = true;
-                  }
-                  const result = await approveSubmit(root, entry, {
-                    aliasEmail: `${alias.alias}@mail.aplyx.app`,
-                    aliasId: alias.id,
-                    verificationLink: linkRow?.parsed_link,
-                    verificationOtp: otpRow?.parsed_otp,
-                  });
-                  // Consume the verification mails the script actually
-                  // used. Best-effort: a consume failure (RLS, missing
-                  // row) is surfaced as a follow-up warning, not a hard
-                  // error — the verification already happened in the
-                  // browser; not marking it consumed only means the next
-                  // run might re-offer it, which the script's own
-                  // checkpoint state guards against independently.
-                  const consumeWarnings: string[] = [];
-                  if (matchedByFallback && (result.usedVerificationLink || result.usedVerificationOtp)) {
-                    consumeWarnings.push("verification mail matched by recency only (no message tagged to this job yet) — confirm it was the right employer");
-                  }
-                  if (result.usedVerificationLink && linkRow) {
-                    try { await adapter.consumeInboundEmail(linkRow.id); }
-                    catch (e) { consumeWarnings.push(`could not mark verification link consumed: ${e instanceof Error ? e.message : String(e)}`); }
-                  }
-                  if (result.usedVerificationOtp && otpRow) {
-                    try { await adapter.consumeInboundEmail(otpRow.id); }
-                    catch (e) { consumeWarnings.push(`could not mark verification OTP consumed: ${e instanceof Error ? e.message : String(e)}`); }
-                  }
-                  const detail = formatWorkdayDetail(result);
-                  const message = consumeWarnings.length > 0
-                    ? `${detail} (${consumeWarnings.join("; ")})`
-                    : detail;
-                  return { ...result, message };
+
+                  // Neither a connected personal inbox nor a managed
+                  // alias: stay queue-only awaiting verification. Never
+                  // pretend an account email exists when none was
+                  // authenticated.
+                  return {
+                    ok: false,
+                    message: candidateEmail
+                      ? "Workday continuation needs a connected Gmail inbox to retrieve the verification mail. Connect one in Settings, or configure a managed alias, then Continue Workday again."
+                      : "Workday continuation needs a verified candidate email (save one in your profile) plus a connected Gmail inbox, or a managed alias. Configure one and Continue Workday again.",
+                  };
                 })()
-              : { ok: false, message: "Workday continuation needs you to be signed in so aplyx can claim a managed alias." }
+              : await (async () => {
+                  const profile = await readProfileFields(root, ["email"]);
+                  const accountEmail = typeof profile.email === "string" ? profile.email.trim() : "";
+                  if (!accountEmail) {
+                    return { ok: false, message: "Workday continuation needs an account email. Add it to your local profile first." };
+                  }
+                  return approveSubmit(root, entry, { accountEmail });
+                })()
             : await approveSubmit(root, entry)
           : source === "hosted" && hosted
             ? await (new SupabaseAdapter(hosted.client, hosted.userId) as SupabaseAdapter & {
