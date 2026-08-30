@@ -401,6 +401,7 @@ export function AccountCenterScreen() {
         <label className="field">
           <span className="field-label">Workday tenant hostname</span>
           <input
+            type="text"
             value={workdayHost}
             onChange={(e) => setWorkdayHost(e.target.value)}
             placeholder="expedia.wd108.myworkdayjobs.com"
@@ -411,6 +412,7 @@ export function AccountCenterScreen() {
         <label className="field">
           <span className="field-label">Company name</span>
           <input
+            type="text"
             value={workdayCompany}
             onChange={(e) => setWorkdayCompany(e.target.value)}
             placeholder="Expedia Group"

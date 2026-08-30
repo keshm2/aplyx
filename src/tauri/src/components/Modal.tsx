@@ -21,9 +21,25 @@ export function Modal({
   children: ReactNode;
 }) {
   const [everOpened, setEverOpened] = useState(false);
+  // Separate from `everOpened`: the very first time this modal ever
+  // mounts, inserting it straight into the DOM with modal-open already
+  // applied gives the CSS transition nothing to animate FROM (a
+  // brand-new element just renders at its final computed style, no
+  // matter what transition is declared on it) — the popup would snap
+  // open with no visible motion. Mounting closed first, then flipping to
+  // open a frame later, gives the transition a real starting frame.
+  // Every subsequent open/close toggles this same already-mounted
+  // element, which transitions correctly on its own.
+  const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (open) setEverOpened(true);
+    if (!open) {
+      setVisible(false);
+      return;
+    }
+    setEverOpened(true);
+    const raf = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(raf);
   }, [open]);
 
   useEffect(() => {
@@ -39,13 +55,13 @@ export function Modal({
 
   return (
     <>
-      <div className={`modal-backdrop${open ? " modal-backdrop-open" : ""}`} onClick={onClose} aria-hidden="true" />
+      <div className={`modal-backdrop${visible ? " modal-backdrop-open" : ""}`} onClick={onClose} aria-hidden="true" />
       <div
-        className={`modal${open ? " modal-open" : ""}`}
+        className={`modal${visible ? " modal-open" : ""}`}
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        aria-hidden={!open}
+        aria-hidden={!visible}
       >
         <div className="modal-header">
           <span className="modal-title">{title}</span>
