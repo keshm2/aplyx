@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { SupabaseAdapter, type ApplicationAccountRow } from "@aplyx/core/adapters/supabase.js";
-import { tenantKeyFor } from "@aplyx/core/atsRegistry.js";
 import { useAuth } from "../../lib/AuthContext";
 import { readWorkdayCredential, saveWorkdayCredential } from "../../lib/bridge";
 import { getSupabaseClient } from "../../lib/supabaseClient";
+import { normalizedWorkdayTenant, pushWorkdayCredentialToVault } from "../../lib/workdayCredentialSync";
 import { Modal } from "../../components/Modal";
 import { Switch } from "../../components/Switch";
 import { useOutletContext } from "react-router-dom";
@@ -54,6 +54,7 @@ export function AccountCenterScreen() {
   const [accounts, setAccounts] = useState<ApplicationAccountRow[] | undefined>(undefined);
   const [message, setMessage] = useState<{ text: string; error?: boolean } | undefined>(undefined);
   const [busyId, setBusyId] = useState<string | undefined>(undefined);
+  const [addAccountOpen, setAddAccountOpen] = useState(false);
   const [workdayHost, setWorkdayHost] = useState("");
   const [workdayCompany, setWorkdayCompany] = useState("");
   const [workdayUsername, setWorkdayUsername] = useState("");
@@ -102,41 +103,25 @@ export function AccountCenterScreen() {
     setAccounts(rows);
   }
 
-  function normalizedWorkdayTenant(rawHost: string): string {
-    const candidate = rawHost.trim().includes("://") ? rawHost.trim() : `https://${rawHost.trim()}`;
-    const url = new URL(candidate);
-    const tenant = tenantKeyFor("workday", url.toString());
-    if (!tenant) throw new Error("Workday tenant must be a hostname ending in .myworkdayjobs.com");
-    return tenant;
-  }
-
   async function persistWorkdayCredential(host: string, company: string, username: string, password: string): Promise<string | undefined> {
     const tenantKey = normalizedWorkdayTenant(host);
-    const trimmedCompany = company.trim();
-    const trimmedUsername = username.trim();
-    if (!trimmedCompany) throw new Error("Company name is required.");
-    if (!trimmedUsername || !trimmedUsername.includes("@")) throw new Error("Workday account email is invalid.");
-    if (!password || password.includes("\n") || password.includes("\r")) throw new Error("Workday password must be non-empty and single-line.");
     const client = await getSupabaseClient();
-    const adapter = new SupabaseAdapter(client, session!.user.id);
-    const { accountId } = await adapter.createOrReuseApplicationAccount({
-      family: "workday",
-      tenantKey,
-      companyName: trimmedCompany,
-      username: trimmedUsername,
-      password,
-    });
-    // create_application_account is idempotent and intentionally does not
-    // overwrite an existing secret; rotate makes an explicit user save update
-    // the matching Vault secret instead of silently retaining an old password.
-    await adapter.rotateApplicationAccountSecret(accountId, trimmedUsername, password);
-    if (!root) return undefined;
-    try {
-      await saveWorkdayCredential(tenantKey, trimmedUsername, password);
-      return " It is also cached in this device's secure credential store for local Workday runs.";
-    } catch (err) {
-      return ` The online credential is saved, but this device cache could not be updated: ${err instanceof Error ? err.message : String(err)}`;
-    }
+    // pushWorkdayCredentialToVault both writes the Vault (create-or-reuse
+    // + rotate, so an explicit save always updates the stored value) and
+    // refreshes this device's own OS-keychain cache — the same shared
+    // path autoSyncWorkdayCredentialAfterRun uses right after a Workday
+    // continuation run, so "save it here" and "aplyx saved it for you"
+    // both land in the same place instead of two divergent write paths.
+    await pushWorkdayCredentialToVault(client, session!.user.id, tenantKey, company, username, password);
+    return root ? " It is also cached in this device's secure credential store for local Workday runs." : undefined;
+  }
+
+  function resetWorkdayForm() {
+    setWorkdayHost("");
+    setWorkdayCompany("");
+    setWorkdayUsername("");
+    setWorkdayPassword("");
+    setWorkdayError(undefined);
   }
 
   async function saveWorkdayAccount() {
@@ -144,8 +129,9 @@ export function AccountCenterScreen() {
     setWorkdayError(undefined);
     try {
       const deviceNote = await persistWorkdayCredential(workdayHost, workdayCompany, workdayUsername, workdayPassword);
-      setWorkdayPassword("");
       setMessage({ text: `Workday credential saved to your online ATS account vault.${deviceNote ?? ""}` });
+      setAddAccountOpen(false);
+      resetWorkdayForm();
       await refresh();
     } catch (err) {
       setWorkdayError(err instanceof Error ? err.message : String(err));
@@ -160,8 +146,9 @@ export function AccountCenterScreen() {
     try {
       const local = await readWorkdayCredential(workdayHost, workdayUsername);
       const deviceNote = await persistWorkdayCredential(local.host, workdayCompany, local.email, local.password);
-      setWorkdayUsername(local.email);
       setMessage({ text: `The device credential was imported into your online ATS account vault.${deviceNote ?? ""}` });
+      setAddAccountOpen(false);
+      resetWorkdayForm();
       await refresh();
     } catch (err) {
       setWorkdayError(err instanceof Error ? err.message : String(err));
@@ -385,59 +372,73 @@ export function AccountCenterScreen() {
       ) : null}
 
       <section className="settings-section">
-        <h2 style={{ fontSize: "var(--text-lg)", marginBottom: "var(--space-3)" }}>Connect an ATS account</h2>
-        <p className="field-help">
-          Workday credentials are stored in your online ATS account vault so they are available on every signed-in device.
-          {root ? " This device also keeps a secure local cache for local Workday runs." : " A local cache can be added later from this screen."}
-        </p>
-        <div className="form-grid">
-          <label className="field">
-            <span className="field-label">Workday tenant hostname</span>
-            <input
-              value={workdayHost}
-              onChange={(e) => setWorkdayHost(e.target.value)}
-              placeholder="expedia.wd108.myworkdayjobs.com"
-              autoComplete="organization"
-            />
-          </label>
-          <label className="field">
-            <span className="field-label">Company name</span>
-            <input
-              value={workdayCompany}
-              onChange={(e) => setWorkdayCompany(e.target.value)}
-              placeholder="Expedia Group"
-              autoComplete="organization"
-            />
-          </label>
-          <label className="field">
-            <span className="field-label">Workday account email</span>
-            <input
-              type="email"
-              value={workdayUsername}
-              onChange={(e) => setWorkdayUsername(e.target.value)}
-              autoComplete="username"
-            />
-          </label>
-          <label className="field">
-            <span className="field-label">Workday password</span>
-            <input
-              type="password"
-              value={workdayPassword}
-              onChange={(e) => setWorkdayPassword(e.target.value)}
-              autoComplete="new-password"
-              placeholder="Enter password"
-            />
-          </label>
-        </div>
-        <div className="detail-actions">
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => void saveWorkdayAccount()}
-            disabled={workdaySaving || !workdayHost.trim() || !workdayCompany.trim() || !workdayUsername.trim() || !workdayPassword}
-          >
-            {workdaySaving ? "Saving…" : "Save to online vault"}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-3)" }}>
+          <div>
+            <h2 style={{ fontSize: "var(--text-lg)" }}>Connect an ATS account</h2>
+            <p className="field-help" style={{ marginTop: "var(--space-1)" }}>
+              Workday credentials go in your online ATS account vault, available on every signed-in device.
+              {root ? " This device also keeps a secure local cache for local Workday runs." : ""}
+            </p>
+          </div>
+          <button type="button" className="btn btn-primary" onClick={() => setAddAccountOpen(true)} style={{ flexShrink: 0 }}>
+            + Add account
           </button>
+        </div>
+      </section>
+
+      <Modal
+        open={addAccountOpen}
+        onClose={() => {
+          setAddAccountOpen(false);
+          resetWorkdayForm();
+        }}
+        title="Connect an ATS account"
+      >
+        <p className="field-help">
+          Workday credentials are stored in your online ATS account vault so they are available on every signed-in
+          device.{root ? " This device also keeps a secure local cache for local Workday runs." : ""}
+        </p>
+        <label className="field">
+          <span className="field-label">Workday tenant hostname</span>
+          <input
+            value={workdayHost}
+            onChange={(e) => setWorkdayHost(e.target.value)}
+            placeholder="expedia.wd108.myworkdayjobs.com"
+            autoComplete="organization"
+            autoFocus
+          />
+        </label>
+        <label className="field">
+          <span className="field-label">Company name</span>
+          <input
+            value={workdayCompany}
+            onChange={(e) => setWorkdayCompany(e.target.value)}
+            placeholder="Expedia Group"
+            autoComplete="organization"
+          />
+        </label>
+        <label className="field">
+          <span className="field-label">Workday account email</span>
+          <input
+            type="email"
+            value={workdayUsername}
+            onChange={(e) => setWorkdayUsername(e.target.value)}
+            placeholder="you@example.com"
+            autoComplete="username"
+          />
+        </label>
+        <label className="field">
+          <span className="field-label">Workday password</span>
+          <input
+            type="password"
+            value={workdayPassword}
+            onChange={(e) => setWorkdayPassword(e.target.value)}
+            autoComplete="new-password"
+            placeholder="Enter password"
+          />
+        </label>
+        {workdayError ? <p className="field-help" style={{ color: "var(--danger)" }}>{workdayError}</p> : null}
+        <div className="detail-actions" style={{ marginTop: "var(--space-3)" }}>
           <button
             type="button"
             className="settings-action-btn"
@@ -446,9 +447,16 @@ export function AccountCenterScreen() {
           >
             Import from this device
           </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => void saveWorkdayAccount()}
+            disabled={workdaySaving || !workdayHost.trim() || !workdayCompany.trim() || !workdayUsername.trim() || !workdayPassword}
+          >
+            {workdaySaving ? "Saving…" : "Save to online vault"}
+          </button>
         </div>
-        {workdayError ? <p className="field-help" style={{ color: "var(--danger)" }}>{workdayError}</p> : null}
-      </section>
+      </Modal>
 
       {accounts === undefined ? (
         <p className="field-help">Loading…</p>

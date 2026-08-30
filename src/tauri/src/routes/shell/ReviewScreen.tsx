@@ -7,6 +7,7 @@ import { markQueueEntryApplied, dismissQueueEntry, reopenApplicationFilled, appr
 import { useAplyxState } from "../../lib/useAplyxState";
 import { useAuth } from "../../lib/AuthContext";
 import { getSupabaseClient } from "../../lib/supabaseClient";
+import { autoSyncWorkdayCredentialAfterRun } from "../../lib/workdayCredentialSync";
 import { SkeletonRows } from "../../components/Skeleton";
 import "../../components/formFields.css";
 import "../../components/dataList.css";
@@ -519,6 +520,32 @@ export function ReviewScreen() {
       if (!result) {
         setMessage({ text: "Approve is not available for this entry.", error: true });
         return;
+      }
+      // Auto-sync a freshly-created Workday account into the online ATS
+      // account vault right away, rather than requiring a separate trip
+      // to Settings' "Import from this device" — see
+      // autoSyncWorkdayCredentialAfterRun's own header for why this is
+      // silent/best-effort on the (overwhelmingly common) case where
+      // there's nothing new to sync.
+      if (source === "local" && root && isWorkdayEntry(entry) && authStatus === "signed-in" && session) {
+        const tenantKey = tenantKeyForEntry(entry);
+        if (tenantKey) {
+          void (async () => {
+            try {
+              const client = await getSupabaseClient();
+              const adapter = new SupabaseAdapter(client, session.user.id);
+              const candidateEmail = (await adapter.readCandidateEmail()).trim();
+              const localProfile = await readProfileFields(root, ["email"]);
+              const localEmail = typeof localProfile.email === "string" ? localProfile.email.trim() : "";
+              const accountEmail = candidateEmail || localEmail;
+              if (accountEmail) {
+                await autoSyncWorkdayCredentialAfterRun(client, session.user.id, root, tenantKey, entry.company, accountEmail);
+              }
+            } catch {
+              // Best-effort — see autoSyncWorkdayCredentialAfterRun.
+            }
+          })();
+        }
       }
       setMessage({ text: result.message, error: !result.ok });
       await refresh();
