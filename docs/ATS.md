@@ -381,14 +381,20 @@ enterprise pattern, not unique to BofA).
 
 ### Proposed next phase items (not started — needs operator go-ahead per phase discipline)
 
-1. **A `workday_vetted_tenants.json` / `oracle_vetted_tenants.json` /
-   `eightfold_vetted_tenants.json` registry**, same shape and validation
-   discipline as the existing `*_vetted_slugs.json` files, seeded with
-   the tenants already confirmed live across this doc and
-   `research-notes.md` (Oracle: itself, Amex, JPMC; Workday: Salesforce,
-   Nvidia, Capital One, Mastercard; Eightfold: Microsoft, Netflix).
-   Turns "add a company" into a registry PR instead of a fresh research
-   pass every time.
+1. **Workday half done (2026-08-30).** A `workday_vetted_tenants.json` /
+   `oracle_vetted_tenants.json` / `eightfold_vetted_tenants.json` registry
+   was proposed here, same shape and validation discipline as the
+   existing `*_vetted_slugs.json` files. Only the Workday piece is built:
+   `src/config/workday_vetted_tenants.json` now exists, wired into
+   `seed_vetted_slugs.py`'s `SOURCES` so a fresh install auto-seeds it
+   exactly like every other board — "add a company" is a registry PR
+   instead of a fresh research pass, at least for Workday. Re-verified
+   all four tenants live via the real fetch helper before seeding rather
+   than trusting this doc's older claims: Capital One, Mastercard,
+   Salesforce, and Nvidia all returned real postings on 2026-08-30.
+   Oracle and Eightfold registries remain unbuilt — out of scope for this
+   pass, which was specifically about closing Workday's "only 2 tenants
+   configured" gap, not a general ATS-registry expansion.
 2. **A dedicated research pass across large employers** (banks,
    Fortune 500, defense/aerospace, retail) to seed that registry at
    scale — the same HTML-recon technique used in this pass (fetch the

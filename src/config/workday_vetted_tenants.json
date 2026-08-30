@@ -1,0 +1,10 @@
+{
+  "_provenance": "Project-owned vetted Workday tenant list (phase 7D follow-up, docs/ATS.md's proposed-next-phase item 1). Each tenant was verified live via src/scripts/jobs/fetch_workday_listings.py (real jobPostings[] returned, not just an HTTP 200) on the verified_at date. Additions are code changes: verify the tenant by hand with the fetch helper, update verified_at, and review in a PR. This list is never fetched from a remote source at run time. Uses the shared 'slugs' array key seed_vetted_slugs.py's loader expects, even though these entries are '<host>/<site>' tenant strings rather than literal slugs.",
+  "verified_at": "2026-08-30",
+  "slugs": [
+    "capitalone.wd12.myworkdayjobs.com/Capital_One",
+    "mastercard.wd1.myworkdayjobs.com/CorporateCareers",
+    "salesforce.wd12.myworkdayjobs.com/External_Career_Site",
+    "nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite"
+  ]
+}

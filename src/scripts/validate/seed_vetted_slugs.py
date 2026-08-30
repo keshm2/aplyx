@@ -2,12 +2,14 @@
 """seed_vetted_slugs.py — vetted slug auto-seeding (Phase 6, extended Phase 16B).
 
 Seeds the Ashby / Lever / Greenhouse / SmartRecruiters / Workable /
-JazzHR company-slug arrays in src/config/targets.json from the
-project-owned vetted lists (src/config/ashby_vetted_slugs.json,
-src/config/lever_vetted_slugs.json, config/greenhouse_vetted_slugs.json,
+JazzHR company-slug arrays and the Workday tenant array in
+src/config/targets.json from the project-owned vetted lists
+(src/config/ashby_vetted_slugs.json, src/config/lever_vetted_slugs.json,
+config/greenhouse_vetted_slugs.json,
 src/config/smartrecruiters_vetted_slugs.json,
-src/config/workable_vetted_slugs.json, src/config/jazzhr_vetted_slugs.json)
-so a fresh clone has real board coverage on the first run.
+src/config/workable_vetted_slugs.json, src/config/jazzhr_vetted_slugs.json,
+src/config/workday_vetted_tenants.json) so a fresh clone has real board
+coverage on the first run.
 
 Seeding rules (per slug array, independently):
   - Seed ONLY when the user's array is unset (key missing), empty
@@ -57,6 +59,11 @@ SOURCES = {
     "smartrecruiters_company_slugs": "smartrecruiters_vetted_slugs.json",
     "workable_company_slugs": "workable_vetted_slugs.json",
     "jazzhr_company_slugs": "jazzhr_vetted_slugs.json",
+    # Same shape (a plain string array) and same seeding rules as every
+    # other source above — entries are "<host>/<site>" tenant strings,
+    # not slugs, but is_placeholder_state/load_vetted_slugs don't care
+    # about that distinction (docs/ATS.md's proposed-next-phase item 1).
+    "workday_tenants": "workday_vetted_tenants.json",
 }
 
 
@@ -122,7 +129,7 @@ def atomic_write_json(path: str, data: dict) -> None:
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         prog="seed_vetted_slugs.py",
-        description="Seed placeholder Ashby/Lever/Greenhouse/SmartRecruiters/Workable/JazzHR slug arrays from vetted lists (Phase 6/16B).",
+        description="Seed placeholder Ashby/Lever/Greenhouse/SmartRecruiters/Workable/JazzHR/Workday slug/tenant arrays from vetted lists (Phase 6/16B, Workday added phase 7D follow-up).",
     )
     parser.add_argument("--targets", default=DEFAULT_TARGETS)
     args = parser.parse_args(argv)
