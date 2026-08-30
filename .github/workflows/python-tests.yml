@@ -2,18 +2,25 @@
 # them were wired into CI before this (all four existed as "run by hand"
 # per their own docstrings; the two Workday suites plus
 # test_workday_inbox_regression.py landed alongside phase 7D with no CI
-# coverage at all). Every suite here is stdlib-only, no network, no LLM,
-# no Playwright browser — each mocks or fakes whatever it needs, so this
-# needs nothing beyond checking out Python itself.
+# coverage at all). Every suite's own *logic* is stdlib-only, no network,
+# no LLM, no real Playwright browser launch — but
+# validate_local_config.py legitimately checks that pypdf/playwright are
+# importable (the same check it runs for a real local install), and its
+# test suite exercises that real check rather than mocking it, so those
+# two need to actually be installed here (confirmed live: the first run
+# of this workflow failed without them). Root requirements.txt is the
+# source of truth for exact version floors.
 name: python-tests
 on:
   push:
     paths:
       - "src/scripts/**"
+      - "requirements.txt"
       - ".github/workflows/python-tests.yml"
   pull_request:
     paths:
       - "src/scripts/**"
+      - "requirements.txt"
       - ".github/workflows/python-tests.yml"
 jobs:
   test:
@@ -23,6 +30,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
+          cache: "pip"
+      - run: pip install pypdf playwright
       - run: python3 src/scripts/validate/test_validate_local_config.py
       - run: python3 src/scripts/jobs/test_evaluate_job_fit.py
       - run: python3 src/scripts/runtime/test_workday_inbox_regression.py
