@@ -1,0 +1,29 @@
+# CI for this repo's deterministic Python unit test suites — none of
+# them were wired into CI before this (all four existed as "run by hand"
+# per their own docstrings; the two Workday suites plus
+# test_workday_inbox_regression.py landed alongside phase 7D with no CI
+# coverage at all). Every suite here is stdlib-only, no network, no LLM,
+# no Playwright browser — each mocks or fakes whatever it needs, so this
+# needs nothing beyond checking out Python itself.
+name: python-tests
+on:
+  push:
+    paths:
+      - "src/scripts/**"
+      - ".github/workflows/python-tests.yml"
+  pull_request:
+    paths:
+      - "src/scripts/**"
+      - ".github/workflows/python-tests.yml"
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: python3 src/scripts/validate/test_validate_local_config.py
+      - run: python3 src/scripts/jobs/test_evaluate_job_fit.py
+      - run: python3 src/scripts/runtime/test_workday_inbox_regression.py
+      - run: python3 src/scripts/runtime/test_approve_submit_workday.py
