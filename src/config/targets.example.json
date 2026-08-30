@@ -101,6 +101,7 @@
   "workday_tenants": [
     "REPLACE_ME"
   ],
+  "workday_alias_email": "REPLACE_ME",
   "workday_prefill_for_review": false,
   "oracle_tenants": [
     "REPLACE_ME"
@@ -143,8 +144,9 @@
     "jazzhr_company_slugs": "Company account subdomains (from a live JazzHR posting URL, e.g. <slug>.applytojob.com/apply/jobs/details/...) to scrape via HTML parsing — JazzHR has no public API. Same never-guess-a-slug rule as Workable. Verified live examples (2026-08-10): empowerproject, ilsos.",
     "gem_company_slugs": "Company slugs (from a Gem job-board URL, e.g. jobs.gem.com/<slug>) to scrape directly via Gem's public GraphQL batch API (jobs.gem.com/api/public/graphql/batch — a real, unauthenticated, public endpoint, confirmed live 2026-07-26).",
     "simplify_feeds": "Named community listing-tracker feeds to pull from — see src/scripts/jobs/fetch_simplify_listings.py's FEEDS dict for the exhaustive, current list. As of Phase 16B: \"summer_internships\", \"new_grad\" (SimplifyJobs), \"vanshb03_summer_internships\", \"vanshb03_new_grad\" (vanshb03 — a separately-scraped sibling tracker sharing the same schema, real incremental coverage, not a duplicate).",
-    "workday_tenants": "Workday tenant identifiers (\"<host>/<site>\") to scrape in review-only mode — see docs/SETUP.md for how to find a tenant string. Verified live examples (2026-07-25): salesforce.wd12.myworkdayjobs.com/External_Career_Site, nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite.",
-    "workday_prefill_for_review": "Reserved for a future phase (16D+) that would pre-fill Workday review-queue entries the same way other needs_review applications are pre-filled (see AGENTS.md \"Fill records\"), while still never auto-submitting. Currently has no effect — Workday jobs never reach the fill step at all (Phase 2 step 0 routes them straight to needs_review), so this flag is a documented no-op until that phase ships. Leave false.",
+    "workday_tenants": "Workday tenant identifiers (\"<host>/<site>\") to scrape — see docs/SETUP.md for how to find a tenant string. Verified live examples (2026-07-25): salesforce.wd12.myworkdayjobs.com/External_Career_Site, nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite. As of phase 7D (2026-08-28) Workday candidates tailor and apply via the deterministic local runtime, not review-only.",
+    "workday_alias_email": "The managed mail.aplyx.app alias that Workday account-verification mail is sent to (phase 7D, 2026-08-28). Required before the local Workday runtime can create an account — a missing/placeholder value routes Workday jobs to needs_review with a configuration message instead of applying. The local harness has no inbox service to retrieve the verification mail automatically, so even with this set, a Workday application checkpoints at awaiting_verification on the scheduled path and the user supplies the verification link/OTP via Continue Workday to cross it.",
+    "workday_prefill_for_review": "Documented no-op as of phase 7D (2026-08-28). Predates the Workday auto-apply path and is unused now that Workday reaches the real fill step. Leave false.",
     "oracle_tenants": "Oracle Recruiting Cloud tenant identifiers (\"<host>/<siteNumber>\", e.g. eeho.fa.us2.oraclecloud.com/CX_45001 for Oracle's own careers site) to scrape directly via the public Fusion HCM REST API — see docs/SETUP.md. Verified live examples (2026-07-25): egug.fa.us2.oraclecloud.com/CX_1 (American Express), jpmc.fa.oraclecloud.com/CX_1001 (JPMorgan Chase).",
     "eightfold_tenants": "Eightfold-powered careers site tenant identifiers (\"<host>/<domain>\", e.g. apply.careers.microsoft.com/microsoft.com) — a white-labeled ATS with no common hostname suffix across tenants, so each one has to be found by hand (inspect the employer's careers site network requests for an api/pcsx/search or api/apply/v2/jobs call). Verified live examples (2026-07-25): apply.careers.microsoft.com/microsoft.com, explore.jobs.netflix.net/netflix.com."
   },

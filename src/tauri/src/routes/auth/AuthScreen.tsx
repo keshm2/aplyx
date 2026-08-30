@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../lib/AuthContext";
 import { Logo } from "../../components/Logo";
 import "./AuthScreen.css";
@@ -18,6 +18,14 @@ export function AuthScreen() {
     signInWithGoogle,
   } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  // Set by SettingsAccountTab's "Sign in" button when a local install is
+  // already running — linking an account there is a different situation
+  // from a first-ever sign-in via the entry screen: this window already
+  // has local data, so it goes straight back to Settings instead of the
+  // default destinations below (which assume no local install exists and
+  // would otherwise detour into the hosted-only onboarding wizard).
+  const returnTo = (location.state as { returnTo?: string } | null)?.returnTo;
   const [mode, setMode] = useState<Mode>("sign-in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -28,14 +36,22 @@ export function AuthScreen() {
 
   // Single place that decides where a completed sign-in lands: the
   // aplyx:// deep-link callback (email confirmation, Google OAuth) and a
-  // password sign-in both just flip `status`/`onboardingCompleted` and let
-  // this effect route — a returning user goes straight to the dashboard
-  // instead of repeating the wizard every time; a first-time signup still
-  // gets it. Waits for onboardingCompleted to resolve rather than guessing.
+  // password sign-in both just flip `status`/`onboardingCompleted` (or,
+  // for a link-my-account visit, just `status`) and let this effect route.
+  // `returnTo` short-circuits the default routing entirely (see its own
+  // comment above); otherwise a returning user goes straight to the
+  // dashboard instead of repeating the wizard every time, and a
+  // first-time signup still gets it — waiting for onboardingCompleted to
+  // resolve rather than guessing.
   useEffect(() => {
-    if (status !== "signed-in" || onboardingCompleted === undefined) return;
+    if (status !== "signed-in") return;
+    if (returnTo) {
+      navigate(returnTo, { replace: true });
+      return;
+    }
+    if (onboardingCompleted === undefined) return;
     navigate(onboardingCompleted ? "/app" : "/onboarding/hosted", { replace: true });
-  }, [status, onboardingCompleted, navigate]);
+  }, [status, onboardingCompleted, returnTo, navigate]);
 
   if (status === "checking") {
     return (

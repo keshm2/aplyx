@@ -7,7 +7,7 @@
 /* Only the space AROUND the mark, never the mark's own pixels — the PNG
  * (logo-mark.png) is opaque edge-to-edge, so a background can't show
  * "through" it; this is a soft ambient halo bleeding outward instead,
- * built from the same three accent stops as the rest of Prism. Static,
+ * built from the same three accent stops as the rest of Moss. Static,
  * not animated — a brand mark visible on every screen doesn't get a
  * looping effect, same reasoning as the nav rail's active indicator. */
 .logo-mark {

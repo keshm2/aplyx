@@ -170,9 +170,10 @@ def page_signature(page, step_title: str) -> str:
 # Checkpoint key markers that must never reach disk, regardless of what
 # a caller's state dict happens to contain — the one enforcement point
 # for the plan's exclusion list ("must not include a password, OTP,
-# cookie, or raw page dump"). Matched as a case-insensitive substring of
+# verification link, cookie, or raw page dump"). Matched as a
+# case-insensitive substring of
 # the key name, not an exact list, so a variant name is still caught.
-_FORBIDDEN_CHECKPOINT_KEY_MARKERS: tuple[str, ...] = ("password", "cookie", "session_token", "otp")
+_FORBIDDEN_CHECKPOINT_KEY_MARKERS: tuple[str, ...] = ("password", "cookie", "session_token", "verification_link", "otp")
 # A `*_hash` field is a one-way digest (e.g. an OTP idempotency check),
 # never the secret itself — explicitly exempted so callers have a safe
 # way to keep an audit trail without keeping the plaintext.
@@ -180,8 +181,9 @@ _ALLOWED_HASH_SUFFIX = "_hash"
 
 
 def sanitize_checkpoint(state: dict) -> dict:
-    """Strip any key matching a forbidden marker (password/OTP/cookie/
-    session-token) unless the key is explicitly a `*_hash` field. This
+    """Strip any key matching a forbidden marker (password/OTP/
+    verification-link/cookie/session-token) unless the key is explicitly a
+    `*_hash` field. This
     is the single enforcement point every checkpoint-writing call site
     should pass its state dict through — a field added later can't
     silently leak a secret into the on-disk checkpoint without going

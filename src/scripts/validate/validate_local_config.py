@@ -128,18 +128,33 @@ def main(argv: list) -> None:
         if not (isinstance(v, str) and len(v) > 0):
             fail(f"{targets_path}: field '{key}' must be a non-empty string")
 
+    def check_string_or_absent(key):
+        v = targets.get(key, None)
+        if not (v is None or (isinstance(v, str) and len(v) > 0)):
+            fail(f"{targets_path}: field '{key}' must be a non-empty string if present")
+
     def check_object(obj, path, key):
         if not isinstance(obj.get(key), dict):
             fail(f"{path}: field '{key}' must be an object")
 
+    def is_placeholder(value):
+        text = value.strip() if isinstance(value, str) else ""
+        return text == "REPLACE_ME" or text.startswith("YOUR_")
+
+    def usable_safe_field(value):
+        return isinstance(value, str) and bool(value.strip()) and not is_placeholder(value)
+
     def check_safe_field(key):
         sf = targets.get("safe_fields")
-        if not (isinstance(sf, dict) and isinstance(sf.get(key), str) and len(sf[key]) > 0):
+        if not (isinstance(sf, dict) and isinstance(sf.get(key), str) and sf[key].strip()):
             fail(f"{targets_path}: safe_fields.{key} must be a non-empty string")
+        val = sf[key].strip()
+        if is_placeholder(val):
+            fail(f"{targets_path}: safe_fields.{key} is still a placeholder ({val!r}) — replace it with a real value before running")
 
     def has_safe_field(key):
         sf = targets.get("safe_fields")
-        return isinstance(sf, dict) and isinstance(sf.get(key), str) and len(sf[key]) > 0
+        return isinstance(sf, dict) and usable_safe_field(sf.get(key))
 
     def check_safe_field_either(key_a, key_b):
         if not (has_safe_field(key_a) or has_safe_field(key_b)):
@@ -158,6 +173,12 @@ def main(argv: list) -> None:
     check_array_or_absent("jazzhr_company_slugs")
     check_array_or_absent("simplify_feeds")
     check_array_or_absent("workday_tenants")
+    check_string_or_absent("workday_alias_email")
+    workday_alias_email = targets.get("workday_alias_email")
+    if isinstance(workday_alias_email, str) and (
+        workday_alias_email == "REPLACE_ME" or workday_alias_email.startswith("YOUR_")
+    ):
+        warn(f"{targets_path}: workday_alias_email is still a placeholder — Workday apply will wait for verification setup")
     check_array_or_absent("oracle_tenants")
     check_object(targets, targets_path, "safe_fields")
 

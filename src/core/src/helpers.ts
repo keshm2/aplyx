@@ -1,5 +1,6 @@
 import { execFileSync, spawnSync, spawn } from "node:child_process";
 import fs from "node:fs";
+import path from "node:path";
 import { py } from "./platform.js";
 import type { AppliedJob } from "./state.js";
 
@@ -230,13 +231,30 @@ export interface ApproveSubmitResult {
    *  link isn't re-handed to the next continuation run. */
   usedVerificationLink?: boolean;
   usedVerificationOtp?: boolean;
+  /** Workday-only: when the runtime detected an MFA/SSO/security-key/push
+   *  challenge it cannot safely automate, it checkpoints manual_required
+   *  with this short label (totp/push_approval/security_key/sso/
+   *  unsupported_mfa). The UI surfaces this as a queue-only awaiting-
+   *  verification state, never as a verified/submitted outcome. */
+  manualRequired?: string;
 }
 
 export interface WorkdayApprovalContext {
-  aliasEmail: string;
+  /** Managed mail.aplyx.app alias — the legacy compatibility path. */
+  aliasEmail?: string;
   aliasId?: string;
-  verificationLink?: string;
-  verificationOtp?: string;
+  /** Personal candidate email from a connected/verified Gmail profile or
+   *  verification session (docs/workday-personal-inbox-plan.md). Preferred
+   *  over aliasEmail when both are present. Never a silent fallback — the
+   *  caller only passes this when the email came from an authenticated
+   *  source. Exactly one of accountEmail/aliasEmail must be set. */
+  accountEmail?: string;
+  /** Path to a JSON file {"link":...,"otp":...} holding a one-time
+   *  verification secret consumed from a verification session. Keeps the
+    *  raw value out of argv/logs. */
+  sessionSecretFile?: string;
+  /** Short-lived credential handoff file created by the local Tauri app. */
+  credentialFile?: string;
 }
 
 /** Same launch-grace-window reasoning as REPLAY_FILL_LAUNCH_GRACE_MS above,
@@ -360,7 +378,10 @@ export function approveReadyToSubmit(
   if (!isGreenhouse && !isLever && !isAshby && !isWorkday) {
     return { ok: false, message: "Approve submit is only implemented for Greenhouse, Lever, Ashby, and Workday scaffolding right now." };
   }
-  if (entry.status !== "ready_to_submit" && !(isWorkday && entry.status === "needs_review")) {
+  if (
+    entry.status !== "ready_to_submit" &&
+    !(isWorkday && (entry.status === "needs_review" || entry.status === "awaiting_verification"))
+  ) {
     return { ok: false, message: `Approve submit expects a ready_to_submit entry (got ${entry.status ?? "<missing>"}).` };
   }
   const script = isGreenhouse
@@ -372,10 +393,20 @@ export function approveReadyToSubmit(
         : "src/scripts/runtime/approve_submit_workday.py";
   const extraArgs = isWorkday
     ? [
-        "--alias-email", workday?.aliasEmail ?? "",
+        // accountEmail is preferred when supplied; aliasEmail is the
+        // managed-alias compatibility path. The runtime enforces that at
+        // least one is present and normalizes the effective email.
+        ...(workday?.accountEmail ? ["--account-email", workday.accountEmail] : []),
+        ...(workday?.aliasEmail ? ["--alias-email", workday.aliasEmail] : []),
         ...(workday?.aliasId ? ["--alias-id", workday.aliasId] : []),
-        ...(workday?.verificationLink ? ["--verification-link", workday.verificationLink] : []),
-        ...(workday?.verificationOtp ? ["--otp", workday.verificationOtp] : []),
+        ...(workday?.sessionSecretFile ? ["--session-secret-file", workday.sessionSecretFile] : []),
+        ...(workday?.credentialFile ? ["--credential-file", workday.credentialFile] : []),
+        ...(fs.existsSync(path.join(root, "logs/tmp", `resume_${entry.job_id}.pdf`))
+          ? ["--resume-pdf", path.join(root, "logs/tmp", `resume_${entry.job_id}.pdf`)]
+          : []),
+        ...(fs.existsSync(path.join(root, "logs/tmp", `cover_letter_${entry.job_id}.txt`))
+          ? ["--cover-letter", path.join(root, "logs/tmp", `cover_letter_${entry.job_id}.txt`)]
+          : []),
       ]
     : [];
   const { cmd, args } = py([script, entry.job_id, ...extraArgs]);
@@ -402,6 +433,7 @@ export function approveReadyToSubmit(
     resume_attached?: boolean;
     used_verification_link?: boolean;
     used_verification_otp?: boolean;
+    manual_required?: string;
   } = {};
   try {
     parsed = stdout ? JSON.parse(stdout) : {};
@@ -421,6 +453,7 @@ export function approveReadyToSubmit(
       resumeAttached: parsed.resume_attached,
       usedVerificationLink: parsed.used_verification_link,
       usedVerificationOtp: parsed.used_verification_otp,
+      manualRequired: parsed.manual_required,
     };
   }
   return {
@@ -435,6 +468,7 @@ export function approveReadyToSubmit(
     resumeAttached: parsed.resume_attached,
     usedVerificationLink: parsed.used_verification_link,
     usedVerificationOtp: parsed.used_verification_otp,
+    manualRequired: parsed.manual_required,
   };
 }
 

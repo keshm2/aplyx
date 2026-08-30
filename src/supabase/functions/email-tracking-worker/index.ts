@@ -268,7 +268,11 @@ interface OAuthGmailConfig {
   watch_state: Record<string, unknown> | null;
 }
 
-async function refreshGoogleAccessToken(refreshToken: string): Promise<string> {
+async function refreshGoogleAccessToken(
+  refreshToken: string,
+  supabase: ReturnType<typeof createClient>,
+  connectionId: string,
+): Promise<string> {
   const body = new URLSearchParams({
     client_id: GOOGLE_CLIENT_ID,
     client_secret: GOOGLE_CLIENT_SECRET,
@@ -282,6 +286,13 @@ async function refreshGoogleAccessToken(refreshToken: string): Promise<string> {
   });
   if (!resp.ok) throw new Error(`Google token refresh failed: HTTP ${resp.status}`);
   const data = await resp.json();
+  const newRefreshToken = String(data.refresh_token ?? "");
+  if (newRefreshToken && newRefreshToken !== refreshToken) {
+    await supabase.rpc("service_update_mail_connection_refresh_token", {
+      p_connection_id: connectionId,
+      p_refresh_token: newRefreshToken,
+    });
+  }
   return String(data.access_token ?? "");
 }
 
@@ -337,7 +348,7 @@ async function processOAuthGmailAccount(
 
   let accessToken: string;
   try {
-    accessToken = await refreshGoogleAccessToken(cfg.refresh_token);
+    accessToken = await refreshGoogleAccessToken(cfg.refresh_token, supabase, cfg.connection_id);
     await supabase.rpc("service_update_mail_connection_access_token", {
       p_connection_id: cfg.connection_id,
       p_access_token: accessToken,

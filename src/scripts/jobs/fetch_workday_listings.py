@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""fetch_workday_listings.py — Workday review-only ingestion (Phase 7).
+"""fetch_workday_listings.py — Workday public listing ingestion (Phase 7).
 
 Fetches job postings from configured Workday tenants via the public,
 auth-free CXS JSON endpoints (no scraping, no Playwright needed for the
@@ -21,8 +21,9 @@ fit gate, the orchestrator fetches the JD per surviving candidate:
   python3 src/scripts/jobs/fetch_workday_listings.py --jd-url '<posting-url>'
 
 which prints one JSON object with jd_text (HTML stripped), title,
-location, and url. Phase 7 is review-only: nothing in this helper (or
-anywhere else) submits a Workday application.
+  location, and url. This helper only fetches public listings and never
+  submits an application; the local Workday runtime owns account creation,
+  verification, form filling, and submission.
 
 Output contract:
   stdout — raw-job JSONL (list mode) or a single JD JSON (--jd-url),
@@ -254,7 +255,7 @@ def _fetch_one_tenant(host: str, tenant: str, site: str, company_name: str, args
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         prog="fetch_workday_listings.py",
-        description="Fetch Workday tenant postings via public CXS JSON (Phase 7, review-only).",
+        description="Fetch Workday tenant postings via public CXS JSON (listing ingestion only).",
     )
     parser.add_argument("--targets", default=DEFAULT_TARGETS)
     parser.add_argument("--discovered", default=DEFAULT_DISCOVERED,

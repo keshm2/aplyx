@@ -5,10 +5,17 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { onOpenUrl } from "@tauri-apps/plugin-deep-link";
 import { SupabaseAdapter, type HostedReadiness, type MailConnectionRow } from "@aplyx/core/adapters/supabase.js";
 import { useAuth } from "../../lib/AuthContext";
-import { setLocalRoot, forgetLocalRoot } from "../../lib/bridge";
+import { setLocalRoot, forgetLocalRoot, readProfileFields } from "../../lib/bridge";
 import { getSupabaseClient } from "../../lib/supabaseClient";
+import {
+  readHostedProfileSnapshot,
+  writeProfileSnapshotLocally,
+  pullHostedResume,
+  type HostedProfileSnapshot,
+} from "../../lib/hostedPull";
 import type { SettingsOutletContext } from "./SettingsShell";
 import "../../components/formFields.css";
+import "../../components/dataList.css";
 
 const CODE_STYLE = {
   background: "var(--surface-raised)",
@@ -37,6 +44,76 @@ export function SettingsAccountTab() {
   const resumeInputRef = useRef<HTMLInputElement>(null);
   const [resumeUploading, setResumeUploading] = useState(false);
   const [resumeUploadError, setResumeUploadError] = useState<string | undefined>(undefined);
+  // Hosted-to-local profile pull (docs/web-onboarding-hosted-sync-plan.md
+  // Part B) — offered right here because this is the one place a local
+  // install and a freshly-signed-in session are ever both true at once
+  // (AuthScreen's default post-sign-in routing assumes no local install
+  // exists; the "Sign in" button below opts out of that via `returnTo`
+  // and lands back here instead). checked/dismissed/done all reset to
+  // their defaults on their own the next time this component mounts —
+  // deliberately not persisted, so a page revisit re-offers it rather
+  // than remembering a "not now" forever.
+  const [hostedPullChecked, setHostedPullChecked] = useState(false);
+  const [hostedPullSnapshot, setHostedPullSnapshot] = useState<HostedProfileSnapshot | undefined>(undefined);
+  const [localProfileHasData, setLocalProfileHasData] = useState(false);
+  const [hostedPullDismissed, setHostedPullDismissed] = useState(false);
+  const [hostedPullBusy, setHostedPullBusy] = useState(false);
+  const [hostedPullError, setHostedPullError] = useState<string | undefined>(undefined);
+  const [hostedPullDone, setHostedPullDone] = useState(false);
+
+  useEffect(() => {
+    if (status !== "signed-in" || !session || !root) {
+      setHostedPullChecked(true);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const client = await getSupabaseClient();
+        const [snapshot, localFields] = await Promise.all([
+          readHostedProfileSnapshot(client, session.user.id),
+          readProfileFields(root, ["first_name", "last_name"]),
+        ]);
+        if (cancelled) return;
+        if (snapshot?.values.first_name) {
+          setHostedPullSnapshot(snapshot);
+          setLocalProfileHasData(Boolean(localFields.first_name || localFields.last_name));
+        }
+      } catch {
+        // Fail open — no offer shown; the user can still fill in or edit
+        // their profile normally, same as before this existed.
+      } finally {
+        if (!cancelled) setHostedPullChecked(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [status, session, root]);
+
+  async function acceptHostedPull() {
+    if (!hostedPullSnapshot || !session || !root) return;
+    setHostedPullBusy(true);
+    setHostedPullError(undefined);
+    try {
+      await writeProfileSnapshotLocally(root, hostedPullSnapshot);
+      if (hostedPullSnapshot.hasResume && hostedPullSnapshot.resumeFileName) {
+        try {
+          const client = await getSupabaseClient();
+          await pullHostedResume(client, session.user.id, root, hostedPullSnapshot.resumeFileName);
+        } catch {
+          // Profile fields already landed — a resume-pull failure
+          // shouldn't block finishing; Settings' own resume upload above
+          // still lets them add one manually.
+        }
+      }
+      setHostedPullDone(true);
+    } catch (err) {
+      setHostedPullError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setHostedPullBusy(false);
+    }
+  }
 
   // Same upload call the onboarding wizard's ResumeUploadStep.tsx uses
   // (upsert: true replaces the existing file in place) — this is the
@@ -198,7 +275,16 @@ export function SettingsAccountTab() {
           <div className="check-row">
             <span className="check-icon check-icon-ok">✓</span>
             <div style={{ flex: 1 }}>
-              <div className="check-label">{session?.user.email}</div>
+              <div className="check-label" style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                {session?.user.email}
+                {/* Every hosted account is on the single free tier today —
+                 * docs/hosted-paid-tier-plan.md's paid tiers are "planned,
+                 * not started," no plan/tier column exists yet. This is an
+                 * honest label for the one real tier, not a live plan
+                 * switcher — swap it for the real value once paid tiers
+                 * actually ship. */}
+                <span className="status-badge status-badge-muted">Free</span>
+              </div>
               <div className="check-detail">Signed in — your profile syncs across devices.</div>
             </div>
             <button type="button" className="settings-action-btn" onClick={() => signOut().then(() => navigate("/"))}>
@@ -212,12 +298,63 @@ export function SettingsAccountTab() {
               <div className="check-label">Not signed in</div>
               <div className="check-detail">Running locally. Sign in to sync across devices.</div>
             </div>
-            <button type="button" className="settings-action-btn" onClick={() => navigate("/auth")}>
+            <button
+              type="button"
+              className="settings-action-btn"
+              onClick={() => navigate("/auth", { state: { returnTo: "/app/settings" } })}
+            >
               Sign in
             </button>
           </div>
         )}
       </section>
+
+      {status === "signed-in" && root && hostedPullChecked && hostedPullSnapshot && !hostedPullDismissed && !hostedPullDone && (
+        <section className="settings-section aplyx-fade-rise">
+          <h2 style={{ fontSize: "var(--text-lg)", marginBottom: "var(--space-3)" }}>Use your saved account data?</h2>
+          <p className="field-help">
+            This account already has a profile saved, from the web dashboard or another device.
+            {localProfileHasData
+              ? " This will replace the profile already saved on this local install"
+              : " Bring it into this local install instead of re-entering everything"}
+            {hostedPullSnapshot.hasResume ? ", including a saved resume." : "."}
+          </p>
+          {hostedPullError && (
+            <p className="field-help" style={{ color: "var(--danger)" }}>
+              {hostedPullError}
+            </p>
+          )}
+          <div className="detail-actions">
+            <button
+              type="button"
+              className="settings-action-btn"
+              onClick={() => setHostedPullDismissed(true)}
+              disabled={hostedPullBusy}
+            >
+              Not now
+            </button>
+            <button type="button" className="btn btn-primary" onClick={() => void acceptHostedPull()} disabled={hostedPullBusy}>
+              {hostedPullBusy ? "Importing…" : "Import my saved profile"}
+            </button>
+          </div>
+        </section>
+      )}
+
+      {hostedPullDone && (
+        <section className="settings-section aplyx-fade-rise">
+          <p className="field-help">
+            Import complete. Everything above now lives in this local install too.{" "}
+            <button
+              type="button"
+              onClick={() => navigate("/app/profile")}
+              style={{ background: "none", border: "none", padding: 0, color: "var(--accent)", font: "inherit", textDecoration: "underline", cursor: "pointer" }}
+            >
+              Review it
+            </button>
+            .
+          </p>
+        </section>
+      )}
 
       {status === "signed-in" && hostedReadiness && (
         <section className="settings-section">

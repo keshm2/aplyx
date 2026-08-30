@@ -252,6 +252,26 @@ async function dispatch(command: string, args: Args): Promise<unknown> {
       return { ok: true, path: dest };
     }
 
+    case "importResumeBytes": {
+      // Counterpart to importResumeFile above for a resume that doesn't
+      // exist as a local file yet — the hosted-to-local profile pull
+      // (docs/web-onboarding-hosted-sync-plan.md Part B) downloads a PDF
+      // from Supabase Storage in the webview and hands it here as base64
+      // (JSON has no binary type; the Rust IPC layer round-trips it as a
+      // plain string same as every other bridge arg).
+      const root = resolveRoot(args);
+      const stem = String(args.stem ?? "");
+      const base64 = String(args.base64 ?? "");
+      if (!stem || !base64) throw new Error("importResumeBytes requires { stem, base64 }");
+      const dir = path.join(root, "data", "resumes");
+      fs.mkdirSync(dir, { recursive: true });
+      const dest = path.join(dir, `${stem}.pdf`);
+      fs.writeFileSync(dest, Buffer.from(base64, "base64"));
+      // Same PII-carrying-file reasoning as importResumeFile above.
+      fs.chmodSync(dest, 0o600);
+      return { ok: true, path: dest };
+    }
+
     case "openExtensionFolder": {
       const root = resolveRoot(args);
       openPath(path.join(root, "src", "extension"));
@@ -343,12 +363,14 @@ async function dispatch(command: string, args: Args): Promise<unknown> {
       const root = resolveRoot(args);
       const entry = args.entry as QueueEntry;
       if (!entry) throw new Error("approveSubmit requires { entry }");
-      const workday = args.workday as { aliasEmail?: string; aliasId?: string; verificationLink?: string; verificationOtp?: string } | undefined;
-      const result = approveReadyToSubmit(root, entry, workday?.aliasEmail ? {
-        aliasEmail: workday.aliasEmail,
-        aliasId: workday.aliasId,
-        verificationLink: workday.verificationLink,
-        verificationOtp: workday.verificationOtp,
+      const workday = args.workday as { aliasEmail?: string; aliasId?: string; accountEmail?: string; sessionSecretFile?: string; credentialFile?: string } | undefined;
+      const hasWdContext = Boolean(workday?.aliasEmail || workday?.accountEmail || workday?.sessionSecretFile);
+      const result = approveReadyToSubmit(root, entry, hasWdContext ? {
+        aliasEmail: workday?.aliasEmail,
+        aliasId: workday?.aliasId,
+        accountEmail: workday?.accountEmail,
+        sessionSecretFile: workday?.sessionSecretFile,
+        credentialFile: workday?.credentialFile,
       } : undefined);
       if (!result.ok) return result;
       // Workday's local runtime is resumable: most continuation runs pause
@@ -358,7 +380,17 @@ async function dispatch(command: string, args: Args): Promise<unknown> {
       // other Workday result (checkpoint, failed, or the verification/
       // account-creation branches with no outcome field) stays in the
       // review queue for the next continuation or manual triage.
-      if ((entry.source ?? "") === "workday") {
+      // Use the same source/host detection as approveReadyToSubmit
+      // (helpers.ts) so a Workday-hosted entry whose source field isn't
+      // "workday" (e.g. re-sourced from SimplifyJobs but applying on a
+      // myworkdayjobs.com URL) is still caught by this guard and can't
+      // be marked applied from a non-submitted checkpoint.
+      const wdTargetUrl = entry.apply_url || entry.url;
+      let wdHost = "";
+      try { wdHost = new URL(wdTargetUrl).hostname; } catch { wdHost = ""; }
+      const isWorkdayEntry = (entry.source ?? "").toLowerCase() === "workday" ||
+        wdHost.toLowerCase().endsWith(".myworkdayjobs.com");
+      if (isWorkdayEntry) {
         if (result.outcome !== "submitted") return result;
         // A confirmed Workday submit: record the applied outcome the same
         // way Greenhouse/Lever/Ashby do. Wrapped so a missing-field
@@ -465,6 +497,35 @@ async function dispatch(command: string, args: Args): Promise<unknown> {
       } catch {
         return { checkpoint: null };
       }
+    }
+
+    // Writes a one-time verification secret (link and/or OTP) consumed from
+    // a hosted verification session to logs/tmp/session_secret_<jobId>.json
+    // so the Workday runtime can read it via --session-secret-file instead
+    // of argv — the raw value never appears in a process argument list, shell
+    // history, or log snapshot. The file is a transient handoff channel; the
+    // runtime reads and uses the value, and the secret is already redacted
+    // server-side by the consume RPC, so the file's contents are stale after
+    // one use. Returns the absolute path the caller passes to approveSubmit.
+    case "writeSessionSecretFile": {
+      const root = resolveRoot(args);
+      const jobId = String(args.jobId ?? "").trim();
+      if (!jobId || !/^[A-Za-z0-9_.:-]+$/.test(jobId)) {
+        throw new Error(`writeSessionSecretFile: unexpected job id ${JSON.stringify(jobId)}`);
+      }
+      const secret = args.secret as { link?: string; otp?: string } | undefined;
+      if (!secret || (!secret.link && !secret.otp)) {
+        throw new Error("writeSessionSecretFile requires { secret: { link?, otp? } } with at least one value");
+      }
+      const dir = path.join(root, "logs", "tmp");
+      fs.mkdirSync(dir, { recursive: true });
+      const filePath = path.join(dir, `session_secret_${jobId}.json`);
+      // 0600 — the file holds a one-time verification credential, even
+      // though it's stale after one use; same posture as the password
+      // sidecar.
+      fs.writeFileSync(filePath, JSON.stringify({ link: secret.link ?? null, otp: secret.otp ?? null }), { encoding: "utf8", mode: 0o600 });
+      fs.chmodSync(filePath, 0o600);
+      return { path: filePath };
     }
 
     case "readResumeMarkdown": {

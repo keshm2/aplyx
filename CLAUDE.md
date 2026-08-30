@@ -96,6 +96,14 @@ npm run typecheck && npm run smoke         # TUI CI checks
   later outcomes, never by deleting entries.
 - Max 25 applications per session — the TUI can lower this per run via
   `APLYX_SESSION_CAP`, never raise it.
-- Workday is review-only: no auto-apply path exists, by design.
+- Workday candidates tailor and apply like every other family
+  (phase 7D): the deterministic local runtime
+  `src/scripts/runtime/approve_submit_workday.py` owns the
+  account/verification/submit flow with fail-closed safety. The
+  scheduled path stops at the `awaiting_verification` checkpoint —
+  the local harness has no inbox service to retrieve the Workday
+  verification mail/OTP, so the user must supply it via Continue
+  Workday to cross that boundary. A missing `workday_alias_email`
+  in targets.json routes the job to needs_review, not a rejection.
 - The TUI renders and orchestrates; Python owns state. Do not port
   helper logic into TypeScript without an explicitly approved decision.

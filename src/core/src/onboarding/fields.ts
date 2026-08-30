@@ -1,8 +1,9 @@
 /**
- * Ordered page registry for the onboarding wizard — 20 fields grouped
- * into 8 pages of 1-6 related fields each, so the user answers several
- * related questions per screen instead of one question at a time (see
- * "Pages" in the onboarding plan). Field `id`s that match a
+ * Ordered page registry for the onboarding wizard — FIELD_IDS.length
+ * fields (see that constant below) grouped into 8 pages of 1-6 related
+ * fields each, so the user answers several related questions per screen
+ * instead of one question at a time (see "Pages" in the onboarding
+ * plan). Field `id`s that match a
  * src/config/targets.json safe_fields key exactly are written/read via
  * plain readSafeField/writeSafeField in OnboardingWizard.tsx; the
  * handful that don't (linkedin_username/github_username, role_keywords,
@@ -117,6 +118,13 @@ export const PAGES: PageDef[] = [
     fields: [
       { id: "authorized_to_work", label: "Authorized to work in the US? (y/n)", kind: "yesno" },
       { id: "require_sponsorship", label: "Need visa sponsorship? (y/n)", kind: "yesno" },
+      {
+        id: "citizenship_status",
+        label: "Citizenship status (optional)",
+        kind: "text",
+        placeholder: "e.g. U.S. Citizen, Permanent Resident, F-1 visa",
+        help: "Some postings (government contractors, defense-adjacent roles) require a specific status — leave blank if none of yours ask for it.",
+      },
     ],
   },
   {
@@ -129,6 +137,8 @@ export const PAGES: PageDef[] = [
         placeholder: "June 2027",
         help: "Optional in general, but required to apply to internships — most intern postings ask for it.",
       },
+      { id: "gpa", label: "GPA (optional)", kind: "text", placeholder: "3.8" },
+      { id: "currently_enrolled", label: "Currently enrolled in school? (y/n)", kind: "yesno" },
     ],
   },
   {
@@ -196,8 +206,9 @@ export const PAGES: PageDef[] = [
   },
 ];
 
-/** All 18 field ids in page order — the fixed denominator for the
- *  committed_fields.length / 18 percentage. */
+/** All field ids in page order — TOTAL_FIELDS below is the fixed
+ *  denominator OnboardingWizard.tsx's committed_fields.length /
+ *  TOTAL_FIELDS percentage uses. */
 export const FIELD_IDS: string[] = PAGES.flatMap((page) => page.fields.map((f) => f.id));
 export const TOTAL_FIELDS = FIELD_IDS.length;
 

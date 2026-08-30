@@ -326,10 +326,13 @@ they were simply never added to any tenant list.
   Found directly in `capitalonecareers.com`'s server-rendered HTML (a
   `/login` link under that host) — no browser needed. Confirmed live via
   the CXS `POST .../wday/cxs/capitalone/Capital_One/jobs` endpoint: 669
-  total reqs. **Workday tenants are review-only by design** (`AGENTS.md`:
-  "No auto-apply path exists for Workday... none is planned") — Capital
-  One postings will land in the review queue, not auto-submit, and that
-  is intentional, not a gap to close.
+  total reqs. **Workday tenants now auto-apply (phase 7D, 2026-08-28)** —
+  the prior review-only policy was lifted; Capital One postings tailor
+  and apply via the deterministic local Workday runtime like every other
+  family, stopping at the `awaiting_verification` checkpoint on the
+  scheduled path until the user supplies the verification link/OTP via
+  Continue Workday (the local harness has no inbox service to retrieve
+  it automatically). See `AGENTS.md`'s Workday entry and §3.18B.
 - **Mastercard** (found opportunistically, not requested) — Workday,
   `mastercard.wd1.myworkdayjobs.com/CorporateCareers`. Same HTML-recon
   technique (careers.mastercard.com's raw HTML links straight to it).
@@ -530,8 +533,8 @@ ATS URL — so its `ats_system` stays unresolved after canonicalize, the
 same class as "simplify"/"vanshb03". This is fine: the apply pipeline's
 Playwright-driven fill flow isn't ATS-specific to begin with (per
 `AGENTS.md` "Fill records" — the one deliberate ATS-specific carve-out
-in the whole apply path is Workday's explicit no-auto-apply rule, not a
-general pattern), so it clicks through a Muse landing page's real Apply
+in the whole apply path was Workday's no-auto-apply rule, lifted in
+phase 7D, 2026-08-28), so it clicks through a Muse landing page's real Apply
 button the same way it would navigate any other job's `url`.
 
 ### Cross-source duplicate results — fixed at the search/display layer, not the state layer
@@ -760,7 +763,7 @@ company (no long track record) but a real, credible one per outside
 review (LoopCV: "legitimate," flags it as new with limited track
 record).
 
-### Workday — re-evaluated, existing review-only policy confirmed correct
+### Workday — re-evaluated 2026-08-10 (review-only), then lifted 2026-08-28 (phase 7D)
 
 The operator asked specifically about the account-creation step. Direct
 research findings, not inferred from Tsenta's marketing:
@@ -798,10 +801,11 @@ research findings, not inferred from Tsenta's marketing:
   engineering investment in Workday specifically, not just casual
   attempts.
 
-**Conclusion: keep Workday review-only for full auto-submit — the
-existing policy (`AGENTS.md`: "No auto-apply path exists for
-Workday... none is planned") is well-founded, not a gap to close.**
-Nothing in this research changes that call; if anything it's stronger
+**Conclusion as of 2026-08-10: keep Workday review-only for full
+auto-submit — the existing policy (`AGENTS.md`: "No auto-apply path
+exists for Workday... none is planned") is well-founded, not a gap
+to close.** Nothing in this research changes that call; if anything
+it's stronger
 evidence for it than existed when the policy was first written. The
 real, buildable improvement for Workday specifically is not full
 automation — it's making the **prefill-and-hand-to-human** experience as
@@ -818,6 +822,22 @@ the per-tenant email-verification-loop problem across every configured
 Workday tenant, and no research turned up confirmed evidence any
 competitor — Tsenta included — does this reliably at scale rather than
 claiming it in marketing copy.
+
+**Update 2026-08-28 (phase 7D): the review-only policy was lifted.**
+The 2026-08-10 conclusion above was reversed by an explicit operator
+decision: Workday candidates now tailor and apply via the
+deterministic local runtime `src/scripts/runtime/approve_submit_workday.py`,
+which owns the per-tenant account-creation / verification / multi-step
+page-fill / final-submit flow with fail-closed safety. The ToS and
+per-tenant-verification findings above remain factually accurate and
+explain the one real boundary that still holds: the local harness has
+no inbox/alias service to retrieve the Workday verification mail/OTP,
+so every Workday application checkpoints at `awaiting_verification`
+on the scheduled path and the user supplies the link/OTP via Continue
+Workday to cross it. That is a missing-inbox blocker, not a policy
+prohibition — the runtime proceeds through login → page-fill → final
+submit once the boundary is crossed. See `AGENTS.md`'s Workday entry
+and `docs/PLAN.md` §3.18B for the full path.
 
 ### The seven researched ATS platforms — findings and priority
 
@@ -1069,7 +1089,9 @@ the `/careers/list` JSON endpoint just as much as a Playwright scrape
 of the detail page. So it's broader than the (a)/(b) choice above —
 neither option, nor even shipping the LIST endpoint alone, clears it.
 **Decision: BambooHR is deferred, full stop**, same conclusion and
-same reasoning shape as Workday's auto-apply — not chosen between (a)
+same reasoning shape as Workday's auto-apply (as assessed 2026-08-10;
+Workday's policy was later lifted in phase 7D, 2026-08-28 — see
+`docs/PLAN.md` §3.18B) — not chosen between (a)
 and (b), superseded by a straightforward "not legal to automate here"
 finding.
 

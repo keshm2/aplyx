@@ -12,7 +12,7 @@ import { useEffect, useState } from "react";
  *   base.css @font-face and this file's FONT_LABELS).
  * Purely a webview concern — nothing here touches the Python-owned state.
  * There used to be a third axis (themeFamily — which of six palettes) but
- * the app now ships exactly one palette (Prism, tokens.css), so that axis
+ * the app now ships exactly one palette (Moss, tokens.css), so that axis
  * was removed rather than left as a single-option picker.
  */
 

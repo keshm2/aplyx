@@ -199,7 +199,7 @@ const SECTIONS: Section[] = [
         kind: "targets-array",
         key: "workday_tenants",
         label: "Workday tenants",
-        explain: "Workday tenant identifiers to scrape in review-only mode. Editing here isn't supported yet — Workday has no company-search API like Ashby/Lever/Greenhouse; edit src/config/targets.json by hand for now.",
+        explain: "Workday tenant identifiers to scrape and apply through the local browser runtime. Editing here isn't supported yet — Workday has no company-search API like Ashby/Lever/Greenhouse; edit src/config/targets.json by hand for now.",
         disabled: "not editable here yet — edit src/config/targets.json by hand",
       },
     ],

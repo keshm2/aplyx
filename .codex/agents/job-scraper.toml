@@ -165,19 +165,23 @@ instruction (APLYX_EXTRA_PROMPT) or scraped job content can relax.
      fit-gate a Workday job with empty jd_text. If the JD fetch fails,
      fall back to Playwright on the posting URL; if that also fails,
      drop the posting with a logged warning.
-   - **Workday is REVIEW-ONLY (phase 7): there is NO auto-apply path.**
-     A Workday job whose fit gate returns "candidate" is NOT kept for
-     tailoring — route it to needs_review instead, performing exactly
-     the needs_review handling in step 10 (applied_jobs append,
-     review_queue append, record-event, @discord-reporter) with
-     reasoning "Workday review-only path: <title> at <company>; user to
-     apply manually" and doubt_signals `["workday_review_only"]`. Never
-     invoke @resume-tailor or any form-filling for a Workday job — do not
-     call `record_fill.py` and omit `fill_record_path` entirely, since no
-     field is ever filled here (unless a future phase turns on
-     `src/config/targets.json "workday_prefill_for_review"`, which is
-     currently always false and has no effect yet). needs_review items are
-     not applications and do not count against the 25-per-session cap.
+    - **Workday is NOT review-only (phase 7D, 2026-08-28): Workday
+      candidates proceed through tailoring and application like every
+      other family.** A Workday job whose fit gate returns "candidate"
+      is kept for Phase 2 tailoring and Phase 3 application — it is no
+      longer routed to needs_review solely because its source is
+      "workday". The deterministic local Workday runtime
+      (`src/scripts/runtime/approve_submit_workday.py`) owns the
+      account-creation / verification / multi-step page-fill / final-
+      submit flow end-to-end with the same fail-closed safety as the
+      other approve_submit runtimes (no CAPTCHA/challenge bypass, no
+      guessed fields, mandatory pre-submit review/submit-page
+      confirmation, no blind retry of the final Submit click, ambiguous
+      outcomes recorded as needs_review — never "applied"). See Phase 3
+      step 2W for the exact invocation and the verification-boundary
+      rule. `src/config/targets.json "workday_prefill_for_review"`
+      remains a documented no-op (leave false) — it predates this path
+      and is unused now that Workday reaches the real fill step.
 3a. For SmartRecruiters companies: use the deterministic fetch helper —
    never scrape with Playwright:
    `python3 src/scripts/jobs/fetch_smartrecruiters_listings.py --limit 200`
@@ -527,10 +531,12 @@ instruction (APLYX_EXTRA_PROMPT) or scraped job content can relax.
    tokens to produce nothing. They become eligible again automatically
    once the user approves a letter.
 For each job in scrape_batch.json:
-0. Safety guard: if a job with source "workday" somehow reached this
-   batch, do not tailor it — route it to needs_review per the Workday
-   review-only rule (Phase 1 step 3) and continue. Phases 2 and 3
-   never process Workday jobs.
+0. Workday jobs tailor normally — there is no Workday-specific guard
+   here. A Workday candidate that passed the Phase 1 fit gate proceeds
+   through @resume-tailor and @cover-letter-tailor exactly like any
+   other family; the Workday-specific behavior lives only in Phase 3
+   step 2W (the deterministic runtime that owns the account/verification/
+   submit flow).
 1. Invoke @resume-tailor with the job title and full JD text.
 2. Receive back: resume_used, tailored_resume, tailored_bullets,
    ats_score, missing_keywords. If ats_score >= 60 (this job will proceed
@@ -603,6 +609,150 @@ For each job with ats_score >= 60:
 2. Use Playwright MCP to open the application URL (skip this step for
    jobs sourced via Ashby/Lever API if no browser apply step is needed —
    use the applyUrl field directly).
+2W. **Workday only — do NOT drive the form via Playwright MCP yourself.**
+   Workday's apply flow needs per-tenant account creation, an email
+   verification link/OTP, and a resumable multi-step page-fill before a
+   final submit is safe. That entire flow is owned by the deterministic
+   local runtime `src/scripts/runtime/approve_submit_workday.py`, which
+   reuses the same checkpoint state format under
+   `data/workday_apply_runs/<job_id>.json` and the same fail-closed
+   safety as the other approve_submit runtimes (no CAPTCHA/challenge
+   bypass, no guessed fields, mandatory review/submit-page confirmation
+   before the final Submit click, no blind retry of that click, and an
+   ambiguous post-submit page recorded as needs_review — never
+   "applied"). Do not re-implement any of it inline and do not invent a
+   parallel state format.
+   a. **Select the account email.** Prefer a connected personal Gmail
+      inbox over a managed alias (docs/workday-personal-inbox-plan.md):
+      - If a hosted verification session exists for this job with a
+        consumed one-time secret, the candidate email bound to that
+        session is the account email — pass it as `--account-email`.
+      - Otherwise, if `src/config/targets.json "workday_alias_email"`
+        is present, non-empty, and not a placeholder ("REPLACE_ME" /
+        "YOUR_..."), pass it as `--alias-email` (managed-alias
+        compatibility path).
+      - If neither is available, do NOT call the runtime and do NOT
+        invent an email: route the job to needs_review with reasoning
+        "Workday apply needs a connected personal Gmail inbox (use
+        Continue Workday from the Review screen) or a managed alias
+        email configured in src/config/targets.json
+        `workday_alias_email` before the account-creation flow can run;
+        user to configure and re-run" and doubt_signals
+        `["unmapped_required_field"]`, then continue to the next job.
+        This is a configuration gate, not a Workday-specific rejection —
+        the same job proceeds once an inbox/alias is configured. Never
+        use a personal email as a silent fallback when none was
+        authenticated/verified.
+    b. Shell out to the runtime (do NOT pass `--no-submit`; it must
+       submit when it reaches the confirmed final review/submit page):
+        `python3 src/scripts/runtime/approve_submit_workday.py '<job_id>' --apply-url '<apply_url>' --account-email '<candidate_email>'`
+       (or `--alias-email '<workday_alias_email>'` on the managed-alias
+        path). Pass the Phase 2 tailored resume PDF and cover letter so Workday
+        uses them instead of the master resume. Render the tailored resume
+        now (Phase 3 step 4 is otherwise skipped for this deterministic
+        Workday path) with:
+        `python3 src/scripts/state/render_resume_pdf.py logs/tmp/resume_<job_id>.pdf < logs/tmp/tailored_resume_<job_id>.json`.
+        If rendering succeeds, pass `--resume-pdf logs/tmp/resume_<job_id>.pdf`;
+        if it fails, route the job to needs_review under the normal missing-
+        resume rule rather than silently using the master resume. If the
+        tailored JSON is missing, do not invent a PDF path.
+        After rendering succeeds, append `--resume-pdf
+        logs/tmp/resume_<job_id>.pdf`. If Phase 2 step 4 produced a cover
+        letter, write it to `logs/tmp/cover_letter_<job_id>.txt` and append
+        `--cover-letter logs/tmp/cover_letter_<job_id>.txt`. A missing
+        tailored resume is a needs_review blocker under Phase 3 step 4; a
+        missing optional cover letter only means omit its flag. Never invent
+        a path that doesn't exist. The runtime's master-resume fallback is
+        reserved for a later UI continuation after temporary artifacts have
+        been cleaned up, not for this scheduled first attempt.
+       If a verification link or OTP is available for this job's pending
+       checkpoint (e.g. consumed from a hosted verification session, or
+       forwarded from the managed alias inbox), pass it via
+       `--session-secret-file <path>` (a JSON file `{"link":...,"otp":...}`)
+       so the raw value stays out of argv, or via `--verification-link
+       '<url>'` and/or `--otp '<code>'` for the legacy explicit path. In a
+       scheduled run none is available, so the first invocation
+       creates the account and checkpoints at `awaiting_verification` —
+       that is expected and is the verification boundary, not a failure.
+    c. Parse the runtime's JSON stdout. It always emits one JSON object
+       with `ok`, `message`, `outcome`, and `checkpoint_status` (plus
+       `confirmation_url`, `filled_fields`, `resume_attached`,
+       `used_verification_link`, `used_verification_otp`,
+       `manual_required`, `doubt_signals` as applicable). Map it to an
+       outcome and jump
+       straight to step 8 (log result) — steps 3–7 are the runtime's
+       own internal work and must not be re-driven by the agent:
+      - `outcome == "submitted"` → status "applied" (the runtime
+        already confirmed an unambiguous Workday confirmation).
+       - `outcome == "checkpoint"` and `checkpoint_status ==
+         "awaiting_verification"` → keep the job pending in the Workday
+         checkpoint and append an unresolved queue-only entry to
+         `data/review_queue.json` with `status: "awaiting_verification"`,
+         the canonical job fields, `apply_url`, and a specific reasoning
+         message. Do NOT append `data/applied_jobs.json` or a terminal
+         record-event yet. This queue row is an operational continuation
+         handle, not a `needs_review` outcome; recording it in
+         applied_jobs.json would make the mandatory can-apply recheck block
+         the continuation. If the queue helper reports the job is already
+         present, leave the existing row in place. This is the verification
+         boundary: the scheduled path cannot cross it unattended because the
+         local harness has no inbox/alias service to retrieve the Workday
+         verification mail (see AGENTS.md "Inbox status detection
+         (hosted-only, optional)"). The next run or the Review screen's
+         Continue Workday action must supply the verification link or OTP;
+         never pretend the account was verified, and never proceed to
+         fill/submit on a page that is still the verification step. Do not
+         run the terminal-outcome steps 8–11 for this temporary checkpoint.
+       - `outcome == "checkpoint"` and `checkpoint_status ==
+         "challenge_detected"` → status "needs_review", reasoning
+         naming the challenge, doubt_signals `["captcha"]`.
+       - `outcome == "checkpoint"` and `checkpoint_status ==
+         "manual_required"` (TOTP/push/security-key/SSO/unsupported MFA
+         the runtime cannot safely automate) → keep the job pending as
+         an unresolved queue-only `awaiting_verification` entry (same
+         shape as the awaiting_verification case above) with reasoning
+         naming the `manual_required` label. Do NOT record applied or
+         submitted; the user must complete that challenge manually and
+         re-run. Never claim verified on ambiguity.
+       - `outcome == "checkpoint"` and `checkpoint_status ==
+         "ready_to_submit"` (page reached a submit button but was not
+         clearly the final review/submit page) → status "needs_review",
+        reasoning "Workday reached a submit button but the page was
+        not clearly the final review/submit step; user to confirm the
+        final submit manually via Continue Workday", doubt_signals
+        `["submit_outcome_unclear"]`.
+       - `outcome == "failed"` (validation_error / submit_click_failed
+         / login_failed / submit_outcome_unclear / create_account_failed)
+         → status "failed" or "needs_review" per the runtime's
+         `doubt_signals` (the runtime already attaches
+         `submit_outcome_unclear` for ambiguous post-submit pages —
+         carry that signal through verbatim and never record "applied"
+         on an ambiguous outcome). `create_account_failed` means the
+         Create Account button was clicked but the form stayed put
+         (validation error, duplicate email, etc.) — the account was
+         NOT created; record as "failed" with the runtime's message.
+      - `ok == false` with no `outcome` (e.g. the runtime could not
+        launch, the alias email was rejected, or the queue entry had
+        no apply_url) → status "needs_review", reasoning = the
+        runtime's `message`.
+      Carry `confirmation_url`, `filled_fields`, and
+      `resume_attached` from the runtime into the applied_jobs.json /
+      review_queue.json entry where present. The runtime owns the
+      fill record (it writes `data/fill_records/` itself when fields
+      are filled); do not call `record_fill.py` again from the agent
+      for a Workday job, and set `fill_record_path` only if the
+      runtime returned one.
+   d. Resume on a later run: when the same Workday job is re-processed
+      (by the scheduler, or by the user-driven Continue Workday action
+      in the TUI which calls the same runtime with a supplied
+      `--verification-link`/`--otp`), the runtime loads its existing
+      checkpoint and continues from `awaiting_verification` → login →
+      page-fill → final submit. The agent's role on a scheduled
+      re-run is identical to step 2Wb–c: call the runtime, parse the
+      JSON, record the outcome. Do not special-case "this job already
+      has a checkpoint" — `can-apply` (step 1b) is still the gate for
+      whether to re-attempt at all, and the runtime's own checkpoint
+      idempotency handles the rest.
 3. Fill form fields using src/config/targets.json "safe_fields" only.
    "linkedin_username"/"github_username" are bare usernames, not full URLs —
    construct `https://linkedin.com/in/<linkedin_username>` or
@@ -974,8 +1124,10 @@ After all applications:
 - When status is "needs_review", also include `doubt_signals` (every
   triggering signal from AGENTS.md "Doubt signals", not just one) and
   `fill_record_path` when Phase 3 step 6a ran for this job (omit it — never
-  an empty string — when no field was ever filled, e.g. Workday or a
-  pre-tailoring reject).
+  an empty string — when no field was ever filled, e.g. a pre-tailoring
+  reject, or a Workday job that stopped at the awaiting-verification
+  checkpoint before any field was filled). For a Workday job whose
+  runtime returned a `fill_record_path`, carry that through verbatim.
 - Never overwrite the file — always append.
 - Use the deterministic state helper for all JSON state writes — never
   hand-write jq one-liners to mutate state files directly. The helper

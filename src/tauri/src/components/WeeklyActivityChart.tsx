@@ -102,7 +102,7 @@ export function WeeklyActivityChart({ applied }: { applied: AppliedJob[] }) {
         aria-label={`Applications sent per day over the last ${DAYS} days, totaling ${total}`}
         onMouseLeave={() => setHoverIndex(null)}
       >
-        {/* Prism's three-stop identity (violet → cyan → magenta), applied
+        {/* Moss's three-stop identity (moss → honey → clay), applied
            here instead of a flat --accent fill — the one other place
            besides the hero card that earns real color, since it's the
            chart a "how's it going" glance actually looks at. Colors live

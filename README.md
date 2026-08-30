@@ -99,8 +99,18 @@ the matching Discord webhook, and (on success) append a row to
 the Sheet. Each run is capped at **25 applications** to stay
 polite to upstream boards.
 
-Workday is review-only on purpose — promising postings land in
-your review queue, and you apply by hand.
+Workday candidates tailor and apply like every other family. The
+deterministic local Workday runtime owns account creation,
+verification, multi-step page-fill, and the final submit with
+fail-closed safety (no CAPTCHA bypass, no guessed fields, ambiguous
+outcomes stay in review). One real boundary: the local harness has
+no inbox service to retrieve the Workday account verification
+mail/OTP, so a Workday application stops at the awaiting-verification
+checkpoint on the scheduled path and you supply the verification
+link or OTP via the **Continue Workday** action in Review to cross
+it. Configure `workday_alias_email` in `src/config/targets.json`
+first — a missing alias routes the job to review with a clear
+configuration message rather than applying.
 
 ## Using it
 
@@ -150,8 +160,13 @@ These are how aplyx is wired, not suggestions:
 - **Only successful applications sync to the Google Sheet.** A
   sync hiccup never turns a successful application into a
   failure.
-- **Workday has no auto-apply path.** No workaround exists, and
-  none is planned.
+- **Workday apply stops at the verification boundary on the scheduled
+  path.** The local harness has no inbox service to retrieve the
+  Workday account verification mail/OTP, so a Workday application
+  checkpoints at `awaiting_verification` and you cross it by running
+  **Continue Workday** with the forwarded verification link or OTP.
+  This is a missing-inbox blocker, not a policy prohibition —
+  configure `workday_alias_email` and the runtime handles the rest.
 
 For the full walkthrough — boards, Discord webhooks, the Google
 Sheets sync, per-agent quickstarts, the scheduler, and the
