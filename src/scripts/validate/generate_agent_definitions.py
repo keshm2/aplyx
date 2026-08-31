@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""generate_agent_definitions.py — harness agent generation (Phase 15/16).
+"""generate_agent_definitions.py: harness agent generation (Phase 15/16).
 
 Single source of truth for agent behavior:
 
@@ -17,16 +17,16 @@ This script composes them into the per-harness definitions:
   .codex/agents/<name>.toml   (Codex CLI subagent convention)
 
 opencode/claude/copilot share one format: YAML frontmatter + the shared
-body, exactly like before. Codex is different — its subagents are TOML
+body, exactly like before. Codex is different: its subagents are TOML
 files with the body embedded as a `developer_instructions` field, not a
-separate frontmatter+markdown split — so it gets its own compose
+separate frontmatter+markdown split, so it gets its own compose
 function. See AGENTS.md's harness capability matrix for why Codex's
 generated file exists but isn't (yet) wired into harness_adapter.py's
 actual invocation path: codex exec currently has no way to spawn a named
-subagent from .codex/agents/ (openai/codex#15250) — the file is
+subagent from .codex/agents/ (openai/codex#15250); the file is
 forward-compatible prep, not a working registry today.
 
-Never hand-edit the generated files — edit the sources and re-run. Each
+Never hand-edit the generated files: edit the sources and re-run. Each
 generated file carries a GENERATED marker naming its sources. `--check`
 regenerates in memory and exits 1 if any generated file is missing or
 stale (for CI / pre-run drift detection).
@@ -46,13 +46,13 @@ HARNESSES = MD_HARNESSES + TOML_HARNESSES
 
 MD_MARKER = (
     "<!-- GENERATED from src/agents/bodies/{name}.md + "
-    "src/agents/frontmatter/{harness}/{name}.yaml — edit those sources and run "
+    "src/agents/frontmatter/{harness}/{name}.yaml: edit those sources and run "
     "src/scripts/validate/generate_agent_definitions.py -->"
 )
 
 TOML_MARKER = (
     "# GENERATED from src/agents/bodies/{name}.md + "
-    "src/agents/frontmatter/{harness}/{name}.toml — edit those sources and run "
+    "src/agents/frontmatter/{harness}/{name}.toml: edit those sources and run "
     "src/scripts/validate/generate_agent_definitions.py"
 )
 
@@ -88,7 +88,7 @@ def compose_toml(root: str, harness: str, name: str) -> str:
     if "'''" in body:
         raise ValueError(
             f"src/agents/bodies/{name}.md contains a literal ''' sequence, which "
-            "breaks TOML's ''' multi-line literal string — rewrite the body "
+            "breaks TOML's ''' multi-line literal string: rewrite the body "
             "to avoid it before generating."
         )
     marker = TOML_MARKER.format(name=name, harness=harness)

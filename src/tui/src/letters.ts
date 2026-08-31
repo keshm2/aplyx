@@ -30,7 +30,7 @@ function storePath(root: string): string {
   return path.join(root, "data", "interest_letters.json");
 }
 
-/** Read-only listing. Reads the file directly (a read needs no helper — the
+/** Read-only listing. Reads the file directly (a read needs no helper, the
  *  write discipline is about mutations), returning [] when absent. */
 export function loadLetters(root: string): LetterRequest[] {
   try {
@@ -52,14 +52,14 @@ function helper(root: string, args: string[], input?: string): { ok: boolean; ou
   return { ok: r.status === 0, output };
 }
 
-/** Save without approving — the text stays editable and is NOT usable by a
+/** Save without approving: the text stays editable and is NOT usable by a
  *  run until approveLetter is called. */
 export function saveDraft(root: string, jobKey: string, text: string) {
   return helper(root, ["save-draft", jobKey, "-"], text);
 }
 
 /** The only call that makes a letter usable by the apply loop. Deliberately
- *  a distinct, explicit user action — generation only ever writes a draft. */
+ *  a distinct, explicit user action: generation only ever writes a draft. */
 export function approveLetter(root: string, jobKey: string, text: string) {
   return helper(root, ["approve", jobKey, "-"], text);
 }
@@ -69,7 +69,7 @@ export function discardLetter(root: string, jobKey: string) {
 }
 
 /** Draft one via a direct Anthropic API call (src/scripts/runtime/
- *  generate_interest_letter.py — no coding-agent harness involved since
+ *  generate_interest_letter.py, no coding-agent harness involved since
  *  the B1 migration). Synchronous + slow-ish (an LLM call, up to ~2 min),
  *  so callers must show a spinner; there is no partial output to stream. */
 export function generateLetter(root: string, jobKey: string): { ok: boolean; output: string } {
@@ -81,7 +81,7 @@ export function generateLetter(root: string, jobKey: string): { ok: boolean; out
     if (obj.declined) return { ok: true, output: String(obj.note ?? "Model declined to draft.") };
     if (obj.ok) {
       const flags = Array.isArray(obj.flags) ? obj.flags : [];
-      const flagNote = flags.length > 0 ? ` — review before approving: ${flags.join("; ")}` : "";
+      const flagNote = flags.length > 0 ? ` Review before approving: ${flags.join("; ")}` : "";
       return {
         ok: true,
         output: `Draft written (${obj.words ?? "?"} words, grounding confidence: ${obj.grounding_confidence ?? "unknown"}).${flagNote}`,

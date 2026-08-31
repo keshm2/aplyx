@@ -11,16 +11,16 @@ interface Props {
   /** Only the focused tab receives keys (and never on piped stdin). */
   active: boolean;
   /** Incremented by the shell on global refresh so this screen reloads
-   *  its internal state copy — without this, App "R" only updates App's
+   *  its internal state copy: without this, App "R" only updates App's
    *  own state and this screen stays stale. */
   refreshNonce?: number;
-  /** Rows the shell hands this screen — the list grows/shrinks with it. */
+  /** Rows the shell hands this screen: the list grows/shrinks with it. */
   contentRows?: number;
-  /** Columns of the content band — a detail pane opens when it fits. */
+  /** Columns of the content band: a detail pane opens when it fits. */
   columns?: number;
 }
 
-/** True once resume-tailor has actually produced something to review here —
+/** True once resume-tailor has actually produced something to review here:
  *  a queue entry that only went through the fit gate (e.g. needs_review
  *  before tailoring ever ran) has neither field, and is out of scope for
  *  this tab by design (see the module comment above Props). */
@@ -28,7 +28,7 @@ function hasTailoredDocs(entry: QueueEntry): boolean {
   return Boolean(entry.tailored_bullets?.length || entry.cover_letter);
 }
 
-/** Greedy word-wrap with forced paragraph breaks preserved — used to
+/** Greedy word-wrap with forced paragraph breaks preserved: used to
  *  precompute exactly how many terminal rows a block of text will occupy
  *  so the detail pane's total content can be kept within the rows actually
  *  available *before* handing anything to Ink.
@@ -37,9 +37,9 @@ function hasTailoredDocs(entry: QueueEntry): boolean {
  *  content routinely taller than the pane showing it (a tailored cover
  *  letter alone commonly runs 15-30 rows once bullets/keywords are added).
  *  Letting Ink's own `wrap="wrap"` + a fixed-height `overflow="hidden"`
- *  ancestor do that clipping produced real, reproducible corruption —
+ *  ancestor do that clipping produced real, reproducible corruption:
  *  stale characters from the previous frame bleeding into unrelated rows
- *  (state/ats, url) — rather than a clean truncation. Wrapping by hand and
+ *  (state/ats, url), rather than a clean truncation. Wrapping by hand and
  *  slicing the resulting plain-string rows to the known row budget avoids
  *  ever asking Ink to clip overflowing content in the first place. */
 function wrapLines(text: string, width: number): string[] {
@@ -75,8 +75,8 @@ function textRow(key: string, content: string, props: Record<string, unknown> = 
   return { key, node: <Text key={key} wrap="truncate-end" {...props}>{content || " "}</Text> };
 }
 
-/** Matches PaneRule's exact look (── title ──) as two explicit rows — a
- *  blank spacer + the rule line — so its cost is precisely 2 in the row
+/** Matches PaneRule's exact look (── title ──) as two explicit rows: a
+ *  blank spacer + the rule line, so its cost is precisely 2 in the row
  *  budget below, rather than relying on PaneRule's own `marginTop` (a
  *  layout-level gap Ink computes itself, not something this hand-rolled
  *  budget can see). */
@@ -97,7 +97,7 @@ function ruleRows(key: string, title: string): DetailRow[] {
 }
 
 /** label/value pair wrapped to `width` with a 9-col label column, matching
- *  PaneRow's look — hand-rolled here (rather than reusing PaneRow) so every
+ *  PaneRow's look: hand-rolled here (rather than reusing PaneRow) so every
  *  wrapped continuation line is its own precomputed DetailRow the budget
  *  walk can count and slice. */
 function labeledRows(key: string, label: string, value: string, width: number): DetailRow[] {
@@ -116,12 +116,12 @@ function labeledRows(key: string, label: string, value: string, width: number): 
 }
 
 /** Builds the whole detail-pane row list for `selected`, already wrapped
- *  and already sliced to `budget` rows (see wrapLines' comment for why) —
+ *  and already sliced to `budget` rows (see wrapLines' comment for why):
  *  content order follows the spec exactly: header, ats/resume, bullets,
  *  a rule, cover letter, a rule, missing keywords, url, then the actions
  *  hint. Whatever doesn't fit is dropped from the END (url/actions first),
- *  with a one-line note in its place — the tailored content itself is why
- *  this tab exists, so it takes priority over the (redundant — the footer
+ *  with a one-line note in its place: the tailored content itself is why
+ *  this tab exists, so it takes priority over the (redundant, the footer
  *  hint bar already says the same thing) in-pane action hint. */
 function buildDetailRows(
   selected: QueueEntry,
@@ -129,7 +129,7 @@ function buildDetailRows(
   width: number,
 ): DetailRow[] {
   const rows: DetailRow[] = [];
-  rows.push(textRow("header", `${selected.company} — ${selected.title}`, { bold: true, color: theme.accent }));
+  rows.push(textRow("header", `${selected.company} · ${selected.title}`, { bold: true, color: theme.accent }));
   rows.push(textRow("state", `state    ${resolved ? "resolved" : "pending"}`, {
     color: resolved ? theme.good : theme.warn,
   }));
@@ -161,7 +161,7 @@ function buildDetailRows(
 }
 
 /** Slices `rows` to `budget`, appending a one-line "n more lines" note in
- *  the last slot when something had to be cut — so truncation is always
+ *  the last slot when something had to be cut, so truncation is always
  *  visible rather than silently clipped. */
 function fitRows(rows: DetailRow[], budget: number): DetailRow[] {
   if (rows.length <= budget) return rows;
@@ -171,7 +171,7 @@ function fitRows(rows: DetailRow[], budget: number): DetailRow[] {
     key: "truncated-note",
     node: (
       <Text key="truncated-note" dimColor wrap="truncate-end">
-        … {cut} more line{cut === 1 ? "" : "s"} — heighten the terminal to see the rest
+        … {cut} more line{cut === 1 ? "" : "s"}; heighten the terminal to see the rest
       </Text>
     ),
   });
@@ -181,7 +181,7 @@ function fitRows(rows: DetailRow[], budget: number): DetailRow[] {
 /**
  * Read-only viewer over the review queue's tailored content. review_queue.json
  * is append-only by project convention (AGENTS.md's "File write discipline"),
- * and this screen introduces no new mutation path — it exists purely so a
+ * and this screen introduces no new mutation path: it exists purely so a
  * user can read/copy the tailored bullets, cover letter, and missing
  * keywords resume-tailor already produced for a queued posting. Mutation
  * (mark applied / dismiss) stays on the separate Review tab.
@@ -197,14 +197,14 @@ export function DocumentsScreen({ root, active, refreshNonce, contentRows = 20, 
   const pane = paneLayout(columns);
   const visible = Math.max(3, Math.min(30, contentRows - (pane.show ? 5 : 8)));
   // The detail pane's own row budget: same overhead accounting as `visible`
-  // above (used for the list's own pagination), but not capped at 30 —
+  // above (used for the list's own pagination), but not capped at 30:
   // unlike the list, which gains nothing from showing more than ~30 rows
   // at once, the detail pane's tailored content (a full cover letter
   // routinely runs 20-40+ rows once bullets/keywords are added) should use
   // all the vertical room a tall terminal actually has. Two rows more
   // margin than `visible` uses, so the message/rows-indicator lines below
   // the list|detail row never have to compete with this pane for the same
-  // budget App.tsx's own frame-height clip enforces — see fitRows' own
+  // budget App.tsx's own frame-height clip enforces; see fitRows' own
   // truncation note for what happens on a terminal too short to fit it all.
   const detailBudget = Math.max(6, contentRows - (pane.show ? 7 : 10));
 
@@ -215,7 +215,7 @@ export function DocumentsScreen({ root, active, refreshNonce, contentRows = 20, 
   const selected: QueueEntry | undefined = entries[cursor];
 
   // Shell-level refresh (App "R" / tab switch) reloads this screen's
-  // internal state copy — without this, App refresh only updates its own
+  // internal state copy: without this, App refresh only updates its own
   // state and this screen stays stale.
   useEffect(() => {
     setState(loadState(root));
@@ -229,7 +229,7 @@ export function DocumentsScreen({ root, active, refreshNonce, contentRows = 20, 
   }, [entries.length]);
 
   // Keep the selected row visible when the list is longer than the visible
-  // window — same synchronous-during-render derivation as ReviewScreen.tsx
+  // window: same synchronous-during-render derivation as ReviewScreen.tsx
   // (an effect reacting to `cursor` would leave one stale-window frame
   // actually painted before catching up).
   const offsetRef = useRef(0);
@@ -251,7 +251,7 @@ export function DocumentsScreen({ root, active, refreshNonce, contentRows = 20, 
       if (input === "x") return setShowResolved((s) => !s);
       if (!selected) {
         if (input === "o" || key.return) {
-          setMessage("Nothing selected — no tailored documents to open.");
+          setMessage("Nothing selected. No tailored documents to open.");
         }
         return;
       }
@@ -298,7 +298,7 @@ export function DocumentsScreen({ root, active, refreshNonce, contentRows = 20, 
               const ats =
                 typeof entry.ats_score === "number" ? `  ats ${entry.ats_score}` : "";
               const tail = resolved ? "  [resolved]" : "";
-              const label = `${glyph} ${entry.company} — ${entry.title}${ats}${tail}`;
+              const label = `${glyph} ${entry.company} · ${entry.title}${ats}${tail}`;
               return idx === cursor ? (
                 <Text key={`${entry.job_id}-${idx}`} color={theme.accent} inverse wrap="truncate-end">
                   {`${marker} ${label}`}
@@ -337,7 +337,7 @@ export function DocumentsScreen({ root, active, refreshNonce, contentRows = 20, 
             {selected.tailored_bullets?.length ? `${selected.tailored_bullets.length} bullets` : ""}
             {selected.tailored_bullets?.length && selected.cover_letter ? " · " : ""}
             {selected.cover_letter ? "cover letter" : ""}
-            {" — widen the terminal to view the full text"}
+            {": widen the terminal to view the full text"}
           </Text>
         </Box>
       ) : null}

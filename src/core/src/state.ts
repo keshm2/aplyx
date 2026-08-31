@@ -4,7 +4,7 @@ import { logDir } from "./settings.js";
 import { pidAlive } from "./platform.js";
 import type { AppliedJob, QueueEntry, RegistryRecord, AplyxState, Heartbeat, ApplyRunSummary, ApplyRunStatus } from "./stateDerive.js";
 
-// Re-exported for existing importers (the TUI, the desktop bridge) — the
+// Re-exported for existing importers (the TUI, the desktop bridge), the
 // actual definitions live in stateDerive.ts, which has no fs import so the
 // desktop webview can use the pure derivations directly against a AplyxState
 // it already loaded, without pulling in this module's fs-based readers too.
@@ -21,13 +21,13 @@ function readJsonArray<T>(file: string): T[] {
 }
 
 // Inbox status detection (outcome_status/outcome_updated_at/outcome_source
-// on AppliedJob — see stateDerive.ts's own doc comment on that field) is
-// hosted-only (2026-08-19 — matches docs/website.md's pricing page, which
+// on AppliedJob; see stateDerive.ts's own doc comment on that field) is
+// hosted-only (2026-08-19, matches docs/website.md's pricing page, which
 // already lists it as a Pro-tier feature): email-tracking-worker
 // (src/supabase/functions/) writes those columns directly onto the hosted
 // applied_jobs row, guarded by a DB trigger (migration
 // 0007_hosted_email_tracking.sql), so SupabaseAdapter's loadState() just
-// reads them off the row — no local derivation step. Local installs have
+// reads them off the row: no local derivation step. Local installs have
 // no equivalent: a local AppliedJob's outcome_status is always undefined,
 // which StatusScreen.tsx already renders as the plain "Applied" badge.
 
@@ -39,7 +39,7 @@ export function loadState(root: string): AplyxState {
   };
 }
 
-/** The user's first name from src/config/targets.json safe_fields — undefined
+/** The user's first name from src/config/targets.json safe_fields, undefined
  *  until setup has filled it in (placeholders don't count). Read-only:
  *  config writes stay with the wizard/installer. */
 export function userFirstName(root: string): string | undefined {
@@ -92,7 +92,7 @@ export function latestSessionLog(root: string): string | undefined {
  * PID of the run currently holding the runner's single-flight lock, or
  * undefined when nothing is in flight. `src/scripts/runtime/run_job_agent.py`
  * writes this file when it acquires the lock; reading it is the only way
- * the TUI can see — and stop — a run it did not spawn itself: a scheduler
+ * the TUI can see (and stop) a run it did not spawn itself: a scheduler
  * tick, or a run left alive after the user quit the TUI with `q`.
  *
  * A pid file whose process is gone means a crashed run left the lock

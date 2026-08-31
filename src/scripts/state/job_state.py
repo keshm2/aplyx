@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""job_state.py — canonical internal job/event model helpers (Phase 1).
+"""job_state.py: canonical internal job/event model helpers (Phase 1).
 
 Deterministic, stdlib-only helpers for the canonical local job registry and
 the internal event log. Run from the project root (src/scripts/runtime/run_job_agent.sh
@@ -15,7 +15,7 @@ Subcommands:
   canonicalize '<raw-job-json>'      Produce a canonical job record from raw input.
   canonicalize-batch '<raw-jobs-json-array>' | -
                                       Same canonicalize(), looped over a JSON array of raw
-                                      jobs in ONE process instead of one process per job —
+                                      jobs in ONE process instead of one process per job:
                                       identical output per item, just amortized startup cost.
                                       Prints one canonical JSON object per line (JSONL).
                                       Added for src/worker/'s hosted pipeline (Phase 17),
@@ -94,13 +94,13 @@ ATS_SOURCE_MAP = {
     "jazzhr": "jazzhr",
     "amazon": "amazon",
     "oracle": "oracle",
-    # No URL-pattern entry for Eightfold above — its hosts vary per
+    # No URL-pattern entry for Eightfold above: its hosts vary per
     # tenant with no common suffix (apply.careers.microsoft.com,
-    # explore.jobs.netflix.net, ... — confirmed live, see
+    # explore.jobs.netflix.net, ...; confirmed live, see
     # fetch_eightfold_listings.py's header), so this source-name
     # fallback is the only reliable signal.
     "eightfold": "eightfold",
-    # No URL-pattern entry for Google either — google.com is too broad a
+    # No URL-pattern entry for Google either: google.com is too broad a
     # domain to safely match on (risks false-positives against unrelated
     # Google-hosted URLs that might appear in some other source's apply
     # flow), so this is source-fallback-only too.
@@ -162,7 +162,7 @@ def parse_json_arg(arg, label):
 
 
 def parse_json_array_arg(arg, label):
-    """Same as parse_json_arg but for a JSON array — '-' reads stdin, same
+    """Same as parse_json_arg but for a JSON array: '-' reads stdin, same
     convention evaluate_job_fit.py already uses for its single-object arg."""
     raw = sys.stdin.read() if arg == "-" else arg
     try:
@@ -329,7 +329,7 @@ def extract_external_id(url, raw):
 
 # --- Canonicalization ------------------------------------------------------
 
-# Legal-entity suffixes stripped when building the natural-key fallback —
+# Legal-entity suffixes stripped when building the natural-key fallback:
 # "SpaceX" and "SpaceX Inc." would otherwise hash to two different keys
 # for what both TS's dedupeKey (src/core/src/jobsSort.ts) and this
 # function agree is the same employer.
@@ -373,7 +373,7 @@ def derive_job_key(canonical):
         # enough to make the same real posting hash to two different keys
         # when it reaches this fallback (no URL, no source+ext-id) from
         # two different sources. Exact-match on the normalized form, not
-        # fuzzy — see jobsSort.ts's dedupeKey, the equivalent for the
+        # fuzzy; see jobsSort.ts's dedupeKey, the equivalent for the
         # manual-search display path, for the same reasoning.
         company = _normalize_company(canonical.get("company", ""))
         title = _normalize_title(canonical.get("title", ""))
@@ -462,7 +462,7 @@ def _find_record(registry, job_key):
 
 def _natural_key(canonical):
     """Normalized (company, title, location, role_type) signature, used
-    ONLY to cross-check for a same-real-job-different-source duplicate —
+    ONLY to cross-check for a same-real-job-different-source duplicate:
     see _find_record_by_natural_key. Returns None when company or title
     is missing (not enough signal to safely match on)."""
     company = _normalize_company(canonical.get("company", ""))
@@ -477,15 +477,15 @@ def _natural_key(canonical):
 def _find_record_by_natural_key(registry, canonical):
     """Cross-source duplicate check: a job_key is usually URL-based
     (derive_job_key), and different sources for the SAME real posting
-    routinely carry different URLs — an aggregator (The Muse, Simplify,
+    routinely carry different URLs: an aggregator (The Muse, Simplify,
     vanshb03) links its own landing/tracking page, not the employer's
     real ATS URL, so the exact same job can compute two different
     job_keys depending on which source reached it first. Called only
     when the primary job_key lookup (_find_record) already missed, so
-    this never overrides an exact match — it only stops a second
+    this never overrides an exact match; it only stops a second
     registry record (and a second, real, wasted application) from being
     created for a job already tracked under a different job_key.
-    Exact-match on the normalized natural key, not fuzzy — see
+    Exact-match on the normalized natural key, not fuzzy; see
     jobsSort.ts's dedupeKey (the equivalent for the manual-search display
     path) for the same reasoning applied there."""
     nk = _natural_key(canonical)
@@ -516,7 +516,7 @@ def _merge_sources(existing_sources, new_sources):
 
 def merge_job(existing, new):
     """Merge a new canonical record into an existing registry record (in place)."""
-    # job_key is the identity — never changes.
+    # job_key is the identity; never changes.
     # job_id / external_job_id: keep existing if present, else adopt new.
     for f in ("job_id", "external_job_id"):
         if not existing.get(f):
@@ -558,7 +558,7 @@ def upsert_job(canonical, registry_path):
     registry = load_json_array(registry_path)
     existing = _find_record(registry, canonical["job_key"])
     if existing is None:
-        # No exact job_key match — cross-check by normalized natural key
+        # No exact job_key match: cross-check by normalized natural key
         # before deciding this is genuinely new (see
         # _find_record_by_natural_key's own doc comment for why). The
         # matched record's OWN job_key is left untouched; this only folds
@@ -587,7 +587,7 @@ def upsert_job(canonical, registry_path):
 # --- Closed-posting inference (consecutive misses) --------------------------
 
 # How many consecutive scrapes a record can be absent from (while its
-# source IS being actively scraped — see mark_seen_batch's source-scoping
+# source IS being actively scraped; see mark_seen_batch's source-scoping
 # below) before it's inferred closed. 3 gives real margin against a single
 # transient fetch failure/rate-limit for one board looking identical to a
 # genuinely closed posting, while still catching persistently-vanished
@@ -596,7 +596,7 @@ CLOSED_MISS_THRESHOLD = 3
 
 
 def _record_sources(record):
-    """Every source name a registry record has ever been seen under —
+    """Every source name a registry record has ever been seen under:
     record["source"] is just the first-seen/primary one; record["sources"]
     (see upsert_job/merge_job) can carry more than one when the same
     job_key was found via multiple boards."""
@@ -610,18 +610,18 @@ def _record_sources(record):
 
 def mark_seen_batch(job_keys, sources, registry_path):
     """Updates every registry record whose source overlaps `sources` (the
-    sources actually scraped THIS run) — never records from sources this
+    sources actually scraped THIS run); never records from sources this
     run didn't touch at all, since "absent because this board wasn't
     scraped this time" and "absent because the posting is actually gone"
     are very different things, and conflating them would infer closed on
     every record from a temporarily-disabled/skipped board. A record in
     `job_keys` (found in this run's batch) has its miss counter reset
-    (and is reopened if a prior run had marked it closed — a posting
+    (and is reopened if a prior run had marked it closed: a posting
     reappearing after being inferred closed most likely means it was
     reposted/reopened, not that the inference was wrong); everything
     else eligible gets its counter incremented, crossing
     CLOSED_MISS_THRESHOLD sets closed=true. Returns a summary dict, never
-    raises on a malformed individual record — this is best-effort
+    raises on a malformed individual record: this is best-effort
     bookkeeping, not a correctness-critical write path the way
     upsert-job/record-event are.
     """
@@ -664,14 +664,14 @@ def mark_seen_batch(job_keys, sources, registry_path):
 def record_check_results(checked_job_keys, closed_job_keys, registry_path):
     """One load/save for both things the direct-check watcher
     (check_postings_open.py) needs to record after a run: last_checked_at
-    on every record it examined (closed or not — so its own round-robin
+    on every record it examined (closed or not, so its own round-robin
     selection of 'which stalest records to check next' actually rotates
     through the whole registry instead of re-checking the same handful
     forever), and closed=true on the subset it got an explicit,
     unambiguous closure signal for (404/410, or clear closure language on
-    the posting's own page — see check_postings_open.py). closed_job_keys
+    the posting's own page; see check_postings_open.py). closed_job_keys
     is expected to be a subset of checked_job_keys, but isn't required to
-    be. Idempotent; never unsets closed — reopening is still
+    be. Idempotent; never unsets closed, reopening is still
     mark_seen_batch's job (a posting reappearing in a live scrape), since
     a direct check finding the posting still gone tells you nothing about
     whether it later reopens."""
@@ -714,12 +714,12 @@ def can_apply(canonical, registry_path, applied_path):
     }
 
     # 1. Registry: block if a record with a blocking status matches the
-    #    candidate by any canonical identity field — job_key, job_id,
+    #    candidate by any canonical identity field: job_key, job_id,
     #    normalized_url, or normalized_apply_url. job_key is checked first
     #    so the common single-record case produces a stable reason string.
     #    natural_key is checked LAST and only as a fallback: two different
     #    sources for the SAME real posting (an aggregator's own landing
-    #    page vs. the employer's real ATS link — The Muse, Simplify,
+    #    page vs. the employer's real ATS link: The Muse, Simplify,
     #    vanshb03 all do this) compute different job_keys/URLs for
     #    identical company+title+location+role_type, which would
     #    otherwise let the agent apply to the same real job twice across
@@ -747,7 +747,7 @@ def can_apply(canonical, registry_path, applied_path):
         if matched_field:
             # closed is checked independently of latest_status: a posting
             # can be inferred/confirmed closed (mark_seen_batch, or the
-            # direct checker) while its latest_status is still "new" —
+            # direct checker) while its latest_status is still "new",
             # nothing had applied to it yet, so BLOCKING_STATUSES alone
             # never catches this, and a closed posting would otherwise
             # sail through can-apply and get a real, wasted application
@@ -933,7 +933,7 @@ def main(argv=None):
         "--sources",
         required=True,
         help="JSON array of source names actually scraped this run (e.g. '[\"ashbyhq\",\"lever\"]') "
-        "— only registry records from these sources are touched",
+        "; only registry records from these sources are touched",
     )
     p_mark.add_argument("--registry", default=DEFAULT_REGISTRY)
 
@@ -961,7 +961,7 @@ def main(argv=None):
 
     if args.command == "canonicalize-batch":
         raws = parse_json_array_arg(args.raw_jobs_json, "canonicalize-batch")
-        # Per-item errors don't abort the batch — one malformed raw job
+        # Per-item errors don't abort the batch: one malformed raw job
         # shouldn't cost every other job in the same fetch its
         # canonicalization. Reported on stderr, keyed by index, so the
         # caller can tell "N canonicalized, M skipped" apart from a

@@ -35,20 +35,20 @@ const SOURCE_LABEL: Record<JobSource, string> = {
   simplify: "SimplifyJobs",
   vanshb03: "vanshb03",
 };
-// "vanshb03" is deliberately not in this toggle list — searchJobs() only
+// "vanshb03" is deliberately not in this toggle list: searchJobs() only
 // checks isOn("simplify") to decide whether to make the one combined
 // fetch call that returns both simplify- and vanshb03-tagged jobs (see
 // fetchSimplify's doc comment); a separate "vanshb03" checkbox here would
-// look real but do nothing. SOURCE_LABEL above still needs the key —
+// look real but do nothing. SOURCE_LABEL above still needs the key:
 // per-job results carry it as their actual `source` value.
 const SOURCES: JobSource[] = ["ashbyhq", "lever", "greenhouse", "smartrecruiters", "workable", "amazon", "oracle", "workday", "muse", "simplify"];
 
 type Action = "idle" | "searching" | "fitting" | "saving";
 
 /** "23h ago" while posted today, "4d ago" through 5 days, then a plain
- *  month/day — matches how stale a posting reads: fresh postings want
+ *  month/day; matches how stale a posting reads: fresh postings want
  *  precision, week-plus-old ones just need a calendar reference. No year
- *  here (short/table form) — results are now capped to the last 6 months
+ *  here (short/table form); results are now capped to the last 6 months
  *  (see searchJobs' withinSixMonths), so month/day alone can't be
  *  confused across a year boundary the way it could with unbounded
  *  results; the full year still shows in the extended detail view below. */
@@ -65,9 +65,9 @@ function formatPosted(iso?: string): string {
   return new Date(posted).toLocaleDateString("en-US", { month: "2-digit", day: "2-digit" });
 }
 
-/** Absolute "date posted" for the detail/stacked info panel — always a
+/** Absolute "date posted" for the detail/stacked info panel: always a
  *  full calendar date including the year (never "Xh/Xd ago", and never
- *  the year-less short form the table column uses) — the extended view
+ *  the year-less short form the table column uses); the extended view
  *  is where the exact date belongs. */
 function formatPostedFull(iso?: string): string {
   if (!iso) return "not listed";
@@ -88,7 +88,7 @@ function fitColor(status: FitResult["fit_status"]): string {
   return theme.danger;
 }
 
-/** One fixed-width cell in the results table — every cell truncates
+/** One fixed-width cell in the results table: every cell truncates
  *  independently so a long title can never bleed into the posted/
  *  location/fit columns after it. `hit` applies the same inverse
  *  highlight to every cell of the selected row, so the highlight reads
@@ -127,20 +127,20 @@ export function SearchScreen({
   active: boolean;
   onInputActiveChange: (active: boolean) => void;
   onStateChange: () => void;
-  /** Rows the shell hands this screen — the list grows/shrinks with it. */
+  /** Rows the shell hands this screen: the list grows/shrinks with it. */
   contentRows: number;
-  /** Columns of the content band — a detail pane opens when it fits. */
+  /** Columns of the content band: a detail pane opens when it fits. */
   columns?: number;
 }) {
   const [query, setQuery] = useState("");
   const [queryCursor, setQueryCursor] = useState(0);
   // Browse mode first: switching to this tab must never steal the
-  // keyboard — typing starts only when the user presses /.
+  // keyboard: typing starts only when the user presses /.
   const [editing, setEditing] = useState(false);
   const [action, setAction] = useState<Action>("idle");
   const [jobs, setJobs] = useState<SearchJob[]>([]);
   // Discrete pages (default 25/page, Settings > Preferences > "Results
-  // per page") over the already-fetched, already-sorted `jobs` array —
+  // per page") over the already-fetched, already-sorted `jobs` array:
   // no re-fetch per page. Re-read when the tab becomes active again so
   // a change made on the Settings tab takes effect on return here,
   // without needing a full re-search. Distinct from `visible`/`offset`
@@ -190,7 +190,7 @@ export function SearchScreen({
   const visible = Math.max(3, Math.min(30, contentRows - (pane.show ? 4 : 6)));
   const totalPages = Math.max(1, Math.ceil(jobs.length / resultsPerPage));
   const pagedJobs = jobs.slice(currentPage * resultsPerPage, (currentPage + 1) * resultsPerPage);
-  // Fixed width per source toggle, each independently truncated — a long
+  // Fixed width per source toggle, each independently truncated: a long
   // failure detail (e.g. "2/8 failed: some-slug, another-slug") must never
   // overflow into the next source's cell or force the row onto a second
   // line, which corrupted the frame below it (the list has no reserved
@@ -219,7 +219,7 @@ export function SearchScreen({
 
   // Back to page 1 whenever the total page count shrinks below the
   // current page (a smaller "Results per page" mid-session, or a new
-  // search with fewer pages of results) — never strand the view on a
+  // search with fewer pages of results); never strand the view on a
   // now out-of-range page.
   useEffect(() => {
     if (currentPage > totalPages - 1) setCurrentPage(Math.max(0, totalPages - 1));
@@ -258,7 +258,7 @@ export function SearchScreen({
       setMessage(
         result.jobs.length === 0
           ? "No matching titles found. Press / to refine the query."
-          : `${result.jobs.length} matching postings — ↑/↓ select · enter open · f fit · s save`,
+          : `${result.jobs.length} matching postings: ↑/↓ select · enter open · f fit · s save`,
       );
     } catch (err) {
       setMessage(`Search failed: ${errorMessage(err)}`);
@@ -308,7 +308,7 @@ export function SearchScreen({
           setQueryCursor(next.cursor);
         } else if (key.backspace || key.delete) {
           // macOS Backspace arrives as DEL (0x7f), which Ink reports as
-          // key.delete — treating it as forward-delete made the key a
+          // key.delete: treating it as forward-delete made the key a
           // no-op at the end of the line. Both erase backward, like every
           // shell prompt (ink-text-input does the same).
           const next = deleteBackward({ value: query, cursor: queryCursor });
@@ -342,13 +342,13 @@ export function SearchScreen({
       }
       if (key.downArrow || input === "j") return move(1);
       if (key.upArrow || input === "k") return move(-1);
-      // Full-page jump — a page here is "however many rows fit on screen"
+      // Full-page jump: a page here is "however many rows fit on screen"
       // (`visible`), not the Settings-configurable per-search result count;
       // n/p are a plain-ASCII fallback since not every terminal forwards
       // PageDown/PageUp reliably.
       if (key.pageDown || input === "n") return move(visible);
       if (key.pageUp || input === "p") return move(-visible);
-      // Discrete pages (resultsPerPage items each) — distinct from n/p
+      // Discrete pages (resultsPerPage items each): distinct from n/p
       // above, which scroll within one page by however many rows fit on
       // screen. A page can still be taller than the terminal.
       if (input === "]") return changePage(1);
@@ -360,8 +360,8 @@ export function SearchScreen({
         // Feedback instead of a silently dead key.
         setMessage(
           jobs.length === 0
-            ? "No results yet — press / to type a query, then enter to search."
-            : "Nothing selected — use ↑/↓ to pick a posting first.",
+            ? "No results yet: press / to type a query, then enter to search."
+            : "Nothing selected: use ↑/↓ to pick a posting first.",
         );
         return;
       }
@@ -383,7 +383,7 @@ export function SearchScreen({
   const selectedFit = selected ? fits[selected.url] : undefined;
   const viewportRows = pagedJobs.slice(offset, offset + visible);
 
-  // Fixed column grid for the results table — computed from whatever
+  // Fixed column grid for the results table: computed from whatever
   // width the list actually gets (less than `columns` when the detail
   // pane is also showing), so every cell keeps a stable width across
   // resizes instead of the title column silently overrunning the rest.
@@ -391,7 +391,7 @@ export function SearchScreen({
   const MARKER_W = 2;
   const COMPANY_W = 14;
   // The table column is the year-less short form ("23h ago"/"4d ago"/
-  // "mm/dd") — 8 comfortably fits the longest of those ("23h ago", 7
+  // "mm/dd"): 8 comfortably fits the longest of those ("23h ago", 7
   // chars). The full mm/dd/yyyy date lives in the detail pane instead
   // (formatPostedFull), not this column.
   const POSTED_W = 8;
@@ -399,7 +399,7 @@ export function SearchScreen({
   const FIT_W = 7;
   const GAPS = 5; // one single-space Text between each of the 6 cells
   // The full reasoning behind a fit score lives in the detail pane/stacked
-  // summary below (the "extra info" section) — keeping it out of the row
+  // summary below (the "extra info" section): keeping it out of the row
   // itself means the date/location/fit cells actually stay visible instead
   // of the table constantly fighting a long reasoning tail for room.
   const TITLE_W = Math.max(12, listWidth - MARKER_W - COMPANY_W - POSTED_W - LOCATION_W - FIT_W - GAPS);
@@ -416,7 +416,7 @@ export function SearchScreen({
           wrap="truncate-end"
         />
       </Box>
-      {/* Each cell has a fixed width and truncates independently — a long
+      {/* Each cell has a fixed width and truncates independently: a long
           failure detail (e.g. "2/8 failed: some-slug, another-slug") can't
           overflow into the next source's cell or grow the row onto a
           second line, which corrupted the frame below it (the list has no
@@ -495,7 +495,7 @@ export function SearchScreen({
                     <Text wrap="wrap">{selectedFit.reasoning}</Text>
                   </>
                 ) : (
-                  <Text dimColor wrap="wrap">not run yet — press f to fit-check this posting</Text>
+                  <Text dimColor wrap="wrap">not run yet: press f to fit-check this posting</Text>
                 )}
                 <PaneRule title="actions" />
                 <Text dimColor wrap="wrap">enter/o open · f fit · s save to review</Text>

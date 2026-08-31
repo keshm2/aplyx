@@ -1,10 +1,10 @@
 #!/bin/bash
-# Job application agent — cron/launchd entry point (Unix shim).
+# Job application agent: cron/launchd entry point (Unix shim).
 #
 # The runner logic now lives in src/scripts/runtime/run_job_agent.py so it runs natively
 # on Windows (PowerShell/cmd) as well as macOS/Linux with a single codebase.
 # This shim keeps existing crontab/launchd entries that point at the .sh
-# working unchanged — it just execs the Python runner, forwarding arguments.
+# working unchanged; it just execs the Python runner, forwarding arguments.
 #
 # Schedule (unchanged): the 30-minute launchd job installed by scheduler.sh
 # invokes this file; it in turn runs run_job_agent.py.

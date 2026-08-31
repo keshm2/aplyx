@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""record_fill.py — durable field-provenance records for filled applications
+"""record_fill.py: durable field-provenance records for filled applications
 (Phase 16C).
 
 Deterministic, stdlib-only helper. Persists exactly what an application form
-was filled with — the durable "we can prove what we typed" artifact behind
+was filled with: the durable "we can prove what we typed" artifact behind
 `fill_record_path` in applied_jobs.json / review_queue.json entries (see
 AGENTS.md "Fill records"). Run from the project root, same as job_state.py.
 
@@ -37,7 +37,7 @@ ALLOWED_SOURCE_PREFIXES = (
 )
 
 # job_id is normally "{ats_source}-{external_job_id}" or a "jk:<sha256>" job_key
-# (see src/scripts/state/job_state.py derive_job_id) — both are filesystem-safe as
+# (see src/scripts/state/job_state.py derive_job_id); both are filesystem-safe as
 # written, but this is a defense-in-depth guard against a malformed/hostile
 # job_id being used to build a file path (e.g. containing "/" or "..").
 _SAFE_JOB_ID = re.compile(r"^[A-Za-z0-9_.:-]+$")
@@ -63,7 +63,7 @@ def validate_fields(fields):
     if not isinstance(fields, list):
         die("fields-json: expected a JSON array")
     if not fields:
-        die("fields-json: must be non-empty — a fill record with no fields means nothing was filled")
+        die("fields-json: must be non-empty; a fill record with no fields means nothing was filled")
     for i, entry in enumerate(fields):
         if not isinstance(entry, dict):
             die(f"fields-json[{i}]: expected a JSON object, got {type(entry).__name__}")

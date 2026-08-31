@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import "./Modal.css";
 
 /**
- * Centered overlay — JobsScreen's job-detail view (was a side .detail-col;
+ * Centered overlay: JobsScreen's job-detail view (was a side .detail-col;
  * now full posting content, description included, needs real room).
  * transform-origin stays center deliberately (unlike Dropdown/NavMenu's
  * trigger-anchored popovers, or Status's bottom sheet): a modal isn't
@@ -25,7 +25,7 @@ export function Modal({
   // mounts, inserting it straight into the DOM with modal-open already
   // applied gives the CSS transition nothing to animate FROM (a
   // brand-new element just renders at its final computed style, no
-  // matter what transition is declared on it) — the popup would snap
+  // matter what transition is declared on it); the popup would snap
   // open with no visible motion. Mounting closed first, then flipping to
   // open a frame later, gives the transition a real starting frame.
   // Every subsequent open/close toggles this same already-mounted

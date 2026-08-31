@@ -1,5 +1,5 @@
 #!/bin/bash
-# uninstall.sh — uninstaller (Unix shim).
+# uninstall.sh: uninstaller (Unix shim).
 #
 # Logic now lives in src/scripts/install/uninstall.py so it runs natively on Windows as
 # well as macOS/Linux. This shim keeps `bash src/scripts/install/uninstall.sh [flags]`

@@ -2,7 +2,7 @@
 -- toggle to reflect the account's current status_tracking_enabled
 -- value, but get_application_account_metadata (migration 0028) never
 -- returned it. Postgres won't let `create or replace function` change
--- a `returns table(...)` shape, so this drops and recreates it —
+-- a `returns table(...)` shape, so this drops and recreates it;
 -- still masked-metadata-only, still no username/password field.
 
 drop function if exists public.get_application_account_metadata();

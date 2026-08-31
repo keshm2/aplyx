@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""render_resume_pdf.py — deterministic, one-page-guaranteed resume PDF export.
+"""render_resume_pdf.py: deterministic, one-page-guaranteed resume PDF export.
 
 Renders a MasterResume-shaped JSON (see src/core/src/masterResume.ts,
 data/resumes/resume.json) into a clean, ATS-parseable PDF reproducing Jake's
-Resume's well-known minimalist layout — implemented in HTML/CSS rather than
+Resume's well-known minimalist layout, implemented in HTML/CSS rather than
 LaTeX, printed via a real headless Chrome (Playwright's `channel="chrome"`,
 the same approach src/scripts/runtime/replay_fill.py already uses so no new
-browser-binary provisioning is needed). This never touches resume.json —
-purely a rendering artifact.
+browser-binary provisioning is needed). This never touches resume.json;
+it is purely a rendering artifact.
 
 Guarantees exactly one page via a deterministic shrink ladder, most- to
 least-preferred: (1) tighten section/entry spacing, (2) reduce font size
@@ -16,7 +16,7 @@ down to a 10pt floor, (3) trim the lowest-priority bullets one at a time
 entries first), (4) as an absolute last resort, drop a whole low-priority
 entry (never the last remaining experience entry). Fit is verified by
 counting the ACTUAL rendered PDF's pages with pypdf (already a project
-dependency) after each attempt — ground truth, not an estimate of print
+dependency) after each attempt: ground truth, not an estimate of print
 layout from a screen-rendered height measurement.
 
 Usage:
@@ -39,10 +39,10 @@ import os
 import sys
 from typing import Any, Dict, List, Optional
 
-# Font sizes (pt) tried in order — floor matches common resume-format-guide
+# Font sizes (pt) tried in order; floor matches common resume-format-guide
 # advice to never go below ~10pt body text on a printed/ATS-scanned resume.
 FONT_STEPS = [11.0, 10.5, 10.0]
-# Multiplier applied to section/entry vertical spacing and line-height —
+# Multiplier applied to section/entry vertical spacing and line-height,
 # tried innermost (all spacing steps exhausted before the font shrinks),
 # per the shrink ladder's stated priority (spacing before font).
 SPACING_STEPS = [1.0, 0.85, 0.7]
@@ -284,23 +284,23 @@ def trim_one_bullet(working: dict) -> Optional[str]:
             if len(bullets) > BULLET_FLOOR:
                 removed = bullets.pop()
                 label = entry.get("title") or entry.get("name") or "an entry"
-                return f'Shortened "{label}" — removed bullet: "{str(removed.get("text", ""))[:70]}"'
+                return f'Shortened "{label}": removed bullet: "{str(removed.get("text", ""))[:70]}"'
     return None
 
 
 def drop_one_entry(working: dict) -> Optional[str]:
     """Absolute last resort. Projects first (from the oldest), then
-    experience — but never the last remaining experience entry, so the
+    experience, but never the last remaining experience entry, so the
     exported resume always shows at least one job."""
     projects = working.get("projects") or []
     if projects:
         dropped = projects.pop()
-        return f'Removed project "{dropped.get("name", "")}" entirely — resume still did not fit one page.'
+        return f'Removed project "{dropped.get("name", "")}" entirely: resume still did not fit one page.'
     experience = working.get("experience") or []
     if len(experience) > 1:
         dropped = experience.pop()
         return (
-            f'Removed experience entry "{dropped.get("title", "")}" at {dropped.get("company", "")} entirely — '
+            f'Removed experience entry "{dropped.get("title", "")}" at {dropped.get("company", "")} entirely: '
             "resume still did not fit one page."
         )
     return None
@@ -318,7 +318,7 @@ def fit_one_page(page: Any, resume: dict, out_path: str) -> dict:
             if pages <= 1:
                 return {"pages": pages, "notes": notes}
 
-    # Tightest spacing/font still overflows — trim bullets one at a time,
+    # Tightest spacing/font still overflows; trim bullets one at a time,
     # re-checking after every single removal rather than guessing how many
     # are needed.
     while True:
@@ -330,7 +330,7 @@ def fit_one_page(page: Any, resume: dict, out_path: str) -> dict:
         if pages <= 1:
             return {"pages": pages, "notes": notes}
 
-    # Every entry is at the bullet floor and it still doesn't fit — drop
+    # Every entry is at the bullet floor and it still doesn't fit, so drop
     # whole low-priority entries as a last resort.
     while True:
         note = drop_one_entry(working)
@@ -367,14 +367,14 @@ def main(argv: "list[str] | None" = None) -> int:
         from playwright.sync_api import sync_playwright
     except ImportError:
         return error(
-            "the 'playwright' pip package is not installed — run `pip3 install -r requirements.txt` first",
+            "the 'playwright' pip package is not installed: run `pip3 install -r requirements.txt` first",
             code=2,
         )
 
     try:
         with sync_playwright() as p:
             try:
-                # Ephemeral headless launch (no persistent user profile needed —
+                # Ephemeral headless launch (no persistent user profile needed:
                 # this only ever renders HTML this script itself generated, it
                 # never visits a real site or needs a logged-in session), so
                 # unlike replay_fill.py there's no "Chrome already running

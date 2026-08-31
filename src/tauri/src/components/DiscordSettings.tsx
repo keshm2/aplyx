@@ -9,7 +9,7 @@ const ROUTES: { key: keyof Omit<DiscordConfig, "enabled">; label: string }[] = [
   { key: "summary", label: "Run summary" },
 ];
 
-/** Discord webhook config editor — shared by onboarding's NotificationsStep
+/** Discord webhook config editor: shared by onboarding's NotificationsStep
  *  (first-time setup) and Settings (edit any time after). Both read/write
  *  the same src/config/discord_config.json via the same bridge calls, so
  *  either surface immediately reflects a change made in the other. */
@@ -45,7 +45,7 @@ export function DiscordSettings({ root }: { root: string }) {
         </span>
         <div style={{ flex: 1 }}>
           <div className="check-label">Discord notifications</div>
-          <div className="check-detail">Optional — get pinged as aplyx applies, or skip this.</div>
+          <div className="check-detail">Optional: get pinged as aplyx applies, or skip this.</div>
         </div>
         <button
           type="button"

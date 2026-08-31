@@ -6,7 +6,7 @@ import { getSupabaseClient } from "./supabaseClient";
 
 /**
  * The hosted-account applied_jobs list, independent of useAplyxState's
- * `source` (which prefers a local install whenever one's connected — see
+ * `source` (which prefers a local install whenever one's connected, see
  * that hook's own comment). Application-statuses tracking and Home's
  * "tracking" widgets both need this same hosted-specific list regardless
  * of what useAplyxState happens to be showing elsewhere, so this is that
@@ -30,7 +30,7 @@ export function useOnlineAppliedJobs(): { onlineJobs: AppliedJob[]; onlineLoaded
       const hostedState = await new SupabaseAdapter(client, session.user.id).loadState();
       setOnlineJobs(hostedState?.applied ?? []);
     } catch {
-      // Best-effort — a fetch failure just leaves the last-known list.
+      // Best-effort: a fetch failure just leaves the last-known list.
     } finally {
       setOnlineLoaded(true);
     }

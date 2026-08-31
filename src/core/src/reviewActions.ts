@@ -5,7 +5,7 @@ import { appendAppliedJob, recordEvent, syncInternshipTracker } from "./helpers.
 
 /**
  * Review-queue triage actions shared by the TUI's ReviewScreen and the
- * desktop app's bridge — the queue file is append-only, so triage records
+ * desktop app's bridge: the queue file is append-only, so triage records
  * outcomes through the same helpers every other write path uses and derives
  * "resolved" (see stateDerive.ts) instead of deleting entries.
  */
@@ -14,14 +14,14 @@ export interface QueueActionResult {
   message: string;
 }
 
-/** Throws on missing registry linkage or missing required fields — callers
+/** Throws on missing registry linkage or missing required fields: callers
  *  surface the message, they never fabricate the missing values. */
 export function markQueueEntryApplied(root: string, entry: QueueEntry): QueueActionResult {
   const state = loadState(root);
   const reg = registryByJobId(state.registry, entry.job_id);
   if (!reg?.job_key) {
     throw new Error(
-      `Cannot mark applied: no registry record / job_key for "${entry.company} — ${entry.title}" (job_id=${entry.job_id}). Canonicalize the job first.`,
+      `Cannot mark applied: no registry record / job_key for "${entry.company} - ${entry.title}" (job_id=${entry.job_id}). Canonicalize the job first.`,
     );
   }
   const missing: string[] = [];
@@ -65,7 +65,7 @@ export function markQueueEntryApplied(root: string, entry: QueueEntry): QueueAct
     screenshot_url: entry.screenshot_url,
     apply_run_id: entry.apply_run_id,
   };
-  // Append the applied_jobs entry first — it is the dedup set the agent
+  // Append the applied_jobs entry first: it is the dedup set the agent
   // reads before every run, so it must be durable even if the event write
   // that follows fails. A missing event is recoverable; a missing
   // applied_jobs entry risks re-applying to the same job.
@@ -78,7 +78,7 @@ export function markQueueEntryApplied(root: string, entry: QueueEntry): QueueAct
     title: entry.title,
     url: entry.url,
   });
-  // Best-effort Sheets sync — mirrors the agent path. Only the user-facing
+  // Best-effort Sheets sync: mirrors the agent path. Only the user-facing
   // tracker fields are sent; internal-only fields stay local. A disabled/
   // unconfigured/failed sync is a warning, not an error: the application is
   // already recorded above and must stand regardless.
@@ -88,21 +88,21 @@ export function markQueueEntryApplied(root: string, entry: QueueEntry): QueueAct
     date_applied: record.date_applied,
     internship_term: reg.internship_term,
   });
-  const base = `Recorded applied: ${entry.company} — ${entry.title}`;
-  return { message: sync.synced ? `${base} (synced to tracker)` : `${base} — ${sync.message}` };
+  const base = `Recorded applied: ${entry.company} - ${entry.title}`;
+  return { message: sync.synced ? `${base} (synced to tracker)` : `${base}: ${sync.message}` };
 }
 
-/** Never throws — every failure mode (already resolved, already dismissed,
+/** Never throws: every failure mode (already resolved, already dismissed,
  *  no registry record) comes back as a message the caller displays. */
 export function dismissQueueEntry(root: string, entry: QueueEntry): QueueActionResult {
   const fresh = loadState(root);
   if (hasAppliedOrFailed(fresh, entry)) {
     return {
-      message: `Cannot dismiss: "${entry.company} — ${entry.title}" already has an applied/failed outcome; dismiss would overwrite it with skipped_unfit.`,
+      message: `Cannot dismiss: "${entry.company} - ${entry.title}" already has an applied/failed outcome; dismiss would overwrite it with skipped_unfit.`,
     };
   }
   if (isDismissed(fresh, entry)) {
-    return { message: `Already dismissed: "${entry.company} — ${entry.title}" is already marked skipped_unfit.` };
+    return { message: `Already dismissed: "${entry.company} - ${entry.title}" is already marked skipped_unfit.` };
   }
   const reg = registryByJobId(fresh.registry, entry.job_id);
   if (!reg?.job_key) {
@@ -116,5 +116,5 @@ export function dismissQueueEntry(root: string, entry: QueueEntry): QueueActionR
     title: entry.title,
     url: entry.url,
   });
-  return { message: `Dismissed: ${entry.company} — ${entry.title}` };
+  return { message: `Dismissed: ${entry.company} - ${entry.title}` };
 }

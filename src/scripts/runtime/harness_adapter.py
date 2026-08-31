@@ -7,22 +7,22 @@ branches anywhere else)"*. That rule was easy to honor while `run_job_agent`
 was the only thing that launched an agent. Interest-letter generation
 (work item #4) needs to launch one too, so rather than grow a second copy of
 the argv shapes, the adapter moved here and both callers import it. This
-module IS that adapter block — the rule now reads "the only harness-specific
+module IS that adapter block: the rule now reads "the only harness-specific
 code lives in harness_adapter.py".
 
 Two capability facts drive everything below (see the matrix in AGENTS.md):
 
   - opencode and Claude Code have a **subagent registry**, so an agent is
     named directly (`--agent <name>` / a generated `.claude/agents/` def)
-    and delegation (`@resume-tailor` etc.) resolves against it natively —
+    and delegation (`@resume-tailor` etc.) resolves against it natively,
     no extra instructions needed.
   - Copilot CLI gained a real custom-agent registry too (`.github/agents/`,
-    `copilot --agent <name>`) — detected here via a `--help` probe so an
+    `copilot --agent <name>`), detected here via a `--help` probe so an
     older Copilot CLI without it still gets the inline fallback rather than
     a silently-ignored flag. Codex CLI's `.codex/agents/*.toml` files are
     generated (forward-compat) but NOT wired in here: `codex exec` has no
     way to spawn a named subagent from them as of this writing
-    (openai/codex#15250) — the community-documented workaround is exactly
+    (openai/codex#15250): the community-documented workaround is exactly
     the inline fallback below, so that stays Codex's real path, not a
     stopgap.
 
@@ -41,12 +41,12 @@ import subprocess
 SUPPORTED = ("opencode", "claude", "codex", "copilot")
 
 # PATH probe order. src/tui/src/harness.ts mirrors this for the Settings
-# "Auto (detected and using X)" label — keep the two in sync or the UI will
+# "Auto (detected and using X)" label; keep the two in sync or the UI will
 # name a different agent than the one that actually runs.
 DETECT_ORDER = SUPPORTED
 
 # Harnesses with a subagent registry; everything else takes the inline path.
-# Codex is deliberately absent — see the module docstring; copilot is
+# Codex is deliberately absent: see the module docstring; copilot is
 # checked at runtime (_copilot_has_agent_flag) since only newer CLI builds
 # support it.
 _HAS_REGISTRY = ("opencode", "claude")
@@ -83,7 +83,7 @@ def _well_known_bin_dirs() -> list:
         for entry in os.listdir(nvm_versions):
             dirs.append(os.path.join(nvm_versions, entry, "bin"))
     except OSError:
-        pass  # no nvm — fine
+        pass  # no nvm, fine
     return dirs
 
 
@@ -102,7 +102,7 @@ def _well_known_harness_dirs(harness: str) -> list:
 
 def harness_env() -> dict:
     """Same environment this process already has, but with the well-known
-    directories prepended to PATH — for the harness subprocess itself,
+    directories prepended to PATH: for the harness subprocess itself,
     not just for finding its executable (resolve_harness_exe handles
     that part). This is about what the harness can find once it's
     already running.
@@ -111,7 +111,7 @@ def harness_env() -> dict:
     started fine under the desktop app's "Run now" (GUI-launched, so a
     bare launchd PATH), but its Playwright MCP server never came up.
     opencode brings that up by running `npx @playwright/mcp@latest`, and
-    npx/node live under Homebrew or nvm — nowhere near launchd's minimal
+    npx/node live under Homebrew or nvm, nowhere near launchd's minimal
     PATH. opencode didn't surface an error for this either. The model
     just never saw a Playwright tool in its list and, correctly given
     what it could see, reported no browser automation and sent every
@@ -127,7 +127,7 @@ def harness_env() -> dict:
 
 def resolve_harness_exe(harness: str) -> str:
     """The actual executable path for an already-resolved harness name
-    (resolve_harness()'s return value) — PATH lookup first (the common
+    (resolve_harness()'s return value): PATH lookup first (the common
     terminal/TUI case), then the well-known install locations above.
     Falls back to the bare name so a real PATH-based install keeps
     working exactly as before and a genuinely-missing harness still fails
@@ -143,7 +143,7 @@ def resolve_harness_exe(harness: str) -> str:
 
 def _copilot_has_agent_flag(exe: str) -> bool:
     """Probes for --agent support (Copilot CLI's custom-agent registry
-    flag) the same way opencode_print_flag probes for --print — an older
+    flag) the same way opencode_print_flag probes for --print, an older
     Copilot CLI without it must fall back to inlining the agent body
     rather than passing a flag it silently ignores."""
     try:
@@ -223,12 +223,12 @@ def agent_command(exe: str, harness: str, agent: str, prompt: str,
     a registry harness gets the agent by name and its generated definition
     already carries the body.
 
-    `standalone` — True when this call IS the entire harness session (a
+    `standalone`: True when this call IS the entire harness session (a
     one-shot subagent invocation, e.g. a preview tool), rather than
     `agent` being reached via in-session delegation from an
     already-running orchestrator (the normal job-scraper -> @resume-tailor
     path). Every generated agent definition except job-scraper itself is
-    `mode: subagent` in its opencode frontmatter — reachable via opencode's
+    `mode: subagent` in its opencode frontmatter, reachable via opencode's
     own in-session delegation, but NOT via `opencode run --agent <name>`
     at the top level: confirmed empirically (2026-08-19) that opencode
     silently falls back to the project's default agent (job-scraper)
@@ -237,7 +237,7 @@ def agent_command(exe: str, harness: str, agent: str, prompt: str,
     inline-body path already used for no-registry harnesses (Codex,
     older Copilot) even on opencode, sidestepping the subagent-mode
     restriction the same way Claude Code's headless `-p` entry point
-    already has to (see that branch below — it never uses a registry
+    already has to (see that branch below; it never uses a registry
     selector regardless of `standalone`, for the same underlying reason).
     Copilot's own agent defs declare `user-invocable: true` and its CLI
     has no equivalent subagent-mode restriction, so its branch is
@@ -249,13 +249,13 @@ def agent_command(exe: str, harness: str, agent: str, prompt: str,
         perm = os.environ.get("APLYX_CLAUDE_PERMISSION_MODE", os.environ.get("FLUX_CLAUDE_PERMISSION_MODE", "bypassPermissions"))
         # Claude Code resolves .claude/agents/ defs, but the headless -p entry
         # point doesn't auto-select one, so the body is named explicitly. No
-        # delegate inlining here — the registry handles it.
+        # delegate inlining here. The registry handles it.
         return [exe, "-p", "--permission-mode", perm,
                 inline_preamble(agent, (), role) + " " + prompt]
     if harness == "copilot" and _copilot_has_agent_flag(exe):
         # .github/agents/<name>.md exists (generate_agent_definitions.py) and
         # this CLI build recognizes --agent, so delegation resolves against
-        # the registry the same way it does for opencode/Claude — no
+        # the registry the same way it does for opencode/Claude, no
         # delegate inlining needed. Still names the top-level agent
         # explicitly, matching Claude's pattern above: nothing here assumes
         # --agent alone selects the right one without also saying so in the
@@ -266,7 +266,7 @@ def agent_command(exe: str, harness: str, agent: str, prompt: str,
         full += " " + prompt
         return [exe, "--agent", agent, "--prompt", full, "--allow-all-tools"]
     # codex, copilot without --agent support, and opencode when standalone=True
-    # (see the standalone= docstring above) — no usable top-level registry
+    # (see the standalone= docstring above), no usable top-level registry
     # selector for this call, inline the body.
     full = inline_preamble(agent, delegates, role)
     if extra_preamble:

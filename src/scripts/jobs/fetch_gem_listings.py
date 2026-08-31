@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""fetch_gem_listings.py — Gem-powered job boards (Recruiting CRM/ATS).
+"""fetch_gem_listings.py: Gem-powered job boards (Recruiting CRM/ATS).
 
 Gem (jobs.gem.com/<company>) has a real, public, unauthenticated GraphQL
-API — confirmed live (2026-07-26) via a real browser session's network
+API, confirmed live (2026-07-26) via a real browser session's network
 traffic (Playwright), which is how the correct path was actually found:
 
   POST https://jobs.gem.com/api/public/graphql/batch
 
 An earlier research pass concluded Gem wasn't accessible and got a 403
-— that was from guessing the WRONG path (`/api/graphql`, missing both
+; that was from guessing the WRONG path (`/api/graphql`, missing both
 `/public/` and `/batch`). The real endpoint needs no session, no
 cookies, no special headers at all (confirmed live with a bare
-`curl -X POST` and nothing else) — its GraphQL schema even names every
+`curl -X POST` and nothing else); its GraphQL schema even names every
 type `Public*` (`PublicOatsJobPost`, `PublicOatsLocation`, ...),
 confirming this was always meant to be a plain public API; the 403 was
 never bot/CAPTCHA protection, just a routing miss on a different,
@@ -23,19 +23,19 @@ Response is an array of `{"data": {...}}` in the same order.
 
 Like Ashby/Lever/Greenhouse, this is multi-company/multi-tenant with no
 free-text search in the schema itself (JobBoardList takes only
-`boardId`) — configured in src/config/targets.json as "gem_company_slugs"
+`boardId`); configured in src/config/targets.json as "gem_company_slugs"
 (the <company> segment of jobs.gem.com/<company>), same convention as
 those three. Filtering by role/level keywords happens downstream, same
 as any other unfiltered-board source.
 
 The list query carries no JD text; the detail query
 (ExternalJobPostingQuery) does, confirmed live with a real, rich HTML
-description — same two-step pattern as Oracle/Workday/SmartRecruiters.
+description; same two-step pattern as Oracle/Workday/SmartRecruiters.
 
 Output contract:
-  stdout — raw-job JSONL (list mode) or a single JD JSON (--jd-url),
+  stdout: raw-job JSONL (list mode) or a single JD JSON (--jd-url),
            list mode sorted by (company, title, external_job_id).
-  stderr — warnings and a machine-parseable summary line:
+  stderr: warnings and a machine-parseable summary line:
            fetch_gem_listings: complete companies=<n> jobs=<n> failed=<n>
 
 Exit codes:
@@ -114,13 +114,13 @@ def load_configured_companies(targets_path: str) -> list:
         die(f"could not read targets config {targets_path}: {exc}")
     raw = targets.get("gem_company_slugs")
     if raw is None:
-        warn("gem_company_slugs is not configured — Gem board skipped this run")
+        warn("gem_company_slugs is not configured: Gem board skipped this run")
         return []
     if not isinstance(raw, list):
         die("targets config field 'gem_company_slugs' must be an array")
     companies = [str(e).strip() for e in raw if str(e).strip() and str(e).strip().lower() != PLACEHOLDER]
     if not companies:
-        warn("gem_company_slugs is empty or placeholder-only — Gem board skipped this run")
+        warn("gem_company_slugs is empty or placeholder-only: Gem board skipped this run")
     return companies
 
 
@@ -150,7 +150,7 @@ def to_raw_job(posting: dict, company: str) -> dict:
         "url": f"https://jobs.gem.com/{company}/{ext_id}",
         "external_job_id": ext_id,
         "location": "; ".join(n for n in location_names if n),
-        # jd_text intentionally absent — fetch per candidate with
+        # jd_text intentionally absent: fetch per candidate with
         # --jd-url after role filtering and BEFORE the fit gate (same
         # rule as the SimplifyJobs/Workday/Oracle/SmartRecruiters feeds).
     }
@@ -232,7 +232,7 @@ def main(argv=None) -> int:
                     break
             fetched += 1
         except (urllib.error.URLError, ValueError, json.JSONDecodeError, OSError) as exc:
-            warn(f"company '{company}' failed to fetch: {exc} — skipped")
+            warn(f"company '{company}' failed to fetch: {exc}; skipped")
             failed += 1
 
     jobs.sort(key=lambda j: (j["company"], j["title"].lower(), j["external_job_id"]))

@@ -9,7 +9,7 @@
 
 aplyx currently notifies only via Discord (per-job outcomes + a per-run
 summary) and applies fully autonomously once the deterministic fit-gate
-marks a job `candidate` — no human touches a normal apply. The operator
+marks a job `candidate`: no human touches a normal apply. The operator
 wants two additions, both opt-in and off by default so a normal run is
 unaffected until configured:
 
@@ -20,17 +20,17 @@ unaffected until configured:
    NO to skip") and hold the actual submit until the user replies.
 
 Two hard constraints, settled during design discussion:
-- **Universal, not Apple-only** — ruled out iMessage; Twilio (or
+- **Universal, not Apple-only**: ruled out iMessage; Twilio (or
   equivalent) is required since aplyx is installed by many users on any
   OS.
-- **No new server** — the scheduler runs the agent as a short-lived
+- **No new server**: the scheduler runs the agent as a short-lived
   process every 30 min (launchd `StartInterval`, confirmed in
   `scheduler.py`/`run_job_agent.py`); there is no persistent process to
   hold a webhook open. So inbound replies are **polled** from Twilio's
   Messages API on each scheduled run, not pushed via webhook. A reply is
-  therefore acted on within ~30 min, never instantly — accepted
+  therefore acted on within ~30 min, never instantly: accepted
   trade-off in exchange for zero new hosted infrastructure.
-- **Bring-your-own-Twilio-account per user** — mirrors the existing
+- **Bring-your-own-Twilio-account per user**: mirrors the existing
   per-user Discord-webhook model exactly (each user's own webhook/own
   Twilio number in their own gitignored config), not one aplyx-owned
   number relaying for every installer (that would need a permanently-running
@@ -38,7 +38,7 @@ Two hard constraints, settled during design discussion:
   shared number being flagged for bulk-messaging).
 
 The repo already solves "park a job across scheduler runs, wait for an
-async human answer, resume later" for the motivation-essay case —
+async human answer, resume later" for the motivation-essay case:
 `src/scripts/state/interest_letter.py` + its `@interest-letter` agent
 registration. Confirmed by direct read (interest_letter.py:1-251): parks
 outside the `job_registry`/`can-apply` system entirely (parking is *not*

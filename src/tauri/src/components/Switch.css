@@ -1,10 +1,10 @@
 /*
- * Apple-style toggle switch — pill track + sliding circular thumb.
+ * Apple-style toggle switch: pill track + sliding circular thumb.
  * Motion tokens deliberately match this app's own established vocabulary
  * rather than inventing new ones: --ease-snap is already the codebase's
  * "small, frequent, direct-response feedback" curve (stat cards, nav-item
  * hover), and --scale-press is already the one press-down amount every
- * other clickable control in the app uses on :active — a toggle should
+ * other clickable control in the app uses on :active: a toggle should
  * feel like the same family of control, not a one-off.
  */
 
@@ -27,7 +27,7 @@
   background: var(--good);
 }
 
-/* Instant press feedback on the whole control — the same tactile language
+/* Instant press feedback on the whole control: the same tactile language
    as every other button in the app, not just the thumb. */
 .apple-switch:active {
   transform: scale(var(--scale-press));
@@ -38,14 +38,14 @@
 }
 
 /* Disabled-but-idle (no pulse) still needs some visual signal that it's
-   not interactive — the pulse's own opacity keyframes cover that case
+   not interactive: the pulse's own opacity keyframes cover that case
    when pending, so this only applies when they're not already running. */
 .apple-switch:disabled:not(.apple-switch-pending) {
   opacity: 0.5;
 }
 
 /* Actively working (toggleScheduler's await window) vs. plain "the switch
-   happens to be unavailable right now" read very differently — a flat
+   happens to be unavailable right now" read very differently: a flat
    50% opacity looks identical to "broken/inert," which is exactly what
    made a genuinely-in-progress toggle look like a dead click. A slow
    breathing pulse communicates "something is happening" without a spinner

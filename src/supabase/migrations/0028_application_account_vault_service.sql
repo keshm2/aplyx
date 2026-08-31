@@ -1,16 +1,16 @@
--- ATS account-credential layer — Package 2 (Vault service) of
+-- ATS account-credential layer: Package 2 (Vault service) of
 -- docs/ats-account-credentials-plan.md. Builds the seven RPCs the plan
 -- names under "Vault and Authorization Boundaries", plus one supporting
 -- table the plan implies but never explicitly lists in its data model:
 -- something has to hold the "valid purpose and unexpired request token"
 -- issue_account_credential_use_token creates and a resolve step later
--- redeems — added here as application_account_credential_tokens, RLS
+-- redeems, added here as application_account_credential_tokens, RLS
 -- enabled with ZERO policies (invisible to every client role; only
 -- SECURITY DEFINER functions, which bypass RLS via their owning role,
 -- ever touch it).
 --
 -- Calling-role pattern used throughout: every RPC resolves "who is this
--- for" via _application_account_caller_user_id(p_user_id) — if a real
+-- for" via _application_account_caller_user_id(p_user_id): if a real
 -- JWT session exists (auth.uid() is not null), that identity always
 -- wins and any passed p_user_id is ignored outright (this is the
 -- concrete defense against the plan's own threat assumption: "A user
@@ -22,14 +22,14 @@
 --
 -- Package 2 does NOT wire this into apply_runs (Package 3), does not
 -- touch the ATS registry (Package 7's tenant-key resolution), and does
--- not build any UI (Package 6) — those are separate follow-up packages.
+-- not build any UI (Package 6); those are separate follow-up packages.
 
 -- Already installed on this project, confirmed live, in the `extensions`
--- schema — NOT `public`. `IF NOT EXISTS` makes this a no-op here either
+-- schema, NOT `public`. `IF NOT EXISTS` makes this a no-op here either
 -- way; kept only so this migration is self-sufficient on a fresh
 -- project. Every function below that calls gen_random_bytes/digest/hmac
 -- explicitly includes `extensions` in its own search_path because of
--- this — a plain `public, vault` search_path would fail at call time
+-- this: a plain `public, vault` search_path would fail at call time
 -- with "function does not exist", not at migration-apply time.
 create extension if not exists pgcrypto;
 
@@ -41,7 +41,7 @@ create table if not exists public.application_account_credential_tokens (
   account_id uuid not null references public.application_accounts (id) on delete cascade,
   purpose text not null check (purpose in ('status_check', 'login_test')),
   -- The token itself is returned to the caller exactly once and never
-  -- stored — only its hash, so reading this table (even with direct DB
+  -- stored, only its hash, so reading this table (even with direct DB
   -- access) can't reconstruct a usable token, same reasoning a bearer
   -- API key or password reset link would use.
   token_hash text not null unique,
@@ -54,7 +54,7 @@ create index if not exists application_account_credential_tokens_account_idx
   on public.application_account_credential_tokens (account_id);
 
 alter table public.application_account_credential_tokens enable row level security;
--- No policies at all, deliberately — this table is not meant to be
+-- No policies at all, deliberately: this table is not meant to be
 -- readable or writable by `authenticated`/`anon` under any
 -- circumstance, only by SECURITY DEFINER functions below.
 
@@ -95,7 +95,7 @@ $$;
 
 revoke all on function public._application_account_log_event(uuid, uuid, text, jsonb) from public, authenticated, anon;
 
--- Masked *display* value only ("j***@company.com") — never used for the
+-- Masked *display* value only ("j***@company.com"), never used for the
 -- unique-constraint lookup (that's login_hint_hash, computed separately
 -- below with a real keyed HMAC, not this).
 create or replace function public._application_account_mask_hint(p_value text)
@@ -116,7 +116,7 @@ $$;
 -- but doesn't specify where the key lives. A per-row random salt would
 -- defeat the actual purpose (finding a match requires computing the
 -- SAME hash for the SAME identifier every time), so this needs one
--- stable server-side key — stored as its own Vault secret, bootstrapped
+-- stable server-side key: stored as its own Vault secret, bootstrapped
 -- on first use, read only inside SECURITY DEFINER functions. The key
 -- itself never leaves the database.
 create or replace function public._application_account_hmac_key()
@@ -124,7 +124,7 @@ returns text
 language plpgsql
 security definer
 -- extensions: pgcrypto (gen_random_bytes) lives there on this project,
--- confirmed live (not in public) before writing this — see migration
+-- confirmed live (not in public) before writing this; see migration
 -- comment at the top of this file.
 set search_path = public, vault, extensions
 as $$
@@ -168,7 +168,7 @@ revoke all on function public._application_account_hint_hash(text) from public, 
 -- for an existing account or pending account before generating another
 -- password"): a retry with the same identity in the same tenant scope
 -- returns the existing row's id instead of minting a second Vault
--- secret. Does NOT submit any account-creation form itself — that's a
+-- secret. Does NOT submit any account-creation form itself; that's a
 -- browser-automation concern (Package 4), not this function's job; this
 -- only reserves the Vault secret + metadata row *before* that submission
 -- happens, exactly as lifecycle step 6 describes.
@@ -214,7 +214,7 @@ begin
   end if;
 
   -- Secret name is a random opaque id, never the email or company name
-  -- (plan's "Vault secret format" section) — the account row's own id
+  -- (plan's "Vault secret format" section): the account row's own id
   -- doesn't exist yet at this point, so this uses its own fresh uuid
   -- rather than the row's id.
   v_secret_id := vault.create_secret(
@@ -244,9 +244,9 @@ grant execute on function public.create_application_account(text, text, text, te
 
 -- --- get_application_account_metadata ---------------------------------
 
--- Exactly the "Credential Retrieval for User Actions" list — Company,
+-- Exactly the "Credential Retrieval for User Actions" list: Company,
 -- ATS family, Tenant, Masked username, Account status, Verification
--- status, Last login, Last status check — and nothing else. In
+-- status, Last login, Last status check, and nothing else. In
 -- particular, credential_secret_id is never in this result shape, even
 -- though it isn't secret by itself: no reason to hand the frontend an
 -- identifier it has no legitimate use for.
@@ -279,7 +279,7 @@ grant execute on function public.get_application_account_metadata() to authentic
 -- --- issue_account_credential_use_token --------------------------------
 
 -- "creates a short-lived, single-purpose token for a worker operation"
--- (plan) — ttl is clamped, not caller-controlled beyond that range, so
+-- (plan); ttl is clamped, not caller-controlled beyond that range, so
 -- a compromised/careless caller can't mint a long-lived token.
 create or replace function public.issue_account_credential_use_token(
   p_account_id uuid,
@@ -323,13 +323,13 @@ grant execute on function public.issue_account_credential_use_token(uuid, text, 
 
 -- --- resolve_application_account_credential_token ----------------------
 
--- The redemption half of the token issued above — deliberately NOT
+-- The redemption half of the token issued above, deliberately NOT
 -- named in the plan's own RPC list, but functionally required (a token
 -- that can never be redeemed accomplishes nothing), and the plan's own
 -- "Vault and Authorization Boundaries" section describes exactly this
 -- resolve step's checks. service_role only: this is what a future
 -- Package 7 worker calls just before opening a browser session, never
--- something a regular user's client should reach directly — "the
+-- something a regular user's client should reach directly: "the
 -- frontend must never receive another user's credential" applies with
 -- extra force to a function whose entire purpose is returning a
 -- decrypted secret. Single-use: a token is marked consumed on its first
@@ -387,10 +387,10 @@ grant execute on function public.resolve_application_account_credential_token(te
 -- The re-authentication *timing* itself (operator decision 2026-08-22:
 -- a short session window, not a fresh re-auth on every single reveal)
 -- is enforced by the calling client/session layer via Supabase Auth's
--- own session freshness — this function's own job is strictly the
+-- own session freshness; this function's own job is strictly the
 -- ownership + account-state check, and logging that a reveal happened.
 -- authenticated-only: no service-role path exists here at all, on
--- purpose — nothing about "reveal to the owning user" has a legitimate
+-- purpose: nothing about "reveal to the owning user" has a legitimate
 -- worker use case the way issue/resolve above do.
 create or replace function public.reveal_own_account_credential(p_account_id uuid)
 returns table (username text, password text)
@@ -429,7 +429,7 @@ grant execute on function public.reveal_own_account_credential(uuid) to authenti
 -- --- rotate_application_account_secret ----------------------------------
 
 -- "Replace the Vault secret atomically" + "Revoke or invalidate the old
--- secret" (Password Reset and Rotation) — vault.update_secret rewrites
+-- secret" (Password Reset and Rotation): vault.update_secret rewrites
 -- the existing secret's value in place rather than creating a new one
 -- and repointing credential_secret_id, so the old plaintext is gone the
 -- moment this returns; there's no separate "old secret" left to revoke.
@@ -484,7 +484,7 @@ grant execute on function public.rotate_application_account_secret(uuid, text, t
 -- unambiguous requirement stated elsewhere: 'deleted' is terminal (same
 -- shape as the applied_jobs outcome-status guard trigger elsewhere in
 -- this schema). Everything else is treated as a valid transition for
--- now — revisit if a real transition graph turns out to be needed once
+-- now; revisit if a real transition graph turns out to be needed once
 -- Package 4 (browser resilience) is actually driving this.
 create or replace function public.mark_account_state(
   p_account_id uuid,
@@ -539,10 +539,10 @@ grant execute on function public.mark_account_state(uuid, text, text, text, uuid
 
 -- --- delete_application_account ------------------------------------------
 
--- "revokes the Vault secret and soft-deletes metadata" — revocation
+-- "revokes the Vault secret and soft-deletes metadata": revocation
 -- here means overwriting the secret's value with a tombstone, not
 -- deleting the vault.secrets row (application_accounts.credential_secret_id
--- is NOT NULL with no "on delete" clause — see migration 0027 — so the
+-- is NOT NULL with no "on delete" clause (see migration 0027), so the
 -- row must keep pointing at *something* valid). authenticated-only: a
 -- user deleting their own stored credential has no legitimate
 -- service-role-initiated equivalent in this plan.

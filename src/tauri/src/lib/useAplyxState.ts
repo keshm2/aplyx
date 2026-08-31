@@ -10,16 +10,16 @@ export type StateSource = "local" | "hosted" | "none";
 export interface AplyxStateHandle {
   state: AplyxState | undefined;
   loaded: boolean;
-  /** Which source `state` came from — "local" and "hosted" screens branch
+  /** Which source `state` came from: "local" and "hosted" screens branch
    *  their mutation actions on this (local goes through the Rust/bridge IPC,
    *  hosted goes through SupabaseAdapter directly); "none" means neither a
    *  local install nor a hosted session is available. */
   source: StateSource;
-  /** Set only when source === "local" — for the handful of local-only
+  /** Set only when source === "local": for the handful of local-only
    *  actions (reopening a pre-filled application, live job search) that
    *  have no hosted equivalent and still need the root path directly. */
   root: string | undefined;
-  /** Hosted mutations need a live client + userId — undefined unless
+  /** Hosted mutations need a live client + userId; undefined unless
    *  source === "hosted". Screens pass this straight to a new
    *  SupabaseAdapter rather than each re-deriving it. */
   hosted: { client: Awaited<ReturnType<typeof getSupabaseClient>>; userId: string } | undefined;
@@ -27,13 +27,13 @@ export interface AplyxStateHandle {
 }
 
 /**
- * Shared "which state source is this session using" resolution — a local
+ * Shared "which state source is this session using" resolution: a local
  * install wins when found (same precedent as HomeScreen's original
  * nextAction logic: local data always drove the dashboard when present),
  * a signed-in hosted session is the fallback when no local install exists,
  * and "none" covers a signed-out session with no local install either.
  * Every pipeline-state screen (Home/Review/Status/Documents) used to
- * duplicate its own copy of "try findRoot, catch, setState(undefined)" —
+ * duplicate its own copy of "try findRoot, catch, setState(undefined)";
  * this is that logic in exactly one place, now hosted-aware too.
  */
 export function useAplyxState(): AplyxStateHandle {
@@ -65,7 +65,7 @@ export function useAplyxState(): AplyxStateHandle {
         setState(hostedState);
         return;
       } catch {
-        // Falls through to "none" below — a hosted fetch failure reads the
+        // Falls through to "none" below: a hosted fetch failure reads the
         // same as "nothing to show" rather than a hard error screen, same
         // tolerance the local path already had for a missing install.
       }
@@ -87,12 +87,12 @@ export function useAplyxState(): AplyxStateHandle {
   }, [refresh]);
 
   // Local state lives in plain files on disk (data/applied_jobs.json etc.)
-  // that the background scheduler writes to independently of this window —
+  // that the background scheduler writes to independently of this window;
   // without a poll, an application the scheduler submits while the app is
   // open would never show up (Home's stat cards, the recommended-jobs
   // exclude list) until something else happened to trigger a refresh
-  // (an auth change, a remount). A 60s interval is cheap — this is a
-  // handful of small local JSON reads, not real work — and frequent enough
+  // (an auth change, a remount). A 60s interval is cheap: this is a
+  // handful of small local JSON reads, not real work, and frequent enough
   // that "applied while I was looking at Home" feels live rather than
   // stale for a whole 30-min scheduler cycle.
   useEffect(() => {

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""sync_internship_tracker.py — append one application row to the user's
+"""sync_internship_tracker.py: append one application row to the user's
 Google Sheet internship tracker (Phase 3).
 
 Unattended, single-user, service-account auth. Reads a single JSON object
 payload from the shell/agent, maps it to exactly one row in the
 'Internship Tracker' tab, and appends it using Google's official Python
-client. Only the visible tracker columns are written — internal-only
+client. Only the visible tracker columns are written: internal-only
 fields (job_key, source, ats_score, reasoning, etc.) are never sent to
 the sheet.
 
@@ -44,7 +44,7 @@ import sys
 DEFAULT_CONFIG = "src/config/google_sheets_config.json"
 
 # Visible tracker columns, in sheet order. The helper always writes exactly
-# these columns and nothing else — internal-only fields stay local.
+# these columns and nothing else: internal-only fields stay local.
 COLUMNS = [
     "Role Name",
     "Company",
@@ -118,8 +118,8 @@ def read_payload(arg):
 
 # Leading characters Sheets (and Excel/CSV consumers generally) treat as a
 # formula/DDE trigger rather than literal text. company/title/internship_term
-# ultimately come from a scraped, third-party job posting — anyone can name a
-# job listing or company anything — so these are the one genuinely untrusted
+# ultimately come from a scraped, third-party job posting; anyone can name a
+# job listing or company anything, so these are the one genuinely untrusted
 # input this script ever writes into a live spreadsheet cell.
 _FORMULA_TRIGGER_CHARS = ("=", "+", "-", "@", "\t", "\r")
 
@@ -128,7 +128,7 @@ def _defang_formula(value):
     """Neutralize spreadsheet formula injection (CWE-1236): prefix a leading
     apostrophe when the value starts with a formula-trigger character.
     Sheets (like Excel) treats a leading `'` as "force this cell to plain
-    text" — the standard mitigation for this class, and applied here
+    text", the standard mitigation for this class, and applied here
     unconditionally rather than relying solely on value_input_option, so a
     config that opts back into "USER_ENTERED" for its date/number
     auto-formatting doesn't silently reopen this."""
@@ -141,7 +141,7 @@ def build_row(payload):
     """Map the payload to exactly one tracker row (8 visible columns).
 
     Internal-only fields in the payload (job_key, source, ats_score,
-    reasoning, etc.) are deliberately ignored — they never reach the sheet.
+    reasoning, etc.) are deliberately ignored: they never reach the sheet.
     """
     title = str(payload.get("title") or "").strip()
     company = str(payload.get("company") or "").strip()
@@ -180,7 +180,7 @@ def append_row(cfg, row):
         from googleapiclient.discovery import build
     except ImportError as exc:
         skip(
-            "Google Python libraries not installed — run "
+            "Google Python libraries not installed: run "
             "`pip3 install -r requirements.txt` to enable Sheets sync",
             missing_dependency=str(exc),
         )
@@ -188,7 +188,7 @@ def append_row(cfg, row):
     key_path = cfg["service_account_key_path"]
     if not os.path.exists(key_path):
         skip(
-            f"service-account key file not found: {key_path} — "
+            f"service-account key file not found: {key_path}; "
             "place the key file locally (see docs/SETUP.md)",
         )
 
@@ -211,7 +211,7 @@ def append_row(cfg, row):
     # still works without these fields.
     header_range = cfg.get("header_range", "A1:H")
     # USER_ENTERED remains the default (gives Date Applied a real, sortable
-    # Sheets date type instead of literal text) — this is safe against
+    # Sheets date type instead of literal text); this is safe against
     # formula injection specifically because _defang_formula above already
     # neutralizes a leading =/+/-/@ with a forced-text apostrophe before any
     # value reaches here, regardless of which valueInputOption is in effect.
@@ -263,7 +263,7 @@ def main(argv=None):
     cfg = load_config(args.config)
     if cfg is None:
         skip(
-            f"config not found: {args.config} — "
+            f"config not found: {args.config}; "
             "Sheets sync is not configured yet"
         )
     if not cfg.get("enabled", True):

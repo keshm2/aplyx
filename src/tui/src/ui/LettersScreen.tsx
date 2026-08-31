@@ -20,7 +20,7 @@ import {
 } from "./TextInput.js";
 
 /**
- * Letters tab — the human half of the interest-letter flow.
+ * Letters tab: the human half of the interest-letter flow.
  *
  * A run that meets a "Why do you want to work here?" question parks the job
  * (src/scripts/state/interest_letter.py) instead of inventing an answer, and
@@ -28,7 +28,7 @@ import {
  * where the user answers, and approving is what lets the next run apply.
  *
  * Generation writes a DRAFT only. Approval is always a separate keypress on
- * text the user has seen — that review step is the entire reason drafting is
+ * text the user has seen; that review step is the entire reason drafting is
  * allowed at all, so the two must never be collapsed into one action.
  */
 export function LettersScreen({
@@ -79,7 +79,7 @@ export function LettersScreen({
       if (editing) {
         if (key.escape) {
           setEditing(false);
-          setMessage("Cancelled — nothing saved.");
+          setMessage("Cancelled: nothing saved.");
           return;
         }
         if (key.return) {
@@ -87,7 +87,7 @@ export function LettersScreen({
           const r = saveDraft(root, selected.job_key, draft);
           setEditing(false);
           setRefresh((n) => n + 1);
-          setMessage(r.ok ? "Draft saved — press a to approve it when it reads right." : r.output);
+          setMessage(r.ok ? "Draft saved: press a to approve it when it reads right." : r.output);
           return;
         }
         // Approve straight from the editor, but still as its own keystroke on
@@ -97,7 +97,7 @@ export function LettersScreen({
           const r = approveLetter(root, selected.job_key, draft);
           setEditing(false);
           setRefresh((n) => n + 1);
-          setMessage(r.ok ? "Approved — the next run will submit this answer." : r.output);
+          setMessage(r.ok ? "Approved: the next run will submit this answer." : r.output);
           return;
         }
         if (key.leftArrow) return setDraftCursor(moveCursorLeft({ value: draft, cursor: draftCursor }).cursor);
@@ -122,7 +122,7 @@ export function LettersScreen({
       if (input === "g") {
         if (!selected) return;
         setBusy(true);
-        setMessage("Drafting via your coding agent — this can take a minute…");
+        setMessage("Drafting via your coding agent: this can take a minute…");
         // Synchronous by design: spawnSync blocks the render loop, so the
         // spinner won't animate. Acceptable for a one-shot, user-initiated
         // action; the alternative (async + partial state) buys nothing here
@@ -136,19 +136,19 @@ export function LettersScreen({
       if (input === "a") {
         if (!selected) return;
         if (!selected.letter?.trim()) {
-          setMessage("Nothing to approve yet — press e to write one, or g to draft one.");
+          setMessage("Nothing to approve yet: press e to write one, or g to draft one.");
           return;
         }
         const r = approveLetter(root, selected.job_key, selected.letter);
         setRefresh((n) => n + 1);
-        setMessage(r.ok ? "Approved — the next run will submit this answer." : r.output);
+        setMessage(r.ok ? "Approved: the next run will submit this answer." : r.output);
         return;
       }
       if (input === "d") {
         if (!selected) return;
         const r = discardLetter(root, selected.job_key);
         setRefresh((n) => n + 1);
-        setMessage(r.ok ? `Discarded — aplyx won't apply to ${selected.company}.` : r.output);
+        setMessage(r.ok ? `Discarded: aplyx won't apply to ${selected.company}.` : r.output);
         return;
       }
       if (input === "R") setRefresh((n) => n + 1);
@@ -168,7 +168,7 @@ export function LettersScreen({
             <Text dimColor wrap="wrap">
               When a form asks "Why do you want to work here?", aplyx parks that job here instead of
               inventing an answer, and carries on with the rest of the run. Nothing is recorded and the
-              job stays applicable — once you approve an answer, the next run submits it.
+              job stays applicable; once you approve an answer, the next run submits it.
             </Text>
           </Box>
         </Box>
@@ -205,7 +205,7 @@ export function LettersScreen({
               >
                 {focused ? "> " : "  "}
                 <Text color={l.status === "approved" ? theme.good : theme.warn}>{glyph}</Text>{" "}
-                {l.company} — {l.title}
+                {l.company}: {l.title}
               </Text>
             );
           })}

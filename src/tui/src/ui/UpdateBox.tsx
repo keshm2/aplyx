@@ -3,20 +3,20 @@ import { Box, Text, useInput, useStdin, useStdout } from "ink";
 import { theme } from "../theme.js";
 
 /**
- * Update prompt box — shown at the bottom-right of the frame whenever
+ * Update prompt box: shown at the bottom-right of the frame whenever
  * `cli.tsx`'s launch-time version probe (detectUpdate) finds a newer
- * upstream VERSION. Asks "a new update (v <ver>) is available —
+ * upstream VERSION. Asks "a new update (v <ver>) is available:
  * install it?" with yes/no controls.
  *
  * The outline is a hand-drawn perimeter (not Ink's single-color
  * `borderStyle`) so each border cell can carry its own color: a
  * `theme.glow` bump travels clockwise around an otherwise theme-accent
- * outline — a wave that goes accent → glow → accent, never rainbow.
+ * outline: a wave that goes accent → glow → accent, never rainbow.
  * `glow` is a per-theme color (theme.ts's Palette interface), not
  * always literal white: a dark-background theme (Aplyx Default, Ember
  * Dusk) wants a bright white pop, but a light-background theme (Cloud
  * Surf, Mint Frost) blending toward white would fade the wave into an
- * already-white terminal until it's unreadable — those themes set glow
+ * already-white terminal until it's unreadable; those themes set glow
  * to a deep, near-black shade of their own hue instead, so the wave
  * still reads as a clear highlight regardless of which background the
  * active theme actually targets.
@@ -25,7 +25,7 @@ import { theme } from "../theme.js";
  * Ink 5 has no stable high-level mouse API, so clicks are handled via raw
  * xterm SGR mouse-reporting escape sequences on stdin while the prompt
  * is active. A `[×]` close control sits in the top border (clickable,
- * and `esc` is its keyboard equivalent) — declining and closing are the
+ * and `esc` is its keyboard equivalent); declining and closing are the
  * same outcome (`onNo`), just two different ways in to it: pressing `n`,
  * clicking `[N] no`, clicking `[×]`, or pressing `esc`.
  */
@@ -41,7 +41,7 @@ function hex2(n: number): string {
   return Math.round(n).toString(16).padStart(2, "0");
 }
 /** Blend between theme.accent (t=0) and theme.glow (t=1). Reads both
- *  fresh on every call rather than a module-load snapshot — Settings'
+ *  fresh on every call rather than a module-load snapshot: Settings'
  *  Theme field mutates them in place (see theme.ts's applyThemeMode),
  *  and frozen hexes baked in here would keep animating whichever
  *  theme was active at first render forever, never matching a later
@@ -148,7 +148,7 @@ export function UpdateBox({
   const ver = version.length > 24 ? version.slice(0, 23) + "…" : version;
   const lines = [
     `A new update (v ${ver}) is`,
-    `available — install it?`,
+    `available: install it?`,
     "",
     `  [Y] yes      [N] no`,
   ];
@@ -160,7 +160,7 @@ export function UpdateBox({
     row === CLOSE_ROW && col >= CLOSE_RANGE[0] && col <= CLOSE_RANGE[1];
 
   const cellColor = (row: number, col: number) => {
-    // Plain, non-animated color for the [×] close control — a clickable
+    // Plain, non-animated color for the [×] close control: a clickable
     // control reading as decoration (traveling with the border wave)
     // would be easy to miss as interactive at all.
     if (isCloseCell(row, col)) return theme.warn;

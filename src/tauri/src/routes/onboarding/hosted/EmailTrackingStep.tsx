@@ -28,7 +28,7 @@ function guessImapServer(email: string): string | undefined {
  * Hosted-only inbox status tracking (docs/website.md's pricing page already
  * lists this as a Pro-tier feature; local installs have no equivalent of
  * this step at all). Submits straight to the set_email_tracking_config RPC
- * (migration 0007_hosted_email_tracking.sql) — app_password is stored via
+ * (migration 0007_hosted_email_tracking.sql); app_password is stored via
  * Supabase Vault server-side and never lands in a plain, client-readable
  * column; a scheduled Edge Function (email-tracking-worker) does the actual
  * IMAP polling, not this app.
@@ -131,7 +131,7 @@ export function EmailTrackingStep({ client, userId, onComplete }: { client: Supa
     <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
       <p className="field-help">
         Hosted plans require inbox access for gated ATS verification. Connect Gmail via OAuth (Outlook
-        OAuth support is planned), or use a read-only IMAP app password &mdash; stored encrypted in
+        OAuth support is planned), or use a read-only IMAP app password, stored encrypted in
         Supabase Vault and used only by aplyx&rsquo;s hosted worker.
       </p>
 

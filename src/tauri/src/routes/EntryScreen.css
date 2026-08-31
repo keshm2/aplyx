@@ -17,7 +17,7 @@
 }
 
 /* Loading states (App.tsx's RouteLoading, EntryScreen's "checking"
- * branch) render only the logo, nothing else — .entry-content's
+ * branch) render only the logo, nothing else; .entry-content's
  * flex-start is correct once the headline/cards are present to
  * left-align against, but with just the logo alone it reads as
  * off-center-left instead of centered. This modifier overrides that for

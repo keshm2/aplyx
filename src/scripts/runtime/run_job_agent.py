@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Job application agent — cross-platform entry point.
+"""Job application agent: cross-platform entry point.
 
 Canonical runner logic, ported from run_job_agent.sh so it runs natively on
 Windows (PowerShell / cmd.exe) as well as macOS/Linux. run_job_agent.sh is a
@@ -41,11 +41,11 @@ IS_WINDOWS = os.name == "nt"
 # --- Stop-run support (POSIX only) ------------------------------------------
 # Contract with the TUI (src/tui/src/ui/RunScreen.tsx + src/tui/src/platform.ts):
 #   - POSIX: the TUI sends a real SIGTERM to *this* process (its direct Node
-#     child) — nothing else. _handle_stop_signal below kills the harness's
+#     child), nothing else. _handle_stop_signal below kills the harness's
 #     whole process group (started via start_new_session=True below so it's
 #     a separate group from ours) and lets control return normally through
 #     _run()'s existing lock-release path.
-#   - Windows: the TUI does NOT rely on Python signal handling — Windows
+#   - Windows: the TUI does NOT rely on Python signal handling; Windows
 #     doesn't deliver real POSIX signals through Node's child_process.kill(),
 #     it just force-terminates. Instead the TUI shells out to
 #     `taskkill /PID <this pid> /T /F` itself, killing the whole tree
@@ -54,14 +54,14 @@ IS_WINDOWS = os.name == "nt"
 #     never get a chance to run gracefully on Windows. Safety there comes
 #     from the already-atomic state writes (tempfile + os.replace, see
 #     write_heartbeat.py / append_state_entry.py) and acquire_lock()'s
-#     existing stale-holder-PID self-heal on the next run attempt — not from
+#     existing stale-holder-PID self-heal on the next run attempt, not from
 #     anything in this file.
-_harness_proc = None  # subprocess.Popen | None — set while the harness runs
+_harness_proc = None  # subprocess.Popen | None (set while the harness runs)
 _stop_requested = False  # set by _handle_stop_signal on SIGTERM/SIGINT
 _stop_signum = None  # the signal number that triggered the stop, if any
 _lock_dir = None  # set in main() before the harness starts; lets a *different*
 # process (one reclaiming a stale lock left by this one) find this run's
-# harness pid on disk — see _run_harness_cmd's harness_pid file and
+# harness pid on disk; see _run_harness_cmd's harness_pid file and
 # _kill_stale_harness below.
 
 
@@ -85,12 +85,12 @@ def debug_logging_enabled() -> bool:
 
 def debug_log(logs_dir: str, msg: str) -> None:
     """Separate, opt-in debug log (Settings > Preferences > Debug logging,
-    default off) — internal orchestration detail (harness selection, the
+    default off): internal orchestration detail (harness selection, the
     exact command argv, session-cap resolution, timing) that isn't part of
     the always-on session_*.log (the harness's own transcript, which
     RunScreen's live tail and StatusScreen's "last run" both depend on) or
     run_job_agent.log (the always-on scheduler-health log). Neither of
-    those is touched by this toggle — this only adds a third, optional
+    those is touched by this toggle; this only adds a third, optional
     file for troubleshooting a specific run, never removes one anything
     else relies on."""
     if not debug_logging_enabled():
@@ -186,7 +186,7 @@ def py_run(args, **kw):
     return subprocess.run([sys.executable, *args], **kw)
 
 
-# Mirrors check_postings_open.py's own MIN_HOURS_BETWEEN_RUNS — kept in sync
+# Mirrors check_postings_open.py's own MIN_HOURS_BETWEEN_RUNS; kept in sync
 # by hand since it's a small, rarely-changed constant; see
 # _postings_check_due for why this duplication is worth it.
 POSTINGS_CHECK_MIN_HOURS = 20
@@ -194,10 +194,10 @@ POSTINGS_CHECK_MIN_HOURS = 20
 
 def _postings_check_due(state_path: str, min_hours: float) -> bool:
     """Peek at check_postings_open.py's own throttle stamp before spawning
-    it at all — avoids a full Python interpreter start on the ~47-of-48
+    it at all: avoids a full Python interpreter start on the ~47-of-48
     daily ticks where it would just read the same stamp and no-op anyway.
     Errs toward True (spawn it) whenever the stamp is missing or
-    unparseable — check_postings_open.py's own internal throttle stays the
+    unparseable; check_postings_open.py's own internal throttle stays the
     real authority; this is purely an optimization to skip the subprocess,
     never a second, independently-drifting throttle policy."""
     try:
@@ -231,7 +231,7 @@ def _terminate_group(pgid: int, is_alive, grace_sec: float = 5.0) -> None:
         # ProcessLookupError: group already gone. PermissionError: also
         # possible in practice (observed in testing) if the group died
         # between the caller's own lookup and killpg() and the now-unused
-        # pgid was recycled for an unrelated process — either way, nothing
+        # pgid was recycled for an unrelated process; either way, nothing
         # left of ours to signal.
         return
     deadline = time.time() + grace_sec
@@ -248,7 +248,7 @@ def _terminate_group(pgid: int, is_alive, grace_sec: float = 5.0) -> None:
 def _kill_harness_group(grace_sec: float = 5.0) -> None:
     """Terminate the harness's whole process group.
 
-    POSIX only — the harness Popen is started with start_new_session=True
+    POSIX only: the harness Popen is started with start_new_session=True
     precisely so it (and everything it shells out to: bash, curl,
     Playwright/browser) lives in its own process group, separate from this
     process's own group.
@@ -267,21 +267,21 @@ def _kill_stale_harness(lock_dir: str, run_log: str) -> None:
 
     POSIX only (on Windows, kill_pid()'s `taskkill /PID <runner> /T /F`
     already recurses the whole process tree, since the harness there isn't
-    split into a separate session — see the module-level comment near
+    split into a separate session; see the module-level comment near
     IS_WINDOWS). On POSIX, the harness deliberately runs in its own process
     group (start_new_session=True in _run_harness_cmd) so the live
     in-process stop-signal path can kill just the harness without touching
-    the runner — but that same split means killing the *runner's* pid alone
+    the runner, but that same split means killing the *runner's* pid alone
     (kill_pid(old_pid), used when reclaiming a stale lock) never reaches the
-    harness. Without this, a stale-lock reclaim — whether the old runner is
-    simply dead or was force-killed for being wedged — leaves a real harness
+    harness. Without this, a stale-lock reclaim (whether the old runner is
+    simply dead or was force-killed for being wedged) leaves a real harness
     (potentially mid-Playwright-click on a real application's Submit button)
     running unsupervised while a new run starts under a freshly acquired
     lock: two runs racing the same job boards and state files, and a
     real-world submission that may complete with no run left alive to record
     it. The harness's own pid is persisted to lock_dir/harness_pid by
     _run_harness_cmd while it runs, precisely so a *different* process (this
-    one, reclaiming someone else's lock) has a way to find it — the
+    one, reclaiming someone else's lock) has a way to find it: the
     in-memory _harness_proc global only exists inside the process that
     started it.
     """
@@ -296,7 +296,7 @@ def _kill_stale_harness(lock_dir: str, run_log: str) -> None:
     if not harness_pid or not pid_alive(harness_pid):
         return
     log(run_log, f"stale_harness_killed: reclaimed lock left harness pid {harness_pid} "
-                 f"running unsupervised — killing its process group")
+                 f"running unsupervised; killing its process group")
     _terminate_group(harness_pid, lambda: pid_alive(harness_pid))
 
 
@@ -305,7 +305,7 @@ def _handle_stop_signal(signum, frame):  # noqa: ARG001 - frame required by sign
 
     Deliberately does NOT call sys.exit() or attempt to run the rest of
     _run()'s normal post-processing (Discord summary, etc.) from inside the
-    handler — it just flags the stop and kills the subprocess tree, then
+    handler: it just flags the stop and kills the subprocess tree, then
     lets control fall back out of the (now-dead) Popen.wait() in
     _run_harness_cmd and continue through _run()'s normal return path, so
     the existing `finally: shutil.rmtree(lock_dir, ...)` in main() still
@@ -323,7 +323,7 @@ def _run_harness_cmd(cmd, out) -> int:
     POSIX: start_new_session=True puts the harness (and everything it
     spawns) into a new process group separate from ours, so
     _kill_harness_group() can kill that whole group without touching this
-    process. Windows: plain Popen — Windows has no equivalent primitive, and
+    process. Windows: plain Popen; Windows has no equivalent primitive, and
     per the stop-support contract the Windows TUI kills the whole tree from
     outside via `taskkill /T /F` instead of relying on Python-side signal
     handling (see the module-level comment near IS_WINDOWS).
@@ -370,7 +370,7 @@ def main() -> int:
     run_start = datetime.now()
     if debug_logging_enabled():
         env_snapshot = {k: v for k, v in sorted(os.environ.items()) if k.startswith(("APLYX_", "FLUX_", "ARES_"))}
-        debug_log(logs_dir, f"run starting — resolved env: {json.dumps(env_snapshot)}")
+        debug_log(logs_dir, f"run starting; resolved env: {json.dumps(env_snapshot)}")
 
     # --- Auto-update (fail-open) --------------------------------------------
     auto_update = os.environ.get("APLYX_AUTO_UPDATE", os.environ.get("FLUX_AUTO_UPDATE", os.environ.get("ARES_AUTO_UPDATE", "1")))
@@ -389,7 +389,7 @@ def main() -> int:
             log(run_log, "re-executing updated runner")
             os.environ["APLYX_SKIP_UPDATE"] = "1"
             # os.path.abspath(__file__) was resolved when THIS process
-            # started, before the update above ran — if that update moved
+            # started, before the update above ran: if that update moved
             # this very script (as the 2026-07-29 src/ restructure did for
             # every pre-existing install, moving scripts/ -> src/scripts/),
             # this path may no longer exist on disk, and os.execv raises
@@ -398,13 +398,13 @@ def main() -> int:
             # clear pointer to the one reliable fix (re-running the
             # installer, a fresh process every time and immune to this
             # exact staleness problem), and fall through to finish this
-            # run with whatever code is already loaded in memory — the
+            # run with whatever code is already loaded in memory; the
             # files on disk are already correctly updated; only this
             # process's own re-exec of itself is what's stale.
             try:
                 os.execv(sys.executable, [sys.executable, os.path.abspath(__file__)])
             except OSError as exc:
-                log(run_log, f"WARNING: could not re-exec the updated runner ({exc}) — "
+                log(run_log, f"WARNING: could not re-exec the updated runner ({exc}); "
                               "continuing this run with already-loaded code. If this "
                               "keeps happening, re-run the installer to repair the install "
                               "(see docs/SETUP.md).")
@@ -445,7 +445,7 @@ def main() -> int:
             log(run_log, f"stale_lock_reclaimed: holder pid {old_pid} is dead")
             # The runner died, but if it had a harness running (Playwright,
             # mid-apply), that harness lives in its own process group and
-            # does not die with the runner — check for it explicitly rather
+            # does not die with the runner; check for it explicitly rather
             # than assuming "runner dead" means "nothing left running".
             _kill_stale_harness(lock_dir, run_log)
             shutil.rmtree(lock_dir, ignore_errors=True)
@@ -453,7 +453,7 @@ def main() -> int:
             age = lock_age_min()
             if age >= lock_max_age_min:
                 log(run_log, f"stale_lock_reclaimed: holder pid {old_pid} alive but lock is "
-                             f"{age}min old (threshold {lock_max_age_min}min) — terminating")
+                             f"{age}min old (threshold {lock_max_age_min}min); terminating")
                 kill_pid(old_pid)
                 _kill_stale_harness(lock_dir, run_log)
                 shutil.rmtree(lock_dir, ignore_errors=True)
@@ -527,12 +527,12 @@ def _run(logs_dir: str, run_log: str, run_start: datetime) -> int:
 
     # Interest-letter store. A warning, not an abort: a run that can't read it
     # simply never parks a job for an essay question, which is degraded but
-    # safe — the apply loop's own rule still forbids inventing an answer.
+    # safe: the apply loop's own rule still forbids inventing an answer.
     if py_run([os.path.join("src", "scripts", "state", "interest_letter.py"), "ensure-file"]).returncode != 0:
         log(run_log, "WARNING: could not ensure data/interest_letters.json; "
                      "interest-letter parking will be unavailable this run.")
 
-    # Lightweight direct closed/expired posting check — deterministic,
+    # Lightweight direct closed/expired posting check: deterministic,
     # non-LLM, self-throttled to roughly once/day internally (see
     # check_postings_open.py's own docstring). _postings_check_due peeks at
     # its throttle stamp first so the ~47-of-48 daily ticks that would just
@@ -548,7 +548,7 @@ def _run(logs_dir: str, run_log: str, run_start: datetime) -> int:
             log(run_log, check_postings_proc.stderr.strip())
 
     if py_run([os.path.join("src", "scripts", "validate", "generate_agent_definitions.py"), "--check"]).returncode != 0:
-        log(run_log, "WARNING: generated agent definitions are stale — run src/scripts/validate/generate_agent_definitions.py")
+        log(run_log, "WARNING: generated agent definitions are stale; run src/scripts/validate/generate_agent_definitions.py")
 
     # --- Harness selection ---------------------------------------------------
     harness = os.environ.get("APLYX_HARNESS", os.environ.get("FLUX_HARNESS", os.environ.get("ARES_HARNESS", ""))) or ""
@@ -607,7 +607,7 @@ def _run(logs_dir: str, run_log: str, run_start: datetime) -> int:
 
     # --- Scrape-only mode -----------------------------------------------------
     # Grows data/job_registry.json (scrape + dedupe + deterministic fit-gate)
-    # without risking a real application going out — useful for refreshing the
+    # without risking a real application going out; useful for refreshing the
     # recommended-jobs pool on demand, independent of whether the operator is
     # ready to let the scheduler apply unattended. src/agents/bodies/job-scraper.md
     # "Scrape-only mode" is the canonical instruction this line triggers.
@@ -626,7 +626,7 @@ def _run(logs_dir: str, run_log: str, run_start: datetime) -> int:
             "   report entirely. Print a short local summary of how many jobs were found\n"
             "   as candidate / needs_review / skipped_unfit this run, then stop."
         )
-        log(run_log, "APLYX_SCRAPE_ONLY set — running Phase 1 (scrape + fit-gate) only, no applications this run")
+        log(run_log, "APLYX_SCRAPE_ONLY set: running Phase 1 (scrape + fit-gate) only, no applications this run")
     else:
         run_prompt = (
             "Start a new job application run. Read AGENTS.md, load data/applied_jobs.json\n"
@@ -646,7 +646,7 @@ def _run(logs_dir: str, run_log: str, run_start: datetime) -> int:
 
     log(run_log, f"Starting run via harness: {harness}")
 
-    # Install stop-signal handlers just before we start the harness Popen —
+    # Install stop-signal handlers just before we start the harness Popen:
     # POSIX only (see the module-level comment near IS_WINDOWS for why
     # Windows doesn't get Python-side signal handling here).
     if not IS_WINDOWS:
@@ -655,7 +655,7 @@ def _run(logs_dir: str, run_log: str, run_start: datetime) -> int:
 
     run_rc = 0
     exe = harness_adapter.resolve_harness_exe(harness)
-    # The harness-specific argv shapes live in harness_adapter.agent_command —
+    # The harness-specific argv shapes live in harness_adapter.agent_command:
     # the one place allowed to branch per harness (AGENTS.md "Harness
     # capability matrix"). They were inline here until interest-letter
     # generation needed to launch an agent too; extracting them beat keeping
@@ -668,7 +668,7 @@ def _run(logs_dir: str, run_log: str, run_start: datetime) -> int:
             extra_preamble=(
                 "Unless browser-automation tools are actually available to you, apply the degraded "
                 "harness path from AGENTS.md 'Harness capability matrix': fetch API-fed boards only, "
-                "and route any job whose application requires a browser to needs_review — never "
+                "and route any job whose application requires a browser to needs_review, never "
                 "silently skip it and never attempt a browser apply."
             ),
             role="orchestrator",
@@ -677,7 +677,7 @@ def _run(logs_dir: str, run_log: str, run_start: datetime) -> int:
         run_rc = _run_harness_cmd(cmd, out)
 
     # A stop was requested (SIGTERM from the TUI, or SIGINT/Ctrl+C from a
-    # terminal) — _handle_stop_signal() already killed the harness's process
+    # terminal): _handle_stop_signal() already killed the harness's process
     # group. Overwrite whatever raw returncode the (now-dead) harness process
     # happened to exit with, in favor of the standard shell "128 + signal
     # number" convention (130 for SIGINT, 143 for SIGTERM), so the recorded
@@ -715,7 +715,7 @@ def _run(logs_dir: str, run_log: str, run_start: datetime) -> int:
     debug_log(logs_dir, f"run finished: rc={run_rc} duration={duration_s}s stopped={_stop_requested} {tail}")
     if _stop_requested:
         # Stopped runs skip the normal complete/failed post-processing
-        # (no Discord summary, etc.) — just record it clearly and return.
+        # (no Discord summary, etc.); just record it clearly and return.
         with open(session_log, "a", encoding="utf-8") as fh:
             fh.write(f"run_job_agent: stopped {now_utc()} rc={run_rc} {tail}\n")
         log(run_log, f"STOPPED: run terminated by user request (signal {_stop_signum}). Log: {session_log}")

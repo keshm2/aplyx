@@ -10,7 +10,7 @@ export type { ResumeFile, JobSource, SearchJob, SourceResult, SearchResult, FitR
  * Thin typed wrappers around the Rust IPC commands defined in
  * src/tauri/src-tauri/src/lib.rs, which themselves shell out to the shared
  * @aplyx/core bridge CLI (src/core/src/bridge.ts). This is the only
- * module in the frontend that calls invoke() directly — every screen goes
+ * module in the frontend that calls invoke() directly; every screen goes
  * through here instead, so the IPC surface stays in one place.
  */
 
@@ -19,9 +19,9 @@ export interface SupabaseConfig {
   anonKey: string;
 }
 
-/** Persisted across launches — a Finder/Dock-launched app has no shell
+/** Persisted across launches: a Finder/Dock-launched app has no shell
  *  env vars, no meaningful working directory, and (now that the bridge is
- *  bundled as a Tauri resource so a downloaded install works at all — see
+ *  bundled as a Tauri resource so a downloaded install works at all, see
  *  src/tauri/src-tauri/src/lib.rs) a compiled bridge that lives inside the
  *  app bundle, nowhere near the user's actual checkout. Auto-detection
  *  (findProjectRoot in @aplyx/core/project.js) only ever succeeds when
@@ -55,7 +55,7 @@ export async function findRoot(): Promise<string> {
 
 /** Validates `dir` as a real aplyx checkout (same check findProjectRoot
  *  does) and remembers it in localStorage so future launches use it
- *  directly instead of relying on auto-detection — the recovery path
+ *  directly instead of relying on auto-detection: the recovery path
  *  when findRoot() fails. Throws with a clear message when `dir` doesn't
  *  look like a checkout. */
 export async function setLocalRoot(dir: string): Promise<string> {
@@ -64,7 +64,7 @@ export async function setLocalRoot(dir: string): Promise<string> {
   try {
     localStorage.setItem(LOCAL_ROOT_STORAGE_KEY, result.root);
   } catch {
-    // best-effort persistence — the current session still works via
+    // best-effort persistence: the current session still works via
     // cachedRoot even if localStorage is unavailable.
   }
   return result.root;
@@ -95,7 +95,7 @@ export async function writeProfileField(root: string, id: string, value: string 
   await invoke("write_profile_field", { root, id, value });
 }
 
-/** Batched siblings of readProfileField/writeProfileField — one bridge
+/** Batched siblings of readProfileField/writeProfileField: one bridge
  *  call (one spawned node process) for a whole page/set of fields instead
  *  of one per field. Each bridge call is its own process spawn (see
  *  src/tauri/src-tauri/src/lib.rs's run_bridge); a page with several fields
@@ -122,12 +122,12 @@ export async function runValidator(root: string): Promise<{ ok: boolean; output:
 /** Falls back to aplyx's own baked-in hosted-auth project when
  *  src/config/supabase.json is missing or still holds the example
  *  placeholders (see @aplyx/core/supabaseConfig.ts's
- *  DEFAULT_SUPABASE_CONFIG) — a local override still wins when present. */
+ *  DEFAULT_SUPABASE_CONFIG); a local override still wins when present. */
 export async function readSupabaseConfig(root: string): Promise<SupabaseConfig> {
   return invoke<SupabaseConfig>("read_supabase_config", { root });
 }
 
-/** True when a local aplyx installation was found — i.e. findRoot()
+/** True when a local aplyx installation was found, i.e. findRoot()
  *  resolved instead of throwing. Used to decide whether "Run locally" can
  *  proceed straight to onboarding or needs an install-location step first. */
 export async function hasLocalInstall(): Promise<boolean> {
@@ -149,7 +149,7 @@ export async function writeOnboardingCompleted(root: string, completed: boolean)
 }
 
 /** Deduped company display names from the local install's vetted slug
- *  lists — the autocomplete pool for target-company tags. */
+ *  lists: the autocomplete pool for target-company tags. */
 export async function listCompanies(root: string): Promise<string[]> {
   const result = await invoke<{ companies: string[] }>("list_companies", { root });
   return result.companies;
@@ -256,18 +256,29 @@ export async function importResumeFile(root: string, sourcePath: string, stem: s
 
 /** Counterpart to importResumeFile above for a resume that only exists as
  *  downloaded bytes (Supabase Storage), not a path already on this
- *  machine — the hosted-to-local profile pull's resume step. `base64` is
+ *  machine: the hosted-to-local profile pull's resume step. `base64` is
  *  the whole PDF, base64-encoded (Tauri's invoke IPC round-trips JSON, no
  *  binary payload type). */
 export async function importResumeBytes(root: string, stem: string, base64: string): Promise<{ ok: boolean; path: string }> {
   return invoke("import_resume_bytes", { root, stem, base64 });
 }
 
+/** A single-file-per-kind document store (data/documents/<kind>.<ext>) for
+ *  files aplyx never parses or tailors, unlike resumes; a transcript is
+ *  the first use, attached as-is to applications that require one. */
+export async function importDocumentFile(root: string, sourcePath: string, kind: string): Promise<{ ok: boolean; path: string }> {
+  return invoke("import_document_file", { root, sourcePath, kind });
+}
+
+export async function getDocumentStatus(root: string, kind: string): Promise<{ exists: boolean; filename?: string; uploadedAt?: string }> {
+  return invoke("get_document_status", { root, kind });
+}
+
 export async function convertResume(root: string, stem: string, description = "", force = false): Promise<{ ok: boolean; error?: string }> {
   return invoke("convert_resume", { root, stem, description, force });
 }
 
-/** Set/update a resume's description without converting anything — for a
+/** Set/update a resume's description without converting anything: for a
  *  resume that already has its .md (convertResume's re-extraction would
  *  otherwise be the only way to attach one). See setResumeDescription in
  *  src/core/src/helpers.ts for the full reasoning. */
@@ -330,10 +341,10 @@ export async function reopenApplicationFilled(root: string, jobId: string): Prom
 
 /** Confirm-before-submit "Approve" action (docs/hosted-auto-apply-plan.md
  *  Stage 1): the agent paused with a filled-but-not-submitted form, and the
- *  user is now approving the actual submission. Local-only — hosted mode
+ *  user is now approving the actual submission. Local-only; hosted mode
  *  calls SupabaseAdapter.approveSubmit(entry) directly (same local/hosted
  *  split as markQueueEntryApplied). Resolves once the run has launched, not
- *  once it's finished — same launch-grace shape as triggerSingleJobApply.
+ *  once it's finished, same launch-grace shape as triggerSingleJobApply.
  *
  *  Workday continuation runs return richer fields (checkpointPath,
  *  checkpointStatus, outcome, filledFields, resumeAttached,
@@ -383,7 +394,7 @@ export async function approveSubmit(
 
 /** Reads a confirm-before-submit screenshot (the filled-form snapshot the
  *  agent captures before pausing) as a base64 data URL for the webview to
- *  render — the webview can't read local files directly. null when the
+ *  render: the webview can't read local files directly. null when the
  *  file is missing or the path doesn't match the expected shape. Hosted
  *  entries carry a screenshot_url instead and never need this call. */
 export async function readScreenshot(root: string, path: string): Promise<string | null> {
@@ -391,10 +402,10 @@ export async function readScreenshot(root: string, path: string): Promise<string
   return result.dataUrl;
 }
 
-/** "Apply with aplyx" on a manual-search result — runs the same agent a
+/** "Apply with aplyx" on a manual-search result: runs the same agent a
  *  scheduled run does (fit gate, tailoring, apply, every AGENTS.md safety
  *  rule) for this one job instead of the agent's own board search. Resolves
- *  once the run has launched (or failed to), not once it's finished — a
+ *  once the run has launched (or failed to), not once it's finished: a
  *  real run keeps going detached; check Status/the review queue afterward
  *  for the actual outcome. */
 export async function triggerSingleJobApply(
@@ -423,14 +434,14 @@ export async function setMasterResume(root: string, resume: MasterResume): Promi
 
 /** Raw extracted text for a resume stem's .md, used both by "import from
  *  an existing resume" (structured parse) and the PDF-extraction reference
- *  panel (plain display, no parsing) — null if that stem has no .md yet. */
+ *  panel (plain display, no parsing); null if that stem has no .md yet. */
 export async function readResumeMarkdown(root: string, stem: string): Promise<string | null> {
   const result = await invoke<{ text: string | null }>("read_resume_markdown", { root, stem });
   return result.text;
 }
 
 /** The actual field-by-field record of what was typed/attached for a local
- *  application (record_fill.py's data/fill_records/<job_id>.json) — the
+ *  application (record_fill.py's data/fill_records/<job_id>.json): the
  *  file AppliedJob.fill_record_path points at. null if the record is
  *  missing (e.g. an old application from before fill records existed). A
  *  hosted-mode row carries this same shape inline as fill_record instead
@@ -512,7 +523,7 @@ export async function importMasterResumeFromMarkdown(root: string, markdown: str
 }
 
 /** Renders the master resume to a guaranteed one-page PDF at
- *  data/resumes/resume.pdf — read-only with respect to resume.json, purely
+ *  data/resumes/resume.pdf; read-only with respect to resume.json, purely
  *  a rendering artifact. `notes` (if non-empty) lists what the one-page-fit
  *  shrink ladder had to cut. */
 export async function exportResumePdf(root: string, resume: MasterResume): Promise<ExportResumePdfResult> {
@@ -520,10 +531,10 @@ export async function exportResumePdf(root: string, resume: MasterResume): Promi
 }
 
 /** Previews what @resume-tailor (including the humanizer skill pass)
- *  would produce for a job title/JD — a direct model call via
+ *  would produce for a job title/JD: a direct model call via
  *  preview_resume.py, no live application, nothing written to
  *  resume.json or any other state. `resume` is the current in-editor
- *  resume (including unsaved edits, same as exportResumePdf) — the
+ *  resume (including unsaved edits, same as exportResumePdf); the
  *  script never re-reads resume.json itself for this call. Requires an
  *  Anthropic API key configured (ANTHROPIC_API_KEY or
  *  src/config/anthropic_key.json); its own {ok:false, error} surfaces

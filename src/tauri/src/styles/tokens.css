@@ -1,24 +1,24 @@
 /*
- * aplyx desktop design tokens — Moss.
+ * aplyx desktop design tokens: Moss.
  *
  * One theme, two modes (light/dark), independent of each other: `data-theme`
  * on <html> ("system" leaves it unset so the prefers-color-scheme media
  * query decides; "light"/"dark" force it). The bare `:root` block doubles
  * as the pre-hydration fallback (src/lib/uiPrefs.ts sets the attribute from
  * localStorage on mount, same timing as before) so a brief unstyled flash
- * never happens — it just paints as light until JS decides otherwise.
+ * never happens; it just paints as light until JS decides otherwise.
  *
- * Replaces the earlier "Prism" identity (violet → cyan → magenta) —
+ * Replaces the earlier "Prism" identity (violet → cyan → magenta),
  * operator call, 2026-08-22: that palette read as generic "AI product"
  * purple-gradient, not the intended feel. Moss goes the other direction
  * deliberately: a muted forest green (plant, not screen), warm honey/ochre
- * and clay/rust as its two supporting notes — materials (moss, wood,
+ * and clay/rust as its two supporting notes: materials (moss, wood,
  * honey, clay) rather than a synthetic gradient, on a warm parchment/ink
  * ground instead of a cold blue-black. Also deliberately NOT cream+terracotta
- * (a different but equally common "AI does warm/human" default) — green-
+ * (a different but equally common "AI does warm/human" default), green-
  * forward instead of that exact combination. Every text/background pairing
  * below is WCAG AA-verified (4.5:1 body text, 3:1 large text/UI), computed
- * directly rather than eyeballed — see the contrast check run alongside
+ * directly rather than eyeballed. See the contrast check run alongside
  * this change. Status colors (good/warn/danger) stay apart from the
  * accent, same rule as always, so accent is never overloaded to mean
  * success/warning/error.
@@ -44,7 +44,7 @@
   --accent-ink: #ffffff;
   --accent-gradient: linear-gradient(135deg, var(--accent), var(--accent-2));
 
-  /* --- Brand clay (from the logo's own gradient) — brand moments only,
+  /* --- Brand clay (from the logo's own gradient): brand moments only,
    *     never semantic state. Doubles as the gradient's third stop. --- */
   --pink: #a15a3e;
   --pink-soft: #f3e7de;
@@ -56,10 +56,10 @@
   --warn-soft: #f3eada;
   --danger: #a83f33;
   --danger-soft: #f5e4e1;
-  /* Application status tracking (docs/application-status-tracking-plan.md)
-   * — OA Sent (info, slate blue) and Interview Requested (special, dusty
+  /* Application status tracking (docs/application-status-tracking-plan.md):
+   * OA Sent (info, slate blue) and Interview Requested (special, dusty
    * plum). Both deliberately muted/dusty rather than saturated, matching
-   * this palette's overall restraint — neither reads as an accent-colored
+   * this palette's overall restraint: neither reads as an accent-colored
    * UI control since neither shares --accent's green hue. */
   --info: #3d6e96;
   --info-soft: #e2ebf1;
@@ -67,13 +67,13 @@
   --special-soft: #eee7f0;
 
   /* --- Glow: a scarce accent, not a texture. --glow-blur/--glow-opacity
-   *     tune the one ambient use — the blurred ::before behind the hero
+   *     tune the one ambient use: the blurred ::before behind the hero
    *     "next action" card (HomeScreen.css's .home-next). --- */
   --glow-blur: 20px;
   --glow-opacity: 0.18;
 
   /* --- Type ---
-   * Manrope (display) + Inter (body) — Supabase's own pairing. The system
+   * Manrope (display) + Inter (body): Supabase's own pairing. The system
    * stack is an explicit opt-in via [data-font="system"] below rather than
    * the default (see uiPrefs.ts's applyUiPrefs). */
   --font-display: "Manrope", system-ui, -apple-system, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial,
@@ -111,12 +111,12 @@
   --radius-lg: 16px;
   --radius-pill: 999px;
 
-  /* Subtle borders instead of shadows — a shadow only ever appears on
+  /* Subtle borders instead of shadows: a shadow only ever appears on
    * something actively lifted (a modal, a dragged card), never as default
    * card styling. */
   --shadow-lift: 0 16px 36px -14px rgb(40 32 20 / 0.18);
   /* A colored alternative to --shadow-lift for hover/press feedback on
-   * cards that should read as "glowing", not just "lifted" — a hairline
+   * cards that should read as "glowing", not just "lifted": a hairline
    * accent ring plus a soft accent-tinted blur, replacing the neutral
    * shadow rather than stacking on top of it. */
   --shadow-glow: 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent),
@@ -129,24 +129,24 @@
   --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   /* A more pronounced deceleration ("snap-then-settle") for transitions that
-   * should read as arriving somewhere, not just fading in — route/step
+   * should read as arriving somewhere, not just fading in: route/step
    * changes, not button feedback. Same family as --ease-out, just a longer
    * tail. */
   --ease-glide: cubic-bezier(0.16, 1, 0.3, 1);
-  /* iOS-style drawer/sheet deceleration — a bottom sheet sliding up is its
+  /* iOS-style drawer/sheet deceleration: a bottom sheet sliding up is its
    * own distinct "arriving" gesture (StatusScreen's online-application
    * detail sheet), not the same feel as a route settling into place. */
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
-  /* A stronger, more decisive deceleration than --ease-out — reserved for
+  /* A stronger, more decisive deceleration than --ease-out: reserved for
    * the small, frequent hover/lift feedback this pass adds (stat cards,
    * data rows, nav items). The built-in ease-out curves read as slightly
    * "soft"; this one has more snap without crossing into a bounce. */
   --ease-snap: cubic-bezier(0.23, 1, 0.32, 1);
   /* The one shared press-down amount every clickable control scales to on
-   * :active — small enough to read as tactile, not springy. */
+   * :active: small enough to read as tactile, not springy. */
   --scale-press: 0.97;
   /* Negative tracking for large numerals/headings (Apple's optical-sizing
-   * rule: big text reads as too loose at 0 tracking) — never applied to
+   * rule: big text reads as too loose at 0 tracking), never applied to
    * body copy or small labels. */
   --tracking-tight: -0.02em;
 
@@ -165,10 +165,10 @@
   --accent-tint-border: color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
-/* Dark is Moss's identity ground — a warm near-black (ink/soil), not the
+/* Dark is Moss's identity ground: a warm near-black (ink/soil), not the
  * cold blue-black the old Prism palette used; light is the compromise
  * side. accent-ink flips to a dark value here specifically because this
- * mode's accent itself is a light, minty green (#7fae86) — white text on
+ * mode's accent itself is a light, minty green (#7fae86): white text on
  * it fails contrast outright (verified: 2.5:1, well under AA); the app's
  * own dark ground color reads correctly against it instead (7.3:1). */
 @media (prefers-color-scheme: dark) {
@@ -269,10 +269,10 @@
   --warn-soft: #f3eada;
   --danger: #a83f33;
   --danger-soft: #f5e4e1;
-  /* Application status tracking (docs/application-status-tracking-plan.md)
-   * — OA Sent (info, slate blue) and Interview Requested (special, dusty
+  /* Application status tracking (docs/application-status-tracking-plan.md):
+   * OA Sent (info, slate blue) and Interview Requested (special, dusty
    * plum). Both deliberately muted rather than saturated, matching this
-   * palette's overall restraint — neither shares --accent's green hue, so
+   * palette's overall restraint: neither shares --accent's green hue, so
    * neither reads as an accent-colored UI control. */
   --info: #3d6e96;
   --info-soft: #e2ebf1;

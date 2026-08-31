@@ -3,11 +3,11 @@ import "./Logo.css";
 
 /**
  * The aplyx mark: the operator-supplied reference badge image, used
- * verbatim (cropped to just the rounded-square badge — the reference's
+ * verbatim (cropped to just the rounded-square badge: the reference's
  * white background and wordmark below it are cropped away, not part of
  * the mark itself). Same source art as the actual macOS app icon
  * (src/assets/logo-mark-icon-source.png, that version composited with the
- * standard icon-canvas margin for `npx tauri icon`) — one image, used
+ * standard icon-canvas margin for `npx tauri icon`), one image, used
  * everywhere the app shows its logo, including the initial launch/loading
  * screen (App.tsx's RouteLoading and EntryScreen's "checking" state both
  * render this same component).

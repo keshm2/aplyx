@@ -20,7 +20,7 @@ export function AuthScreen() {
   const navigate = useNavigate();
   const location = useLocation();
   // Set by SettingsAccountTab's "Sign in" button when a local install is
-  // already running — linking an account there is a different situation
+  // already running; linking an account there is a different situation
   // from a first-ever sign-in via the entry screen: this window already
   // has local data, so it goes straight back to Settings instead of the
   // default destinations below (which assume no local install exists and
@@ -41,7 +41,7 @@ export function AuthScreen() {
   // `returnTo` short-circuits the default routing entirely (see its own
   // comment above); otherwise a returning user goes straight to the
   // dashboard instead of repeating the wizard every time, and a
-  // first-time signup still gets it — waiting for onboardingCompleted to
+  // first-time signup still gets it, waiting for onboardingCompleted to
   // resolve rather than guessing.
   useEffect(() => {
     if (status !== "signed-in") return;
@@ -97,7 +97,7 @@ export function AuthScreen() {
       }
       if (result.alreadyRegistered) {
         setError(
-          "An account with this email already exists but hasn't been confirmed — no new email was sent. Use the resend option below, or sign in if you've already confirmed.",
+          "An account with this email already exists but hasn't been confirmed. No new email was sent. Use the resend option below, or sign in if you've already confirmed.",
         );
         setCheckEmailNotice(true);
         return;
@@ -111,7 +111,7 @@ export function AuthScreen() {
       setError(result.error);
       return;
     }
-    // No explicit navigate here — the effect above takes over once status
+    // No explicit navigate here; the effect above takes over once status
     // flips to "signed-in" and onboardingCompleted resolves.
   }
 
@@ -132,7 +132,7 @@ export function AuthScreen() {
     const result = await signInWithGoogle();
     if (result.error) setError(result.error);
     // A successful call opens the system browser for Google's consent
-    // screen; there is no local navigation to perform here —
+    // screen; there is no local navigation to perform here:
     // AuthContext's deep-link listener exchanges the aplyx://
     // auth-callback code and onAuthStateChange flips status once the
     // user finishes in the browser and the OS routes the redirect back.
@@ -184,7 +184,7 @@ export function AuthScreen() {
               {resendState === "sending"
                 ? "Resending…"
                 : resendState === "sent"
-                  ? "Sent — check your inbox"
+                  ? "Sent: check your inbox"
                   : "Resend confirmation email"}
             </button>
           </>

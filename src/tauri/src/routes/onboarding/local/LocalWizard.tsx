@@ -13,11 +13,11 @@ import { NotificationsStep } from "./NotificationsStep";
 import { ExtensionStep } from "./ExtensionStep";
 import { ReviewStep } from "./ReviewStep";
 
-// Three narrative beats (auto-advancing, no chrome — see IntroSplash) are
+// Three narrative beats (auto-advancing, no chrome; see IntroSplash) are
 // interleaved with the real, interactive steps: a welcome, then a preamble
 // into appearance preferences, then a preamble into the profile questions.
 // Splashes don't count toward the progress dots and Back skips over them
-// (REAL_STEPS / isSplash below) — they're pacing, not steps to track.
+// (REAL_STEPS / isSplash below); they're pacing, not steps to track.
 const REAL_STEPS = [
   "preferences",
   "environment",
@@ -61,7 +61,7 @@ const TITLES: Record<RealStep, string> = {
 };
 
 const SUBTITLES: Partial<Record<RealStep, string>> = {
-  preferences: "Pick a look and feel — you can always change this later in Settings.",
+  preferences: "Pick a look and feel. You can always change this later in Settings.",
 };
 
 export function LocalWizard() {
@@ -109,7 +109,7 @@ export function LocalWizard() {
         <p className="wizard-subtitle">{rootError}</p>
         <p className="field-help">
           A Finder- or Dock-launched app has no way to know where your aplyx checkout lives on
-          disk — point it at the folder yourself (the one containing <code>AGENTS.md</code> and{" "}
+          disk. Point it at the folder yourself (the one containing <code>AGENTS.md</code> and{" "}
           <code>src/scripts/</code>).
         </p>
         <div style={{ display: "flex", gap: "var(--space-3)", marginTop: "var(--space-4)" }}>
@@ -139,7 +139,7 @@ export function LocalWizard() {
       await writeOnboardingCompleted(root!, true);
     } catch (err) {
       // Fail open: this only controls whether the wizard auto-launches
-      // again on the next start — worth logging, not worth stranding the
+      // again on the next start; worth logging, not worth stranding the
       // user on this screen over (they're leaving it either way, so
       // there's nowhere left to show an error message once we navigate).
       console.error("failed to mark onboarding completed", err);
@@ -152,7 +152,7 @@ export function LocalWizard() {
       // Cleared right before the attempt, not unconditionally on every
       // goNext() call: "agent" is immediately followed by the
       // "intro-profile" splash (no WizardShell, nowhere to show an error),
-      // whose OWN auto-advance also calls goNext() — clearing here
+      // whose OWN auto-advance also calls goNext(); clearing here
       // unconditionally would wipe this message out before the user ever
       // reaches a real step again. Splash-driven calls (step !== "agent")
       // simply skip this whole block and leave any pending message alone.
@@ -160,12 +160,12 @@ export function LocalWizard() {
       try {
         await writeHarness(root!, harness);
       } catch (err) {
-        // Fail open here too — a coding agent can always be (re)selected
+        // Fail open here too: a coding agent can always be (re)selected
         // later in Settings, so a save failure shouldn't be able to strand
         // the user on this step with no way forward. Surface it and keep
         // going rather than silently swallowing it (the previous bug).
         setActionError(
-          `Couldn't save your coding-agent choice (${err instanceof Error ? err.message : String(err)}) — ` +
+          `Couldn't save your coding-agent choice (${err instanceof Error ? err.message : String(err)}), ` +
             "continuing anyway; you can set this later in Settings.",
         );
       }
@@ -204,7 +204,7 @@ export function LocalWizard() {
       <IntroSplash
         key={step}
         heading="Now, let's get to know more about you."
-        caption="Every step saves as you go — it's safe to close and come back anytime."
+        caption="Every step saves as you go. It's safe to close and come back anytime."
         delayMs={2200}
         onAdvance={goNext}
       />
@@ -214,7 +214,7 @@ export function LocalWizard() {
   const realIndex = REAL_STEPS.indexOf(step as RealStep);
 
   // ProfileStep manages its own internal 8-page navigation and calls
-  // onComplete() when done, so it renders without the shared footer —
+  // onComplete() when done, so it renders without the shared footer;
   // still offers Skip setup, since profile is the longest stretch of the
   // wizard and the one most worth an early exit from.
   if (step === "profile") {
@@ -242,7 +242,7 @@ export function LocalWizard() {
       onBack={goBack}
       onNext={goNext}
       nextLabel={step === "review" ? "Finish" : "Continue"}
-      // Omitted on "review" — its Continue is already "Finish", so a
+      // Omitted on "review": its Continue is already "Finish", so a
       // separate Skip setup button there would just duplicate it.
       onSkip={step === "review" ? undefined : finish}
     >

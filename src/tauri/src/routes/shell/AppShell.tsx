@@ -21,21 +21,21 @@ const ProfileScreen = lazy(() => import("./ProfileScreen").then((m) => ({ defaul
 const JobsScreen = lazy(() => import("./JobsScreen").then((m) => ({ default: m.JobsScreen })));
 const ReviewScreen = lazy(() => import("./ReviewScreen").then((m) => ({ default: m.ReviewScreen })));
 const DocumentsScreen = lazy(() => import("./DocumentsScreen").then((m) => ({ default: m.DocumentsScreen })));
-// Was HistoryScreen — renamed to match the nav (Home is the "recent
+// Was HistoryScreen: renamed to match the nav (Home is the "recent
 // activity" dashboard; this is the full per-job status list, every
-// applied job with its outcome badge — see the operator's 2026-08-10
+// applied job with its outcome badge, see the operator's 2026-08-10
 // clarification). Same component, same data (state.applied), just named
 // for what it actually is instead of "History".
 const StatusScreen = lazy(() => import("./StatusScreen").then((m) => ({ default: m.StatusScreen })));
 const ResumesScreen = lazy(() => import("./ResumesScreen").then((m) => ({ default: m.ResumesScreen })));
 const RunScreen = lazy(() => import("./RunScreen").then((m) => ({ default: m.RunScreen })));
 // ATS account credentials (docs/ats-account-credentials-plan.md Package
-// 6) — its own tab inside Settings (SettingsShell.tsx), reached the same
+// 6), its own tab inside Settings (SettingsShell.tsx), reached the same
 // way as Settings itself: the gear icon rather than a NAV entry, since
 // this is hosted-only and credential-specific, not a daily-use tab.
 const AccountCenterScreen = lazy(() => import("./AccountCenterScreen").then((m) => ({ default: m.AccountCenterScreen })));
 
-// Settings used to be a nav entry here too — it's the gear icon in TopBar
+// Settings used to be a nav entry here too; it's the gear icon in TopBar
 // now instead (next to the bell), so the /app/settings route stays wired
 // up below but isn't listed as a nav destination anymore. Consumed by
 // TopBar's NavMenu (the dropdown that replaced the old persistent sidebar
@@ -52,11 +52,11 @@ const NAV = [
 ];
 
 // Route chunks are lazy (see the imports above) so a fresh launch only
-// pays for Home's JS, not all six screens' — but that meant the FIRST
+// pays for Home's JS, not all six screens', but that meant the FIRST
 // visit to any other tab hit Suspense's fallback while the chunk
 // downloaded, and by the time it resolved, the outer shell-route-in
 // transition below (220ms) had often already finished, so the real
-// content just popped in with no animation of its own — one of the
+// content just popped in with no animation of its own, one of the
 // "sometimes the transition doesn't work" cases. Prefetching every
 // chunk shortly after the shell itself mounts (idle, off the critical
 // path, never blocking Home's own first paint) means by the time a user
@@ -79,7 +79,7 @@ export function AppShell() {
   const location = useLocation();
   const [displayedLocation, setDisplayedLocation] = useState(location);
   const [transition, setTransition] = useState<"idle" | "out" | "in">("idle");
-  // Live count on the "Review queue" nav item — the dropdown otherwise
+  // Live count on the "Review queue" nav item: the dropdown otherwise
   // never reflects anything changing on its own, and this is the one
   // number HomeScreen's own nextAction already treats as the most
   // time-sensitive thing in the app (an unreviewed application waiting on
@@ -87,7 +87,7 @@ export function AppShell() {
   // this reason (background scheduler activity while the window is open),
   // so this rides that existing refresh rather than adding a second one.
   const { state, root } = useAplyxState();
-  // Not state?.queue.length — the queue array is append-only and never
+  // Not state?.queue.length: the queue array is append-only and never
   // shrinks on its own (AGENTS.md), so a raw length counts entries that
   // were already applied/dismissed/failed after being queued. isResolved
   // is the same filter ReviewScreen's own pending-count already applies;
@@ -132,7 +132,7 @@ export function AppShell() {
   // Safety net: onAnimationEnd (below) is the normal way "in" returns to
   // "idle", but if that event is ever missed (element unmounts mid-
   // animation, a webview quirk, whatever), transition would stay "in"
-  // forever — harmless visually (the animation's fill-mode holds the
+  // forever, harmless visually (the animation's fill-mode holds the
   // settled end state regardless), but it means the *next* navigation's
   // "out" still fires correctly (setTransition("out") always runs
   // unconditionally) so this is mostly defensive, not a fix for a
@@ -151,7 +151,7 @@ export function AppShell() {
           className={`shell-route-frame${transition === "out" ? " shell-route-out" : transition === "in" ? " shell-route-in" : ""}`}
           onAnimationEnd={(e) => {
             // animationend bubbles from any descendant's own CSS
-            // animation, not just this element's — without this check,
+            // animation, not just this element's: without this check,
             // an unrelated inner animation finishing (a stat card fading
             // in, a loading spinner, anything) could fire this and end
             // the route transition early, or race a *later* transition

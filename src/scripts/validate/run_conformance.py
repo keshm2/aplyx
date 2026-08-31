@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""run_conformance.py — cross-harness conformance suite (Phase 16).
+"""run_conformance.py: cross-harness conformance suite (Phase 16).
 
 Two legs:
 
@@ -10,8 +10,8 @@ Two legs:
    harness parity reduces to "can the harness run the helpers".
 
 2. Harness leg (--harness NAME | --harness all): invokes the named
-   coding-agent CLI headlessly with a minimal task — run one
-   canonicalize via shell and print its output — and asserts the
+   coding-agent CLI headlessly with a minimal task (run one
+   canonicalize via shell and print its output), and asserts the
    golden job_key appears in the transcript. Proves the harness can
    read project files and execute the deterministic helpers. Costs one
    small LLM call per harness; a missing CLI is reported as SKIP, not
@@ -23,7 +23,7 @@ Usage:
   python3 src/scripts/validate/run_conformance.py --harness codex
 
 Output: one machine-parseable line per check
-  conformance: <check> PASS|FAIL|SKIP[ — detail]
+  conformance: <check> PASS|FAIL|SKIP[: detail]
 and a final summary line; exit 0 iff no FAIL.
 """
 
@@ -41,7 +41,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.a
 HARNESSES = ("opencode", "claude", "codex", "copilot")
 HARNESS_TIMEOUT_S = 300
 
-# Golden targets config — self-contained so the suite never reads the
+# Golden targets config: self-contained so the suite never reads the
 # user's live src/config/targets.json.
 GOLDEN_TARGETS = {
     "role_keywords": ["software engineer", "swe"],
@@ -122,7 +122,7 @@ def report(check: str, status: str, detail: str = "") -> None:
         FAIL += 1
     else:
         SKIP += 1
-    tail = f" — {detail}" if detail else ""
+    tail = f": {detail}" if detail else ""
     print(f"conformance: {check} {status}{tail}")
 
 
@@ -170,7 +170,7 @@ def deterministic_leg() -> None:
         report(f"fit:{name}", "PASS" if got == want else "FAIL",
                "" if got == want else f"got {got}")
 
-    # State writes — temp registry/events/applied only.
+    # State writes: temp registry/events/applied only.
     state = [sys.executable, helper("state/job_state.py")]
     p1 = run(state + ["ensure-files", "--registry", registry, "--events", events])
     p2 = run(state + ["ensure-files", "--registry", registry, "--events", events])
@@ -232,7 +232,7 @@ def harness_leg(harness: str) -> None:
     )
     cmd = {
         "opencode": ["opencode", "run", prompt],
-        # Scoped pre-approval for exactly the helper under test — headless
+        # Scoped pre-approval for exactly the helper under test: headless
         # claude otherwise declines Bash without .claude/settings.json.
         # --allowedTools is variadic, so it must come AFTER the prompt.
         "claude": ["claude", "-p", prompt, "--allowedTools",

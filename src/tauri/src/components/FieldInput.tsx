@@ -10,7 +10,7 @@ type FieldValue = string | string[];
 /** Company autocomplete pool, loaded once per app session through the
  *  bridge (the directory reads the local install's vetted slug lists via
  *  node:fs, so the webview can't import it directly). Resolves to [] when
- *  there's no local install or the bridge fails — tags then run on free
+ *  there's no local install or the bridge fails; tags then run on free
  *  text alone, same contract as everywhere else: the pool only drives
  *  suggestions, it's never a validated enum. */
 let companyPool: Promise<string[]> | undefined;

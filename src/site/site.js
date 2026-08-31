@@ -1,9 +1,9 @@
-/* aplyx.app marketing site — small vanilla JS, no build step, no
+/* aplyx.app marketing site: small vanilla JS, no build step, no
  * framework. Two jobs: theme toggle (mirrors the desktop app's own
  * light/dark persistence pattern, see desktop/src/lib/uiPrefs.ts) and
  * scroll-reveal for [data-reveal] sections. The anti-flash theme read
  * lives inline in <head> in each HTML page (must run before first paint),
- * not here — this file only handles the toggle button and its icon. */
+ * not here; this file only handles the toggle button and its icon. */
 (function () {
   function effectiveTheme() {
     var explicit = document.documentElement.dataset.theme;
@@ -16,7 +16,7 @@
     try {
       localStorage.setItem("aplyx.theme", next);
     } catch (e) {
-      // localStorage unavailable (private browsing, disabled) — theme
+      // localStorage unavailable (private browsing, disabled); theme
       // still applies for this page load, just doesn't persist.
     }
   }
@@ -24,7 +24,7 @@
   function toggleTheme() {
     var next = effectiveTheme() === "dark" ? "light" : "dark";
     // Soft cross-fade between palettes where supported; silently applies
-    // the change immediately everywhere else — no fallback branch needed.
+    // the change immediately everywhere else, no fallback branch needed.
     if (document.startViewTransition) {
       document.startViewTransition(function () {
         setTheme(next);
@@ -35,7 +35,7 @@
   }
 
   // Session-scoped "visited" tracking for genuine inline content links
-  // (a.link — see styles.css's comment on why not a real :visited).
+  // (a.link, see styles.css's comment on why not a real :visited).
   // sessionStorage, not localStorage: resets when the tab/browser session
   // ends, matching "visited in this session" rather than permanent
   // browsing history.
@@ -57,7 +57,7 @@
         sessionStorage.setItem(VISITED_KEY, JSON.stringify(visited));
       }
     } catch (e) {
-      // sessionStorage unavailable — link still navigates fine, just
+      // sessionStorage unavailable; link still navigates fine, just
       // never picks up the visited style this session.
     }
   }
@@ -65,7 +65,7 @@
   // Counts a stat number up from 0 to its target value once, the first
   // time it scrolls into view. Parses the leading digits and keeps
   // whatever comes after (a "+" or "%") fixed for the whole animation.
-  // A target of 0 (or non-numeric content) is left completely alone —
+  // A target of 0 (or non-numeric content) is left completely alone;
   // there's nothing to count up to.
   function animateCountUp(el) {
     var match = el.textContent.trim().match(/^(\d+)(.*)$/);
@@ -78,7 +78,7 @@
     function step(timestamp) {
       if (start === null) start = timestamp;
       var progress = Math.min((timestamp - start) / DURATION_MS, 1);
-      var eased = 1 - Math.pow(1 - progress, 3); // ease-out-cubic — quick start, settled finish
+      var eased = 1 - Math.pow(1 - progress, 3); // ease-out-cubic: quick start, settled finish
       el.textContent = Math.round(eased * target) + suffix;
       if (progress < 1) {
         window.requestAnimationFrame(step);
@@ -104,7 +104,7 @@
       );
     }
 
-    // Mobile nav hamburger — collapses the Features/Pricing/Install/GitHub
+    // Mobile nav hamburger: collapses the Features/Pricing/Install/GitHub
     // links into a dropdown below the 46rem breakpoint (styles.css). Only
     // toggles two classes; the media query itself decides whether any of
     // this is even visible, so nothing here needs to check viewport width.
@@ -121,7 +121,7 @@
         navToggle.setAttribute("aria-expanded", open ? "true" : "false");
         navLinks.classList.toggle("is-open", open);
       });
-      // A link click navigates away (or is the GitHub external tab) —
+      // A link click navigates away (or is the GitHub external tab);
       // either way, don't leave the panel visibly open behind it / on
       // back-navigation.
       navLinks.querySelectorAll(".nav-link").forEach(function (link) {
@@ -135,7 +135,7 @@
       });
     }
 
-    // OS install tabs (/install) — a click on a tab shows its matching
+    // OS install tabs (/install): a click on a tab shows its matching
     // panel (data-os-tab="mac" <-> data-os-panel="mac") and hides the
     // rest. No-op on pages without any [data-os-tab] elements.
     var osTabs = document.querySelectorAll("[data-os-tab]");
@@ -151,7 +151,7 @@
       });
     });
 
-    // Copy-to-clipboard buttons on install commands (/install) — copies
+    // Copy-to-clipboard buttons on install commands (/install): copies
     // the sibling <pre>'s text and flips the icon to a checkmark briefly.
     // No-op on pages without any [data-copy-button] elements.
     document.querySelectorAll("[data-copy-button]").forEach(function (button) {
@@ -169,7 +169,7 @@
       });
     });
 
-    // TL;DR / Fine Print switcher (/privacy) — one iOS-style toggle plus
+    // TL;DR / Fine Print switcher (/privacy): one iOS-style toggle plus
     // its two flanking labels, all driving the same [data-view-panel]
     // visibility. Persists like the theme toggle so a returning visitor's
     // choice is remembered. No-op on pages without [data-view-switch].
@@ -197,7 +197,7 @@
       try {
         storedView = localStorage.getItem(VIEW_KEY) || "plain";
       } catch (e) {
-        // localStorage unavailable — defaults to "plain" for this load
+        // localStorage unavailable, defaults to "plain" for this load
       }
       applyView(storedView);
       viewSwitch.addEventListener("click", function () {
@@ -214,7 +214,7 @@
       });
     }
 
-    // Status-tracking demo (/features) — the glow bar trails the mouse
+    // Status-tracking demo (/features): the glow bar trails the mouse
     // across the row of status pills. Only the target position is set
     // here; the actual smoothing is a CSS transition on the glow's own
     // transform (styles.css), not a per-frame JS animation loop.
@@ -243,9 +243,9 @@
 
     var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    // Stat count-up (/  — the home page's stats row): triggers once, the
+    // Stat count-up (/, the home page's stats row): triggers once, the
     // first time the row scrolls into view. Skipped entirely under
-    // reduced motion, same as everything else here — the static target
+    // reduced motion, same as everything else here: the static target
     // values already in the markup are the correct reduced-motion result,
     // nothing needs to run to "finish" them.
     var statsEl = document.querySelector(".stats");
@@ -274,7 +274,7 @@
       return;
     }
     // Cards that enter together (e.g. a whole bento row) reveal in a
-    // gentle cascade rather than all snapping in at once — staggered by
+    // gentle cascade rather than all snapping in at once, staggered by
     // delaying *when the class is added*, not via a CSS transition-delay
     // (which would linger and make each card's hover feel laggy
     // afterward, since transition-delay isn't scoped to just the initial
@@ -298,7 +298,7 @@
 
     // Safety net: IntersectionObserver callbacks can be delayed or never
     // fire at all in some circumstances (a backgrounded/inactive tab,
-    // slow initial layout, browser quirks) — since [data-reveal]'s base
+    // slow initial layout, browser quirks); since [data-reveal]'s base
     // CSS state is invisible until .is-visible lands, a callback that
     // never comes means permanently blank content instead of a merely
     // missed animation. Force-reveal anything still hidden after a grace

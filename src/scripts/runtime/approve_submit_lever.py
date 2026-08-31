@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""approve_submit_lever.py — deterministic approve-submit runtime for
+"""approve_submit_lever.py: deterministic approve-submit runtime for
 ready_to_submit Lever applications.
 
 Replays a saved fill record into a real visible Chrome window, then attempts
@@ -48,7 +48,7 @@ def _looks_like_lever(url: str) -> bool:
 
 
 def _has_captcha(page) -> bool:
-    # Delegates to the shared, broader challenge detector (Package 4 —
+    # Delegates to the shared, broader challenge detector (Package 4:
     # docs/ats-account-credentials-plan.md).
     return detect_challenge(page) is not None
 
@@ -138,7 +138,7 @@ def run(job_id: str, review_queue_path: str, fill_records_dir: str) -> int:
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
-        print(json.dumps({"ok": False, "message": "the 'playwright' pip package is not installed — run `pip3 install -r requirements.txt` first"}))
+        print(json.dumps({"ok": False, "message": "the 'playwright' pip package is not installed: run `pip3 install -r requirements.txt` first"}))
         return 2
 
     with sync_playwright() as p:
@@ -151,7 +151,7 @@ def run(job_id: str, review_queue_path: str, fill_records_dir: str) -> int:
             )
         except Exception as exc:
             if is_profile_lock_error(exc):
-                print(json.dumps({"ok": False, "message": "your default Chrome is already running with this profile — close Chrome and try again"}))
+                print(json.dumps({"ok": False, "message": "your default Chrome is already running with this profile; close Chrome and try again"}))
                 return 3
             print(json.dumps({"ok": False, "message": f"could not launch Chrome: {exc}"}))
             return 3

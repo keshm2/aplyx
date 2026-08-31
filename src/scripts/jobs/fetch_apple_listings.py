@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""fetch_apple_listings.py — Apple careers search (HTML-first adapter).
+"""fetch_apple_listings.py: Apple careers search (HTML-first adapter).
 
 Apple has no working public JSON search API (a community-claimed POST
-endpoint `jobs.apple.com/api/role/search` returned 404 in live testing —
+endpoint `jobs.apple.com/api/role/search` returned 404 in live testing;
 don't re-attempt without captured session cookies/CSRF headers). The
-search page itself, however, is fully server-side rendered — each job
+search page itself, however, is fully server-side rendered: each job
 card in the HTML contains title, team, location, posted date, and the
 role's URL, no JS execution required. This is the first HTML-parsed (not
 JSON-API) adapter in this codebase; parsing is stdlib-only
@@ -13,24 +13,24 @@ zero-dependency convention, not a general HTML/DOM parser.
 
   GET https://jobs.apple.com/en-us/search?search=<query>&location=united-states-USA&page=<n>
 
-Pagination is a plain `page=<n>` query param (confirmed live — page 2
+Pagination is a plain `page=<n>` query param (confirmed live: page 2
 returns a disjoint set of job IDs from page 1); this script stops once a
 page yields zero new job listings or --limit is reached.
 
 The search page's inline description is a truncated preview, not the
-full JD (confirmed live — cuts off mid-sentence with no closing
+full JD (confirmed live: cuts off mid-sentence with no closing
 punctuation). Each detail page (`jobs.apple.com/en-us/details/<id>/...`)
 embeds the FULL job data (jobSummary, description, minimumQualifications,
 preferredQualifications) as an escaped JSON string inside a
-`window.__staticRouterHydrationData = JSON.parse("...")` script tag —
+`window.__staticRouterHydrationData = JSON.parse("...")` script tag;
 confirmed live. Same two-step pattern as Oracle/Workday/SmartRecruiters:
 list mode omits jd_text; after role filtering and before the fit gate,
 fetch the JD per surviving candidate via --jd-url.
 
 Output contract:
-  stdout — raw-job JSONL (list mode) or a single JD JSON (--jd-url),
+  stdout: raw-job JSONL (list mode) or a single JD JSON (--jd-url),
            list mode sorted by (title, external_job_id).
-  stderr — a machine-parseable summary line:
+  stderr: a machine-parseable summary line:
            fetch_apple_listings: complete jobs=<n> failed=<true|false>
 
 Exit codes:
@@ -60,7 +60,7 @@ USER_AGENT = "aplyx-job-agent/ats-expansion"
 SEARCH_BASE = "https://jobs.apple.com/en-us/search"
 SITE_BASE = "https://jobs.apple.com"
 # Apple's search list caps around 20 cards/page regardless of any page-size
-# param (none was found) — bounded purely by the `page=<n>` cursor.
+# param (none was found); bounded purely by the `page=<n>` cursor.
 MAX_PAGES = 50
 
 _JOB_CARD_RE = re.compile(r'<a[^>]*aria-label="([^"]+)"[^>]*href="(/en-us/details/[^"]+)"')
@@ -88,7 +88,7 @@ def parse_search_page(content: str) -> list[dict]:
     """Split on each job-detail anchor and pull the sibling team/date/
     location spans from the following slice of markup. Each job appears
     twice (the title link, and a duplicate "See full role description:"
-    link inside its expanded accordion body) — keep only the first,
+    link inside its expanded accordion body); keep only the first,
     title-bearing occurrence per unique href."""
     jobs = []
     seen_hrefs = set()
@@ -103,7 +103,7 @@ def parse_search_page(content: str) -> list[dict]:
         if href in seen_hrefs:
             continue
         seen_hrefs.add(href)
-        # aria-label is "<title>  <role number>" — split off the trailing
+        # aria-label is "<title>  <role number>": split off the trailing
         # numeric id to recover the title alone.
         title_m = re.match(r"^(.*?)\s+(\d+)$", label.strip())
         title = html_lib.unescape(title_m.group(1).strip() if title_m else label.strip())
@@ -112,7 +112,7 @@ def parse_search_page(content: str) -> list[dict]:
         date_m = _DATE_RE.search(window)
         loc_m = _LOCATION_RE.search(window)
         # The href's job-id segment (e.g. "200674164-3401") is more stable
-        # than the aria-label's numeric id alone — some postings share a
+        # than the aria-label's numeric id alone; some postings share a
         # role number across locations, differentiated only by this suffix.
         id_m = re.match(r"/en-us/details/([^/]+)/", href)
         job = {
@@ -133,7 +133,7 @@ def parse_search_page(content: str) -> list[dict]:
 
 # Fields present in the detail page's embedded job-data JSON, in the
 # order they should be concatenated into jd_text, each with the heading
-# it should render under — Apple's own page already separates these into
+# it should render under: Apple's own page already separates these into
 # a Summary/Description/Minimum/Preferred structure (confirmed live:
 # these fields carry no inline HTML at all, unlike every other source
 # here, but they were still being joined with zero labels, leaving no
@@ -164,7 +164,7 @@ def _extract_escaped_field(content: str, key: str) -> str | None:
     raw = content[start : start + end_m.start()]
     try:
         once = json.loads(f'"{raw}"')
-        # Doubly escaped — the JD text is JSON-escaped once for its own
+        # Doubly escaped: the JD text is JSON-escaped once for its own
         # storage, then that whole JSON document is escaped again as a JS
         # string literal for JSON.parse("..."). Confirmed live: a single
         # unescape pass leaves literal "\\n"/"\\"" sequences behind
@@ -184,7 +184,7 @@ def fetch_jd(url: str, timeout: int) -> dict:
     content = http_get(url, timeout)
     jd_text = join_sections([(label, _extract_escaped_field(content, key) or "") for key, label in _JD_FIELDS])
     # postingTitle is one of the same embedded-JSON fields jobSummary/
-    # description/etc. come from — more reliable than scraping a <title>
+    # description/etc. come from; more reliable than scraping a <title>
     # tag (this page's <title> isn't a simple static element).
     title = _extract_escaped_field(content, "postingTitle") or ""
     return {

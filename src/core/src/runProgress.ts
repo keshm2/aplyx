@@ -79,7 +79,7 @@ export const markersIn = (raw: string[]) => raw.map(stripAnsi).filter((l) => MAR
 /**
  * Best-effort parse of the session-log tail into the 5-slot checklist.
  * Scans from the newest line backward, tagging each slot with the marker
- * ([ ]/[•]/[✓]) nearest its most recent mention. Never throws — any
+ * ([ ]/[•]/[✓]) nearest its most recent mention. Never throws: any
  * unrecognized shape (different harness, older format, whatever) just
  * falls through to `null`, and the caller shows a generic "running…"
  * indicator instead of guessing at garbage.
@@ -132,7 +132,7 @@ const APPLY_MARKER = /^\[apply\]\s*(.+?)\s*@\s*(.+)$/;
  * Finds the most recent `[apply] <title> @ <company>` marker (see
  * src/agents/bodies/job-scraper.md's "Progress markers" section) so the
  * running view can show which job is currently being applied to. Scans
- * from the newest line backward and stops at the first match — once a
+ * from the newest line backward and stops at the first match; once a
  * later phase starts, an older apply-marker naturally stops being "the
  * current one" because that phase's own state (from parsePhaseChecklist)
  * takes over the caption instead.

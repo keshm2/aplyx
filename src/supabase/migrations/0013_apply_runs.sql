@@ -1,10 +1,10 @@
--- apply_runs — per-application submission lifecycle (apply-foundation).
+-- apply_runs: per-application submission lifecycle (apply-foundation).
 --
 -- Distinct from hosted_runs (migration 0004): hosted_runs is the
 -- review_only worker's work queue (one row per server-side pipeline
 -- run: fetch -> canonicalize -> fit-gate -> tailor -> land in
 -- review_queue). apply_runs is one row per actual APPLICATION
--- SUBMISSION ATTEMPT — the lifecycle a single job's apply moves
+-- SUBMISSION ATTEMPT: the lifecycle a single job's apply moves
 -- through (initialized -> package_assembled -> fill_planned -> filling
 -- -> ready_to_submit -> confirm_before_submit -> submitting ->
 -- submitted/needs_review/failed/canceled), as defined in
@@ -12,7 +12,7 @@
 --
 -- This table exists from day one on both the local and hosted paths
 -- (the state machine is framework-agnostic), but only hosted writes
--- here — a local install keeps its apply-run state in the existing
+-- here; a local install keeps its apply-run state in the existing
 -- data/*.json files via the Python helpers, same as every other local
 -- state write. The hosted adapter (src/core/src/adapters/supabase.ts)
 -- and a future hosted auto-apply worker (docs/hosted-auto-apply-plan.md)
@@ -23,21 +23,21 @@
 -- (Stage 1) can find runs paused in 'confirm_before_submit' and the
 -- dashboard can show 'ready_to_submit' / 'submitting' for in-flight
 -- runs. The check constraint tracks applyStateMachine.ts's
--- ApplyRunStatus union — keep in sync if the state machine adds a
+-- ApplyRunStatus union; keep in sync if the state machine adds a
 -- state.
 --
 -- `family` is the ATS family (greenhouse/lever/ashbyhq/workday) from
--- src/core/src/atsRegistry.ts — drives whether the run used a managed
+-- src/core/src/atsRegistry.ts; drives whether the run used a managed
 -- alias (account-required) or the applicant's real email (guest).
 --
 -- `alias_id` references managed_aliases (migration 0011) when the run
 -- used a mail.aplyx.app alias; null for guest flows. The foreign key
 -- is ON DELETE SET NULL (not CASCADE) so deleting an alias doesn't
--- erase the apply-run history — the run keeps its outcome, just loses
+-- erase the apply-run history; the run keeps its outcome, just loses
 -- the alias linkage.
 --
 -- `fill_plan` is the jsonb serialization of the FillPlan
--- (src/core/src/fillPlan.ts) — the structured field-mapping the
+-- (src/core/src/fillPlan.ts): the structured field-mapping the
 -- confirm-before-submit UI renders for approval. Written when the run
 -- reaches fill_planned; null before that.
 

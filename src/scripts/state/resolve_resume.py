@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""resolve_resume.py — dynamic cover-letter reference file resolution.
+"""resolve_resume.py: dynamic cover-letter reference file resolution.
 
 Originally resolved both resume categories and the cover-letter reference
 file; the resume side retired once tailoring moved to a single generic
-resume (data/resumes/resume.json, read directly by resume-tailor.md — see
+resume (data/resumes/resume.json, read directly by resume-tailor.md; see
 src/core/src/masterResume.ts for the schema). This helper's only remaining
 job is the cover-letter reference file, which still has the exact same
 "don't assume a literal filename" problem the resume side used to: the
@@ -11,14 +11,14 @@ operator can rename data/resumes/base_cover_letter.md at any time, and
 nothing else re-scans data/resumes/ to find it.
 
 Resolution order:
-  1. exact conventional stem (base_cover_letter) — zero behavior change
+  1. exact conventional stem (base_cover_letter): zero behavior change
      for anyone who hasn't renamed anything.
-  2. fuzzy filename match — any stem in data/resumes/ containing one of
+  2. fuzzy filename match: any stem in data/resumes/ containing one of
      the keyword synonyms below, case-insensitive.
-  3. fuzzy description match — same keywords, checked against
+  3. fuzzy description match: same keywords, checked against
      .resume_meta.json's per-stem "description" field (the label the
      Resumes screen lets you set for a non-standard name).
-  4. "none" when nothing matches — the caller's job to decide what that
+  4. "none" when nothing matches: the caller's job to decide what that
      means (cover-letter-tailor.md treats a missing reference as
      optional, not a hard blocker, unlike a missing resume used to be).
 
@@ -30,7 +30,7 @@ Output contract (single JSON object on stdout):
   fuzzy_description, none.
 
 Exit codes:
-  0  resolved (including a "none" result — the caller decides what
+  0  resolved (including a "none" result: the caller decides what
      "none" means, this helper never treats it as an error)
   1  usage/config error (unreadable data/resumes/)
 

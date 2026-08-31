@@ -1,4 +1,4 @@
--- aplyx hosted backend — Phase 17 first increment (2026-08-10).
+-- aplyx hosted backend: Phase 17 first increment (2026-08-10).
 --
 -- `hosted_runs` is the work queue the GitHub-Actions-scheduled worker
 -- (src/worker/) claims from: one row per server-side pipeline run
@@ -7,7 +7,7 @@
 -- the approved plan for this increment for the full design.
 --
 -- `mode` is carried from day one (review_only/auto_apply) even though
--- this increment's worker only ever claims mode='review_only' rows —
+-- this increment's worker only ever claims mode='review_only' rows,
 -- so adding auto_apply later is a new code path, not a schema
 -- migration + backfill. That claim restriction is enforced in the
 -- worker's own claim query (src/worker/src/run.ts), not just here, but
@@ -17,7 +17,7 @@
 -- No update/delete policy for the signed-in user, same append-then-
 -- worker-updates discipline as review_queue/job_events: a user can
 -- INSERT a request (or, in this increment, an operator inserts one
--- directly for verification — no "Run now" UI button yet) and SELECT
+-- directly for verification, no "Run now" UI button yet) and SELECT
 -- their own rows to see status, but only the worker (service-role,
 -- bypasses RLS) ever transitions status/result/error.
 

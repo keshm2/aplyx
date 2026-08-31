@@ -29,7 +29,7 @@
   box-shadow: var(--shadow-lift);
   z-index: 91;
   padding: var(--space-5) var(--space-6) var(--space-6);
-  /* translateY(100%) — its own height, not a hardcoded pixel amount, so
+  /* translateY(100%): its own height, not a hardcoded pixel amount, so
    * this hides fully regardless of how much detail content it ends up
    * holding. */
   transform: translateY(100%);

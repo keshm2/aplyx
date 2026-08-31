@@ -4,7 +4,7 @@ import { gradientColor, hueColor, theme, sparkleGradient, SPINNER_FRAMES, isRedu
 
 /**
  * Renders a hint string ("/ query · ↑↓ move · s save") with the key cap
- * of every chunk in the bold accent color and the description dimmed —
+ * of every chunk in the bold accent color and the description dimmed,
  * so the available commands read at a glance instead of being one dim
  * line. Chunks are "key description"; the first token is the key.
  */
@@ -36,12 +36,12 @@ export function KeyHints({ hints }: { hints: string }) {
  * render gets a static warning color so CI output stays deterministic).
  *
  * `stopAfterMs`, when set, clears the interval after that long and settles
- * on whatever hue offset it last reached — a brief flourish instead of a
+ * on whatever hue offset it last reached, a brief flourish instead of a
  * forever-running one. Every Ink render writes the ENTIRE frame (see
  * node_modules/ink/build/log-update.js: full erase + full rewrite, no
  * partial line diffing), so a `setInterval`-driven component that's always
- * mounted for the app's whole lifetime — like the header greeting name
- * below — forces a full-terminal repaint on every tick, forever, which is
+ * mounted for the app's whole lifetime (like the header greeting name
+ * below) forces a full-terminal repaint on every tick, forever, which is
  * what actually caused the "TUI flickers, worst at the bottom of the
  * screen, when fullscreened on Windows" report: not a resize-handling bug
  * (that fix in altScreen.ts/App.tsx address a real but separate,
@@ -94,15 +94,15 @@ export function RainbowText({
 /**
  * Animated sparkle text for AUTO mode: each character cycles through an
  * accent → white blend (sparkleGradient(), the same two colors UpdateBox's
- * traveling border ring uses — see theme.ts) rather than the full hue
+ * traveling border ring uses, see theme.ts) rather than the full hue
  * wheel, so "AUTO" reads as calm/purposeful instead of alarming. Pass
- * `gradient` to reuse this for a different wave — e.g. RunScreen's live
+ * `gradient` to reuse this for a different wave, e.g. RunScreen's live
  * "running" indicator colors itself by the configured coding-agent
  * harness (see theme.ts's harnessGradient) instead of the default accent.
  * `tickMs`/`offsetStep` default to the original AUTO-badge tuning (90ms,
- * 0.35/tick); callers that want a slower, smoother wave — the harness
- * gradient — pass a longer tick and a smaller step. Same
- * animate-only-on-a-real-TTY fallback as RainbowText — a piped one-frame
+ * 0.35/tick); callers that want a slower, smoother wave (the harness
+ * gradient) pass a longer tick and a smaller step. Same
+ * animate-only-on-a-real-TTY fallback as RainbowText: a piped one-frame
  * render gets a static warn color.
  */
 export function AutoSparkleText({
@@ -144,7 +144,7 @@ export function AutoSparkleText({
 
 /**
  * Cycling "working" glyph (SPINNER_FRAMES: the braille rotation), the
- * Claude-Code-style activity indicator — a symbol that visibly changes
+ * Claude-Code-style activity indicator: a symbol that visibly changes
  * on its own, not just a color animation, so "something is happening"
  * reads even for someone not looking closely at hue shifts. 80ms is the
  * conventional braille-spinner cadence (matches most CLI "thinking"
@@ -152,7 +152,7 @@ export function AutoSparkleText({
  * statically, matching the other animated components' pattern.
  */
 export function SpinnerGlyph({ color }: { color?: string } = {}) {
-  // Deliberately not gated on isReducedMotion() like the other three —
+  // Deliberately not gated on isReducedMotion() like the other three:
   // per this component's own docstring, it exists specifically so
   // "something is happening" reads without watching color shifts.
   // Freezing it under reduced motion would remove that fallback and make
@@ -171,18 +171,18 @@ export function SpinnerGlyph({ color }: { color?: string } = {}) {
   );
 }
 
-// Always show a few lit cells even at ratio 0 — an all-empty bar reads as
+// Always show a few lit cells even at ratio 0: an all-empty bar reads as
 // "nothing is happening" or "missing", not "just started".
 const MIN_FILLED_CELLS = 3;
 
 /**
  * Animated gradient progress bar. Filled cells shimmer left-to-right
  * through `gradient` (default sparkleGradient()) so the animation reads as
- * one system with AutoSparkleText — pass a different gradient (e.g.
+ * one system with AutoSparkleText: pass a different gradient (e.g.
  * theme.ts's harnessGradient) to recolor it for a specific context, as
  * RunScreen's live run-progress bar does by configured harness.
  * `minFilled`/`tickMs`/`offsetStep` default to the original run-progress-
- * view tuning (3 cells always lit — "something is happening" — ticking
+ * view tuning (3 cells always lit, "something is happening", ticking
  * every 90ms by 0.35); callers that need an honest 0%-means-empty bar
  * (e.g. onboarding, before anything has been answered) or a slower/
  * smoother shimmer pass their own values rather than changing the shared

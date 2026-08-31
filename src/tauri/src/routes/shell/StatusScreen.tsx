@@ -15,12 +15,12 @@ import "../../components/dataList.css";
 import "../../components/Skeleton.css";
 
 // Application outcome tracking (docs/application-status-tracking-plan.md)
-// is hosted-only — email-tracking-worker only ever reads/writes hosted
+// is hosted-only: email-tracking-worker only ever reads/writes hosted
 // applied_jobs, so a local install's AppliedJob.outcome_status is always
 // undefined by construction (see the type's own comment in stateDerive.ts).
 // Per the operator's call (2026-08-21): this screen is entirely a
 // signed-in feature now. Reachable from local (the nav item always shows,
-// so it's discoverable) but renders only a sign-in prompt until then —
+// so it's discoverable) but renders only a sign-in prompt until then:
 // no local application count/list here at all, never blended with hosted
 // data the way an earlier version of this screen did.
 
@@ -52,7 +52,7 @@ export function StatusScreen() {
         url: logUrl,
         dateApplied: logDate,
       });
-      setMessage({ text: `Logged ${logCompany} — ${logTitle}. It'll show up below and in email tracking on the next scheduled scan.` });
+      setMessage({ text: `Logged ${logCompany}, ${logTitle}. It'll show up below and in email tracking on the next scheduled scan.` });
       setLogCompany("");
       setLogTitle("");
       setLogUrl("");
@@ -72,7 +72,7 @@ export function StatusScreen() {
   );
   const selectedOnlineJob = sortedOnlineJobs.find((j) => j.job_id === onlineSelected);
 
-  // Orientation numbers for the stat-card row — shown at full layout
+  // Orientation numbers for the stat-card row, shown at full layout
   // density (0 values included) rather than only once jobs exist, so the
   // screen never collapses down to a bare list/empty-state with nothing
   // else on it.
@@ -90,7 +90,7 @@ export function StatusScreen() {
     return { tracked, interviews, responseRate, avgAts };
   }, [sortedOnlineJobs]);
 
-  // Confirms an outcome actually changed since the last read — pops only
+  // Confirms an outcome actually changed since the last read: pops only
   // the row(s) whose outcome_status flipped between two `onlineJobs`
   // snapshots, never on first paint (prevOutcomeRef starts empty, so the
   // very first pass only records baselines, it never diffs against
@@ -129,7 +129,7 @@ export function StatusScreen() {
       {authStatus !== "signed-in" ? (
         <div className="settings-section" style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", alignItems: "center", textAlign: "center" }}>
           <p style={{ color: "var(--text-muted)" }}>
-            Application status tracking reads your inbox for replies — offers, rejections, assessment invites — and
+            Application status tracking reads your inbox for replies (offers, rejections, assessment invites) and
             needs a signed-in account to work. Sign in to start tracking where each application actually stands.
           </p>
           <button type="button" className="settings-action-btn" onClick={() => navigate("/auth")}>
@@ -147,7 +147,7 @@ export function StatusScreen() {
           {showLogForm && (
             <div className="settings-section">
               <p className="field-help" style={{ marginBottom: "var(--space-3)" }}>
-                For an application you sent outside aplyx — company/title/date so email tracking can pick up
+                For an application you sent outside aplyx: company/title/date so email tracking can pick up
                 replies for it too. Aplyx never applied here on your behalf, so it can't verify anything about this
                 row beyond what you enter.
               </p>
@@ -207,7 +207,7 @@ export function StatusScreen() {
               </div>
             </div>
             <div className="stat-card aplyx-fade-rise">
-              <span className="stat-value">{stats.avgAts ?? "—"}</span>
+              <span className="stat-value">{stats.avgAts ?? "N/A"}</span>
               <span className="stat-label">Avg ATS score</span>
             </div>
           </div>
@@ -215,7 +215,7 @@ export function StatusScreen() {
           {!onlineLoaded ? (
             <SkeletonRows />
           ) : sortedOnlineJobs.length === 0 ? (
-            <div className="data-empty">No applications tracked yet — log one above, or connect your inbox in Settings.</div>
+            <div className="data-empty">No applications tracked yet: log one above, or connect your inbox in Settings.</div>
           ) : (
             <div className="data-list">
               {sortedOnlineJobs.map((job) => (
@@ -234,7 +234,7 @@ export function StatusScreen() {
                 >
                   <div className="data-row-main">
                     <span className="data-row-title">
-                      {job.company} — {job.title}
+                      {job.company}, {job.title}
                     </span>
                     <span className="data-row-sub">Applied on: {job.date_applied}</span>
                   </div>
@@ -253,7 +253,7 @@ export function StatusScreen() {
       <BottomSheet
         open={!!selectedOnlineJob}
         onClose={() => setOnlineSelected(undefined)}
-        title={selectedOnlineJob ? `${selectedOnlineJob.company} — ${selectedOnlineJob.title}` : ""}
+        title={selectedOnlineJob ? `${selectedOnlineJob.company}, ${selectedOnlineJob.title}` : ""}
       >
         {selectedOnlineJob && (
           <>
@@ -275,17 +275,17 @@ export function StatusScreen() {
                 <span className="detail-row-value">
                   <span style={{ color: "var(--text-faint)", fontSize: "var(--text-xs)" }}>
                     {selectedOnlineJob.outcome_updated_at}
-                    {selectedOnlineJob.outcome_source ? ` — ${selectedOnlineJob.outcome_source}` : ""}
-                    {selectedOnlineJob.outcome_source?.startsWith("email:") ? " — best-effort keyword match, not verified" : ""}
+                    {selectedOnlineJob.outcome_source ? `, ${selectedOnlineJob.outcome_source}` : ""}
+                    {selectedOnlineJob.outcome_source?.startsWith("email:") ? "; best-effort keyword match, not verified" : ""}
                   </span>
                 </span>
               </div>
             ) : null}
 
-            {/* Assessment-specific detail — only ever set alongside
+            {/* Assessment-specific detail: only ever set alongside
                *  outcome_status === "oa_sent" (email-tracking-worker only
                *  extracts these when it classifies a message that way).
-               *  A verbatim-matched phrase, not a computed deadline —
+               *  A verbatim-matched phrase, not a computed deadline;
                *  company phrasing is too inconsistent to parse a real one
                *  from ("active for 7 days" vs. "complete by August 30"). */}
             {selectedOnlineJob.outcome_status === "oa_sent" && selectedOnlineJob.outcome_assessment_note ? (

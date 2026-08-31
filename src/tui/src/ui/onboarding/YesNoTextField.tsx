@@ -4,7 +4,7 @@ import { theme } from "../../theme.js";
 
 /**
  * A y/n field, rendered like TextField but driven by single keypresses
- * ("y"/"n" set the whole value; there's no free-typed text to edit) —
+ * ("y"/"n" set the whole value; there's no free-typed text to edit).
  * OnboardingWizard.tsx owns that key handling and just hands this the
  * resulting draft value ("" | "Yes" | "No").
  */

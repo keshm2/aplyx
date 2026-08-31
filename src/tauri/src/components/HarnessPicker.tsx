@@ -30,7 +30,7 @@ const LOGO_PROPS = {
   "aria-hidden": true,
 };
 
-/** opencode — a terminal-prompt bracket mark. */
+/** opencode: a terminal-prompt bracket mark. */
 function OpencodeLogo() {
   return (
     <svg {...LOGO_PROPS}>
@@ -41,7 +41,7 @@ function OpencodeLogo() {
   );
 }
 
-/** Claude Code — Anthropic's mark is an eight-ray starburst. */
+/** Claude Code: Anthropic's mark is an eight-ray starburst. */
 function ClaudeLogo() {
   return (
     <svg {...LOGO_PROPS}>
@@ -51,7 +51,7 @@ function ClaudeLogo() {
   );
 }
 
-/** Codex / OpenAI — a simplified six-node interlocking ring. */
+/** Codex / OpenAI: a simplified six-node interlocking ring. */
 function CodexLogo() {
   return (
     <svg {...LOGO_PROPS}>
@@ -66,7 +66,7 @@ function CodexLogo() {
   );
 }
 
-/** GitHub Copilot — a rounded goggle shape. */
+/** GitHub Copilot: a rounded goggle shape. */
 function CopilotLogo() {
   return (
     <svg {...LOGO_PROPS}>

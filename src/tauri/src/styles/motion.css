@@ -1,4 +1,4 @@
-/* Shared entrance transitions — calm, premium, orientation-only.
+/* Shared entrance transitions: calm, premium, orientation-only.
  *
  * Two utilities: a plain opacity fade (`.aplyx-fade-in`) and a fade plus
  * a 4px rise (`.aplyx-fade-rise`) for content that "arrives" into a region
@@ -7,7 +7,7 @@
  * 0ms under prefers-reduced-motion; the guard below additionally drops
  * the animations entirely so nothing animates when the user opts out,
  * regardless of how a component applies these classes. Never use these
- * for affordances that should feel immediate (nav click, hover, focus) —
+ * for affordances that should feel immediate (nav click, hover, focus);
  * those stay on `transition`, not entrance `animation`. */
 
 @keyframes aplyx-fade-in {
@@ -50,7 +50,7 @@
   animation: none;
 }
 
-/* Confirms a status actually changed — applied once, on the row whose
+/* Confirms a status actually changed: applied once, on the row whose
  * outcome_status just flipped between two reads, never on first paint
  * or on an unrelated re-render. See StatusScreen.tsx's per-row
  * previous-value tracking for how the class is toggled. */

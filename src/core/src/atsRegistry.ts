@@ -1,5 +1,5 @@
 /**
- * ATS family registry — the single source of truth for the four
+ * ATS family registry, the single source of truth for the four
  * application-tracking-system families aplyx's apply pipeline supports
  * (greenhouse, lever, ashbyhq, workday). The extension's own
  * `src/extension/src/ats.ts` holds the browser-DOM-specific selector
@@ -18,7 +18,7 @@
  *
  * Pacing is per-family with per-action random variance. This exists
  * solely for stability and rate-limit hygiene (avoiding 429s and
- * overloading employer career pages), NOT to evade bot detection —
+ * overloading employer career pages), NOT to evade bot detection:
  * CAPTCHA evasion is a permanent red line (docs/hosted-auto-apply-plan.md
  * "Ground rule"). The variance is small and documented as such.
  */
@@ -53,7 +53,7 @@ export function isReviewOnly(family: AtsFamily): boolean {
 /** Detect the ATS family from a job/board URL hostname. Mirrors
  *  src/extension/src/ats.ts's detectAts so the core can resolve a family
  *  from a URL without importing the extension's DOM code. Returns null
- *  for an unrecognized host — the caller routes an unrecognized family
+ *  for an unrecognized host: the caller routes an unrecognized family
  *  to needs_review, never guesses. */
 export function detectFamily(hostname: string): AtsFamily | null {
   const host = hostname.toLowerCase();
@@ -68,14 +68,14 @@ export function detectFamily(hostname: string): AtsFamily | null {
  *  `verification_sessions.tenant_key` value for a job posting URL. A
  *  single ATS family can host many unrelated employer tenants (many
  *  companies all run on Workday), so the family alone is never enough
- *  to key an account or a verification session — two companies on the
+ *  to key an account or a verification session: two companies on the
  *  same ATS must never share or collide on the same
  *  (user, family, tenant_key) identity (docs/ats-account-credentials-plan.md
  *  "Purpose"). This is the single place that derivation happens so
  *  account creation/reuse (Package 3) and any future verification-session
  *  writer key on the exact same value.
  *
- *  Only meaningful for account-required families — returns null for a
+ *  Only meaningful for account-required families: returns null for a
  *  guest family (nothing to dedupe an account against) and for a URL
  *  this function can't confidently parse. The caller treats null the
  *  same way detectFamily's null is treated: route to needs_review,
@@ -89,7 +89,7 @@ export function tenantKeyFor(family: AtsFamily, url: string): string | null {
     return null;
   }
   // Workday tenants are one-per-subdomain (e.g. acme.wd1.myworkdayjobs.com,
-  // acme.wd5.myworkdayjobs.com) — the full hostname is already the
+  // acme.wd5.myworkdayjobs.com): the full hostname is already the
   // narrowest stable identifier available without employer-specific
   // path-parsing assumptions, so it's used as-is rather than trying to
   // strip the shard segment.
@@ -97,7 +97,7 @@ export function tenantKeyFor(family: AtsFamily, url: string): string | null {
   return null;
 }
 
-/** Action types the pacing config keys on. Coarse by design — the
+/** Action types the pacing config keys on. Coarse by design: the
  *  execution step (src/extension/src/ats.ts's bounded form-filler) is
  *  the only consumer, and it only needs "how long to pause before this
  *  class of action", not a per-DOM-event delay. */
@@ -108,7 +108,7 @@ export interface PacingConfig {
   readonly baseMs: number;
   /** Half-range of the random variance in milliseconds. The actual
    *  delay is baseMs ± varianceMs (uniform), so varianceMs is the
-   *  maximum deviation either direction. Small by design — this is
+   *  maximum deviation either direction. Small by design: this is
    *  rate-limit/stability pacing, not human-mimicry. */
   readonly varianceMs: number;
 }
@@ -116,7 +116,7 @@ export interface PacingConfig {
 /** Per-family pacing. The numbers are conservative defaults chosen for
  *  stability (avoid tripping a board's rate limiter when filling a
  *  multi-field form in sequence), not tuned against any detection
- *  system. Adjust per-family only with real failure data — see
+ *  system. Adjust per-family only with real failure data; see
  *  docs/hosted-auto-apply-plan.md "Open questions for the operator"
  *  (circuit-breaker threshold and per-batch timeout sizing). */
 const PACING: Record<AtsFamily, Record<PacingAction, PacingConfig>> = {
@@ -170,7 +170,7 @@ export interface AtsFamilyInfo {
   pacing: Record<PacingAction, PacingConfig>;
 }
 
-/** Full metadata for a family — convenience for the UI/adapter that
+/** Full metadata for a family, convenience for the UI/adapter that
  *  wants the whole record rather than three separate calls. */
 export function familyInfo(family: AtsFamily): AtsFamilyInfo {
   return {

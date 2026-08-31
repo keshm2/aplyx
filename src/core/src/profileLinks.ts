@@ -5,7 +5,7 @@ import { readSafeField, writeSafeField } from "./settings.js";
  * the onboarding wizard. Reads prefer the new `<kind>_username` safe_field
  * but fall back to extracting from the legacy `<kind>_url` field, so a
  * config that only has the legacy key keeps working with zero migration.
- * Writes only ever touch `<kind>_username` — the legacy key is never
+ * Writes only ever touch `<kind>_username`; the legacy key is never
  * written or deleted by new code.
  */
 

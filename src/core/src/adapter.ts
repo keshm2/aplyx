@@ -25,7 +25,7 @@ export interface Adapter {
    * Pipeline state (applied jobs, review queue, registry) for the Home
    * screen. Returns undefined when there is no local install to read from
    * (e.g. a hosted-only session with no local aplyx installation
-   * configured yet) — Phase 14B wires this up for real dashboard use;
+   * configured yet). Phase 14B wires this up for real dashboard use;
    * Phase 14A's Home screen only needs a presence/absence signal.
    */
   loadState(): Promise<AplyxState | undefined>;

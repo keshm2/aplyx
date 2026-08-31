@@ -21,6 +21,8 @@ import {
   listResumeDetails,
   convertResume,
   openResumesFolder,
+  importDocumentFile,
+  getDocumentStatus,
 } from "../../lib/bridge";
 import { BulletListEditor } from "../../components/BulletListEditor";
 import { PreviewResumePanel } from "./PreviewResumePanel";
@@ -29,7 +31,7 @@ import "../../components/formFields.css";
 import "../../components/dataList.css";
 import "./ResumesScreen.css";
 
-/** One generic resume the operator maintains here — aplyx tailors a copy
+/** One generic resume the operator maintains here: aplyx tailors a copy
  *  of it per application rather than picking among several pre-written
  *  category files (the old model). Contact prefills from safe_fields;
  *  everything else starts empty and grows through this editor, or via
@@ -51,6 +53,10 @@ export function ResumesScreen() {
   const [showImportPanel, setShowImportPanel] = useState(false);
   const [overwriteConfirm, setOverwriteConfirm] = useState<{ selected: string; stem: string } | undefined>(undefined);
 
+  const [transcript, setTranscript] = useState<{ exists: boolean; filename?: string; uploadedAt?: string } | undefined>(undefined);
+  const [transcriptBusy, setTranscriptBusy] = useState(false);
+  const [transcriptError, setTranscriptError] = useState<string | undefined>(undefined);
+
   useEffect(() => {
     findRoot()
       .then(async (r) => {
@@ -63,9 +69,10 @@ export function ResumesScreen() {
           setImportCandidates(files);
           setShowImportPanel(files.length > 0);
         }
+        setTranscript(await getDocumentStatus(r, "transcript"));
       })
       .catch(() => {
-        // No local install connected — the screen below already handles
+        // No local install connected: the screen below already handles
         // `root` staying undefined with its own message.
       })
       .finally(() => setLoaded(true));
@@ -100,7 +107,7 @@ export function ResumesScreen() {
         return;
       }
       const notesText = result.notes && result.notes.length > 0
-        ? ` (${result.notes.length} bullet${result.notes.length === 1 ? "" : "s"}/entries shortened to fit one page — export only, your saved resume is unchanged)`
+        ? ` (${result.notes.length} bullet${result.notes.length === 1 ? "" : "s"}/entries shortened to fit one page, export only, your saved resume is unchanged)`
         : "";
       setMessage({ text: `Exported to data/resumes/resume.pdf.${notesText}` });
       setLastExported(true);
@@ -140,11 +147,11 @@ export function ResumesScreen() {
     setResume(imported);
     setImportPreview(undefined);
     setShowImportPanel(false);
-    setMessage({ text: `Imported from ${importPreview.stem} — review everything below, then Save.` });
+    setMessage({ text: `Imported from ${importPreview.stem}: review everything below, then Save.` });
   };
 
   // Picks a new PDF from anywhere on disk and previews it through the
-  // same import flow as the legacy-file panel above — a permanent
+  // same import flow as the legacy-file panel above, a permanent
   // action, unlike the onboarding wizard's "Choose a PDF…" step (which
   // this reuses the same importResumeFile bridge call as), so updating
   // to a newer resume doesn't require starting over from scratch.
@@ -153,7 +160,7 @@ export function ResumesScreen() {
   // resume.
   //
   // A pick whose derived stem already exists on disk doesn't proceed
-  // straight to conversion — convert_resume.py refuses to overwrite an
+  // straight to conversion: convert_resume.py refuses to overwrite an
   // existing .md without --force, which used to surface as an opaque
   // "already exists" error and no preview at all (a real reported bug:
   // re-uploading the same filename silently did nothing). Now it's a
@@ -201,6 +208,25 @@ export function ResumesScreen() {
     }
   };
 
+  const uploadTranscript = async () => {
+    if (!root) return;
+    setTranscriptError(undefined);
+    const selected = await openFileDialog({
+      multiple: false,
+      filters: [{ name: "Transcript (PDF)", extensions: ["pdf"] }],
+    });
+    if (!selected || Array.isArray(selected)) return;
+    setTranscriptBusy(true);
+    try {
+      await importDocumentFile(root, selected, "transcript");
+      setTranscript(await getDocumentStatus(root, "transcript"));
+    } catch (err) {
+      setTranscriptError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setTranscriptBusy(false);
+    }
+  };
+
   if (loaded && !root) {
     return (
       <div style={{ maxWidth: "44rem", margin: "0 auto", display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
@@ -219,7 +245,7 @@ export function ResumesScreen() {
         <div>
           <h1 style={{ fontSize: "var(--text-3xl)", marginBottom: "var(--space-2)" }}>Resume</h1>
           <p style={{ color: "var(--text-muted)" }}>
-            One resume aplyx tailors per job — add your jobs, projects, and skills once here.
+            One resume aplyx tailors per job: add your jobs, projects, and skills once here.
           </p>
         </div>
         {resume ? (
@@ -267,11 +293,11 @@ export function ResumesScreen() {
                 importPreview ? (
                   <div className="resume-import-preview">
                     <p className="field-help">
-                      Extracted and auto-reformatted from <strong>{importPreview.stem}</strong> — PDF text extraction
+                      Extracted and auto-reformatted from <strong>{importPreview.stem}</strong>: PDF text extraction
                       doesn't preserve headings or bullet styling, so this is a best-effort cleanup, not the original
                       layout. Edit it directly below (section headers as <code>## Name</code>, entries as{" "}
-                      <code>### Title — Company, Location</code> with bullets as <code>- text</code>) before using it
-                      as a starting point — this replaces everything currently in the editor below.
+                      <code>### Title - Company, Location</code> with bullets as <code>- text</code>) before using it
+                      as a starting point; this replaces everything currently in the editor below.
                     </p>
                     <textarea
                       className="resume-import-text resume-import-textarea"
@@ -292,7 +318,7 @@ export function ResumesScreen() {
                 ) : (
                   <div className="resume-import-list">
                     <p className="field-help">
-                      Found existing resume files from the old category system — pick one to pull its content into this
+                      Found existing resume files from the old category system: pick one to pull its content into this
                       editor as a starting draft.
                     </p>
                     {importCandidates.map((f) => (
@@ -327,6 +353,38 @@ export function ResumesScreen() {
         </>
       )}
 
+      {root ? (
+        <section className="resume-section">
+          <h2 style={{ fontSize: "var(--text-lg)" }}>Transcript</h2>
+          <p className="field-help">
+            Some applications (Workday tenants in particular) require an academic transcript.
+            Upload your most recent one: aplyx attaches it exactly as given, so an outdated
+            transcript would misrepresent your current standing.
+          </p>
+          <p className="field-help">
+            Unlike your resume, aplyx never reads or analyzes this file. It's stored locally and
+            used only to attach to applications that ask for it; it plays no part in tailoring or
+            job matching.
+          </p>
+          {transcript?.exists ? (
+            <p className="field-help">
+              Current: <strong>{transcript.filename}</strong>
+              {transcript.uploadedAt ? `, uploaded ${new Date(transcript.uploadedAt).toLocaleDateString()}` : ""}
+            </p>
+          ) : (
+            <p className="field-help">No transcript uploaded yet.</p>
+          )}
+          {transcriptError ? (
+            <p className="field-help" style={{ color: "var(--color-danger, #b3261e)" }}>
+              {transcriptError}
+            </p>
+          ) : null}
+          <button type="button" className="btn btn-sm" disabled={transcriptBusy} onClick={() => void uploadTranscript()}>
+            {transcriptBusy ? "Uploading…" : transcript?.exists ? "Replace transcript" : "Upload transcript"}
+          </button>
+        </section>
+      ) : null}
+
       <Modal
         open={overwriteConfirm !== undefined}
         onClose={() => setOverwriteConfirm(undefined)}
@@ -334,7 +392,7 @@ export function ResumesScreen() {
       >
         <p className="field-help">
           A resume named <strong>{overwriteConfirm?.stem}</strong> already exists in data/resumes/. Uploading this
-          file will overwrite it — the old PDF and its extracted text are replaced, not kept alongside it.
+          file will overwrite it: the old PDF and its extracted text are replaced, not kept alongside it.
         </p>
         <div className="detail-actions" style={{ marginTop: "var(--space-3)" }}>
           <button
@@ -423,7 +481,7 @@ function EducationSection({
             </div>
             <textarea
               className="resume-entry-details"
-              placeholder="Extra details, one per line — e.g. Relevant Coursework: …"
+              placeholder="Extra details, one per line (e.g. Relevant Coursework: …)"
               rows={2}
               value={edu.details.join("\n")}
               onChange={(e) => update(edu.id, { details: e.currentTarget.value.split("\n") })}

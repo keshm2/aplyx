@@ -54,10 +54,10 @@ function Remove-Cruft {
 }
 
 # Builds a $Width-column bar with a $Block-wide highlighted segment that
-# slides back and forth (ping-pong) as $I increases — the indeterminate-
+# slides back and forth (ping-pong) as $I increases, the indeterminate-
 # progress analog of Format-DownloadBar below, for steps with no byte
-# total to measure against (npm install). Not a percentage — there's
-# nothing to measure it against — but visually one system with the
+# total to measure against (npm install). Not a percentage: there's
+# nothing to measure it against, but visually one system with the
 # byte-tracked download bar instead of a bare spinner character.
 function Format-IndeterminateBar {
   param([int]$I, [int]$Width, [int]$Block)
@@ -75,7 +75,7 @@ function Format-IndeterminateBar {
 }
 
 # Runs $Block with an indeterminate sliding bar next to $Message while
-# it's in a background job — for steps with no byte total to show (npm
+# it's in a background job, for steps with no byte total to show (npm
 # install), the PowerShell counterpart to install.sh's spin(). Falls back
 # to a plain "$Message..." line with no live redraw when output isn't a
 # real console (piped install, CI) since \r redraws would just spam a log
@@ -133,7 +133,7 @@ function Format-DownloadBar {
 }
 
 # Total on-disk size of one or more directories, human-readable (decimal
-# MB/GB) — printed after a build so "ready" also answers "how much did
+# MB/GB), printed after a build so "ready" also answers "how much did
 # that just cost me," the same way the download bar above already shows
 # MB downloaded instead of just "done." Missing directories are skipped
 # rather than erroring (e.g. a surface with no dist/ yet).
@@ -150,7 +150,7 @@ function Format-DirSize {
   return "{0:N0}MB" -f ($bytes / 1000000)
 }
 
-# Downloads $Url to $OutFile with a live byte-tracked bar — a HEAD request
+# Downloads $Url to $OutFile with a live byte-tracked bar: a HEAD request
 # gets the total size, a background job does the real download, and this
 # polls the growing file's size to redraw the bar. Falls back to a single
 # "downloading..." line with no live redraw when output isn't a real
@@ -246,17 +246,17 @@ if (-not (Test-Path (Join-Path $projectRoot ".git"))) {
 
 # Refresh PATH from the registry before anything on it gets probed below
 # (node/npm at step 8, coding agents at step 3). This process's own
-# $env:PATH was captured at ITS parent's process start — when install.ps1
+# $env:PATH was captured at ITS parent's process start: when install.ps1
 # runs as a child of the npm-installed `aplyx` command's own bootstrap
 # (cli.tsx's bootstrapCore spawns a fresh `powershell -File ...`, not the
 # user's own interactive shell), that inherited PATH can be stale
 # relative to the registry even though `npm` resolves fine when the user
-# types it themselves — reported live: `npm install -g @keshm/aplyx`
+# types it themselves. Reported live: `npm install -g @keshm/aplyx`
 # worked, but this script's own `Get-Command npm` (gating both the
 # TUI-from-source build AND the desktop-app install offer, step 8/8b)
 # came back empty inside the spawned subprocess, silently skipping both
 # straight to "done" with no visible error. Same fix already applied
-# just below for a freshly-winget-installed Python — append here rather
+# just below for a freshly-winget-installed Python, append here rather
 # than replace, so nothing already valid in this process's PATH is lost.
 $env:PATH = $env:PATH + ";" + [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("PATH", "User")
 
@@ -299,7 +299,7 @@ if ($py) {
   # $PSNativeCommandUseErrorActionPreference on (increasingly the
   # default), a non-zero exit from a native command under
   # $ErrorActionPreference = "Stop" (set at the top of this script)
-  # throws instead of just setting $LASTEXITCODE — exactly what
+  # throws instead of just setting $LASTEXITCODE: exactly what
   # happens here when pypdf is genuinely missing (the expected,
   # common case this check exists to catch), which crashed the whole
   # installer with a raw exception instead of reaching the code below
@@ -378,7 +378,7 @@ if (-not $py) { Fail "Python 3 is required. Install from https://www.python.org/
 # used: PowerShell command-name resolution is case-insensitive and prefers
 # functions over external executables, so a function literally named `Py`
 # self-invoked instead of the real py.exe launcher whenever Find-Python
-# picked the `py` launcher (`$py[0]` -eq "py", "-3") — the standard outcome
+# picked the `py` launcher (`$py[0]` -eq "py", "-3"), the standard outcome
 # for anyone who installed Python from python.org or via winget, i.e. most
 # Windows users. `& $py[0] ...` resolved to this very function instead of
 # the launcher, recursing until PowerShell's call-depth limit tripped
@@ -594,10 +594,10 @@ if (Get-Command npm -ErrorAction SilentlyContinue) {
     # A workspace-scoped `npm install --workspace=X` can, on a genuinely
     # empty npm cache, extract an incomplete copy of a dependency that's
     # ALSO declared by another workspace (@supabase/supabase-js, shared
-    # with src/tauri) — missing its dist/ output entirely even though the
+    # with src/tauri): missing its dist/ output entirely even though the
     # real published tarball has it (confirmed live on macOS/bash:
-    # reproducible 100% of the time with a brand-new npm cache — exactly
-    # what a fresh install has — and gone as soon as any full, unscoped
+    # reproducible 100% of the time with a brand-new npm cache (exactly
+    # what a fresh install has), and gone as soon as any full, unscoped
     # `npm install` has run once against a clean node_modules; npm's own
     # behavior, not shell-specific, so the same fix applies here). Retry
     # once with node_modules removed and a full install before giving up.
@@ -653,7 +653,7 @@ if ((Test-Path "src\tauri\package.json") -and (Get-Command npm -ErrorAction Sile
     # $PSNativeCommandUseErrorActionPreference on (increasingly the
     # default), a non-zero exit from a native command under
     # $ErrorActionPreference = "Stop" throws instead of just setting
-    # $LASTEXITCODE — same gotcha as the Python check above. This step is
+    # $LASTEXITCODE, same gotcha as the Python check above. This step is
     # opt-in and must never abort the rest of this installer.
     $desktopFailed = $false
     try {

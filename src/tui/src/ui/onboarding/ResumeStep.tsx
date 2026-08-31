@@ -5,7 +5,7 @@ import { ResumesScreen } from "../ResumesScreen.js";
 
 /**
  * Thin wrapper around the resume editor (ResumesScreen.tsx, rewritten for
- * the single-generic-resume model — see src/core/src/masterResume.ts) —
+ * the single-generic-resume model, see src/core/src/masterResume.ts):
  * not one of the 18 counted fields, so it gets its own page after "Job
  * targets" instead of a slot in the percentage bar. ResumesScreen already
  * owns its full keyboard/state story; this just adds the onboarding-
@@ -28,14 +28,14 @@ export function ResumeStep({
   return (
     <Box flexDirection="column">
       <Text color={theme.warn} wrap="wrap">
-        ⚠ Optional — nothing here is required to finish setup.
+        ⚠ Optional: nothing here is required to finish setup.
       </Text>
       <Box marginTop={1} flexDirection="column">
         <Text wrap="wrap">
-          Build your resume directly below — Contact, Education, Experience, Projects, Skills. Already have an old
+          Build your resume directly below: Contact, Education, Experience, Projects, Skills. Already have an old
           resume file? Open <Text bold color={theme.accent}>Import from an existing resume</Text> to pull its
           content in as a starting draft instead of retyping it. Press <Text bold color={theme.accent}>esc</Text> (or{" "}
-          <Text bold color={theme.accent}>PgDn</Text>) to skip for now — you can always finish this later from the
+          <Text bold color={theme.accent}>PgDn</Text>) to skip for now: you can always finish this later from the
           Resumes tab.
         </Text>
       </Box>

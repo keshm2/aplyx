@@ -1,28 +1,28 @@
 #!/usr/bin/env python3
-"""job_cache_client.py — shared read-only cache client for the automatic
+"""job_cache_client.py: shared read-only cache client for the automatic
 job-scraper agent (Phase: search caching).
 
 Mirrors src/core/src/jobCache.ts / jobCacheRedis.ts / jobs.ts's
 maybeCached() for the Python side, so the deterministic fetch scripts
 the job-scraper agent already calls as a black box (currently only
-fetch_smartrecruiters_listings.py — see this module's docstring in the
+fetch_smartrecruiters_listings.py: see this module's docstring in the
 project plan for why Ashby/Lever/Greenhouse aren't wired in yet) can
 transparently skip a live fetch when a fresh-enough shared-cache row
 already exists, without the agent's own prompt/reasoning changing at
 all.
 
-Two-tier lookup per source, both read-only, never raising — a broken
+Two-tier lookup per source, both read-only, never raising: a broken
 or absent cache must always degrade to exactly the caller's existing
 live-fetch behavior, the same "cache is optional" contract jobCache.ts
 documents on the TS side:
 
-  1. Upstash Redis (src/config/job_cache_redis.json's read-only token) —
+  1. Upstash Redis (src/config/job_cache_redis.json's read-only token):
      the browse-all (`query=""`, no title words) entry only, warmed
-     daily by refreshJobCache.ts. This module never writes Redis —
+     daily by refreshJobCache.ts. This module never writes Redis:
      writes need a write-capable token that must never leave CI (see
      refreshJobCache.ts's own header for why).
   2. The Postgres job_cache_search RPC (src/config/job_cache_supabase.json's
-     anon key) — same RPC the TS path calls, so the ILIKE title
+     anon key): same RPC the TS path calls, so the ILIKE title
      pre-filter (src/job_cache_supabase/supabase/migrations/0005) stays entirely server-side;
      this module never reimplements that prefix-matching logic, only
      passes p_title_words through.
@@ -31,7 +31,7 @@ Company-list union logic matches maybeCached() exactly: the shared,
 committed list in src/config/job_cache_targets.json is always cache-checked;
 whichever of a source's *personal* src/config/targets.json companies aren't
 already in that shared list are the caller's responsibility to always
-live-fetch — get_cached_jobs() only ever returns cache coverage for the
+live-fetch: get_cached_jobs() only ever returns cache coverage for the
 shared list, by design.
 
 Usage (as a library):
@@ -40,7 +40,7 @@ Usage (as a library):
     shared = shared_slugs(root, "smartrecruiters")
     cached = get_cached_jobs(root, "smartrecruiters", sorted(shared))
     # cached is a list[dict] of raw-job-shaped dicts, or None on a full
-    # miss (Redis miss AND Postgres miss/error) — the caller should
+    # miss (Redis miss AND Postgres miss/error): the caller should
     # live-fetch exactly as if this module didn't exist.
 """
 
@@ -61,14 +61,14 @@ DEFAULT_SUPABASE_CONFIG = "src/config/job_cache_supabase.json"
 PLACEHOLDER = "replace_me"
 USER_AGENT = "aplyx-job-agent/job-cache-client"
 
-# Matches jobCache.ts's UNFILTERED_PER_COMPANY_LIMIT — the browse-all
+# Matches jobCache.ts's UNFILTERED_PER_COMPANY_LIMIT: the browse-all
 # cap a cached/warmed row set was built under, so a Postgres-RPC-path
 # result here stays consistent with whatever a Redis-path result would
 # have returned for the same lookup.
 UNFILTERED_PER_COMPANY_LIMIT = 10
 
 # Well under both this module's own request timeouts and the caller's
-# live-fetch budget — a slow/hung cache must never delay the caller's
+# live-fetch budget; a slow/hung cache must never delay the caller's
 # fallback to its own normal live path.
 REQUEST_TIMEOUT_SECONDS = 2
 
@@ -90,7 +90,7 @@ def _read_json(path: str) -> dict:
 
 
 def shared_slugs(root: str, source: str) -> set[str]:
-    """The full shared, committed company list for a source — same file
+    """The full shared, committed company list for a source: same file
     every install shares, independent of the operator's own personal
     src/config/targets.json. Never raises; a missing/unreadable file just
     means the shared list is empty, safely falling back to "nothing is
@@ -234,7 +234,7 @@ def get_cached_jobs(
     root: str, source: str, company_slugs: list[str], title_words: list[str] | None = None
 ) -> list[dict] | None:
     """Redis (browse-all only) -> Postgres RPC -> None. Never raises.
-    None means a full miss — the caller should live-fetch company_slugs
+    None means a full miss: the caller should live-fetch company_slugs
     exactly as if this function didn't exist."""
     words = title_words or []
     if not company_slugs:

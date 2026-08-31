@@ -22,7 +22,7 @@ export function WizardShell({
   title: string;
   subtitle?: string;
   /** A non-blocking notice about the last Continue/Skip attempt (e.g. a
-   *  background write that failed) — shown but never prevents the wizard
+   *  background write that failed), shown but never prevents the wizard
    *  from having already advanced, since onNext/onSkip fail open. */
   error?: string;
   children: ReactNode;
@@ -31,15 +31,15 @@ export function WizardShell({
   nextLabel?: string;
   nextDisabled?: boolean;
   hideBack?: boolean;
-  /** Bails out of the rest of the wizard entirely (not just this step) —
+  /** Bails out of the rest of the wizard entirely (not just this step),
    *  renders a secondary button just left of Continue. Omit on the
    *  wizard's own final/finish step, where it would be redundant with
    *  the primary button doing the same thing. */
   onSkip?: () => void;
   skipLabel?: string;
 }) {
-  // Two-phase step transition — fade the outgoing step out, swap content,
-  // fade the new one in — the same out/then/in choreography AppShell uses
+  // Two-phase step transition: fade the outgoing step out, swap content,
+  // fade the new one in. Same out/then/in choreography AppShell uses
   // for route changes, not just a fresh fade-in popping in on top of the
   // old step. `frozen` is what's actually rendered at all times; it only
   // updates to the latest props once the out-phase finishes, so the
@@ -56,13 +56,13 @@ export function WizardShell({
       setPhase("in");
     }, 120);
     return () => window.clearTimeout(timer);
-    // Only a real step change should start a transition — see the effect
+    // Only a real step change should start a transition. See the effect
     // below for same-step content updates (e.g. typing in a field).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepIndex]);
 
   useEffect(() => {
-    // Same-step content refresh: take it immediately, no transition —
+    // Same-step content refresh: take it immediately, no transition;
     // guarded to idle-only so this can't stomp a frozen "out" snapshot
     // mid-animation with content that's already moved on to the next step.
     if (phase !== "idle" || stepIndex !== frozen.stepIndex) return;
@@ -81,7 +81,7 @@ export function WizardShell({
       <header className="wizard-header">
         <Logo size={24} />
         <div className="wizard-progress-group" aria-label={`Step ${frozen.stepIndex + 1} of ${stepCount}`}>
-          {/* Dots alone don't say how many steps remain — a returning
+          {/* Dots alone don't say how many steps remain. A returning
              *  user mid-wizard has no way to gauge "almost done" vs.
              *  "just started" without counting them. aria-label above
              *  already said this; this is that same text made visible. */}
@@ -102,7 +102,7 @@ export function WizardShell({
           className={`wizard-step${phase === "out" ? " wizard-step-out" : phase === "in" ? " wizard-step-in" : ""}`}
           onAnimationEnd={(e) => {
             // animationend bubbles from any descendant's own CSS animation
-            // (a field's own entrance, a spinner) — only react to this
+            // (a field's own entrance, a spinner). Only react to this
             // element's own transition finishing.
             if (e.target !== e.currentTarget) return;
             if (phase === "in") setPhase("idle");
@@ -110,7 +110,7 @@ export function WizardShell({
         >
           <h1>{frozen.title}</h1>
           {frozen.subtitle && <p className="wizard-subtitle">{frozen.subtitle}</p>}
-          {/* Deliberately NOT part of `frozen` — this reflects the outcome of
+          {/* Deliberately NOT part of `frozen`: this reflects the outcome of
            *  whatever Continue/Skip click just happened (onNext/onSkip fail
            *  open, so the step may have already advanced by the time this
            *  shows), not the identity of a particular step, so it updates

@@ -44,7 +44,7 @@
   transform: rotate(180deg);
 }
 
-/* Visible with the menu closed too — the one signal that something in the
+/* Visible with the menu closed too: the one signal that something in the
  * nav needs attention without having to open it, same reasoning as the
  * sidebar rail's badge before it. */
 .nav-menu-trigger-dot {
@@ -59,7 +59,7 @@
  * closing plays a real exit transition, origin-aware scale-in from the
  * trigger (top-left, since that's where this lives in TopBar). */
 /* See Dropdown.css's matching comment (2026-08-22) for why this drops
- * `scale()` and delays `pointer-events` — same shared "mount once,
+ * `scale()` and delays `pointer-events`, same shared "mount once,
  * animate in" panel pattern, same latent risk. */
 .nav-menu-panel {
   position: absolute;

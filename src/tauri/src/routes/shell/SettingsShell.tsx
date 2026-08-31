@@ -30,7 +30,7 @@ const TABS = [
  * root is resolved once here and handed to every tab via Outlet context
  * instead of each tab re-deriving it. Both Account (owns the "connect a
  * local install" flow) and Preferences (coding agent, run defaults,
- * Discord, scheduler — all local-install-scoped) need the same live
+ * Discord, scheduler, all local-install-scoped) need the same live
  * value.
  */
 export function SettingsShell() {
@@ -64,11 +64,11 @@ export function SettingsShell() {
 
       <Outlet context={{ root, setRoot } satisfies SettingsOutletContext} />
 
-      {/* Same build marker the TUI shows (dimmed) in its side panel footer
-       * — one shared @aplyx/core constant, so both surfaces always agree.
+      {/* Same build marker the TUI shows (dimmed) in its side panel footer:
+       * one shared @aplyx/core constant, so both surfaces always agree.
        * `aplyx update` (the TUI/core self-updater) can't reach this app's
-       * own binary or its bundled bridge resource — both are baked in at
-       * build time and only ever change on a fresh install — so this is
+       * own binary or its bundled bridge resource, both are baked in at
+       * build time and only ever change on a fresh install, so this is
        * the desktop app's own, separate update check; see updateCheck.ts.
        * Shown on every tab (not tab-specific) since it's app info, not a
        * setting. */}
@@ -80,7 +80,7 @@ export function SettingsShell() {
             <div style={{ flex: 1 }}>
               <div className="check-label">Update available: {desktopUpdate.latest}</div>
               <div className="check-detail">
-                You're on build {desktopUpdate.current}. Download and run the installer for your OS —
+                You're on build {desktopUpdate.current}. Download and run the installer for your OS:
                 it replaces this install in place; re-open aplyx afterward.
               </div>
             </div>

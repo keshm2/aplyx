@@ -1,6 +1,6 @@
 /** Checkbox categories for the Roles submenu (Settings' Company targets
  *  section). Checking a category writes its whole keyword bundle into
- *  targets.json's role_keywords array — evaluate_job_fit.py matches a
+ *  targets.json's role_keywords array; evaluate_job_fit.py matches a
  *  posting's title/JD against that flat array, so these bundles are the
  *  single source of truth for what "checking Software Engineering"
  *  actually means at fit-gate time. */

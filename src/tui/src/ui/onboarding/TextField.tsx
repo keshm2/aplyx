@@ -6,7 +6,7 @@ import { InlineTextInput } from "../TextInput.js";
 /**
  * A single text field's label + input, meant to be stacked several-to-a-
  * page inside QuestionFrame. Reused as-is for the roles field (a
- * comma-separated text box) — its skip-defaults warning is just an
+ * comma-separated text box); its skip-defaults warning is just an
  * optional line below the input, same shape as MultiEntryAutocomplete's.
  */
 export function TextField({
@@ -24,7 +24,7 @@ export function TextField({
   focused: boolean;
   placeholder?: string;
   warning?: string;
-  /** Explanatory line under the label — only rendered while focused, so
+  /** Explanatory line under the label, only rendered while focused, so
    *  an unfocused stack of fields stays scannable. */
   help?: string;
 }) {

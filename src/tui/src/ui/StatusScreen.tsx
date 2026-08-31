@@ -12,10 +12,10 @@ interface Props {
   heartbeat?: Heartbeat;
   /** Inside the persistent app the shell owns the title and hints. */
   embedded?: boolean;
-  /** Rows available — tall terminals get a recent-activity panel so the
+  /** Rows available: tall terminals get a recent-activity panel so the
    *  screen doesn't feel empty. */
   contentRows?: number;
-  /** Columns of the content band — recent activity moves to a
+  /** Columns of the content band: recent activity moves to a
    *  full-height right pane when it fits. */
   columns?: number;
 }
@@ -68,7 +68,7 @@ export function StatusScreen({
                 {statusGlyph[job.status] ?? "•"}{" "}
               </Text>
               <Text dimColor>{job.date_applied}  </Text>
-              {job.company} — {job.title}
+              {job.company}: {job.title}
             </Text>
           ))
         )}
@@ -109,7 +109,7 @@ export function StatusScreen({
         </Box>
       </Box>
 
-      {/* Scheduler heartbeat — Health reuses Stat (rather than its own
+      {/* Scheduler heartbeat: Health reuses Stat (rather than its own
        *  hand-rolled padEnd + Text bold) so its label column and value
        *  weight line up exactly with Outcomes/Pipeline above instead of
        *  being a one-off that happens to look similar. */}
@@ -136,12 +136,12 @@ export function StatusScreen({
   return (
     <Box flexDirection="column" paddingX={embedded ? 0 : 1}>
       <Text bold color={theme.accent}>
-        {embedded ? "Status" : "aplyx — status"}
+        {embedded ? "Status" : "aplyx: status"}
       </Text>
 
       {pane.show ? (
         // Two-column dashboard: stats left, full-height recent activity
-        // right (the activity column gets the wider share — its rows are
+        // right (the activity column gets the wider share; its rows are
         // one-line outcome entries that benefit from width).
         <Box flexDirection="row">
           {leftColumn}

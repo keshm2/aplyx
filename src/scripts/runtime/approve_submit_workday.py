@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""approve_submit_workday.py — local account/verification/submit runtime for
+"""approve_submit_workday.py: local account/verification/submit runtime for
 Workday applications.
 
 Unlike the Greenhouse/Lever/Ashby runtimes (which start from a saved fill
@@ -33,6 +33,7 @@ import os
 import random
 import re
 import secrets
+import subprocess
 import sys
 import time
 from datetime import datetime, timezone
@@ -48,6 +49,7 @@ from browser_resilience import (
 from replay_fill import (
     DEFAULT_REVIEW_QUEUE,
     attach_resume,
+    attach_transcript,
     default_chrome_user_data_dir,
     fill_field,
     find_queue_entry,
@@ -63,6 +65,22 @@ TARGETS_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.p
 DEFAULT_RESUME_PDF = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "data", "resumes", "resume.pdf")
 MASTER_RESUME_JSON = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "data", "resumes", "resume.json")
 SCREENSHOTS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "data", "screenshots")
+RECORD_FILL_SCRIPT = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "src", "scripts", "state", "record_fill.py")
+DOCUMENTS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "data", "documents")
+
+
+def _local_transcript_path() -> str | None:
+    """The desktop app's Resume screen uploads at most one transcript,
+    named transcript.<ext> (extension follows whatever the user picked;
+    see importDocumentFile in src/core/src/bridge.ts). aplyx never
+    parses this file; it's only ever handed to attach_transcript as-is."""
+    try:
+        for name in sorted(os.listdir(DOCUMENTS_DIR)):
+            if name.startswith("transcript."):
+                return os.path.join(DOCUMENTS_DIR, name)
+    except OSError:
+        pass
+    return None
 
 SAFE_FIELD_LABELS = {
     "first_name": ["First Name", "Legal First Name", "Given Name", "First (Given) Name"],
@@ -73,6 +91,7 @@ SAFE_FIELD_LABELS = {
     "address_line1": ["Address Line 1", "Street Address", "Address", "Address 1", "Mailing Address", "Street"],
     "address_line2": ["Address Line 2", "Apartment", "Suite", "Unit", "Address 2", "Apt"],
     "location": ["City", "Location", "Current Location", "City/Town", "Municipality"],
+    "state": ["State", "State/Province", "Region", "Province"],
     "zip_code": ["Postal Code", "Zip Code", "ZIP", "Postal", "Zip"],
     "linkedin_url": ["LinkedIn", "LinkedIn Profile", "LinkedIn URL", "LinkedIn Profile URL"],
     "github_url": ["GitHub", "GitHub Profile", "GitHub URL", "GitHub Profile URL"],
@@ -85,7 +104,7 @@ SAFE_FIELD_LABELS = {
     "citizenship_status": ["Citizenship Status", "Citizenship", "Country of Citizenship"],
     "currently_enrolled": ["Currently Enrolled", "Enrollment Status"],
     # EEO / self-identification fields are only matched when the user
-    # explicitly supplied a value in safe_fields — never defaulted here.
+    # explicitly supplied a value in safe_fields; never defaulted here.
     "ethnicity": ["Ethnicity", "Race", "Ethnic Origin"],
     "hispanic_or_latino": ["Hispanic or Latino", "Are you Hispanic or Latino"],
     "gender": ["Gender", "Gender Identity"],
@@ -94,13 +113,74 @@ SAFE_FIELD_LABELS = {
     "date_of_birth": ["Date of Birth", "DOB", "Birth Date"],
 }
 
+# Workday's State dropdown typically shows the full name as its option
+# text, not the 2-letter code the profile's "location" value carries;
+# try_combobox/try_select_native require an exact option-text match, so
+# the abbreviation alone would silently fail to match a real <select>.
+US_STATE_ABBR_TO_NAME = {
+    "AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas",
+    "CA": "California", "CO": "Colorado", "CT": "Connecticut", "DE": "Delaware",
+    "FL": "Florida", "GA": "Georgia", "HI": "Hawaii", "ID": "Idaho",
+    "IL": "Illinois", "IN": "Indiana", "IA": "Iowa", "KS": "Kansas",
+    "KY": "Kentucky", "LA": "Louisiana", "ME": "Maine", "MD": "Maryland",
+    "MA": "Massachusetts", "MI": "Michigan", "MN": "Minnesota", "MS": "Mississippi",
+    "MO": "Missouri", "MT": "Montana", "NE": "Nebraska", "NV": "Nevada",
+    "NH": "New Hampshire", "NJ": "New Jersey", "NM": "New Mexico", "NY": "New York",
+    "NC": "North Carolina", "ND": "North Dakota", "OH": "Ohio", "OK": "Oklahoma",
+    "OR": "Oregon", "PA": "Pennsylvania", "RI": "Rhode Island", "SC": "South Carolina",
+    "SD": "South Dakota", "TN": "Tennessee", "TX": "Texas", "UT": "Utah",
+    "VT": "Vermont", "VA": "Virginia", "WA": "Washington", "WV": "West Virginia",
+    "WI": "Wisconsin", "WY": "Wyoming", "DC": "District of Columbia",
+}
+
 CONSERVATIVE_DEFAULTS = [
     (
         "How Did You Hear About Us?",
-        "Company Career Site",
+        # User directive (2026-08-31): "Job Board" is the safest default
+        # to always prefer when it's a real option: jobs aplyx applies to
+        # are sourced from job-board-style listings, so it's truthful
+        # across the widest range of postings, more so than assuming a
+        # specific origin like "Company Career Site". Tenants phrase this
+        # option differently for the same underlying facts, so several
+        # truthful phrasings are tried in priority order until one
+        # exact-matches a real option; never falls back to a phrasing
+        # that isn't true. Capital One's real option list (confirmed
+        # live, 2026-08-31) has neither "Job Board" nor "Company Career
+        # Site"; only "Internet" is the truthful match there.
+        ("Job Board", "Company Career Site", "Internet"),
         "category c: the required marketing/analytics question is answered truthfully from the Workday careers posting source",
     ),
+    (
+        "Phone Device Type",
+        # User directive (2026-08-31): aplyx users' phone number is
+        # always their mobile device: answer "Mobile" for this required
+        # field rather than checkpointing as manual_required. Multiple
+        # candidate phrasings for the same fact, same reasoning as "How
+        # Did You Hear About Us?" above (tenants word this differently).
+        ("Mobile", "Mobile Phone", "Cell", "Cell Phone"),
+        "user directive 2026-08-31: aplyx users' phone number is their mobile device; always answer Mobile for this required Workday field",
+    ),
 ]
+
+# Workday's standard "My Information" listbox controls (`button[aria-
+# haspopup="listbox"]`) expose no accessible name that get_by_label/
+# get_by_role(name=...) can resolve: the visible label is a plain
+# sibling text node, not an ARIA-associated one (confirmed live via a DOM
+# dump against Capital One, 2026-08-31: the button's own aria-label IS
+# present and does contain the label text, e.g. "State Select One
+# Required", but Playwright's accessible-name matching still could not
+# locate it; likely a conflicting aria-labelledby taking precedence over
+# aria-label per the ARIA name-computation spec). These `name` attribute
+# values are Workday's own internal field identifiers (part of the
+# platform's shared data model, not this tenant's own choice), so they
+# are a safe fallback CSS selector across tenants, not a per-tenant hack.
+# Maps a SAFE_FIELD_LABELS key, or a CONSERVATIVE_DEFAULTS label, to its
+# selector: tried only after the generic label-based match fails.
+WORKDAY_STANDARD_LISTBOX_SELECTORS = {
+    "state": "button[name='countryRegion']",
+    "How Did You Hear About Us?": "button[name='source']",
+    "Phone Device Type": "button[name='phoneType']",
+}
 
 
 def now_iso() -> str:
@@ -140,7 +220,7 @@ def _save_state(out_dir: str, job_id: str, state: dict) -> str:
     os.makedirs(out_dir, exist_ok=True)
     path = _state_path(out_dir, job_id)
     # sanitize_checkpoint is a defensive backstop, not the primary
-    # control — the primary control is that password/OTP are kept out
+    # control; the primary control is that password/OTP are kept out
     # of `state` in the first place (see _load_local_password /
     # _save_local_password and the OTP-hash handling in run()). This
     # catches a future field added to `state` that forgets that rule,
@@ -154,7 +234,7 @@ def _save_state(out_dir: str, job_id: str, state: dict) -> str:
 
 
 def _account_key(alias_email: str, apply_url: str) -> str:
-    """Stable filesystem-safe key for a Workday account identity — the
+    """Stable filesystem-safe key for a Workday account identity: the
     alias email plus the tenant host (e.g. capitalone.wd12.myworkdayjobs.com),
     not the job_id. Jobs sharing one Workday account (same alias + tenant)
     must reuse the same generated password sidecar so a login retry doesn't
@@ -176,7 +256,7 @@ def _local_password_path(out_dir: str, account_key: str) -> str:
 def _load_local_password(out_dir: str, account_key: str) -> str | None:
     """The Workday account password lives in its own sidecar file,
     never in the main checkpoint JSON that also carries page
-    signatures, fill history, and verification metadata — the plan's
+    signatures, fill history, and verification metadata; the plan's
     checkpoint schema explicitly excludes passwords, and a real
     generated-then-forgotten password would otherwise have made every
     login retry re-create a new account instead of reusing the
@@ -199,7 +279,7 @@ def _load_local_password(out_dir: str, account_key: str) -> str | None:
 def _save_local_password(out_dir: str, account_key: str, password: str) -> None:
     """Persist the Workday account password to its chmod-600 sidecar.
 
-    Raises OSError on any I/O failure rather than silently swallowing it —
+    Raises OSError on any I/O failure rather than silently swallowing it:
     a swallowed write would let run() proceed with a password that was never
     durably recorded, so a later continuation would regenerate a fresh
     credential and re-create the account instead of reusing the pending one.
@@ -233,7 +313,7 @@ def _read_session_secret_file(path: str | None) -> tuple[str | None, str | None]
     argument list, shell history, or log snapshot. Accepts either a JSON
     object {"link": "...", "otp": "..."} or plain text (treated as an OTP
     when it looks like one, else a link). Returns (link, otp). A missing
-    or unreadable file yields (None, None) — the caller then checkpoints
+    or unreadable file yields (None, None); the caller then checkpoints
     awaiting_verification, same as when no secret was supplied at all."""
     if not path:
         return None, None
@@ -258,7 +338,7 @@ def _read_session_secret_file(path: str | None) -> tuple[str | None, str | None]
     except json.JSONDecodeError:
         pass
     # Plain text: a 4-8 digit run is an OTP, else a link.
-    if re_full_match := __import__("re").fullmatch(r"\d{4,8}", raw):
+    if re.fullmatch(r"\d{4,8}", raw):
         return None, raw
     if raw.lower().startswith("http"):
         return raw, None
@@ -285,7 +365,7 @@ def _read_credential_file(path: str | None) -> tuple[str | None, str | None]:
 
 def _normalize_account_email(email: str | None) -> str:
     """Normalize an account/candidate email for sidecar keying and form
-    fill — lowercased and trimmed so the same address supplied in
+    fill: lowercased and trimmed so the same address supplied in
     different cases reuses one password sidecar per tenant."""
     return (email or "").strip().lower()
 
@@ -387,10 +467,35 @@ def _account_mode(page) -> str:
     return "unknown"
 
 
+def _wait_for_account_mode_settled(page, timeout_s: float = 4.0) -> None:
+    """Workday's sign-in/create-account form is client-rendered: a
+    navigation's `wait_until="domcontentloaded"` plus the caller's fixed
+    _pause fires before the form reliably exists in the DOM on a fresh
+    (cold, no cached assets) browser profile. Poll briefly for a
+    recognizable state before _account_mode's one-shot DOM check is
+    trusted to gate the create_account/login branch; without this,
+    _account_mode can read "unknown" on a page that is actually the
+    login form mid-render, which skips the dedicated login-credential
+    fill (email + password) entirely and falls through to the generic
+    SAFE_FIELD_LABELS fill loop instead, which has no password field and
+    can mis-fill the email field via label-substring collision (real bug
+    found live against Capital One, 2026-08-31; see docs/NEXT_STEPS.md).
+    Never raises; a timeout just leaves _account_mode's next real read to
+    decide, same as before this existed."""
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        try:
+            if _account_mode(page) != "unknown" or _otp_mode(page) or _sign_in_choice_page(page):
+                return
+        except Exception:
+            return
+        time.sleep(0.2)
+
+
 def _still_on_login_page(page) -> bool:
     """True if the page is still showing the login form (email + password
     fields both present). Used to avoid assuming a login succeeded when
-    the submit was clicked but the form stayed put — wrong credentials, a
+    the submit was clicked but the form stayed put: wrong credentials, a
     validation error, or a CAPTCHA challenge all leave the login form
     on screen. Fails closed: any uncertainty returns False only when the
     login fields are clearly gone."""
@@ -429,7 +534,7 @@ def _manual_required_reason(page) -> str | None:
     (TOTP/authenticator apps, push approvals, security/hardware keys, SSO,
     or an unrecognized MFA page). Returns a short label when one is
     detected, None otherwise. The caller checkpoints `manual_required`
-    with this reason — never guesses, never claims verified/submitted on
+    with this reason; never guesses, never claims verified/submitted on
     a challenge it cannot cross. Mirrors the hosted worker's
     detectManualRequired vocabulary so the two paths agree on taxonomy."""
     if _text_contains(page, [
@@ -465,9 +570,9 @@ def _workday_step_title(page) -> str:
     # actually match this employer's page, causing every step to
     # report the same generic page title. Since _page_signature combines
     # this title with the URL for loop detection, that combination made
-    # every genuinely different step look identical — a false "stuck in
+    # every genuinely different step look identical: a false "stuck in
     # a loop" stop on real forward progress. progressBarActiveStep's
-    # text is "current step N of M\n<Step Name>" — take the last
+    # text is "current step N of M\n<Step Name>"; take the last
     # non-empty line so the step count doesn't get folded into the name.
     try:
         active = page.locator("[data-automation-id='progressBarActiveStep']")
@@ -519,6 +624,91 @@ def _click_if_visible(page, selector: str) -> bool:
         return False
 
 
+_LABEL_TO_SAFE_KEY: dict[str, str] | None = None
+
+
+def _label_to_safe_key(label: str) -> str | None:
+    global _LABEL_TO_SAFE_KEY
+    if _LABEL_TO_SAFE_KEY is None:
+        mapping: dict[str, str] = {}
+        for key, labels in SAFE_FIELD_LABELS.items():
+            for candidate in labels:
+                mapping.setdefault(candidate, key)
+        _LABEL_TO_SAFE_KEY = mapping
+    return _LABEL_TO_SAFE_KEY.get(label)
+
+
+def _build_fill_record_fields(state: dict, safe_fields: dict[str, str]) -> list[dict]:
+    """Reconstructs a record_fill.py-compatible fields array from this
+    run's accumulated fill_history: so a needs-review checkpoint carries
+    a fill_record_path showing everything aplyx already filled, not a
+    blank form (user directive, 2026-08-31: "things like these should
+    land in review queue with everything else that aplyx can fill out
+    pre-filled out").
+
+    Only two sources are reconstructable without a structural change to
+    _fill_workday_page's return shape (it reports filled LABELS, not the
+    values behind them): SAFE_FIELD_LABELS-driven fills, reverse-mapped
+    from label text back to the safe_fields key that supplied the value,
+    and conservative_defaults, which already carry the full record shape.
+    Every entry is marked verified=False: the value was successfully
+    written via the browser fill call, but this reconstruction does not
+    re-read the DOM to confirm it still matches, so it does not claim
+    record_fill.py schema's stronger "verified" guarantee.
+    """
+    seen: set[str] = set()
+    fields: list[dict] = []
+    for fill_result in state.get("fill_history") or []:
+        for label in fill_result.get("filled_labels") or []:
+            key = _label_to_safe_key(label)
+            value = safe_fields.get(key, "") if key else ""
+            if not key or not value or key in seen:
+                continue
+            seen.add(key)
+            fields.append({"field_name": label, "filled_value": value, "source": f"safe_fields:{key}", "verified": False})
+        for cd in fill_result.get("conservative_defaults") or []:
+            name = cd.get("field_name")
+            if not name or name in seen:
+                continue
+            seen.add(name)
+            fields.append({
+                "field_name": name,
+                "filled_value": cd.get("filled_value", ""),
+                "source": "conservative_default",
+                "note": cd.get("note", ""),
+                "verified": False,
+            })
+    return fields
+
+
+def _maybe_record_fill(job_id: str, state: dict, safe_fields: dict[str, str]) -> str | None:
+    """Calls record_fill.py (the canonical fill-record helper, AGENTS.md
+    "Fill records") when at least one field was filled this run, returning
+    the fill_record_path to carry into the checkpoint result verbatim, per
+    AGENTS.md: "For a Workday job whose runtime returned a
+    fill_record_path, carry it through verbatim: the runtime owns the
+    fill record for the Workday flow." Building the actual review_queue.json
+    row (company/title/ats_score/etc.) stays the orchestrator's job; this
+    script only owns proving what it actually filled. Returns None (never
+    raises) when there's nothing to record or the helper call fails, so a
+    fill-record problem never blocks the checkpoint itself from reaching
+    the user."""
+    fields = _build_fill_record_fields(state, safe_fields)
+    if not fields:
+        return None
+    try:
+        result = subprocess.run(
+            [sys.executable, RECORD_FILL_SCRIPT, "record", job_id, json.dumps(fields)],
+            capture_output=True, text=True, timeout=15,
+        )
+        if result.returncode != 0:
+            return None
+        payload = json.loads((result.stdout or "").strip().splitlines()[-1])
+        return payload.get("path") or None
+    except Exception:
+        return None
+
+
 def _write_result(ok: bool, message: str, **extra) -> int:
     payload = {"ok": ok, "message": message, **extra}
     print(json.dumps(payload))
@@ -554,11 +744,27 @@ def _apply_entry(job_id: str, review_queue_path: str, apply_url: str | None) -> 
 
 
 def _workday_login_url(apply_url: str) -> str:
+    """Builds a continuation-run login URL that includes the tenant's site
+    segment (e.g. "/Capital_One"), not just a bare "/login" at the domain
+    root. The site segment is whatever path segment(s) precede "job":
+    this generalizes the previous "/search/"-only split (which handled a
+    "/<site>/search/job/..." shape but produced a site-less "/login" for
+    any tenant whose apply path is just "/<site>/job/...", Capital One
+    included). A site-less login URL is one Workday's own auth flow can't
+    resolve post-login: it silently bounces to
+    community.workday.com/invalid-url instead of the job application
+    (real bug found live against Capital One, 2026-08-31; see
+    docs/NEXT_STEPS.md)."""
     parsed = urlparse(apply_url)
     path = parsed.path.rstrip("/")
     target_path = f"{path}/apply/autofillWithResume"
-    site_prefix = path.split("/search/", 1)[0] if "/search/" in path else ""
-    login_path = f"{site_prefix}/search/login" if site_prefix else "/login"
+    segments = [s for s in path.split("/") if s]
+    site_prefix = ""
+    if "job" in segments:
+        job_idx = segments.index("job")
+        if job_idx > 0:
+            site_prefix = "/" + "/".join(segments[:job_idx])
+    login_path = f"{site_prefix}/login" if site_prefix else "/login"
     return f"{parsed.scheme}://{parsed.netloc}{login_path}?redirect={quote(target_path, safe='')}"
 
 
@@ -624,14 +830,39 @@ def _next_button(page):
     return None
 
 
+def _has_any_visible_field(page) -> bool:
+    return _has_any_visible(page, [
+        "input:not([type='hidden']):not([type='file'])",
+        "select",
+        "textarea",
+        "[role='combobox']",
+        "[role='listbox']",
+    ])
+
+
 def _wait_for_application_control(page, timeout_seconds: float = 10.0) -> None:
     deadline = time.monotonic() + timeout_seconds
+    control_seen_at: float | None = None
     while time.monotonic() < deadline:
         if _submit_button(page) is not None or _next_button(page) is not None:
+            if control_seen_at is None:
+                control_seen_at = time.monotonic()
+            # Workday's page chrome (the Next/Submit footer) and its
+            # data-driven field section are separate components: the
+            # footer can render, and be found here, before a single field
+            # behind it exists in the DOM. Give the fields a brief extra
+            # grace window instead of returning the instant a control
+            # appears; only give up waiting for a field after 1.5s in case
+            # this control legitimately guards a page with no fields at
+            # all (e.g. a pure review/submit step). Real bug found live
+            # against Capital One's "My Information" step, 2026-08-31:
+            # _fill_workday_page ran on a control-only, field-less DOM and
+            # every SAFE_FIELD_LABELS key came back unmatched.
+            if _has_any_visible_field(page) or (time.monotonic() - control_seen_at) > 1.5:
+                return
+        elif _account_mode(page) != "unknown" or _otp_mode(page):
             return
-        if _account_mode(page) != "unknown" or _otp_mode(page):
-            return
-        _pause(350, 0)
+        _pause(200, 0)
 
 
 def _apply_entry_button(page):
@@ -781,14 +1012,14 @@ def _submit_create_account(page) -> bool:
 
 
 def _submit_button(page):
-    """Final application-submit control only — never the public posting
+    """Final application-submit control only: never the public posting
     `Apply` link. Workday surfaces submit buttons on account-creation and
     intermediate steps too, and the public posting page has its own `Apply`
     control that opens the application flow; matching either by name would
     let a non-final page read as ready-to-submit. Prefer explicit Workday
     automation IDs, then the narrow `Submit`/`Submit Application` button
     names. The caller still gates the actual click behind
-    `_is_review_submit_page` — this selector just refuses to hand back a
+    `_is_review_submit_page`: this selector just refuses to hand back a
     control that is obviously not a final submit."""
     selectors = [
         "[data-automation-id='submitButton']",
@@ -815,7 +1046,7 @@ def _is_review_submit_page(page) -> bool:
     """True only when the page is clearly the final review/submit page, not
     just any page that happens to have a submit button. Workday surfaces
     submit buttons on account-creation and intermediate steps too, so a
-    submit button alone is not enough — clicking submit on a non-final page
+    submit button alone is not enough: clicking submit on a non-final page
     is not a real application submit. Fails closed: returns False on any
     ambiguity so the caller saves a checkpoint for human review instead."""
     try:
@@ -897,7 +1128,7 @@ def _looks_successful(page) -> tuple[bool, str]:
         if phrase in body:
             return True, f"Workday confirmation detected: {phrase}"
     # Workday often redirects to a per-user applications dashboard or a
-    # confirmation URL after a successful submit — and those live on
+    # confirmation URL after a successful submit, and those live on
     # myworkdayjobs.com too, so excluding that host (as this once did)
     # missed real confirmations. Require a clear post-submit path
     # segment AND that we are no longer on the apply form itself, so an
@@ -922,9 +1153,9 @@ def _attempt_final_submit(page, submit) -> dict:
     """Clicks the final submit button and polls for an unambiguous outcome.
     Returns a dict with: outcome ('submitted' | 'validation_error' |
     'outcome_unclear' | 'click_failed' | 'challenge_detected'), reason,
-    confirmation_url. Never claims success on ambiguity — outcome_unclear
+    confirmation_url. Never claims success on ambiguity: outcome_unclear
     is the fail-closed path. The click itself is a single direct
-    `.click()`, never wrapped in click_with_retry — the plan forbids
+    `.click()`, never wrapped in click_with_retry: the plan forbids
     auto-retrying a final submit, so this is the one action in the whole
     file that must never gain a retry wrapper."""
     challenge = detect_challenge(page)
@@ -947,14 +1178,14 @@ def _attempt_final_submit(page, submit) -> dict:
             return {"outcome": "submitted", "reason": reason, "confirmation_url": page.url}
         _pause(400, 100)
 
-    return {"outcome": "outcome_unclear", "reason": "submit was clicked but the resulting page did not show an unambiguous confirmation — NOT recorded as applied", "confirmation_url": page.url}
+    return {"outcome": "outcome_unclear", "reason": "submit was clicked but the resulting page did not show an unambiguous confirmation: NOT recorded as applied", "confirmation_url": page.url}
 
 
 def _paste_cover_letter(page, cover_letter: str) -> bool:
     """Paste a tailored cover letter into a Workday cover-letter field if
     one is visible on the current step. Workday surfaces this as a textarea
     labeled 'Cover Letter' or a content-editable region; if no such field is
-    present, returns False (the letter simply isn't used — not an error,
+    present, returns False (the letter simply isn't used, not an error,
     since many Workday postings have no cover-letter field at all)."""
     textarea_selectors = [
         "textarea[name*='cover' i]",
@@ -976,7 +1207,7 @@ def _paste_cover_letter(page, cover_letter: str) -> bool:
 
 def _read_preferred_locations() -> list[str]:
     """Load preferred_locations from targets.json. Returns [] on any
-    read/parse failure — callers must handle the empty case."""
+    read/parse failure: callers must handle the empty case."""
     try:
         with open(TARGETS_PATH, "r", encoding="utf-8") as fh:
             targets = json.load(fh)
@@ -988,7 +1219,7 @@ def _read_preferred_locations() -> list[str]:
 
 def _load_master_resume() -> dict:
     """Load the master resume JSON (data/resumes/resume.json). Returns {}
-    on any read/parse failure — callers must handle the empty case and
+    on any read/parse failure: callers must handle the empty case and
     never fabricate data."""
     try:
         with open(MASTER_RESUME_JSON, "r", encoding="utf-8") as fh:
@@ -1013,8 +1244,8 @@ _MONTH_NAMES = {
 
 def _parse_single_date(s: str) -> tuple[str | None, str | None]:
     """Parse 'Jun 2025' or 'Present' into (month, year). 'Present' yields
-    (None, None) — the caller treats a missing end date as 'currently
-    works here'. Returns (None, None) on any parse failure — never guesses."""
+    (None, None); the caller treats a missing end date as 'currently
+    works here'. Returns (None, None) on any parse failure: never guesses."""
     tokens = (s or "").strip().split()
     if not tokens:
         return None, None
@@ -1031,10 +1262,10 @@ def _parse_single_date(s: str) -> tuple[str | None, str | None]:
 def _parse_resume_date_range(dates_str: str) -> tuple[str | None, str | None, str | None, str | None]:
     """Parse a resume date range like 'Jun 2025 – Present' or
     'Jun 2024 – Oct 2024' into (start_month, start_year, end_month, end_year).
-    Returns (None, None, None, None) on any parse failure — never guesses."""
+    Returns (None, None, None, None) on any parse failure: never guesses."""
     if not dates_str:
         return None, None, None, None
-    raw = dates_str.replace("–", "-").replace("—", "-")
+    raw = dates_str.replace("–", "-").replace("\u2014", "-")
     parts = [p.strip() for p in raw.split("-") if p.strip()]
     if len(parts) != 2:
         return None, None, None, None
@@ -1046,7 +1277,7 @@ def _parse_resume_date_range(dates_str: str) -> tuple[str | None, str | None, st
 def _map_degree_to_workday(degree_str: str) -> str | None:
     """Map a free-text degree string to one of Workday's exact dropdown
     options (GED, High School, Associates, Bachelors, Masters, Doctorate).
-    Returns None if no confident mapping exists — never guesses."""
+    Returns None if no confident mapping exists: never guesses."""
     s = (degree_str or "").lower().strip()
     if not s:
         return None
@@ -1089,14 +1320,14 @@ def _extract_gpa(details: list[str]) -> str | None:
 
 def _build_role_description(exp: dict) -> str:
     """Join experience bullet texts into a role description. Returns ''
-    when there are no bullets — never fabricates."""
+    when there are no bullets: never fabricates."""
     bullets = exp.get("bullets") or []
     return "\n".join(b.get("text", "") for b in bullets if b.get("text")).strip()
 
 
 def _entry_exists_in_text(body_text: str, *fragments: str) -> bool:
     """True when all normalized fragments appear in the normalized body
-    text — used to detect that a work/education entry already exists on
+    text: used to detect that a work/education entry already exists on
     the My Experience page so we don't add a duplicate on a rerun. Returns
     False when no non-empty fragments are supplied (no signal to match)."""
     normalized_body = _normalize_text(body_text)
@@ -1112,7 +1343,7 @@ def _entry_exists_in_text(body_text: str, *fragments: str) -> bool:
 
 def _resume_already_uploaded(page) -> bool:
     """Detect visible evidence that a resume has already been uploaded on
-    the current page — Workday shows a 'resume.pdf successfully uploaded'
+    the current page: Workday shows a 'resume.pdf successfully uploaded'
     confirmation or an uploaded-file chip after a successful attach. Used
     to make resume upload idempotent across continuation runs."""
     if _text_contains(page, ["successfully uploaded", "resume uploaded", "file uploaded"]):
@@ -1127,7 +1358,7 @@ def _resume_already_uploaded(page) -> bool:
 
 
 def _prior_resume_attached(state: dict) -> bool:
-    """True if a prior checkpoint recorded a successful resume attach —
+    """True if a prior checkpoint recorded a successful resume attach:
     the persisted-state side of resume idempotency. The dedicated
     ``state["resume_attached"]`` flag is the primary signal (it survives
     the capped ``fill_history[-10:]`` truncation); the fill_history scan
@@ -1142,7 +1373,7 @@ def _prior_resume_attached(state: dict) -> bool:
 
 
 def _is_my_experience_page(page) -> bool:
-    """Detect the Workday 'My Experience' step — has add-buttons and both
+    """Detect the Workday 'My Experience' step: has add-buttons and both
     Work Experience and Education section headers."""
     if not _has_visible(page, "button[data-automation-id='add-button']"):
         return False
@@ -1153,7 +1384,7 @@ def _normalize_month_for_input(month: str | None) -> str | None:
     """Normalize a parsed month value to what Workday's paired month/year
     inputs render. Workday's live inputs accept a numeric month string
     ('6') for June; a name ('June') is left as-is only when no numeric
-    mapping is known. Returns None for an empty/unknown month — never
+    mapping is known. Returns None for an empty/unknown month: never
     fabricates a value."""
     if not month:
         return None
@@ -1173,7 +1404,7 @@ def _fill_date_inputs(page, start_month: str | None, start_year: str | None,
                        is_current: bool) -> dict:
     """Fill Workday's paired month/year date inputs in order (start then
     end). Skips end-date inputs when the role is current. Returns a dict
-    describing what was filled and what failed — never silently swallows a
+    describing what was filled and what failed: never silently swallows a
     fill failure, since a missing date on a submitted application is
     irreversible and the caller must checkpoint as manual review when a
     required date could not be entered.
@@ -1244,7 +1475,7 @@ def _fill_work_entry_fields(page, exp: dict, root=None) -> dict:
     Returns a dict with ``ok`` (bool), ``filled`` (list of field labels),
     and ``unresolved`` (list of {field, reason}) for fields that could not
     be truthfully filled. An entry is only reported as successfully added
-    when its identity fields (jobTitle, companyName) were actually filled —
+    when its identity fields (jobTitle, companyName) were actually filled:
     a missing required control or an unfilled identity field produces an
     unresolved entry so the caller checkpoints as manual review rather than
     silently passing. Does NOT click Save/Submit; Workday's page Continue is
@@ -1258,7 +1489,7 @@ def _fill_work_entry_fields(page, exp: dict, root=None) -> dict:
     is_current = "present" in (dates_str or "").lower()
 
     form = root or page
-    # Identity fields first — a work entry without a title or company is
+    # Identity fields first: a work entry without a title or company is
     # not a real entry and must not be reported as added.
     if title:
         if _fill_if_visible(form, "input[name='jobTitle']", title):
@@ -1292,7 +1523,7 @@ def _fill_work_entry_fields(page, exp: dict, root=None) -> dict:
         if _click_if_visible(form, "input[name='currentlyWorkHere']"):
             filled.append("currentlyWorkHere")
         else:
-            # Not strictly unresolved — some tenants omit the toggle when
+            # Not strictly unresolved: some tenants omit the toggle when
             # the role is current by default. Only flag when a date parse
             # also failed, since that is the actionable signal.
             pass
@@ -1315,7 +1546,7 @@ def _fill_education_entry_fields(page, edu: dict, root=None) -> dict:
     required degree dropdown was either filled with an exact option or had
     no degree string to map (a missing degree is not a failure). A degree
     string that maps to a Workday option but whose exact option is absent
-    from the dropdown is an unresolved failure — never silently pass, since
+    from the dropdown is an unresolved failure: never silently pass, since
     a wrong degree on a submitted application is irreversible. Does NOT
     click Save/Submit."""
     filled: list[str] = []
@@ -1326,7 +1557,80 @@ def _fill_education_entry_fields(page, edu: dict, root=None) -> dict:
 
     form = root or page
     if school:
-        if _fill_if_visible(form, "input[name='schoolName']", school):
+        # Workday's real school field is its own custom "selectinput"
+        # search-box widget, confirmed live against Capital One,
+        # 2026-08-31: the input itself carries
+        # data-uxi-widget-type="selectinput" and
+        # data-automation-id="searchBox", with NO standard ARIA combobox
+        # markers (no role="combobox", no aria-expanded/aria-haspopup):
+        # fill_field's role/aria-based combobox detection can't recognize
+        # it, so it falls through to a plain .fill(), which sets the
+        # visible text but leaves Workday's internal selection state
+        # unregistered; validation still reports the field empty.
+        # Playwright's .fill() also does not reliably trigger this
+        # widget's own live/debounced search at all (confirmed live: it
+        # never opens a suggestion list): real keystrokes
+        # (press_sequentially) are required to trigger the search, then
+        # an exact-text suggestion match is clicked, same no-guessing
+        # rule as try_combobox elsewhere: no exact match clears the field
+        # rather than committing an unconfirmed guess. Scoped to the
+        # field's container (its own element id and label `for` are
+        # generated per-entry, e.g. "education-168--school", so not a
+        # safe literal selector across entries/sessions; the
+        # container's automation id is stable). Falls back to
+        # fill_field's real-label match, then the raw legacy selectors,
+        # for tenants without this exact widget: this remains a
+        # genuinely hard field to resolve with full confidence on every
+        # tenant; per policy, a case this can't fill correctly is
+        # reported unresolved and routed to review with everything else
+        # pre-filled, never guessed.
+        school_filled = False
+        try:
+            search_input = form.locator("[data-automation-id='formField-school'] input[data-automation-id='searchBox']")
+            if search_input.count() == 1:
+                loc = search_input.first
+                loc.click()
+                loc.fill("")
+                loc.press_sequentially(school, delay=60)
+                target = school.strip().lower()
+                deadline = time.monotonic() + 3.0
+                while time.monotonic() < deadline and not school_filled:
+                    for options in (page.get_by_role("option"), page.locator("[data-automation-id='promptOption']")):
+                        try:
+                            n = options.count()
+                        except Exception:
+                            n = 0
+                        for i in range(n):
+                            opt = options.nth(i)
+                            try:
+                                if not opt.is_visible():
+                                    continue
+                            except Exception:
+                                pass
+                            text = (opt.inner_text() or "").strip().lower()
+                            if text == target:
+                                opt.click()
+                                school_filled = True
+                                break
+                        if school_filled:
+                            break
+                    if not school_filled:
+                        time.sleep(0.25)
+                if not school_filled:
+                    try:
+                        loc.fill("")
+                    except Exception:
+                        pass
+        except Exception:
+            school_filled = False
+        if not school_filled:
+            school_status, _ = fill_field(form, "School or University", school)
+            school_filled = school_status == "filled"
+        if not school_filled:
+            school_filled = _fill_if_visible(form, "input[name='schoolName']", school)
+        if not school_filled:
+            school_filled = _fill_if_visible(form, "[data-automation-id='formField-school'] input", school)
+        if school_filled:
             filled.append("schoolName")
         else:
             unresolved.append({"field": "schoolName", "reason": "school input not found or not fillable"})
@@ -1336,14 +1640,14 @@ def _fill_education_entry_fields(page, edu: dict, root=None) -> dict:
     degree_option = _map_degree_to_workday(degree_str)
     if degree_option:
         # A degree string that maps to a Workday option is a required
-        # dropdown — an exact option must be selected, never a guess.
+        # dropdown: an exact option must be selected, never a guess.
         if select_workday_listbox(form, 'button[name="degree"]', degree_option, option_page=page):
             filled.append("degree")
         else:
             unresolved.append({"field": "degree", "reason": f"exact degree option '{degree_option}' not found in dropdown"})
     elif degree_str:
         # A degree string that does not map to any Workday option is not
-        # silently passed — flag it so the caller can checkpoint as manual
+        # silently passed: flag it so the caller can checkpoint as manual
         # review rather than submitting an education entry with no degree.
         unresolved.append({"field": "degree", "reason": f"degree '{degree_str}' has no confident Workday mapping"})
 
@@ -1357,8 +1661,44 @@ def _fill_education_entry_fields(page, edu: dict, root=None) -> dict:
         if _fill_if_visible(form, "input[name='gradeAverage']", gpa):
             filled.append("gradeAverage")
 
+    # Some Workday tenants require a transcript upload on this entry (a
+    # real, confirmed requirement, 2026-08-31; see docs/NEXT_STEPS.md).
+    # aplyx never fabricates a document: attach the user's own uploaded
+    # transcript (desktop app's Resume screen > Transcript) when one
+    # exists, otherwise flag it as unresolved only if this specific page
+    # actually has a transcript upload control: a page with no such
+    # field must never be blocked on a document nobody was asked for.
+    transcript_path = _local_transcript_path()
+    if transcript_path:
+        status, _ = attach_transcript(form, transcript_path)
+        if status == "filled":
+            filled.append("transcript")
+    elif _has_transcript_upload_field(form):
+        unresolved.append({
+            "field": "transcript",
+            "reason": "Workday requires a transcript upload but none is on file: add one from the app's Resume screen (Transcript section) and re-run",
+        })
+
     identity_ok = "schoolName" in filled
     return {"ok": identity_ok and not unresolved, "filled": filled, "unresolved": unresolved}
+
+
+def _has_transcript_upload_field(form) -> bool:
+    try:
+        file_inputs = form.locator("input[type=file]")
+        n = file_inputs.count()
+    except Exception:
+        return False
+    for i in range(n):
+        try:
+            context_text = file_inputs.nth(i).evaluate(
+                "el => (el.closest('label,fieldset,form')?.innerText || '').toLowerCase()"
+            )
+        except Exception:
+            context_text = ""
+        if "transcript" in context_text:
+            return True
+    return False
 
 
 def _fill_my_experience(page, resume_data: dict) -> dict:
@@ -1367,7 +1707,7 @@ def _fill_my_experience(page, resume_data: dict) -> dict:
     normalized company/title or school and not re-added. Languages are
     intentionally skipped (programming languages are not spoken
     languages). Returns a dict describing what was added, skipped, and
-    left unresolved — an entry is only reported in work_added/
+    left unresolved: an entry is only reported in work_added/
     education_added when its identity fields and required dropdowns were
     actually filled; a partially-filled or failed entry is reported in
     work_unresolved/education_unresolved so the caller checkpoints as
@@ -1469,7 +1809,7 @@ def _fill_my_experience(page, resume_data: dict) -> dict:
 
 def _company_in_resume_experience(company: str, resume_data: dict) -> bool:
     """True when *company* (normalized) matches any experience company in
-    the master resume — used to answer 'Have you ever worked at <company>?'
+    the master resume: used to answer 'Have you ever worked at <company>?'
     with Yes only when the employer is actually present."""
     target = _normalize_text(company)
     if not target:
@@ -1489,7 +1829,7 @@ def _extract_company_from_worked_question(question_text: str) -> tuple[str | Non
     'or any of its affiliates' wording (which covers a family of
     companies, not just the named one) and False for a narrow
     previous-employer phrasing. Returns (None, False) if the pattern
-    doesn't match — never guesses."""
+    doesn't match: never guesses."""
     m = re.search(r"worked (?:at|for)\s+(.+?)\s+or (?:its )?affiliates?", question_text, re.IGNORECASE)
     if m:
         return m.group(1).strip(), True
@@ -1505,7 +1845,7 @@ def _extract_company_from_worked_question(question_text: str) -> tuple[str | Non
 
 def _infer_worked_at_company_answer(question_text: str, resume_data: dict) -> str | None:
     """Determine the answer to 'Have you ever worked at <company> or
-    affiliates?' — Yes only when the company is in the resume experience.
+    affiliates?': Yes only when the company is in the resume experience.
     For the broad affiliates wording, return None (unresolved) when the
     company is absent rather than asserting No: 'or affiliates' covers a
     family of companies the resume may not name explicitly, so a No could
@@ -1527,7 +1867,7 @@ def _infer_worked_at_company_answer(question_text: str, resume_data: dict) -> st
 
 def _location_matches_preferred(job_location: str, preferred_locations: list[str]) -> bool:
     """True when *job_location* (normalized) contains or is contained by
-    any preferred location (normalized) — a bidirectional substring match
+    any preferred location (normalized): a bidirectional substring match
     so 'Seattle, WA' matches 'Seattle' and vice versa."""
     target = _normalize_text(job_location)
     if not target:
@@ -1542,10 +1882,10 @@ def _location_matches_preferred(job_location: str, preferred_locations: list[str
 
 
 def _infer_relocation_answer(question_text: str, job_location: str | None, preferred_locations: list[str]) -> str | None:
-    """Determine the answer to a relocation willingness question — Yes
+    """Determine the answer to a relocation willingness question: Yes
     only when the job location matches a configured preferred location.
     Returns None (unresolved) when the job location is unknown or doesn't
-    match — never guesses Yes or No."""
+    match: never guesses Yes or No."""
     if not job_location:
         return None
     return "Yes" if _location_matches_preferred(job_location, preferred_locations) else None
@@ -1592,7 +1932,7 @@ def _fill_question_control(page, question_label: str, answer: str) -> bool:
 
 def _is_ai_attestation_question(question_text: str) -> bool:
     """Detect the Expedia AI-attestation / material acknowledgment
-    question so it is NEVER auto-answered — the applicant must attest
+    question so it is NEVER auto-answered: the applicant must attest
     personally."""
     lower = (question_text or "").lower()
     if "attest" in lower or "acknowledg" in lower:
@@ -1605,7 +1945,7 @@ def _fill_inferred_questions(page, resume_data: dict, job_location: str | None,
                              preferred_locations: list[str]) -> list[dict]:
     """Detect and fill inferred required yes/no questions on the current
     step using conservative, evidence-based answers. Returns a list of
-    unresolved questions (those aplyx cannot safely answer) — the caller
+    unresolved questions (those aplyx cannot safely answer): the caller
     checkpoints as manual review when this list is non-empty.
 
     AI-attestation detection runs even when resume_data is empty/corrupt,
@@ -1618,7 +1958,7 @@ def _fill_inferred_questions(page, resume_data: dict, job_location: str | None,
     except Exception:
         return unresolved
 
-    # "Have you ever worked at <company> or affiliates?" — bounded to one
+    # "Have you ever worked at <company> or affiliates?": bounded to one
     # question via a non-greedy match that stops at the first '?'. re.DOTALL
     # so a question wrapped across lines is still matched as one unit. Uses
     # \s+ (not literal spaces) so a newline between words still matches.
@@ -1629,24 +1969,28 @@ def _fill_inferred_questions(page, resume_data: dict, job_location: str | None,
     if worked_match:
         question_label = worked_match.group(0)
         if _is_ai_attestation_question(question_label):
-            unresolved.append({"question": question_label, "reason": "AI attestation / material acknowledgment — not auto-answered"})
+            unresolved.append({"question": question_label, "reason": "AI attestation / material acknowledgment: not auto-answered"})
         else:
             answer = _infer_worked_at_company_answer(question_label, resume_data or {})
             if answer is None:
-                company, is_broad = _extract_company_from_worked_question(question_label)
+                # _infer_worked_at_company_answer returns None only when the
+                # company couldn't be extracted, or when it was extracted but
+                # the broad "or affiliates" wording left it unresolved (a
+                # narrow previous-employer phrasing always resolves to a
+                # definite Yes/No, never None): re-extracting here can only
+                # land in one of those two cases.
+                company, _is_broad = _extract_company_from_worked_question(question_label)
                 if not company:
                     reason = "could not extract company name from the question"
-                elif is_broad:
-                    reason = f"company '{company}' is not in resume experience and the broad 'or affiliates' wording is unresolved (an affiliate may be named differently in the resume)"
                 else:
-                    reason = f"could not extract company name from the question"
+                    reason = f"company '{company}' is not in resume experience and the broad 'or affiliates' wording is unresolved (an affiliate may be named differently in the resume)"
                 unresolved.append({"question": question_label, "reason": reason})
             else:
                 status, _ = fill_field(page, question_label, answer)
                 if status != "filled" and not _fill_question_control(page, question_label, answer):
                     unresolved.append({"question": question_label, "reason": f"inferred '{answer}' but the field could not be filled"})
 
-    # Relocation willingness — bounded to one sentence/question.
+    # Relocation willingness: bounded to one sentence/question.
     relocate_match = re.search(
         r"(?:are you|would you|will you|do you)[^.]*?relocat[^.]*?\?",
         body_text, re.IGNORECASE | re.DOTALL,
@@ -1663,7 +2007,7 @@ def _fill_inferred_questions(page, resume_data: dict, job_location: str | None,
             unresolved.append({"question": question_label, "reason": reason})
 
     # AI attestation (standalone, not part of the worked-at pattern).
-    # Match in either order — "attest ... AI" or "AI ... attest" — since
+    # Match in either order: "attest ... AI" or "AI ... attest", since
     # the live Expedia question phrases it as "Do you attest ... not use AI".
     # Bounded to one question; runs even when resume_data is empty.
     if not worked_match or not _is_ai_attestation_question(worked_match.group(0)):
@@ -1672,7 +2016,7 @@ def _fill_inferred_questions(page, resume_data: dict, job_location: str | None,
             body_text, re.IGNORECASE | re.DOTALL,
         )
         if attest_match:
-            unresolved.append({"question": attest_match.group(0), "reason": "AI attestation / material acknowledgment — not auto-answered"})
+            unresolved.append({"question": attest_match.group(0), "reason": "AI attestation / material acknowledgment: not auto-answered"})
 
     return unresolved
 
@@ -1691,6 +2035,17 @@ def _fill_workday_page(page, safe_fields: dict[str, str], resume_pdf: str | None
         if username and not values.get(url_key, "").strip():
             values[url_key] = f"{prefix.replace('://', '://www.', 1)}{quote(username, safe='')}"
             constructed_usernames.add(username_key)
+    # The profile stores city+state as one combined "location" value
+    # ("Maple Valley, WA") with no separate state field: derive one when
+    # a Workday page asks for State/Province as its own control. Only
+    # a trailing 2-letter code is trusted (a real, unambiguous value
+    # already implied by the profile, not a guess); anything else is left
+    # for the field to surface as unmatched rather than guessed (real gap
+    # found live against Capital One's "My Information" step, 2026-08-31).
+    if not values.get("state", "").strip():
+        loc_parts = [p.strip() for p in values.get("location", "").rsplit(",", 1)]
+        if len(loc_parts) == 2 and re.fullmatch(r"[A-Za-z]{2}", loc_parts[1]):
+            values["state"] = US_STATE_ABBR_TO_NAME.get(loc_parts[1].upper(), loc_parts[1].upper())
     for key, labels in SAFE_FIELD_LABELS.items():
         value = _normalize_profile_url(key, values.get(key, ""))
         if not value:
@@ -1706,11 +2061,26 @@ def _fill_workday_page(page, safe_fields: dict[str, str], resume_pdf: str | None
             if status == "skipped":
                 matched = True
                 break
+        if not matched and key in WORKDAY_STANDARD_LISTBOX_SELECTORS:
+            if select_workday_listbox(page, WORKDAY_STANDARD_LISTBOX_SELECTORS[key], value):
+                filled.append(key)
+                matched = True
+                _pause(220, 60)
         if not matched and key not in constructed_usernames:
             unmatched.append(key)
 
-    for label, value, note in CONSERVATIVE_DEFAULTS:
-        status, _ = fill_field(page, label, value)
+    for label, value_candidates, note in CONSERVATIVE_DEFAULTS:
+        candidates = value_candidates if isinstance(value_candidates, (list, tuple)) else (value_candidates,)
+        status = "unmatched"
+        value = candidates[0]
+        for candidate in candidates:
+            status, _ = fill_field(page, label, candidate)
+            if status != "filled" and label in WORKDAY_STANDARD_LISTBOX_SELECTORS:
+                if select_workday_listbox(page, WORKDAY_STANDARD_LISTBOX_SELECTORS[label], candidate):
+                    status = "filled"
+            if status == "filled":
+                value = candidate
+                break
         if status == "filled":
             filled.append(label)
             conservative_defaults.append({"field_name": label, "filled_value": value, "source": "conservative_default", "note": note})
@@ -1724,7 +2094,7 @@ def _fill_workday_page(page, safe_fields: dict[str, str], resume_pdf: str | None
     if skip_resume:
         # Idempotent resume upload: a prior checkpoint or visible
         # uploaded-file evidence shows the resume is already attached.
-        # Do NOT call attach_resume again — repeated runs were producing
+        # Do NOT call attach_resume again: repeated runs were producing
         # duplicate 'resume.pdf successfully uploaded' entries on the
         # live Expedia page. Report resume_attached=True so the
         # checkpoint and emit reflect the actual state.
@@ -1763,7 +2133,7 @@ def _fill_workday_page(page, safe_fields: dict[str, str], resume_pdf: str | None
             my_experience["work_unresolved"] = my_experience.get("work_unresolved", []) + [{"field": "_fill_my_experience", "reason": f"structured fill raised: {exc}"}]
 
     # AI-attestation / inferred-question detection runs even when resume_data
-    # is empty/corrupt — that question must never be auto-answered regardless
+    # is empty/corrupt: that question must never be auto-answered regardless
     # of resume state. A failure here must also produce an unresolved
     # sentinel, never a silent pass that lets the runtime proceed to submit
     # while a safety check was unavailable.
@@ -1865,8 +2235,8 @@ def run(job_id: str, review_queue_path: str, state_dir: str, alias_email: str, a
     # A personal candidate email (from a connected/verified Gmail profile
     # or verification session) is preferred when supplied; the managed
     # mail.aplyx.app alias remains a supported compatibility path. Do NOT
-    # silently fall back to a personal email that was never authenticated
-    # — exactly one of account_email or alias_email must be present, and
+    # silently fall back to a personal email that was never authenticated:
+    # exactly one of account_email or alias_email must be present, and
     # the caller is responsible for only passing account_email when it
     # came from a verified source. The effective email is what gets filled
     # into the account form and keys the password sidecar.
@@ -1897,7 +2267,7 @@ def run(job_id: str, review_queue_path: str, state_dir: str, alias_email: str, a
         return _write_result(False, f"could not use the app's Workday credential: {credential_error}")
     password = credential_password or _load_local_password(state_dir, account_key) or _random_password()
     # _save_local_password now raises on I/O failure rather than silently
-    # swallowing it — a swallowed write would let the runtime proceed with
+    # swallowing it: a swallowed write would let the runtime proceed with
     # a password that was never durably recorded, so a later continuation
     # would regenerate a fresh credential and re-create the account. Fail
     # closed here with a checkpoint-safe result instead.
@@ -1905,7 +2275,7 @@ def run(job_id: str, review_queue_path: str, state_dir: str, alias_email: str, a
         try:
             _save_local_password(state_dir, account_key, password)
         except OSError as exc:
-            return _write_result(False, f"could not persist the Workday account password sidecar: {exc}. Aborting before account creation so a later run does not regenerate credentials — resolve the I/O issue and re-run.")
+            return _write_result(False, f"could not persist the Workday account password sidecar: {exc}. Aborting before account creation so a later run does not regenerate credentials. Resolve the I/O issue and re-run.")
     state.update({
         "job_id": job_id,
         "apply_url": str(apply_url),
@@ -1928,7 +2298,7 @@ def run(job_id: str, review_queue_path: str, state_dir: str, alias_email: str, a
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
-        return _write_result(False, "the 'playwright' pip package is not installed — run `pip3 install -r requirements.txt` first")
+        return _write_result(False, "the 'playwright' pip package is not installed: run `pip3 install -r requirements.txt` first")
 
     with sync_playwright() as p:
         try:
@@ -1940,13 +2310,13 @@ def run(job_id: str, review_queue_path: str, state_dir: str, alias_email: str, a
             )
         except Exception as exc:
             if is_profile_lock_error(exc):
-                return _write_result(False, "your default Chrome is already running with this profile — close Chrome and try again")
+                return _write_result(False, "your default Chrome is already running with this profile: close Chrome and try again")
             return _write_result(False, f"could not launch Chrome: {exc}")
 
         page = context.pages[0] if context.pages else context.new_page()
         # Set True only at the one checkpoint where a human is expected
         # to pick up immediately in this same window (an unmapped
-        # required field) — every other checkpoint/outcome keeps the
+        # required field): every other checkpoint/outcome keeps the
         # existing always-close behavior, so this doesn't change what
         # the existing test suite already covers.
         keep_browser_open = False
@@ -1961,17 +2331,17 @@ def run(job_id: str, review_queue_path: str, state_dir: str, alias_email: str, a
             challenge = detect_challenge(page)
             if challenge:
                 state["status"] = "challenge_detected"
-                return _emit_with_checkpoint(page, state_dir, job_id, state, False, f"Workday presented a challenge ({challenge}) before account setup could proceed. Checkpoint saved — resolve manually and re-run.", outcome="checkpoint")
+                return _emit_with_checkpoint(page, state_dir, job_id, state, False, f"Workday presented a challenge ({challenge}) before account setup could proceed. Checkpoint saved. Resolve manually and re-run.", outcome="checkpoint")
 
             # An MFA/SSO/security-key/push page that aplyx cannot safely
-            # automate stops here as manual_required — never guessed, never
+            # automate stops here as manual_required: never guessed, never
             # claimed verified. This runs before OTP/link consumption so a
             # TOTP/push challenge is caught even when a code was supplied.
             manual = _manual_required_reason(page)
             if manual:
                 state["status"] = "manual_required"
                 state["manual_required_reason"] = manual
-                return _emit_with_checkpoint(page, state_dir, job_id, state, False, f"Workday presented a {manual} challenge that aplyx cannot safely automate. Checkpoint saved — complete this step manually and re-run.", outcome="checkpoint", manual_required=manual)
+                return _emit_with_checkpoint(page, state_dir, job_id, state, False, f"Workday presented a {manual} challenge that aplyx cannot safely automate. Checkpoint saved. Complete this step manually and re-run.", outcome="checkpoint", manual_required=manual)
 
             if verification_link:
                 page.goto(verification_link, wait_until="domcontentloaded")
@@ -2006,7 +2376,7 @@ def run(job_id: str, review_queue_path: str, state_dir: str, alias_email: str, a
                     _pause(220, 60)
                     if _click_if_visible(page, "[data-automation-id='submitButton']"):
                         _pause(1400, 260)
-                    # Never persist the OTP itself — a one-way hash is
+                    # Never persist the OTP itself: a one-way hash is
                     # enough for an audit trail (this value is never
                     # read back for a reuse decision anywhere in this
                     # file) without keeping a live verification code
@@ -2015,11 +2385,11 @@ def run(job_id: str, review_queue_path: str, state_dir: str, alias_email: str, a
                     # Guard: if the page is still asking for a code, the
                     # OTP did not take (wrong/expired code, or a
                     # validation error). Checkpoint and stop rather than
-                    # guessing — never proceed into page-fill on a page
+                    # guessing: never proceed into page-fill on a page
                     # that is still the verification step.
                     if _otp_mode(page):
                         state["status"] = "awaiting_verification"
-                        return _emit_with_checkpoint(page, state_dir, job_id, state, False, "Workday verification code was entered but the page is still asking for a code. Checkpoint saved — re-run with a fresh OTP.", outcome="checkpoint")
+                        return _emit_with_checkpoint(page, state_dir, job_id, state, False, "Workday verification code was entered but the page is still asking for a code. Checkpoint saved. Re-run with a fresh OTP.", outcome="checkpoint")
                     # OTP clearly cleared verification. Continue into
                     # login/page-fill below instead of forcing a re-run.
                     state["used_verification_otp"] = True
@@ -2046,12 +2416,13 @@ def run(job_id: str, review_queue_path: str, state_dir: str, alias_email: str, a
                         state["status"] = "create_account_path_missing"
                         return _emit_with_checkpoint(page, state_dir, job_id, state, False, "Reached the Workday sign-in-with-email flow, but no create-account path was visible. Checkpoint saved for manual follow-up.")
 
+            _wait_for_account_mode_settled(page)
             mode = _account_mode(page)
             if mode == "create_account":
                 challenge = detect_challenge(page)
                 if challenge:
                     state["status"] = "challenge_detected"
-                    return _emit_with_checkpoint(page, state_dir, job_id, state, False, f"Workday presented a challenge ({challenge}) on the create-account page. Checkpoint saved — resolve manually and re-run.", outcome="checkpoint")
+                    return _emit_with_checkpoint(page, state_dir, job_id, state, False, f"Workday presented a challenge ({challenge}) on the create-account page. Checkpoint saved. Resolve manually and re-run.", outcome="checkpoint")
                 _fill_account_credentials(page, effective_email, password, include_confirmation=True)
                 _pause(220, 60)
                 _click_if_visible(page, "[data-automation-id='createAccountCheckbox']")
@@ -2061,7 +2432,7 @@ def run(job_id: str, review_queue_path: str, state_dir: str, alias_email: str, a
                     return _emit_with_checkpoint(page, state_dir, job_id, state, False, "Workday account form was found but the submit button could not be activated.")
                 _pause(1800, 300)
                 # Never claim the account was created solely because the
-                # Create Account button was clicked — Workday can reject the
+                # Create Account button was clicked: Workday can reject the
                 # submission with inline validation errors (duplicate email,
                 # weak password, required checkbox unchecked) without
                 # navigating away. Verify the create form is actually gone
@@ -2073,7 +2444,7 @@ def run(job_id: str, review_queue_path: str, state_dir: str, alias_email: str, a
                     note = (" Validation: " + "; ".join(errors[:3])) if errors else ""
                     state["status"] = "create_account_failed"
                     problem = "the form is still present" if create_mode == "create_account" else "the page showed validation errors"
-                    return _emit_with_checkpoint(page, state_dir, job_id, state, False, f"Workday Create Account was clicked but {problem}.{note} Checkpoint saved — check the browser and re-run.", outcome="failed")
+                    return _emit_with_checkpoint(page, state_dir, job_id, state, False, f"Workday Create Account was clicked but {problem}.{note} Checkpoint saved. Check the browser and re-run.", outcome="failed")
                 if _verification_required(page):
                     state["status"] = "awaiting_verification"
                     return _emit_with_checkpoint(page, state_dir, job_id, state, True, "Workday account created. Waiting for an email verification link or OTP before continuing.", outcome="checkpoint")
@@ -2087,7 +2458,7 @@ def run(job_id: str, review_queue_path: str, state_dir: str, alias_email: str, a
                 challenge = detect_challenge(page)
                 if challenge:
                     state["status"] = "challenge_detected"
-                    return _emit_with_checkpoint(page, state_dir, job_id, state, False, f"Workday presented a challenge ({challenge}) on the login page. Checkpoint saved — resolve manually and re-run.", outcome="checkpoint")
+                    return _emit_with_checkpoint(page, state_dir, job_id, state, False, f"Workday presented a challenge ({challenge}) on the login page. Checkpoint saved. Resolve manually and re-run.", outcome="checkpoint")
                 _fill_account_credentials(page, effective_email, password)
                 _pause(220, 60)
                 if not _submit_login(page):
@@ -2102,6 +2473,20 @@ def run(job_id: str, review_queue_path: str, state_dir: str, alias_email: str, a
                 if _still_on_login_page(page):
                     errors = _validation_errors(page)
                     note = (" Validation: " + "; ".join(errors[:3])) if errors else ""
+                    # An account that exists but was never verified (e.g.
+                    # an earlier run created it but stopped before OTP/link
+                    # retrieval completed) rejects login with a "verify
+                    # your account" error and a Resend Account Verification
+                    # link, not a generic credential failure. Treat this as
+                    # awaiting_verification (a continuation with a fresh
+                    # OTP/link can complete it), not a dead-end
+                    # login_failed: same distinction the create_account
+                    # branch already makes above (real gap found live
+                    # against Capital One, 2026-08-31).
+                    unverified = any("verif" in e.lower() for e in errors)
+                    if unverified and _click_labeled(page, ["Resend Account Verification", "Resend account verification"], roles=("link", "button")):
+                        state["status"] = "awaiting_verification"
+                        return _emit_with_checkpoint(page, state_dir, job_id, state, True, f"Workday account exists but is unverified; requested a new verification email.{note} Re-run with the verification link or OTP after it arrives.", outcome="checkpoint")
                     state["status"] = "login_failed"
                     return _emit_with_checkpoint(page, state_dir, job_id, state, False, f"Workday login submit was clicked but the page is still on the login screen.{note} Checkpoint saved for retry.", outcome="failed")
                 state["status"] = "logged_in"
@@ -2163,7 +2548,7 @@ def run(job_id: str, review_queue_path: str, state_dir: str, alias_email: str, a
                                     state["status"] = "create_account_failed"
                                     state["seen_signatures"] = list(seen_signatures)
                                     problem = "the form is still present" if create_mode == "create_account" else "the page showed validation errors"
-                                    return _emit_with_checkpoint(page, state_dir, job_id, state, False, f"Workday Create Account was clicked during continuation but {problem}.{note} Checkpoint saved — check the browser and re-run.", outcome="failed")
+                                    return _emit_with_checkpoint(page, state_dir, job_id, state, False, f"Workday Create Account was clicked during continuation but {problem}.{note} Checkpoint saved. Check the browser and re-run.", outcome="failed")
                                 if _verification_required(page):
                                     state["status"] = "awaiting_verification"
                                     state["seen_signatures"] = list(seen_signatures)
@@ -2183,7 +2568,7 @@ def run(job_id: str, review_queue_path: str, state_dir: str, alias_email: str, a
                     state["fill_history"] = history[-10:]
                     state["last_fill"] = fill_result
                     # Persist a dedicated resume-attached flag that survives
-                    # the capped fill_history[-10:] truncation — this is the
+                    # the capped fill_history[-10:] truncation: this is the
                     # primary idempotency signal _prior_resume_attached reads
                     # on a later continuation, so a resume already uploaded
                     # is never re-attached (which produced duplicate
@@ -2203,7 +2588,11 @@ def run(job_id: str, review_queue_path: str, state_dir: str, alias_email: str, a
                         state["seen_signatures"] = list(seen_signatures)
                         notes = "; ".join(q.get("question", "?") for q in unresolved)
                         keep_browser_open = True
-                        return _emit_with_checkpoint(page, state_dir, job_id, state, False, f"Workday has required questions aplyx can't safely auto-answer: {notes}. The browser window is left open for you to answer these yourself. You MUST close this browser window before clicking Continue Workday again — a later runtime invocation cannot attach to the same Chrome profile while it is still open.", outcome="checkpoint", filled_fields=len(fill_result["filled_labels"]), resume_attached=fill_result["resume_attached"], unresolved_questions=unresolved)
+                        fill_record_extra = {}
+                        fill_record_path = _maybe_record_fill(job_id, state, safe_fields)
+                        if fill_record_path:
+                            fill_record_extra["fill_record_path"] = fill_record_path
+                        return _emit_with_checkpoint(page, state_dir, job_id, state, False, f"Workday has required questions aplyx can't safely auto-answer: {notes}. The browser window is left open for you to answer these yourself. You MUST close this browser window before clicking Continue Workday again: a later runtime invocation cannot attach to the same Chrome profile while it is still open.", outcome="checkpoint", filled_fields=len(fill_result["filled_labels"]), resume_attached=fill_result["resume_attached"], unresolved_questions=unresolved, **fill_record_extra)
 
                     submit = _submit_button(page)
                     if submit is not None:
@@ -2217,7 +2606,7 @@ def run(job_id: str, review_queue_path: str, state_dir: str, alias_email: str, a
                         if not _is_review_submit_page(page):
                             state["status"] = "ready_to_submit"
                             state["seen_signatures"] = list(seen_signatures)
-                            return _emit_with_checkpoint(page, state_dir, job_id, state, True, "Workday reached a submit button but the page is not clearly the final review/submit step. Checkpoint saved — open the browser and confirm the final submit yourself.", outcome="checkpoint", filled_fields=len(fill_result["filled_labels"]), resume_attached=fill_result["resume_attached"])
+                            return _emit_with_checkpoint(page, state_dir, job_id, state, True, "Workday reached a submit button but the page is not clearly the final review/submit step. Checkpoint saved. Open the browser and confirm the final submit yourself.", outcome="checkpoint", filled_fields=len(fill_result["filled_labels"]), resume_attached=fill_result["resume_attached"])
 
                         if no_submit:
                             state["status"] = "ready_to_submit"
@@ -2238,7 +2627,7 @@ def run(job_id: str, review_queue_path: str, state_dir: str, alias_email: str, a
                         if outcome == "challenge_detected":
                             state["status"] = "challenge_detected"
                             state["seen_signatures"] = list(seen_signatures)
-                            return _emit_with_checkpoint(page, state_dir, job_id, state, False, f"Workday presented a challenge just before final submit: {submit_result['reason']}. Checkpoint saved — resolve manually and re-run.", outcome="checkpoint", confirmation_url=confirmation_url, filled_fields=filled_count, resume_attached=resume_attached)
+                            return _emit_with_checkpoint(page, state_dir, job_id, state, False, f"Workday presented a challenge just before final submit: {submit_result['reason']}. Checkpoint saved. Resolve manually and re-run.", outcome="checkpoint", confirmation_url=confirmation_url, filled_fields=filled_count, resume_attached=resume_attached)
 
                         if outcome == "validation_error":
                             state["status"] = "submit_validation_error"
@@ -2250,13 +2639,13 @@ def run(job_id: str, review_queue_path: str, state_dir: str, alias_email: str, a
                             state["seen_signatures"] = list(seen_signatures)
                             return _emit_with_checkpoint(page, state_dir, job_id, state, False, f"Workday final submit button was found but could not be clicked: {submit_result['reason']}. Checkpoint saved for retry.", outcome="failed", confirmation_url=confirmation_url, filled_fields=filled_count, resume_attached=resume_attached)
 
-                        # outcome == "outcome_unclear" — fail closed. Do NOT
+                        # outcome == "outcome_unclear": fail closed. Do NOT
                         # claim applied; the human must verify the result in
                         # the browser. This is the load-bearing safety
                         # property: no false "applied" outcome on ambiguity.
                         state["status"] = "submit_outcome_unclear"
                         state["seen_signatures"] = list(seen_signatures)
-                        return _emit_with_checkpoint(page, state_dir, job_id, state, False, f"Workday submit was clicked but the resulting page did not show an unambiguous confirmation. NOT recorded as applied — open the browser and verify manually. ({submit_result['reason']})", outcome="failed", confirmation_url=confirmation_url, doubt_signals=["submit_outcome_unclear"], filled_fields=filled_count, resume_attached=resume_attached)
+                        return _emit_with_checkpoint(page, state_dir, job_id, state, False, f"Workday submit was clicked but the resulting page did not show an unambiguous confirmation. NOT recorded as applied: open the browser and verify manually. ({submit_result['reason']})", outcome="failed", confirmation_url=confirmation_url, doubt_signals=["submit_outcome_unclear"], filled_fields=filled_count, resume_attached=resume_attached)
 
                     next_button = _next_button(page)
                     if _looks_like_blank_autofill_shell(page, fill_result):
@@ -2270,7 +2659,7 @@ def run(job_id: str, review_queue_path: str, state_dir: str, alias_email: str, a
 
                     try:
                         # Bounded retry, re-querying the Next button on
-                        # each attempt — this is a non-final transition
+                        # each attempt: this is a non-final transition
                         # (unlike the final-submit click above, which is
                         # never wrapped in a retry), so a transiently
                         # unclickable control here is safe to retry.
@@ -2280,7 +2669,7 @@ def run(job_id: str, review_queue_path: str, state_dir: str, alias_email: str, a
                         # A "Save and Continue"/"Next" click can fail
                         # client-side validation without raising anything
                         # (the page just stays put and shows inline
-                        # errors) — nothing above would notice, and the
+                        # errors): nothing above would notice, and the
                         # loop would otherwise only catch this later via
                         # the repeated-page-signature guard, which stops
                         # the run but with a much less actionable message
@@ -2294,7 +2683,11 @@ def run(job_id: str, review_queue_path: str, state_dir: str, alias_email: str, a
                             state["seen_signatures"] = list(seen_signatures)
                             note = "; ".join(page_errors[:5])
                             keep_browser_open = True
-                            return _emit_with_checkpoint(page, state_dir, job_id, state, False, f"Workday needs answers aplyx can't safely guess before continuing: {note}. The browser window is left open for you to answer these yourself. You MUST close this browser window before clicking Continue Workday again — a later runtime invocation cannot attach to the same Chrome profile while it is still open.", outcome="checkpoint", filled_fields=len(fill_result["filled_labels"]), resume_attached=fill_result["resume_attached"])
+                            fill_record_extra = {}
+                            fill_record_path = _maybe_record_fill(job_id, state, safe_fields)
+                            if fill_record_path:
+                                fill_record_extra["fill_record_path"] = fill_record_path
+                            return _emit_with_checkpoint(page, state_dir, job_id, state, False, f"Workday needs answers aplyx can't safely guess before continuing: {note}. The browser window is left open for you to answer these yourself. You MUST close this browser window before clicking Continue Workday again: a later runtime invocation cannot attach to the same Chrome profile while it is still open.", outcome="checkpoint", filled_fields=len(fill_result["filled_labels"]), resume_attached=fill_result["resume_attached"], **fill_record_extra)
 
                         state["status"] = "page_advanced"
                         state["last_fill"]["next_step_title"] = _workday_step_title(page)
@@ -2343,7 +2736,7 @@ def main(argv=None) -> int:
     parser.add_argument("--job-location", help="Canonical job location for a fresh --apply-url run, used by relocation-inference; queue continuations read location from the queue entry instead")
     parser.add_argument("--resume-pdf", help="Path to a tailored resume PDF from Phase 2; falls back to the master resume when absent")
     parser.add_argument("--cover-letter", help="Path to a tailored cover letter text file from Phase 2; pasted into a cover-letter field if the form has one")
-    parser.add_argument("--session-secret-file", help="Path to a JSON file {\"link\":...,\"otp\":...} or '-' for stdin — secure one-time secret handoff that keeps the raw value out of argv")
+    parser.add_argument("--session-secret-file", help="Path to a JSON file {\"link\":...,\"otp\":...} or '-' for stdin: secure one-time secret handoff that keeps the raw value out of argv")
     parser.add_argument("--credential-file", help="Short-lived JSON credential handoff from the desktop app; password is never stored in the checkpoint")
     parser.add_argument("--no-submit", action="store_true")
     parser.add_argument("--user-data-dir")

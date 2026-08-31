@@ -1,15 +1,15 @@
--- aplyx hosted backend — Phase 11 schema.
+-- aplyx hosted backend: Phase 11 schema.
 --
 -- Mirrors the local JSON shapes (packages/core/src/state.ts, the onboarding
 -- field schema in packages/core/src/onboarding/fields.ts) so local <-> hosted
 -- sync is mechanical, plus a `profiles` table for the safe_fields-shaped PII
 -- the operator has explicitly approved syncing for signed-in users
--- (2026-07-16 decision — a deliberate override of this phase's original
+-- (2026-07-16 decision, a deliberate override of this phase's original
 -- local-only-PII default; see packages/core/src/onboarding/profile.ts's
 -- HOSTED_PROFILE_FIELD_IDS comment for the exact field list and rationale).
 --
--- Every table is scoped to auth.uid() via row-level security from the start
--- — a user can never read or write another user's rows. Run this file via
+-- Every table is scoped to auth.uid() via row-level security from the start;
+-- a user can never read or write another user's rows. Run this file via
 -- `supabase db push` or paste it into the Supabase SQL editor.
 
 -- --- profiles ---------------------------------------------------------------
@@ -71,7 +71,7 @@ create trigger profiles_set_updated_at
 -- --- jobs (canonical registry) ----------------------------------------------
 -- Mirrors data/job_registry.json (packages/core/src/state.ts RegistryRecord).
 -- allowed/blocking statuses match scripts/state/job_state.py's
--- ALLOWED_STATUSES / BLOCKING_STATUSES exactly — keep these three lists in
+-- ALLOWED_STATUSES / BLOCKING_STATUSES exactly; keep these three lists in
 -- sync if the Python side ever adds a status.
 
 create table if not exists public.jobs (
@@ -106,7 +106,7 @@ create trigger jobs_set_updated_at
 
 -- Status-transition guard: never let an update silently downgrade a job from
 -- a blocking outcome (applied/needs_review/failed/skipped_unfit) back to a
--- non-blocking discovery status (new/seen) — mirrors job_state.py's
+-- non-blocking discovery status (new/seen); mirrors job_state.py's
 -- record_event() guard so a sync can't regress what the local engine already
 -- decided.
 create or replace function public.jobs_guard_status_transition()
@@ -183,7 +183,7 @@ create policy "applied_jobs_update_own" on public.applied_jobs
   for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- --- review_queue ------------------------------------------------------------
--- Mirrors data/review_queue.json (packages/core/src/state.ts QueueEntry) —
+-- Mirrors data/review_queue.json (packages/core/src/state.ts QueueEntry),
 -- append-only, same discipline as the local file; "resolved" is derived from
 -- applied_jobs/jobs, never deleted here.
 
@@ -219,7 +219,7 @@ create policy "review_queue_insert_own" on public.review_queue
 -- Private bucket for the hosted onboarding wizard's resume-upload step
 -- (docs/app-integration-plan.md hosted onboarding sequence). Objects are
 -- keyed "<user_id>/<filename>" and RLS-scoped to that folder prefix, same
--- per-user isolation as every table above — a user can only read/write
+-- per-user isolation as every table above; a user can only read/write
 -- objects under their own auth.uid() folder.
 
 insert into storage.buckets (id, name, public)

@@ -3,9 +3,9 @@
  * Node-only import (fs, child_process, platform.js's subprocess helpers).
  * The desktop app's ResumesScreen calls reflowExtractedResumeText directly
  * as a plain value (not `import type`), so unlike masterResume.ts's other
- * consumers — which only ever import its types, fully erased by tsc, or go
+ * consumers (which only ever import its types, fully erased by tsc, or go
  * through the Rust/bridge IPC layer for anything that touches disk or a
- * subprocess — this one really does end up in the browser/webview bundle.
+ * subprocess), this one really does end up in the browser/webview bundle.
  * Confirmed live: pulling this logic in via masterResume.ts broke Vite's
  * production build outright ("join" is not exported by
  * "__vite-browser-external"), because that file's top-level
@@ -24,7 +24,7 @@ const SECTION_PATTERNS: Array<{ re: RegExp; key: "education" | "experience" | "p
 const MONTH_RE = "(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-zA-Z]*\\.?";
 const DATE_TOKEN_RE = `(?:${MONTH_RE}\\.?\\s*\\d{4}|\\d{4}|Present|Current)`;
 // A month+year that starts immediately after a lowercase letter with no
-// space — the single most common raw-PDF-extraction artifact for a
+// space: the single most common raw-PDF-extraction artifact for a
 // job/degree date: two adjacent text runs ("...Intern" and "June 2025")
 // that were positioned close together on the page merge into one string
 // with the separating space simply gone ("InternJune 2025").
@@ -41,7 +41,7 @@ function matchSectionHeader(line: string): { key: (typeof SECTION_PATTERNS)[numb
 
 /** Splits "Title-textDATE – DATE" (with or without the space pypdf often
  *  drops before the date) into { title, dates }, or null if this line
- *  doesn't end in a real date range — used to find where one experience
+ *  doesn't end in a real date range: used to find where one experience
  *  entry ends and the next begins in text with no blank-line separators
  *  between entries (the common case for pypdf-extracted text). */
 function splitTitleAndDateRange(line: string): { title: string; dates: string } | null {
@@ -51,7 +51,7 @@ function splitTitleAndDateRange(line: string): { title: string; dates: string } 
   let title = m[1]!.trim();
   let dates = m[2]!.trim();
   // DATE_TOKEN_RE also accepts a bare 4-digit year, so greedy backtracking
-  // on the title group finds its shortest valid date suffix first — for
+  // on the title group finds its shortest valid date suffix first: for
   // "...Intern June 2025 – Present" that's just "2025 – Present", leaving
   // "June" stuck on the title. Reclaim a trailing month word off the title
   // back onto the front of the date range when this happens.
@@ -64,28 +64,28 @@ function splitTitleAndDateRange(line: string): { title: string; dates: string } 
 }
 
 /** Best-effort reformat of raw, unstructured text (typically straight out
- *  of convert_resume.py's pypdf extraction — "text extraction only,
+ *  of convert_resume.py's pypdf extraction, "text extraction only,
  *  formatting is not preserved") into the flat skeleton importFromMarkdown
  *  actually parses. Real motivation, not hypothetical: a real resume's
  *  extracted text has no `#`/`##`/`###` markers, "•" instead of "- "
  *  bullets, and a job's title/date/company frequently arrive as
  *  "Software Development Engineer InternJune 2025 – Present" on one line
  *  and "KredosAI Issaquah, WA" on the next, with no blank line anywhere
- *  to mark where one entry ends and the next begins — none of which
+ *  to mark where one entry ends and the next begins, none of which
  *  importFromMarkdown's line-based rules recognize, so before this fix
  *  the only things that ever actually imported from a freshly-converted
  *  PDF were whatever happened to already look like the skeleton (usually
- *  nothing — reported live as "only my name and basic details import,
+ *  nothing, reported live as "only my name and basic details import,
  *  never any bullets/jobs/skills").
  *
  *  Deliberately narrow about what it's confident enough to restructure:
  *  section names, bullets, and experience/project entry boundaries (the
  *  bulk of what was silently getting dropped). Education is left as
- *  plain passthrough text rather than guessed at — this sample resume's
+ *  plain passthrough text rather than guessed at: this sample resume's
  *  degree line has no clean delimiter to split degree/GPA/dates on, and
  *  a wrong guess there is worse than an honest gap the user can fill in
  *  by hand in the (now-editable) preview box. Idempotent on text that
- *  already matches the skeleton — an already-correct "### Title —
+ *  already matches the skeleton: an already-correct "### Title -
  *  Company" + dates + "- bullet" block passes through byte-for-byte
  *  unchanged, so running this on one of the hand-written
  *  data/resumes/base_resume_*.md files is a no-op, not a regression. */
@@ -114,7 +114,7 @@ export function reflowExtractedResumeText(raw: string): string {
 
   const flushPendingExp = () => {
     if (!pendingExp) return;
-    out.push(`### ${pendingExp.title} — ${pendingExp.company ?? "(unknown — fill in the company/location)"}`);
+    out.push(`### ${pendingExp.title} - ${pendingExp.company ?? "(unknown, fill in the company/location)"}`);
     out.push(pendingExp.dates);
     pendingExp = null;
   };
@@ -133,7 +133,7 @@ export function reflowExtractedResumeText(raw: string): string {
     }
 
     // Bullets: "•" (raw extraction) and already-correct "- " both
-    // normalize to "- " — checked before any section-specific logic so
+    // normalize to "- ": checked before any section-specific logic so
     // an already-well-formed bullet is never mistaken for a title/date
     // or a skills line.
     const bulletMatch = trimmed.match(/^(?:[••]|-)\s*(.+)$/);
@@ -145,7 +145,7 @@ export function reflowExtractedResumeText(raw: string): string {
     }
 
     // pypdf sometimes wraps a bullet's own text onto a second line with
-    // no marker (e.g. "...refreshed daily via cron" / "jobs") — a
+    // no marker (e.g. "...refreshed daily via cron" / "jobs"): a
     // lowercase-starting line right after a bullet is that wrapped
     // continuation, not a new title/entry; merge it back in rather than
     // letting downstream code mistake it for e.g. a new project.
@@ -158,7 +158,7 @@ export function reflowExtractedResumeText(raw: string): string {
     if (section === "experience") {
       if (trimmed.startsWith("###")) {
         // Already a well-formed header (e.g. re-reflowing text the user
-        // already hand-edited into shape) — pass through as-is, and the
+        // already hand-edited into shape), pass through as-is, and the
         // line right after a real header is its dates line, same rule.
         flushPendingExp();
         out.push(trimmed);
@@ -182,7 +182,7 @@ export function reflowExtractedResumeText(raw: string): string {
       }
       // A sub-line with no date range and no open entry waiting on a
       // company (e.g. a sub-project name between a job's company line
-      // and its bullets) — importFromMarkdown has no slot for this
+      // and its bullets): importFromMarkdown has no slot for this
       // either; dropping it here matches what it would already do.
       continue;
     }
@@ -193,7 +193,7 @@ export function reflowExtractedResumeText(raw: string): string {
         continue;
       }
       // Real extraction often appends a "|tech, stack, list" to the
-      // project name with no field for it downstream — keep the name,
+      // project name with no field for it downstream: keep the name,
       // drop the rest, rather than gluing it onto MasterResumeProject.name.
       out.push(`### ${trimmed.split("|")[0]!.trim()}`);
       continue;
@@ -212,7 +212,7 @@ export function reflowExtractedResumeText(raw: string): string {
     // Education, certifications, and anything before the first section
     // header: passthrough unchanged. importFromMarkdown will pick up
     // whatever it already recognizes (e.g. an already-bolded school
-    // line) and skip the rest — same as before this function existed,
+    // line) and skip the rest, same as before this function existed,
     // deliberately not guessing here.
     out.push(trimmed);
   }

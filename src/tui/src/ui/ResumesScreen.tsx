@@ -22,27 +22,27 @@ import { InlineTextInput, deleteBackward, insertAtCursor, moveCursorLeft, moveCu
 
 /**
  * Resumes screen: the operator's single generic resume
- * (data/resumes/resume.json — see src/core/src/masterResume.ts), edited
- * directly here — same file the desktop app's Resume screen edits, and
+ * (data/resumes/resume.json; see src/core/src/masterResume.ts), edited
+ * directly here: same file the desktop app's Resume screen edits, and
  * the same one @resume-tailor reads per application. No category system
  * (that's retired; see src/agents/bodies/resume-tailor.md).
  *
- * masterResume.ts's read/write/import are pure fs, so — unlike the
- * desktop app's webview, which has to go through a Rust/Node bridge —
+ * masterResume.ts's read/write/import are pure fs, so (unlike the
+ * desktop app's webview, which has to go through a Rust/Node bridge)
  * this screen calls them directly, same process, no IPC (same pattern
  * SettingsScreen.tsx already uses for settings.ts/profileLinks.ts).
  * Every edit writes through immediately, matching this TUI's existing
  * write-on-commit convention (no separate dirty-state/Save button, unlike
  * the desktop app's web-form model).
  *
- * Navigation is a plain nested drill-down, one level added at a time —
+ * Navigation is a plain nested drill-down, one level added at a time:
  * sections → (entry list for Education/Experience/Projects/Skills, or
  * the field list for Contact, or the flat item list for Certifications)
  * → entry detail (its own fields, plus a Bullets/Details/Items row for
  * whichever nested list that entry kind has) → that nested list. Every
  * list (entries, bullets, details, items, certifications) shares the
  * same four actions: `a` add, `x` delete, `[`/`]` reorder, enter to
- * edit/drill in — the closest 3-4-level analog SettingsScreen.tsx's own
+ * edit/drill in: the closest 3-4-level analog SettingsScreen.tsx's own
  * section→field two-level pattern has in this codebase, extended for a
  * genuinely nested document instead of a flat field list.
  */
@@ -72,7 +72,7 @@ const CONTACT_FIELDS: { key: ContactFieldKey; label: string }[] = [
 
 type EntrySection = "education" | "experience" | "projects" | "skills";
 
-/** What the inline text-edit popup is currently bound to — the save
+/** What the inline text-edit popup is currently bound to: the save
  *  handler switches on this to know exactly where the committed value
  *  goes. */
 type EditContext =
@@ -85,7 +85,7 @@ type EditContext =
   | { kind: "string-list-item"; itemIdx: number | "new" };
 
 /** Where the shared string-list sub-view (add/edit/delete/reorder one-
- *  line strings) is currently pointed — Education's free-text details,
+ *  line strings) is currently pointed: Education's free-text details,
  *  a Skills entry's items, and top-level Certifications all reuse the
  *  exact same interaction, just against a different array. */
 type StringListContext = { kind: "education-details"; entryIdx: number } | { kind: "skill-items"; entryIdx: number } | { kind: "certifications" };
@@ -157,7 +157,7 @@ export function ResumesScreen({
   const [importBusy, setImportBusy] = useState(false);
   // Export flow.
   const [exporting, setExporting] = useState(false);
-  // Shared scroll-window offset for whichever single list is on screen —
+  // Shared scroll-window offset for whichever single list is on screen:
   // only one list is ever visible at once, so one ref suffices (same
   // cursor-follows-window technique SettingsScreen.tsx's checklist popup
   // uses; Ink clips rather than scrolls a frame taller than the terminal).
@@ -175,7 +175,7 @@ export function ResumesScreen({
   };
 
   // Any popup/list-editing state active anywhere means this screen owns
-  // the keyboard — otherwise free-typed text would also hit App's global
+  // the keyboard; otherwise free-typed text would also hit App's global
   // tab-switch/quit handler.
   const captures = active && (inSection || editing);
   useEffect(() => {
@@ -231,11 +231,11 @@ export function ResumesScreen({
   const entryLabel = (e: (typeof entries)[number]): string => {
     if (entrySectionKey === "education") {
       const ed = e as MasterResumeEducation;
-      return `${ed.school || "(untitled school)"} — ${ed.degree || "no degree set"}`;
+      return `${ed.school || "(untitled school)"}: ${ed.degree || "no degree set"}`;
     }
     if (entrySectionKey === "experience") {
       const ex = e as MasterResumeExperience;
-      return `${ex.title || "(untitled role)"} — ${ex.company || "no company"}`;
+      return `${ex.title || "(untitled role)"}: ${ex.company || "no company"}`;
     }
     if (entrySectionKey === "projects") {
       const p = e as MasterResumeProject;
@@ -344,7 +344,7 @@ export function ResumesScreen({
     commit(imported);
     setImportPreview(null);
     setInSection(false);
-    setMessage(`Imported from ${importPreview.stem} — review every section, then edit anything that needs fixing.`);
+    setMessage(`Imported from ${importPreview.stem}: review every section, then edit anything that needs fixing.`);
     setMessageIsError(false);
   };
 
@@ -361,7 +361,7 @@ export function ResumesScreen({
         setMessageIsError(true);
         return;
       }
-      const notes = result.notes && result.notes.length > 0 ? ` (${result.notes.length} bullet(s)/entries shortened to fit one page — export only, your saved resume is unchanged)` : "";
+      const notes = result.notes && result.notes.length > 0 ? ` (${result.notes.length} bullet(s)/entries shortened to fit one page; export only, your saved resume is unchanged)` : "";
       setMessage(`Exported to data/resumes/resume.pdf.${notes}`);
       setMessageIsError(false);
     } catch (err) {
@@ -381,7 +381,7 @@ export function ResumesScreen({
           saveEdit();
         } else if (key.escape) {
           setEditing(false);
-          setMessage("Edit cancelled — value unchanged.");
+          setMessage("Edit cancelled: value unchanged.");
           setMessageIsError(false);
         } else if (key.leftArrow) {
           setEditCursor(moveCursorLeft({ value: editValue, cursor: editCursor }).cursor);
@@ -413,7 +413,7 @@ export function ResumesScreen({
           setEntryIndex(null);
           setInBullets(false);
           // Certifications is a flat list with no entry-detail level of
-          // its own — it goes straight into the shared string-list
+          // its own: it goes straight into the shared string-list
           // sub-view rather than sitting one level above it like the
           // other entry-list sections do.
           setStringListCtx(section.key === "certifications" ? { kind: "certifications" } : null);
@@ -446,7 +446,7 @@ export function ResumesScreen({
         if (input === "o") {
           try {
             openPath(resumesDir(root));
-            setMessage(`Opened ${resumesDir(root)} — drag a resume PDF in, then press r to refresh this list.`);
+            setMessage(`Opened ${resumesDir(root)}: drag a resume PDF in, then press r to refresh this list.`);
             setMessageIsError(false);
           } catch (err) {
             setMessage(`Could not open the folder: ${helperError(err)}`);
@@ -487,7 +487,7 @@ export function ResumesScreen({
           setStringListCtx(null);
           // Certifications has no entry-detail level above the string-list
           // (unlike education-details/skill-items, which back out to the
-          // entry they belong to) — escaping here means leaving the
+          // entry they belong to); escaping here means leaving the
           // section entirely, straight back to the section menu.
           if (stringListCtx.kind === "certifications") setInSection(false);
           return;
@@ -750,7 +750,7 @@ export function ResumesScreen({
           </Text>
           <Box marginTop={1} flexDirection="column">
             <Text dimColor wrap="wrap">
-              Using this replaces everything currently in your resume — review below, then press i to confirm.
+              Using this replaces everything currently in your resume: review below, then press i to confirm.
             </Text>
             {lines.map((l, i) => (
               <Text key={i} dimColor wrap="truncate-end">
@@ -777,7 +777,7 @@ export function ResumesScreen({
             <>
               <ScrollHints start={win.start} count={win.items.length} total={importCandidates.length} />
               {win.items.map((f, i) => (
-                <Row key={f.stem} label={`${f.category ?? f.stem}${importBusy && win.start + i === rowCursor ? " — reading…" : ""}`} focused={win.start + i === rowCursor} />
+                <Row key={f.stem} label={`${f.category ?? f.stem}${importBusy && win.start + i === rowCursor ? " (reading…)" : ""}`} focused={win.start + i === rowCursor} />
               ))}
             </>
           )}
@@ -829,7 +829,7 @@ export function ResumesScreen({
           <Text dimColor>{title} › {editCtx?.kind === "string-list-item" && editCtx.itemIdx === "new" ? "new" : "edit"}</Text>
         ) : (
           <Box marginTop={1} flexDirection="column">
-            {items.length === 0 ? <Text dimColor>Nothing yet — press a to add one.</Text> : null}
+            {items.length === 0 ? <Text dimColor>Nothing yet: press a to add one.</Text> : null}
             <ScrollHints start={win.start} count={win.items.length} total={items.length} />
             {win.items.map((v, i) => (
               <Row key={win.start + i} label={v} focused={win.start + i === stringListCursor} />
@@ -857,7 +857,7 @@ export function ResumesScreen({
           <Text dimColor>Bullets › {editCtx?.kind === "bullet" && editCtx.bulletIdx === "new" ? "new" : "edit"}</Text>
         ) : (
           <Box marginTop={1} flexDirection="column">
-            {bullets.length === 0 ? <Text dimColor>No bullets yet — press a to add one.</Text> : null}
+            {bullets.length === 0 ? <Text dimColor>No bullets yet: press a to add one.</Text> : null}
             <ScrollHints start={win.start} count={win.items.length} total={bullets.length} />
             {win.items.map((b, i) => (
               <Row key={b.id} label={b.text || "(empty)"} focused={win.start + i === bulletCursor} />
@@ -952,7 +952,7 @@ export function ResumesScreen({
         Resume <Text dimColor>· {section.label}</Text>
       </Text>
       <Box marginTop={1} flexDirection="column">
-        {entries.length === 0 ? <Text dimColor>Nothing yet — press a to add one.</Text> : null}
+        {entries.length === 0 ? <Text dimColor>Nothing yet: press a to add one.</Text> : null}
         <ScrollHints start={win.start} count={win.items.length} total={entries.length} />
         {win.items.map((e, i) => (
           <Row key={e.id} label={entryLabel(e)} focused={win.start + i === rowCursor} />

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""fetch_workable_listings.py — Workable ingestion (Phase 16B).
+"""fetch_workable_listings.py: Workable ingestion (Phase 16B).
 
 Fetches job postings from configured Workable companies via the public,
 auth-free widget API (the same endpoint Workable's own embeddable job
-board widget calls — no scraping, no Playwright needed) and emits one
+board widget calls; no scraping, no Playwright needed) and emits one
 raw-job JSON object per line on stdout, shaped for
 `src/scripts/state/job_state.py canonicalize`.
 
@@ -15,26 +15,26 @@ https://apply.workable.com/tarte-inc/j/...):
 
 Skip behavior mirrors the other optional boards: a missing, empty, or
 placeholder-only ("REPLACE_ME") workable_company_slugs array means the
-board is skipped — a warning goes to stderr, nothing on stdout, exit 0.
+board is skipped: a warning goes to stderr, nothing on stdout, exit 0.
 
 A guessed account slug (e.g. a company's own name) is NOT a reliable way
-to find its real Workable slug — confirmed live 2026-08-10: several
+to find its real Workable slug: confirmed live 2026-08-10, several
 guessed slugs (stripe, soundcloud, pipedrive, mysimpleshow) 404'd or
 returned an account with a permanently empty jobs array. The real slug
 is only reliably found from an actual live posting URL
 (apply.workable.com/<slug>/j/...), the same way Oracle/Workday tenants
-are discovered — never guess a slug from a company's public name alone.
+are discovered; never guess a slug from a company's public name alone.
 
-The list response carries FULL JD text directly (`description`, HTML) —
-confirmed live against five real accounts — no separate per-posting
+The list response carries FULL JD text directly (`description`, HTML);
+confirmed live against five real accounts, no separate per-posting
 detail fetch needed, same as Amazon/Stripe/Google/Muse. No pagination
 parameter exists or is needed: the endpoint returns a company's whole
 open-postings list in one response (confirmed live up to 499 postings
 in a single call, no truncation observed).
 
 Output contract:
-  stdout — raw-job JSONL, sorted by (company, title, external_job_id).
-  stderr — warnings and a machine-parseable summary line:
+  stdout: raw-job JSONL, sorted by (company, title, external_job_id).
+  stderr: warnings and a machine-parseable summary line:
            fetch_workable_listings: complete companies=<n> jobs=<n> failed=<n>
 
 Exit codes:
@@ -83,7 +83,7 @@ def load_configured_companies(targets_path: str) -> list:
         die(f"could not read targets config {targets_path}: {exc}")
     raw = targets.get("workable_company_slugs")
     if raw is None:
-        warn("workable_company_slugs is not configured — Workable board skipped this run")
+        warn("workable_company_slugs is not configured: Workable board skipped this run")
         return []
     if not isinstance(raw, list):
         die("targets config field 'workable_company_slugs' must be an array")
@@ -94,7 +94,7 @@ def load_configured_companies(targets_path: str) -> list:
             continue
         companies.append(text)
     if not companies:
-        warn("workable_company_slugs is empty or placeholder-only — Workable board skipped this run")
+        warn("workable_company_slugs is empty or placeholder-only: Workable board skipped this run")
     return companies
 
 
@@ -156,7 +156,7 @@ def main(argv=None) -> int:
         description="Fetch Workable company postings via the public widget API (Phase 16B).",
     )
     parser.add_argument("--targets", default=DEFAULT_TARGETS)
-    parser.add_argument("--search", default="", help="case-insensitive substring filter on title (client-side — the widget API has no server-side query param)")
+    parser.add_argument("--search", default="", help="case-insensitive substring filter on title (client-side; the widget API has no server-side query param)")
     parser.add_argument("--limit", type=int, default=200, help="max postings per company (0 = no cap)")
     parser.add_argument("--timeout", type=int, default=30)
     args = parser.parse_args(argv)
@@ -172,7 +172,7 @@ def main(argv=None) -> int:
     for slug in companies:
         company_jobs, error = _fetch_one_company(slug, args.timeout)
         if error is not None:
-            warn(f"company '{slug}' failed to fetch: {error} — skipped")
+            warn(f"company '{slug}' failed to fetch: {error}; skipped")
             failed += 1
             continue
         fetched += 1

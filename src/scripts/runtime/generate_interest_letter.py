@@ -17,16 +17,16 @@ TUI. This script must never call `approve`.
 Reliability, not just a transport swap (see docs/PLAN.md's Phase 12 and
 the plan this migration came from): the model's output is *generated* to
 conform to {letter, word_count, grounding_confidence} via tool-use
-input-schema enforcement, not parsed out of free text — this is what
+input-schema enforcement, not parsed out of free text: this is what
 actually replaces the old harness-CLI version's fragile
 _extract_json_object regex-scrape, not just calling a different process.
 On top of that, two cheap deterministic checks run before a draft is
 ever saved: the letter must not name a company other than the target
 company, and its self-reported word_count must roughly match the real
-count — either failing, or the model's own low self-reported
+count; either failing, or the model's own low self-reported
 grounding_confidence, marks the draft for extra scrutiny rather than
 presenting it as a normal ready-to-approve draft. None of this replaces
-the model's own grounding rules (src/agents/bodies/interest-letter.md) — it
+the model's own grounding rules (src/agents/bodies/interest-letter.md); it
 catches cases where those rules weren't followed.
 
 Exit codes:  0 draft saved (possibly flagged) · 2 unusable (no request /
@@ -47,7 +47,7 @@ import urllib.request
 HARNESS_TIMEOUT_S = 120
 ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
-# Judgment-tier model (Phase 12's own vocabulary) — this task is open-ended
+# Judgment-tier model (Phase 12's own vocabulary): this task is open-ended
 # prose generation grounded in a resume/JD, not a mechanical step, so it
 # gets a capable model, not the cheapest one. Overridable for cost control.
 DEFAULT_MODEL = "claude-sonnet-5"
@@ -94,7 +94,7 @@ def _read_json(path: str, default):
 def read_anthropic_key(root: str) -> str | None:
     """ANTHROPIC_API_KEY env var first (most portable), then
     src/config/anthropic_key.json (gitignored local-file fallback, same
-    pattern as src/config/job_cache_redis.json) — never a committed default,
+    pattern as src/config/job_cache_redis.json); never a committed default,
     this key is billed per-token and must never ship in any bundle."""
     env_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
     if env_key:
@@ -108,7 +108,7 @@ def read_anthropic_key(root: str) -> str | None:
 
 def _pick_resume(root: str, stem: str | None) -> str:
     """Resume markdown to ground the letter in. Prefers an explicit stem,
-    then the balanced resume, then whatever exists — an empty string is
+    then the balanced resume, then whatever exists; an empty string is
     tolerable (the model returns an empty letter rather than inventing)."""
     resumes = os.path.join(root, "data", "resumes")
     candidates = []
@@ -133,7 +133,7 @@ def _read_agent_body(root: str) -> str:
 
 
 def call_anthropic(system_prompt: str, payload: dict, api_key: str, model: str, timeout_s: int) -> dict:
-    """Tool-use with a forced tool_choice — the model's reply is
+    """Tool-use with a forced tool_choice: the model's reply is
     *generated* to conform to _SUBMIT_LETTER_TOOL's schema, not free text
     we then have to hunt a JSON object out of. Raises on any transport
     failure; the caller treats that as exit code 2, same as the old
@@ -171,7 +171,7 @@ def _extract_tool_input(response: dict) -> dict | None:
 
 
 def _grounding_flags(letter: str, company: str, reported_word_count: int) -> list[str]:
-    """Cheap, deterministic checks — catch cases where the model's own
+    """Cheap, deterministic checks: catch cases where the model's own
     grounding rules (src/agents/bodies/interest-letter.md) weren't followed,
     without needing a second model call for the easy cases. Not a
     replacement for a human reading the draft; a supplement to it."""
@@ -252,7 +252,7 @@ def main(argv=None) -> int:
     letter = str(obj.get("letter") or "").strip()
     if not letter:
         # The model is explicitly allowed to decline when the resume/JD give
-        # it too little to answer honestly. Surface that as its own outcome —
+        # it too little to answer honestly. Surface that as its own outcome;
         # it is not a failure, and the user can still write their own.
         print(json.dumps({"ok": True, "declined": True,
                           "note": "model returned an empty letter (insufficient grounding); "

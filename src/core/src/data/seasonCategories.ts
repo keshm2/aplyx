@@ -1,5 +1,5 @@
 /** Checkbox categories for the Seasons submenu. Checking a category
- *  writes its synonym bundle into targets.json's season_keywords array —
+ *  writes its synonym bundle into targets.json's season_keywords array:
  *  keeping both spellings/forms a posting might actually use (e.g.
  *  "fall" and "autumn", "co-op" and "coop") so checking one season
  *  option doesn't silently lose recall on a posting that phrased it

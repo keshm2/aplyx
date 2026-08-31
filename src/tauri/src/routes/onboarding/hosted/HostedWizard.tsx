@@ -24,7 +24,7 @@ type Step = (typeof STEPS)[number];
  * those are 2 of the same 8 shared field pages
  * (src/core/src/onboarding/fields.ts) rather than a separate duplicate
  * step. Inbox status tracking is hosted-only (docs/website.md's pricing
- * page already lists it as a Pro-tier feature) — local installs have no
+ * page already lists it as a Pro-tier feature); local installs have no
  * equivalent step at all.
  */
 export function HostedWizard() {
@@ -35,7 +35,7 @@ export function HostedWizard() {
   const [wizardError, setWizardError] = useState<string | undefined>(undefined);
 
   useEffect(() => {
-    // A failed client must not strand this screen on "Loading…" — bounce
+    // A failed client must not strand this screen on "Loading…": bounce
     // back to /auth, which renders the matching error state.
     getSupabaseClient()
       .then(setClient)
@@ -97,7 +97,7 @@ export function HostedWizard() {
     await goNext();
   }
 
-  // "Import your existing account details" — the profile step has nothing
+  // "Import your existing account details": the profile step has nothing
   // left to do (the account's profile is already populated), so this jumps
   // straight to candidate_email instead of goNext's usual one-step advance.
   function skipToCandidateEmail() {
@@ -111,7 +111,7 @@ export function HostedWizard() {
 
   // ResumeUploadStep tells the user they can skip and add a resume later
   // from Settings, but goNext's readiness gate for "resume" always blocked
-  // that — there was no way to actually leave this step without uploading.
+  // that; there was no way to actually leave this step without uploading.
   // This bypasses just that gate; readiness (the wizard's last step) still
   // requires a resume before hosted setup can finish, matching
   // HostedReadinessStep's own checklist.

@@ -1,26 +1,26 @@
-// email-tracking-worker — hosted-only inbox status tracking (Phase 17
+// email-tracking-worker: hosted-only inbox status tracking (Phase 17
 // follow-on, 2026-08-19). Runs on a schedule (pg_cron + pg_net, see
 // migration 0009) rather than per-request; each invocation connects,
 // read-only, to every opted-in hosted account's own mailbox over IMAP,
 // looks for replies to jobs that account actually applied to, and
 // updates `applied_jobs.outcome_status` directly (the terminal-state
-// guard is enforced by a DB trigger, not by this function's own logic —
+// guard is enforced by a DB trigger, not by this function's own logic;
 // see migration 0007).
 //
 // This REPLACES the earlier forwarding-based (Resend) and local-IMAP
 // designs explored the same day: local installs have no access to this
 // feature at all now (matches docs/website.md's pricing page, which
 // already lists this as a hosted-only Pro-tier feature), and hosted
-// credentials never leave Supabase's own infrastructure — the app
+// credentials never leave Supabase's own infrastructure; the app
 // password is stored via Vault (migration 0007's
 // set_email_tracking_config RPC), decrypted only inside
 // get_enabled_email_tracking_configs() (migration 0008, service_role-
 // only), and used here strictly to open a read-only IMAP session.
 //
 // Required secrets (set via `supabase secrets set`):
-//   SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY — provided automatically by
+//   SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY: provided automatically by
 //   the Edge Functions runtime.
-//   CRON_SECRET — a random, purpose-scoped value (NOT the service-role
+//   CRON_SECRET: a random, purpose-scoped value (NOT the service-role
 //   key) that migration 0009's pg_cron job also holds (via Vault, secret
 //   name "cron_worker_secret") and sends as the x-cron-secret header.
 //   Deliberately not reusing the real service-role key as the invocation
@@ -29,7 +29,7 @@
 //
 // Deploy: supabase functions deploy email-tracking-worker --no-verify-jwt
 // (same reasoning as inbound-email: the caller is pg_net, not a
-// Supabase-session client, so there's no platform JWT to verify —
+// Supabase-session client, so there's no platform JWT to verify;
 // auth is the x-cron-secret check below instead, fail closed.)
 
 const CRON_SECRET = Deno.env.get("CRON_SECRET") ?? "";
@@ -40,13 +40,13 @@ import { timingSafeEqual } from "../_shared/timingSafeEqual.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-// Already set on this project for mail-oauth-start/callback — the OAuth
+// Already set on this project for mail-oauth-start/callback: the OAuth
 // client credentials are project-wide secrets, not per-function, so
 // nothing new to configure to refresh tokens here too.
 const GOOGLE_CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID") ?? "";
 const GOOGLE_CLIENT_SECRET = Deno.env.get("GOOGLE_CLIENT_SECRET") ?? "";
 
-// Checked in this order — REJECTED first since it's the most
+// Checked in this order: REJECTED first since it's the most
 // linguistically distinct (explicit negation), and some rejection
 // templates also contain a bare "move forward" phrase that would
 // otherwise false-positive into INTERVIEW if checked first. First
@@ -72,7 +72,7 @@ const OFFER_PATTERNS = [
   /welcome to the team/,
   /congratulations.{0,40}offer/,
 ];
-// Checked before OA_SENT below — a submission-confirmation email ("you
+// Checked before OA_SENT below: a submission-confirmation email ("you
 // have completed the assessment") and an invitation email ("please
 // complete the assessment") share enough vocabulary (assessment,
 // complete) that OA_SENT's own /complete (?:the|this|an?) (?:assessment|
@@ -123,11 +123,11 @@ function classify(text: string): string | undefined {
 }
 
 // Only pulled when classify() returns "oa_sent" (operator request,
-// 2026-08-21) — the desktop app shows these as "Open assessment link" and
+// 2026-08-21): the desktop app shows these as "Open assessment link" and
 // "Duration to complete" on that job's detail sheet. Best-effort, same
 // deterministic-regex spirit as classify() itself: no attempt to parse a
 // real deadline out of wildly inconsistent phrasing ("active for 7 days",
-// "complete by August 30", "within 72 hours") — the matched phrase is
+// "complete by August 30", "within 72 hours"); the matched phrase is
 // stored verbatim (outcome_source already sets this precedent for
 // "here's what we matched, not a verified fact").
 function extractAssessmentUrl(text: string): string | undefined {
@@ -304,7 +304,7 @@ function decodeBase64Url(data: string): string {
   return new TextDecoder().decode(bytes);
 }
 
-// Gmail API messages are a MIME tree, not a flat body — walks it looking
+// Gmail API messages are a MIME tree, not a flat body; walks it looking
 // for the first text/plain part (falls back to a tag-stripped text/html
 // part if that's all the message has), same "subject + body text" input
 // classify() already expects from the IMAP path.
@@ -364,7 +364,7 @@ async function processOAuthGmailAccount(
   }
 
   // Unlike IMAP's uid-based cursor, Gmail's search API is timestamp-based
-  // (Gmail search's "after:" only has day granularity, not seconds — a
+  // (Gmail search's "after:" only has day granularity, not seconds, so a
   // day of overlap on every run is deliberate, not a bug: re-matching an
   // already-classified email is a harmless no-op, since applied_jobs'
   // terminal-state trigger (migration 0007) keeps a resolved outcome_status
@@ -385,7 +385,7 @@ async function processOAuthGmailAccount(
       listUrl.searchParams.set("q", query);
       listUrl.searchParams.set("maxResults", "20");
       const listResp = await fetch(listUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
-      // Best-effort per company — one bad/rate-limited query shouldn't
+      // Best-effort per company: one bad/rate-limited query shouldn't
       // abort the whole account's scan.
       if (!listResp.ok) continue;
       const listData = await listResp.json();
@@ -460,7 +460,7 @@ Deno.serve(async (req: Request) => {
     results.push(await processAccount(supabase, cfg));
   }
 
-  // OAuth Gmail connections (mail_connections) — a separate accessor since
+  // OAuth Gmail connections (mail_connections): a separate accessor since
   // they're a different table with a different decrypted-secret shape
   // than email_tracking_config's app-password rows above. A failure here
   // (e.g. the RPC not existing yet on an older deploy) doesn't block the

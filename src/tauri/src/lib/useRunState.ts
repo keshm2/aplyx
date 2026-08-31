@@ -4,7 +4,7 @@ import { markersIn, parsePhaseChecklist, parseCurrentApplication, type PhaseInfo
 import { startRun, stopRun, readActiveRunPid } from "./bridge";
 
 /**
- * Module-level (not component-level) live-run state — the desktop app's
+ * Module-level (not component-level) live-run state: the desktop app's
  * version of what the TUI's RunScreen.tsx does. A run is a long-lived
  * background process, not something tied to one screen's mount lifetime,
  * so its state has to survive navigating away and back. A plain useState
@@ -59,7 +59,7 @@ function setSnapshot(patch: Partial<RunStateSnapshot>) {
 
 let installed: Promise<void> | undefined;
 
-/** Idempotent — safe to call from every consumer; only the first call
+/** Idempotent, safe to call from every consumer; only the first call
  *  actually registers the Tauri event listeners. */
 function ensureListeners(): Promise<void> {
   installed ??= (async () => {
@@ -112,7 +112,7 @@ export function useRunState(): RunStateSnapshot {
 }
 
 // Guards checkForeignRun so the actual bridge call (which spawns a Node
-// subprocess — see bridge.ts's run_bridge, there's no persistent bridge
+// subprocess; see bridge.ts's run_bridge, there's no persistent bridge
 // process for one-shot commands like this) only ever runs once per app
 // session, not once per mount. The bug this fixes: "idle" was both the
 // initial "never checked yet" state and the resting "checked, found
@@ -122,14 +122,14 @@ export function useRunState(): RunStateSnapshot {
 // changed. That was the actual perf regression reported after the Run
 // nav item shipped. A later foreign run (started elsewhere while the app
 // stays open) still gets caught correctly, since clicking "Run now"
-// always goes through run_job_agent.py's own lock — the real guard (see
+// always goes through run_job_agent.py's own lock, the real guard (see
 // lib.rs's start_run comment). This check is only ever a head start on
 // the "already running elsewhere" UI, never load-bearing.
 let foreignCheck: Promise<void> | undefined;
 
 /** Best-effort check for a run already in flight from some other surface
  *  (TUI, scheduler, another aplyx window) before offering "Run now". The
- *  real guard is run_job_agent.py's own lock (see lib.rs's comment) — this
+ *  real guard is run_job_agent.py's own lock (see lib.rs's comment); this
  *  just keeps the button from inviting a spawn that's guaranteed to exit
  *  immediately via skipped_overlap. Call on mount of anything that shows
  *  a Run control. */
@@ -174,7 +174,7 @@ export async function stopCurrentRun(): Promise<void> {
   try {
     await stopRun(snapshot.pid);
   } finally {
-    // A foreign run never sends us a run:exit event — we didn't spawn it,
+    // A foreign run never sends us a run:exit event: we didn't spawn it,
     // so there's no watcher thread on our side. Reflect the stop request
     // immediately instead of sitting on "stopping" forever. A self-started
     // run's watcher thread still delivers the real run:exit shortly after,

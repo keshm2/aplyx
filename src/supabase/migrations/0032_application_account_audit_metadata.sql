@@ -1,19 +1,19 @@
--- ATS account-credential layer — Package 5 (verification and recovery)
+-- ATS account-credential layer: Package 5 (verification and recovery)
 -- of docs/ats-account-credentials-plan.md, "password rotation and
 -- deletion are auditable" acceptance criterion.
 --
 -- rotate_application_account_secret and delete_application_account
 -- (migration 0028) already wrote an application_account_events row on
--- every call, but with empty metadata — an auditor could see THAT a
+-- every call, but with empty metadata: an auditor could see THAT a
 -- rotation/deletion happened and on which account, but not what state
 -- it overwrote. rotate_application_account_secret was the sharper gap:
 -- it unconditionally force-sets status = 'active', silently discarding
 -- whatever status the account was actually in (login_failed, locked,
--- reset_required, ...) with zero record of it — contrast
+-- reset_required, ...) with zero record of it; contrast
 -- mark_account_state, which already logs a from/to pair. This
 -- migration makes rotate/delete log the same from/to shape mark_account_state
 -- uses, plus who authorized the call (the account owner via their own
--- session, vs. a service-role caller passing p_user_id explicitly —
+-- session, vs. a service-role caller passing p_user_id explicitly;
 -- there is currently no way to tell those two apart from the event log
 -- alone).
 

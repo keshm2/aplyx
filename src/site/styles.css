@@ -1,7 +1,7 @@
-/* aplyx.app marketing site — plain CSS, no framework.
+/* aplyx.app marketing site, plain CSS, no framework.
  *
  * Theme tokens mirror src/tauri/src/styles/tokens.css's Moss palette (the
- * desktop app's actual default as of the 2026-08-22 retheme — a muted
+ * desktop app's actual default as of the 2026-08-22 retheme: a muted
  * forest green with warm honey/clay notes on a parchment/ink ground,
  * replacing the earlier "Calm Cobalt" blue this site ran for a while),
  * so the site feels like the same product rather than a separately-
@@ -15,9 +15,9 @@
 }
 
 /* Self-hosted variable Inter + Manrope, same files as the desktop app
-   (src/tauri/src/assets/fonts/) — no CDN fetch, consistent with the
+   (src/tauri/src/assets/fonts/): no CDN fetch, consistent with the
    project's offline-first ethos. Manrope carries headlines (--font-display
-   below), Inter carries body copy — the app's own default pairing, not
+   below), Inter carries body copy: the app's own default pairing, not
    Inter alone for everything like this site used to run. Inter's variable
    file covers the whole 100-900 weight range. */
 @font-face {
@@ -57,7 +57,7 @@
   --accent-soft: #e3e9de;
   --accent-ink: #ffffff;
 
-  /* Status-tracking demo colors (features.html) — same 5-role palette
+  /* Status-tracking demo colors (features.html): same 5-role palette
      proposed in docs/application-status-tracking-plan.md for the real
      app (good/info/special/danger, plus muted via --text-faint), same
      good/danger hex values as src/tauri/src/styles/tokens.css's Moss
@@ -72,7 +72,7 @@
   --danger: #a83f33;
   --danger-soft: #f5e4e1;
 
-  /* Manrope (display) + Inter (body) — the app's own default pairing,
+  /* Manrope (display) + Inter (body): the app's own default pairing,
      not a generic single sans-serif stack. */
   --font-display: "Manrope", ui-sans-serif, -apple-system, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial,
     sans-serif;
@@ -110,7 +110,7 @@
   --shadow-lift: 0 16px 36px -14px rgb(40 32 20 / 0.18);
   --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
 
-  /* Entrance/scroll-reveal motion — orientation only, tuned down in dark
+  /* Entrance/scroll-reveal motion: orientation only, tuned down in dark
      mode below per the research note that fast motion reads as more
      jarring in low light. */
   --duration-quick: 120ms;
@@ -118,7 +118,7 @@
   --duration-slow: 420ms;
   --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
-  /* Snappier "ease-out-expo" shape for hover micro-interactions only —
+  /* Snappier "ease-out-expo" shape for hover micro-interactions only,
      distinct from --ease-out's entrance role, same separation of concerns
      tokens.css already keeps for the desktop app. */
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
@@ -219,14 +219,14 @@
 }
 
 /* Author stylesheet rules always beat the UA stylesheet's own
-   `[hidden] { display: none }`, regardless of specificity — so any
+   `[hidden] { display: none }`, regardless of specificity, so any
    element that both carries the `hidden` attribute AND matches an
    author `display:` rule (e.g. account.html's #dashboard-panel, which
    also matches .account-dashboard { display: grid }) renders visible
    despite being hidden, a real bug found live: the signed-out dashboard
    was showing empty stats under the sign-in form, worst on mobile's
    single-column stacking. `!important` here is the correct, narrow use
-   of it — `[hidden]` must always mean hidden, full stop, and this is
+   of it: `[hidden]` must always mean hidden, full stop, and this is
    the one rule in the whole file allowed to force that. */
 [hidden] {
   display: none !important;
@@ -270,13 +270,13 @@ a {
   color: inherit;
 }
 
-/* Genuine inline content links — inside a paragraph, not the top nav or
+/* Genuine inline content links: inside a paragraph, not the top nav or
    footer (those are positionally obvious as navigation already, and
    keep their own deliberate muted styling; recoloring them here too
    would just add visual noise to chrome that isn't the point). This is
    for the handful of links that sit inside actual prose, where a reader
    has no other cue that a word is clickable. Visited state is tracked
-   in sessionStorage (site.js), not a real :visited — deliberately session
+   in sessionStorage (site.js), not a real :visited, deliberately session
    -scoped, not permanent browsing history, and also sidesteps the
    privacy-driven restrictions modern browsers place on :visited styling
    (color-only, and some browsers partition it per top-level site anyway,
@@ -346,7 +346,7 @@ button {
 }
 
 /* Nav links sit close to the logo rather than stretched to the far edge
-   of the bar — space-between put a growing dead gap between them as
+   of the bar: space-between put a growing dead gap between them as
    the viewport widened, worse once the Extension link made the group
    itself wider too. Reverts to space-between on mobile (below), where
    the toggle/theme buttons need to stay pinned to the right edge. */
@@ -381,7 +381,7 @@ button {
 }
 
 /* Grows to fill the rest of .wrap (which no longer stretches nav-actions
-   there itself via space-between — see .site-nav .wrap) so the
+   there itself via space-between, see .site-nav .wrap) so the
    margin-left: auto on .nav-link-account below has room to push the
    account link and everything after it to the far right edge, while
    .nav-links stays put, close to the logo. */
@@ -416,7 +416,7 @@ button {
   color: var(--text);
 }
 
-/* Smooth underline wipe on hover — slides in from the left, out to the
+/* Smooth underline wipe on hover: slides in from the left, out to the
    right, rather than a plain instant show/hide. */
 .nav-link::after {
   content: "";
@@ -496,7 +496,7 @@ button {
   }
 }
 
-/* Mobile nav — hidden above the breakpoint (plain inline links), collapses
+/* Mobile nav: hidden above the breakpoint (plain inline links), collapses
    to a hamburger below it so the four nav links + GitHub + theme toggle
    never fight the logo wordmark for space (was overlapping around ~400px
    with no collapse at all). */
@@ -603,6 +603,41 @@ button {
   }
 }
 
+/* --- Sticky mobile CTA (index.html, pricing.html only) --- */
+/* Hidden by default (desktop/tablet already show a CTA above the fold);
+   fixed to the viewport bottom below the nav's own 46rem breakpoint,
+   where the hero CTA has scrolled well out of reach. */
+.sticky-mobile-cta {
+  display: none;
+}
+
+@media (max-width: 46rem) {
+  body.has-sticky-cta {
+    padding-bottom: 4.5rem;
+  }
+
+  .sticky-mobile-cta {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-5) calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+    background: color-mix(in srgb, var(--ground) 92%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -8px 24px -20px rgb(0 0 0 / 0.4);
+  }
+
+  .sticky-mobile-cta .btn {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
 /* --- Hero --- */
 
 .hero {
@@ -625,12 +660,12 @@ button {
   z-index: -1;
 }
 
-/* App screenshots peeking out from behind the headline — sit above the
+/* App screenshots peeking out from behind the headline: sit above the
    glow (::before, z-index -1) but below the actual hero text/CTAs
    (.hero-content, z-index 1), so the copy always stays crisp and
    readable on top of them.
    Constrained to the SAME centered, max-72rem column as .wrap (not the
-   raw viewport) — anchoring the peek offsets to the readable content
+   raw viewport), anchoring the peek offsets to the readable content
    column, rather than to 100vw, is what keeps them from overflowing
    unpredictably: on a very wide window they stay near the text instead
    of stretching out toward the browser edges, and on a narrower one
@@ -653,7 +688,7 @@ button {
   z-index: 1;
 }
 
-/* A soft, feathered scrim directly behind the headline/subhead/CTAs —
+/* A soft, feathered scrim directly behind the headline/subhead/CTAs:
    z-index -1 relative to .hero-content's OWN stacking context (it still
    established one via position:relative + z-index:1 above), so this sits
    behind the text but stays above .hero-visuals overall. Without this,
@@ -662,7 +697,7 @@ button {
    --text-muted color has real contrast against var(--ground), but not
    against a bright screenshot glimpsed through 45%-opacity glass behind
    it. A hard-edged panel would solve that too, but would also flatly
-   hide the mockups anywhere it covered them — this fades out via the
+   hide the mockups anywhere it covered them; this fades out via the
    radial gradient's transparent outer stop, so it only ever affects the
    region directly behind the text, and the mockups stay fully visible
    everywhere else, including the inner edges peeking in beside the
@@ -699,15 +734,15 @@ button {
 
 /* Higher specificity than the generic [data-reveal] rule (class + attribute
    beats attribute alone) so these combined rotate+scale transforms win
-   outright, regardless of which rule comes first in the file — the
+   outright, regardless of which rule comes first in the file; the
    staggered reveal script (site.js) still just toggles .is-visible,
    unaware anything here differs from a plain fade-and-rise. Filter is
    repeated explicitly here (matching the generic rule's blur-to-focus)
    since this whole `transition` shorthand wins over the generic rule's
-   for any element matching both — omitting it here would silently drop
+   for any element matching both: omitting it here would silently drop
    the blur transition, not just fall back to the generic one. */
 /* top offsets are deliberately large enough to clear the H1's own
-   height (2 lines at --text-4xl) — confirmed live that a smaller offset
+   height (2 lines at --text-4xl): confirmed live that a smaller offset
    let the card's chrome bar/tab row sit UNDER the headline's z-index,
    visually bisected by the opaque text on top of it, which read as a
    rendering bug rather than an intentional "peeking from behind" look.
@@ -774,7 +809,7 @@ button {
   color: var(--text-faint);
 }
 
-/* --- TUI mockup: plain HTML/CSS, not a screenshot — a terminal render
+/* --- TUI mockup: plain HTML/CSS, not a screenshot; a terminal render
    can't be captured the same way the desktop app's browser-based UI can.
    Colors and labels are the TUI's real ones (src/tui/src/theme.ts's "Aplyx
    Default" moss accent #7FAE86; tab names and [x]/[ ] row styling from
@@ -798,7 +833,7 @@ button {
   color: #8b8fa3;
   font-size: 0.65rem;
   white-space: nowrap;
-  /* Hard clip boundary of its own — a rounded, backdrop-filtered
+  /* Hard clip boundary of its own: a rounded, backdrop-filtered
      ancestor's own `overflow: hidden` isn't always reliable at clipping
      descendants in every browser (confirmed live: without this, an
      overflowing tab row rendered outside the card's frame entirely
@@ -854,7 +889,7 @@ button {
   animation: term-scan-sweep 4s linear infinite;
 }
 
-/* transform, not background-position — a background-position animation
+/* transform, not background-position: a background-position animation
    repaints on every frame (main-thread bound), which can stall or skip
    under any contention and visually reads as the sweep stopping mid-way
    and snapping back. translateX runs on the compositor thread instead,
@@ -885,10 +920,10 @@ button {
   animation: term-check-loop 4.5s ease-in-out infinite;
 }
 
-/* Hard cut, not a fade — the layer underneath stays fully opaque the
+/* Hard cut, not a fade: the layer underneath stays fully opaque the
    whole time (it's a static base state, not itself animated), so ANY
    nonzero transition window meant both layers were visibly blended
-   together — two different words overlapping reads as garbled at any
+   together: two different words overlapping reads as garbled at any
    duration, not just a long one. 0.1% of a 4.5s animation is ~4.5ms,
    under a single frame, so the swap reads as instant. */
 @keyframes term-check-loop {
@@ -937,7 +972,7 @@ button {
 
 @media (max-width: 72rem) {
   /* Below this width there isn't comfortable room beside the headline
-     for both mockups without them crowding the text or each other —
+     for both mockups without them crowding the text or each other:
      hidden rather than repositioned, so the hero stays a clean,
      text-first read on tablet/mobile widths instead. */
   .hero-visuals {
@@ -945,7 +980,7 @@ button {
   }
 }
 
-/* Small "peek" accent for the /features TUI+desktop row — the same
+/* Small "peek" accent for the /features TUI+desktop row: the same
    glass-card treatment as the hero mockups, just scaled down. A normal
    flex sibling (margin-left: auto) rather than absolutely positioned,
    since .feature-row's icon+text fills the row edge-to-edge and this
@@ -994,7 +1029,7 @@ button {
 
 @media (max-width: 30rem) {
   /* Nowhere comfortable for it to sit once the row lays out at full
-     mobile width without crowding the row's own text — simplest to
+     mobile width without crowding the row's own text: simplest to
      hide it there rather than fight for the space. */
   .feature-row-peek {
     display: none;
@@ -1115,7 +1150,7 @@ button {
 }
 
 /* The hero download button: platform glyph + two-line label, built as
-   Apple's own description of Liquid Glass — a highlight layer, a shadow
+   Apple's own description of Liquid Glass: a highlight layer, a shadow
    layer, and an illumination/tint layer, kept genuinely translucent
    (not a near-opaque fill) so the stage's texture and blurred page color
    actually show through, with a one-shot light-catching sweep that only
@@ -1133,7 +1168,7 @@ button {
   position: relative;
   overflow: hidden;
   isolation: isolate;
-  /* Illumination layer: a low-opacity accent tint, not a fill — this is
+  /* Illumination layer: a low-opacity accent tint, not a fill; this is
      the part that makes it read as tinted glass instead of a color chip. */
   background: linear-gradient(155deg,
     color-mix(in srgb, var(--accent) 40%, transparent) 0%,
@@ -1157,7 +1192,7 @@ button {
 }
 
 /* Sweep highlight: invisible at rest, plays exactly once, left to right,
-   only while the pointer is actually over the button — not a persistent
+   only while the pointer is actually over the button, not a persistent
    or idle animation. */
 @keyframes glass-sweep {
   from { transform: translateX(-160%) skewX(-14deg); }
@@ -1247,7 +1282,7 @@ button {
   transform: translateY(-1px) scale(0.98);
 }
 
-/* Compact variant — used both for the alt-arch Mac link (kept visible,
+/* Compact variant: used both for the alt-arch Mac link (kept visible,
    right next to the hero, not buried) and the secondary formats behind
    the disclosure. Same layered-glass construction as the hero card,
    just neutral instead of accent-tinted and without the eyebrow line. */
@@ -1382,7 +1417,7 @@ button {
   letter-spacing: -0.01em;
 }
 
-/* Alternating showcase rows — real product screenshots at actual
+/* Alternating showcase rows: real product screenshots at actual
    legible size (reusing .feature-shot from /features, which already
    proves these same four screenshots read fine at this size) instead
    of the card-grid-with-corner-accent this replaced. Deliberately not
@@ -1448,7 +1483,7 @@ button {
   margin-top: var(--space-6);
 }
 
-/* Shared centered subhead under a section h2 — same role .hero-subhead
+/* Shared centered subhead under a section h2: same role .hero-subhead
    plays for the hero, just without the hero's own layout context. */
 .section-subhead {
   max-width: 34rem;
@@ -1563,7 +1598,7 @@ button {
 
 @media (hover: hover) and (pointer: fine) {
   /* Scoped through .steps (not just .step:hover) so this outranks
-     [data-reveal].is-visible's own transform on specificity —
+     [data-reveal].is-visible's own transform on specificity;
      equal-specificity selectors otherwise let source order decide, and the
      reveal rule sits later in this file, silently winning the `transform`
      property and killing the hover-lift on every card once it's scrolled
@@ -1627,7 +1662,7 @@ button {
 
 /* --- Review queue demo: a second live mockup, same techniques as the
    hero TUI panel (term-scan-sweep, term-check-loop) reapplied to the
-   desktop app's actual Review queue screen instead of the terminal —
+   desktop app's actual Review queue screen instead of the terminal;
    real row content lifted from the multi-board search screenshot
    elsewhere on this page, for continuity. --- */
 .review-demo {
@@ -1659,7 +1694,7 @@ button {
 }
 
 /* .hero-mockup-chrome's default background/text colors are tuned to sit
-   on top of a light-in-light-theme card — fine for the hero mockups,
+   on top of a light-in-light-theme card, fine for the hero mockups,
    which have exactly that underneath. This card is unconditionally dark
    (it's a recreation of the app's own dark UI, not theme-following), so
    the chrome bar needs its own fixed-dark colors or its title goes
@@ -1673,7 +1708,7 @@ button {
   color: #8b8fa3;
 }
 
-/* Log/terminal register, not a card register — deliberately unlike the
+/* Log/terminal register, not a card register: deliberately unlike the
    showcase rows above. Monospace throughout, lowercase section labels
    prefixed like a shell prompt, rows read as log lines rather than
    list-item cards. */
@@ -1706,7 +1741,7 @@ button {
 
 /* .feature-badge's default accent tokens are theme-following, tuned for
    a light-in-light-theme surface (same issue as .hero-mockup-chrome
-   above) — this panel is unconditionally dark, so it needs its own
+   above), this panel is unconditionally dark, so it needs its own
    fixed-dark override. Reuses the moss green already used for this
    mockup's scan-sweep accent rather than introducing a new hue. */
 .review-panel .feature-badge {
@@ -1793,7 +1828,7 @@ button {
   border-radius: var(--radius-pill);
   font-size: 0.58rem;
   font-weight: 700;
-  /* Mixed against the row's actual solid background, not transparent —
+  /* Mixed against the row's actual solid background, not transparent:
      the badges stack (Applied absolutely over Pending), and a
      translucent background let the layer underneath show through for
      the entire time it was "on" (not just during a transition), which
@@ -1813,7 +1848,7 @@ button {
 }
 
 /* A job that never reaches the queue at all (fit-check filtered it
-   before a human would ever see it) — dimmed rather than styled like
+   before a human would ever see it), dimmed rather than styled like
    an active row, so it visually reads as "backgrounded," not pending. */
 .review-row-skipped {
   background: #131318;
@@ -1824,7 +1859,7 @@ button {
 }
 
 /* Static single-span pills for statuses that don't animate in this
-   demo (skipped, and every status-tracking outcome) — same pill shape
+   demo (skipped, and every status-tracking outcome), same pill shape
    as .review-badge for a consistent visual language, just without the
    two-layer stack .review-badge needs for its Pending<->Applied loop.
    Colors are the dark-theme values of this site's own --info/--special/
@@ -2022,14 +2057,14 @@ button {
 }
 
 /* Numbered subsections (1.1, 1.2, ...) inside the privacy page's legal
-   version — one step down from .prose h2's numbered top-level sections. */
+   version: one step down from .prose h2's numbered top-level sections. */
 .prose h3 {
   font-size: var(--text-base);
   margin-top: var(--space-6);
   color: var(--text);
 }
 
-/* TL;DR / Fine Print switcher (privacy page) — an iOS-style sliding
+/* TL;DR / Fine Print switcher (privacy page): an iOS-style sliding
    toggle rather than tabs: one switch, two flanking labels, the knob
    slides and the track recolors on state change. Panel visibility itself
    still reuses .os-panel's is-active/display mechanism (site.js). */
@@ -2095,7 +2130,7 @@ button {
   transform: translateX(1.25rem);
 }
 
-/* Not-yet-attorney-reviewed disclaimer at the top of the legal version —
+/* Not-yet-attorney-reviewed disclaimer at the top of the legal version:
    same honesty convention as .feature-badge: visible, not buried. */
 .legal-disclaimer {
   margin-top: var(--space-5);
@@ -2135,7 +2170,7 @@ button {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  /* Scoped through .feature-rows — see the .steps .step:hover comment
+  /* Scoped through .feature-rows: see the .steps .step:hover comment
      above for why: without it, [data-reveal].is-visible's own transform
      wins the cascade tie by source order and this lift never shows. */
   .feature-rows .feature-row:hover {
@@ -2171,7 +2206,7 @@ button {
   font-size: var(--text-sm);
 }
 
-/* Real product screenshot beneath a row's text — same window-chrome
+/* Real product screenshot beneath a row's text: same window-chrome
    treatment as the home page's hero mockups (dots + title bar), but
    static/in-flow rather than absolutely positioned and floating. */
 .feature-shot {
@@ -2213,7 +2248,7 @@ button {
   background: var(--surface);
 }
 
-/* Not-yet-shipped feature marker — same honesty convention as the
+/* Not-yet-shipped feature marker: same honesty convention as the
    pricing page's "illustrative, not final" note and the privacy page's
    "no server exists today" line: a feature described here that isn't
    built yet gets a visible, unambiguous flag, not silence. */
@@ -2230,12 +2265,12 @@ button {
   letter-spacing: 0.02em;
 }
 
-/* --- Status tracking demo (/features) — a live preview of the color +
+/* --- Status tracking demo (/features): a live preview of the color +
    glyph system proposed in docs/application-status-tracking-plan.md.
    A row of status pills with a soft "glow" bar that trails the mouse
    across them, smoothed by a CSS transition rather than redrawn every
    frame in JS (site.js just updates the target transform on
-   mousemove — the smoothing itself is free, handled by the browser's
+   mousemove; the smoothing itself is free, handled by the browser's
    own transition engine, the same technique the theme toggle's
    cross-fade already leans on). --- */
 .status-demo {
@@ -2309,7 +2344,7 @@ button {
 }
 
 @media (max-width: 40rem) {
-  /* The mouse-trailing glow has nothing meaningful to do on touch —
+  /* The mouse-trailing glow has nothing meaningful to do on touch:
      hide it rather than have a static, off-position blur sitting
      behind the pills for anyone who can't hover at all. */
   .status-demo-glow {
@@ -2360,7 +2395,7 @@ button {
 
 /* Wraps the panel set only (not the tablist above it) so the absolute
    positioning below resolves against this box, not the whole .os-tabs
-   column — otherwise an outgoing panel would jump up and overlap the
+   column, otherwise an outgoing panel would jump up and overlap the
    tabs instead of sitting exactly where the incoming one sits. Also used
    by privacy.html's TL;DR/Fine-print pair, which reuses .os-panel as-is. */
 .os-panels {
@@ -2371,7 +2406,7 @@ button {
    fades out while the incoming one fades in over it, instead of vanishing
    via display:none the instant its class flips. The active panel is the
    only one in normal flow (position: static), so it alone sets the
-   container's height — same height every switch, no jump between the
+   container's height: same height every switch, no jump between the
    mac/win/npm panels' slightly different content lengths. Inactive panels
    overlay via top/left/right only (no `bottom`), so each keeps its own
    natural height instead of being stretched to match the active one's. */
@@ -2504,7 +2539,7 @@ button {
   color: var(--text-muted);
 }
 
-/* A single centered column, not a left-aligned 2-column grid — matches
+/* A single centered column, not a left-aligned 2-column grid: matches
    the section heading above it (also centered) instead of reading as a
    separate, differently-aligned block. Each row still lays out
    left-to-right internally (checkmark, then text) so wrapped lines stay
@@ -2545,7 +2580,7 @@ button {
 
 
 /* --- "Escape your own usage limits" hook, between the local showcase and
-   the hosted plans grid — same card treatment as the home page's
+   the hosted plans grid: same card treatment as the home page's
    .cta-banner, scoped separately since this one sits mid-page, not at
    the very end. --- */
 .usage-hook {
@@ -2597,7 +2632,7 @@ button {
   padding: var(--space-6) 0 var(--space-9);
 }
 
-/* Wider than the site's standard 72rem .wrap — 4 cards with a full
+/* Wider than the site's standard 72rem .wrap: 4 cards with a full
    feature list each need more room than that to avoid the skinny,
    cramped columns a standard-width container forces them into. */
 .pricing .wrap {
@@ -2638,7 +2673,7 @@ button {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  /* Scoped through .pricing-grid — see the .steps .step:hover comment
+  /* Scoped through .pricing-grid: see the .steps .step:hover comment
      above for why: without it, [data-reveal].is-visible's own transform
      wins the cascade tie by source order and this lift never shows. */
   .pricing-grid .price-card:hover {
@@ -2759,7 +2794,7 @@ button {
 }
 
 /* --- Company marquee ---
-   Text wordmarks, not real brand logos/SVGs — using an unrelated
+   Text wordmarks, not real brand logos/SVGs: using an unrelated
    product's exact stylized logo without any actual relationship to the
    company implies an endorsement or partnership that doesn't exist
    (the same reasoning a "where our alumni work" bar earns honestly with
@@ -2799,7 +2834,7 @@ button {
 }
 
 /* Each logo sits in a small, always-light chip rather than directly on
-   the page background — some brand marks default to near-black (Notion,
+   the page background: some brand marks default to near-black (Notion,
    Brex) and would simply vanish against the dark theme's near-black
    background otherwise. A fixed light backdrop guarantees contrast for
    every logo regardless of its own color or which theme is active,
@@ -2813,10 +2848,10 @@ button {
   padding: var(--space-4) var(--space-6);
   height: 4.5rem;
   border-radius: var(--radius-lg);
-  /* Light mode: a dark plate on purpose — literally the dark theme's own
+  /* Light mode: a dark plate on purpose, literally the dark theme's own
      --surface-raised tone, used as a deliberate pop of contrast against
      the light page.
-     Dark mode flips to a LIGHT plate instead (see the override below) —
+     Dark mode flips to a LIGHT plate instead (see the override below):
      an equally dark chip there turned out too close to the page's own
      near-black background to read clearly at all. Not pure white either
      way: dimmed a step down from #fff so it doesn't glow in a dark room,
@@ -2852,7 +2887,7 @@ button {
 /* Notion (#000) and Brex (#212121) are near-black by default. In light
    mode the chip itself is dark, so they need inverting (near-black ->
    near-white) to show up at all. In dark mode the chip flips to light
-   (above) — on THAT background their native near-black already has
+   (above); on THAT background their native near-black already has
    plenty of contrast, so the invert is switched back off there instead
    of doubling up into a wrong, washed-out light-on-light result. */
 .marquee-item img.marquee-logo-invert {
@@ -2875,7 +2910,7 @@ button {
     transform: translateX(0);
   }
   to {
-    /* Exactly one .marquee-group's width — the two duplicated groups
+    /* Exactly one .marquee-group's width: the two duplicated groups
        are identical, so this lands group 2 precisely where group 1
        started, and the loop point is invisible. */
     transform: translateX(-50%);
@@ -2888,7 +2923,7 @@ button {
   }
 }
 
-/* --- Changelog (/changelog) — renders docs/CHANGELOG.md live off GitHub's
+/* --- Changelog (/changelog): renders docs/CHANGELOG.md live off GitHub's
    raw content CDN (changelog.js), so a push to main is a push to this page.
    A vertical timeline: one continuous rail (the container's own ::before)
    threading through each release's dot, matching the sequential, dated
@@ -2984,7 +3019,7 @@ button {
   box-shadow: 0 0 0 4px var(--ground);
 }
 
-/* The dot's actual fill lives on ::after, painted on top of ::before —
+/* The dot's actual fill lives on ::after, painted on top of ::before,
    so the ping ring (::before, added below for .is-latest only) can sit
    UNDERNEATH the solid dot at rest and only become visible once it
    expands past the dot's own edge, instead of flashing on top of it. */
@@ -2997,7 +3032,7 @@ button {
 }
 
 /* The "latest" release gets a soft white ring that pings outward and
-   fades — an ambient, always-on state indicator (not a response to any
+   fades: an ambient, always-on state indicator (not a response to any
    user action), so it's allowed to run continuously and a little slower
    than a typical UI transition. Scoped to .is-latest only: exactly one
    entry ever has this, so it reads as "this one is live" rather than
@@ -3025,7 +3060,7 @@ button {
 @media (prefers-reduced-motion: reduce) {
   /* The global reduced-motion rule (bottom of this file) collapses the
      duration to ~0, but an `infinite` animation at near-zero duration is
-     still technically animating — explicit `animation: none` is the only
+     still technically animating; explicit `animation: none` is the only
      way to guarantee a genuinely static dot. */
   .changelog-entry.is-latest .changelog-dot::before {
     animation: none;
@@ -3174,7 +3209,7 @@ button {
   margin: 0;
 }
 
-/* Loading skeleton — shown only until the first fetch (or cache read)
+/* Loading skeleton: shown only until the first fetch (or cache read)
    resolves; never a permanent state. */
 .changelog-skeleton .changelog-dot {
   background: var(--border-strong);
@@ -3271,7 +3306,7 @@ button {
 /* --- Scroll reveal --- */
 
 /* Blur-to-focus + a slight scale, on top of the plain fade/rise this
-   already had — a noticeably more "arriving into focus" feel than a
+   already had, a noticeably more "arriving into focus" feel than a
    flat fade, while staying in the same restrained, non-bouncy motion
    language as the rest of the site (still one easing curve, still no
    scaling past 1). Respects prefers-reduced-motion the same way every
@@ -3301,7 +3336,7 @@ button {
   }
 }
 
-/* --- Account page (account.html) — free hosted tier sign-in/sign-up and
+/* --- Account page (account.html): free hosted tier sign-in/sign-up and
    Tier 0 cached job search, per docs/hosted-paid-tier-plan.md. --- */
 
 .nav-link-account {
@@ -3310,7 +3345,7 @@ button {
   border-radius: var(--radius-pill);
   border: 1px solid var(--border-strong);
   /* Without this, a flex item can shrink below its text's single-line
-     width and "Sign in" wraps to two lines — the pill stretches into a
+     width and "Sign in" wraps to two lines; the pill stretches into a
      tall stadium shape and the wrapped lines default to left-aligned
      text, reading as badly off-center. Confirmed live on a real phone
      (not reproducible by resizing a desktop window, which wouldn't go
@@ -3319,7 +3354,7 @@ button {
   flex-shrink: 0;
 }
 
-/* Signed-in state, applied by nav-auth.js on every page — a generic
+/* Signed-in state, applied by nav-auth.js on every page: a generic
    placeholder avatar (no photo-upload feature exists), not a "Sign in"
    link a signed-in visitor has no reason to see. */
 .nav-avatar-link {
@@ -3355,7 +3390,7 @@ button {
   transition: max-width var(--duration-normal) var(--ease-standard);
 }
 
-/* Widens once signed in — a job-listing dashboard wants real width, a
+/* Widens once signed in: a job-listing dashboard wants real width, a
    login form doesn't. #auth-panel keeps its own narrower cap below so
    the form itself never stretches even while its wrap is wide. */
 .account-wrap:has(#dashboard-panel:not([hidden])) {
@@ -3637,7 +3672,7 @@ button {
   font-size: var(--text-xs);
 }
 
-/* Loading state — a handful of pulsing placeholder cards instead of
+/* Loading state: a handful of pulsing placeholder cards instead of
    plain status text, so a search reads as "working," not "did nothing." */
 .job-result-skeleton {
   height: 5.5rem;
@@ -3655,7 +3690,7 @@ button {
   }
 }
 
-/* --- "My activity" — live read-write mirror of the desktop app's own
+/* --- "My activity": live read-write mirror of the desktop app's own
    synced state (account.js's startActivitySync/loadMyState). --- */
 
 .account-dashboard {
@@ -3747,12 +3782,12 @@ button {
   .account-dashboard {
     grid-template-columns: 1fr;
   }
-  /* Row/wrap, not a stacked column — identity and Sign out share the top
+  /* Row/wrap, not a stacked column: identity and Sign out share the top
      line, and the nav becomes its own full-width horizontal scroll strip
      below rather than wrapping into a cramped multi-line block alongside
      the other two (a plain row+wrap of all three children in DOM order
      used to do exactly that). Flex-wrap only wraps in *visual* (order-
-     adjusted) sequence, not DOM sequence — .dashboard-nav's source
+     adjusted) sequence, not DOM sequence; .dashboard-nav's source
      position is between identity and sign-out, so explicit `order` here
      is load-bearing, not decorative: without it, sign-out follows nav's
      forced line break and drops to its own third line instead of sharing
@@ -3798,7 +3833,7 @@ button {
   }
 }
 
-/* --- Setup walkthrough (account.html #setup-panel) — shown instead of
+/* --- Setup walkthrough (account.html #setup-panel): shown instead of
    the dashboard for a brand-new signup (no profiles row yet), in place of
    the single banner-to-a-tab nudge this replaced. See account.js's
    updateSetupGate()/showSetupStep(). --- */
@@ -3845,7 +3880,7 @@ button {
 }
 
 /* Each step arrives with the same fade+rise .changelog-entry-in already
-   uses elsewhere on the site — replays automatically every time
+   uses elsewhere on the site; replays automatically every time
    showSetupStep() toggles a step's `hidden` attribute, since a step
    re-enters the render tree (display:none -> block) rather than just
    changing position. */
@@ -3915,7 +3950,7 @@ button {
 
 /* The setup panel is narrower than the profile tab's own dashboard-width
    form (30rem vs. the dashboard's full main column), so its fields always
-   stack label-above-input — the >40rem side-by-side layout below assumes
+   stack label-above-input; the >40rem side-by-side layout below assumes
    more horizontal room than this panel ever has, regardless of viewport
    width. */
 .setup-step .profile-form-fields .profile-field {
@@ -3923,9 +3958,9 @@ button {
   gap: var(--space-1);
 }
 
-/* Hosted daily-run quota — see account.js's renderUsageBar(). Two
+/* Hosted daily-run quota, see account.js's renderUsageBar(). Two
    states: a real progress bar once an active paid subscription exists
-   (none do yet — no Stripe integration is live), or a plain free-tier
+   (none do yet; no Stripe integration is live), or a plain free-tier
    note reusing .account-tier-badge, matching the sidebar's own label
    instead of a second, differently-styled badge. */
 .usage-bar {
@@ -4233,10 +4268,10 @@ button {
   }
 }
 
-/* --- Extension page (extension.html) — demo mockup + supporting sections.
+/* --- Extension page (extension.html): demo mockup + supporting sections.
    The mockup reuses .hero-mockup-chrome (browser chrome) and the exact
    prompt markup/animation from src/extension/src/content.ts's shadow DOM,
-   so this is an accurate preview of the real UI, not an invented one —
+   so this is an accurate preview of the real UI, not an invented one,
    same discipline as the homepage's hero TUI and review-queue mockups. --- */
 
 .ext-demo {
@@ -4329,10 +4364,10 @@ button {
   border-color: color-mix(in srgb, #7fae86 45%, #16161d);
 }
 
-/* The real prompt — same markup/CSS shape as content.ts's shadow-DOM
+/* The real prompt: same markup/CSS shape as content.ts's shadow-DOM
    panel (Moss palette, top-center slide-down), scaled to sit inside this
    mockup frame instead of a real page's fixed viewport. */
-/* Frosted-glass material + the site's own --ease-out-expo curve —
+/* Frosted-glass material + the site's own --ease-out-expo curve,
    kept in exact sync with the real prompt's CSS in
    src/extension/src/content.ts, since this mockup's whole purpose is to
    be an accurate preview, not an invented look-alike. */
@@ -4494,7 +4529,7 @@ button {
 }
 
 /* --- Direct app download (install.html) --- */
-/* Layout/spacing only — the actual glass card, buttons, and toggle are
+/* Layout/spacing only: the actual glass card, buttons, and toggle are
    defined once, near .btn-secondary, so the material has a single
    source of truth instead of two competing definitions. */
 

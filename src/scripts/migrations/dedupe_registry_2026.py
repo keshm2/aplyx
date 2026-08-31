@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-"""dedupe_registry_2026.py — one-time repair for split-job_key duplicates.
+"""dedupe_registry_2026.py: one-time repair for split-job_key duplicates.
 
 derive_job_key() (src/scripts/state/job_state.py) prioritizes apply_url
-over url — a job scraped once before its apply_url was extracted and
+over url: a job scraped once before its apply_url was extracted and
 again after (a fetcher improvement, or a source that only sometimes
 returns it) gets two different job_keys for one real posting, and
 upsert_job's exact job_key match won't catch it. The natural-key fallback
 in upsert_job (_find_record_by_natural_key) now prevents *new* duplicates
 going forward, but doesn't retroactively repair rows already split before
-that fallback existed — this script is that one-time repair.
+that fallback existed; this script is that one-time repair.
 
 Deliberately NOT a job_state.py subcommand: job_state.py's CLI is a
 frozen, canonical surface with real ongoing callers (job-scraper.md, the
-TUI, the Tauri bridge) — a one-off historical migration that becomes a
+TUI, the Tauri bridge); a one-off historical migration that becomes a
 no-op the moment nothing groups together anymore doesn't belong bolted
 onto that surface permanently. This script imports job_state.py's own
 helpers (load_json_array, save_json_array, merge_job, _natural_key) as a
@@ -20,7 +20,7 @@ library instead of reimplementing them, so the merge semantics are
 identical to what upsert_job already does for real-time cross-source
 merges.
 
-Safe to re-run — a no-op once nothing groups together. Back up
+Safe to re-run: a no-op once nothing groups together. Back up
 data/job_registry.json first if you want an undo path; this repo's
 data/ files aren't tracked by git.
 
@@ -42,16 +42,16 @@ from job_state import DEFAULT_REGISTRY, _natural_key, load_json_array, merge_job
 
 def dedupe_registry(registry_path: str) -> dict:
     """Merge registry rows that are the same real posting under different
-    job_keys. Groups by natural_key (company+title+location+role_type) —
+    job_keys. Groups by natural_key (company+title+location+role_type),
     falling back to job_id, then a singleton per-record key when neither
     is derivable, so a record with no grouping signal is never silently
     dropped. Within a group, the earliest-first-seen row survives and
     every other row is folded into it via merge_job (same field-adoption
-    rules real-time cross-source merges already use — richer jd_text,
+    rules real-time cross-source merges already use: richer jd_text,
     combined sources, earliest first_seen_at, latest last_seen_at,
     non-'new' status preferred); the discarded rows' own job_keys are not
     preserved anywhere, matching merge_job's "job_key is the identity"
-    contract — one surviving identity per real posting.
+    contract: one surviving identity per real posting.
     """
     registry = load_json_array(registry_path)
     groups: dict = {}

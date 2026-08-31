@@ -6,7 +6,7 @@ import { OnboardingWizard } from "./ui/onboarding/OnboardingWizard.js";
 
 /**
  * Entry point for `aplyx setup [--check]`. The interactive flow is the
- * Ink onboarding wizard (`src/tui/src/ui/onboarding/OnboardingWizard.tsx`) —
+ * Ink onboarding wizard (`src/tui/src/ui/onboarding/OnboardingWizard.tsx`);
  * this file no longer prompts anything itself. `--check`, and any
  * non-TTY context where an Ink app can't take keyboard input (CI, piped
  * output), fall back to a short pointer at the example config's `_help`
@@ -43,6 +43,6 @@ function runValidatorAndPrint(root: string): boolean {
 }
 
 function report(ok: boolean): number {
-  console.log(ok ? "\nSetup looks good — config is valid." : "\nConfig is not valid yet — fix the ERROR lines above and re-run `aplyx setup --check`.");
+  console.log(ok ? "\nSetup looks good: config is valid." : "\nConfig is not valid yet; fix the ERROR lines above and re-run `aplyx setup --check`.");
   return ok ? 0 : 1;
 }

@@ -7,7 +7,7 @@ import "./TagSearchInput.css";
  * companies, preferred locations): type to fuzzy-search a suggestion pool
  * (same filterSuggestions scorer the TUI uses), pick with click/Enter/
  * arrows, and every added value renders as a tag chip in wrapping rows
- * below the search bar — hovering (or focusing) a chip reveals its ×
+ * below the search bar; hovering (or focusing) a chip reveals its ×
  * remove button. Free text is always accepted on Enter: the pool drives
  * suggestions, it is never a validated enum (same contract as the TUI's
  * autocomplete). Backspace in an empty input removes the last tag.

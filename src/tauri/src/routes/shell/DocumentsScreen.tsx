@@ -9,11 +9,11 @@ import "../../components/dataList.css";
 import "../../components/Skeleton.css";
 
 // Read-only companion to ReviewScreen: same queue, same isResolved()
-// filtering, same list/detail layout — but scoped to entries that actually
+// filtering, same list/detail layout, but scoped to entries that actually
 // carry tailored content (tailored_bullets/cover_letter), and with no
 // mutation actions at all. review_queue.json/applied_jobs.json are
 // append-only by convention (see AGENTS.md's file write discipline), and
-// Mark applied/Dismiss already live on the Review queue screen — this
+// Mark applied/Dismiss already live on the Review queue screen. This
 // screen exists purely so a user can read and copy what resume-tailor
 // produced, not to introduce a second path that touches the queue.
 function hasTailoredContent(entry: QueueEntry): boolean {
@@ -99,7 +99,7 @@ export function DocumentsScreen() {
             <SkeletonRows />
           ) : entries.length === 0 ? (
             <div className="data-empty">
-              No tailored documents yet — {showResolved ? "none have been produced" : "they appear once the agent tailors a resume for a posting"}.
+              No tailored documents yet: {showResolved ? "none have been produced" : "they appear once the agent tailors a resume for a posting"}.
             </div>
           ) : (
             <div className="data-list">
@@ -114,7 +114,7 @@ export function DocumentsScreen() {
                   >
                     <div className="data-row-main">
                       <span className="data-row-title">
-                        {entry.company} — {entry.title}
+                        {entry.company}, {entry.title}
                       </span>
                       <span className="data-row-sub">
                         {typeof entry.ats_score === "number" ? `ats ${entry.ats_score}` : entry.source ?? ""}
@@ -133,7 +133,7 @@ export function DocumentsScreen() {
         {selectedEntry ? (
           <div className="detail-col">
             <div className="detail-title">
-              {selectedEntry.company} — {selectedEntry.title}
+              {selectedEntry.company}, {selectedEntry.title}
             </div>
             {typeof selectedEntry.ats_score === "number" ? (
               <div className="detail-row">

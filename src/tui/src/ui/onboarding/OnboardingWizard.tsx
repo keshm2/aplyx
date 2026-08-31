@@ -32,7 +32,7 @@ import { MultiEntryAutocomplete } from "../MultiEntryAutocomplete.js";
 import { ResumeStep } from "./ResumeStep.js";
 
 /**
- * Top-level onboarding wizard. Standalone, self-contained component —
+ * Top-level onboarding wizard. Standalone, self-contained component:
  * not mounted inside <App>; a later phase wires it into cli.tsx's
  * "setup" case and first-run auto-launch. Persists every field
  * immediately on commit (write-through, not end-of-run) so Ctrl-C
@@ -58,7 +58,7 @@ function readTargetsJsonFile(root: string): Json {
 function writeTargetsJsonFile(root: string, data: Json): void {
   const file = targetsJsonPath(root);
   fs.writeFileSync(file, `${JSON.stringify(data, null, 2)}\n`, "utf8");
-  // targets.json carries PII (name, DOB, address) — don't rely on ambient
+  // targets.json carries PII (name, DOB, address); don't rely on ambient
   // umask; writeFileSync's mode option only applies on create, so chmod
   // explicitly every write.
   fs.chmodSync(file, 0o600);
@@ -76,7 +76,7 @@ function ensureTargetsFile(root: string): void {
     fs.copyFileSync(path.join(root, "src", "config", "targets.example.json"), file);
     fs.chmodSync(file, 0o600);
   } catch {
-    // best-effort — subsequent reads/writes still degrade gracefully via
+    // best-effort: subsequent reads/writes still degrade gracefully via
     // readTargetsJsonFile's own try/catch
   }
 }
@@ -147,7 +147,7 @@ function computeInitialValues(root: string, directory: CompanyEntry[]): Record<s
 
 /** Write-through: every commit lands on disk immediately via the same
  *  files/helpers Settings uses (safe_fields via settings.ts,
- *  linkedin/github via profileLinks.ts) — never a raw safe_fields
+ *  linkedin/github via profileLinks.ts), never a raw safe_fields
  *  read/write for the profile-link fields, so they interoperate with
  *  the legacy full-URL fallback. */
 function persistFieldValue(root: string, id: string, value: string | string[], directory: CompanyEntry[]): void {
@@ -173,7 +173,7 @@ function persistFieldValue(root: string, id: string, value: string | string[], d
 }
 
 /** True once every field on the given field page id has been committed
- *  (entered or explicitly skipped via Enter) — the gate Shift+→ checks
+ *  (entered or explicitly skipped via Enter): the gate Shift+→ checks
  *  before leaving a page, so a user can't blow through the wizard
  *  without ever committing anything. */
 function allFieldsCommittedOnPage(pageIndex: number, committedSet: Set<string>): boolean {
@@ -221,7 +221,7 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
   const [suggestionIndex, setSuggestionIndex] = useState(0);
   /** Whether the user has explicitly arrowed onto a suggestion. Enter only
    *  substitutes a suggestion for what they typed once this is true or the
-   *  suggestion genuinely completes their text — see resolveTypedChoice. */
+   *  suggestion genuinely completes their text; see resolveTypedChoice. */
   const [suggestionTouched, setSuggestionTouched] = useState(false);
   const [entryHint, setEntryHint] = useState("");
   const [resumeInputActive, setResumeInputActive] = useState(false);
@@ -230,7 +230,7 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
    *  fields); cleared on any successful page navigation. The banner
    *  itself is derived fresh each render (blockedAdvanceAttempted &&
    *  !allFieldsCommittedOnPage) rather than toggled off by hand, so it
-   *  can never go stale — e.g. it disappears the instant the user
+   *  can never go stale: e.g. it disappears the instant the user
    *  commits the page's last field via Enter, with no extra bookkeeping. */
   const [blockedAdvanceAttempted, setBlockedAdvanceAttempted] = useState(false);
 
@@ -338,9 +338,9 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
     focus.setFocusIndex(0);
     loadDraftForField(PAGES[nextPage]?.fields[0]);
     persistOnboardingMeta(root, [...committedNow], nextPage, nextPage === COMPLETION_PAGE_INDEX);
-    // Every page change — whichever of the three ways it happens (blocked
+    // Every page change: whichever of the three ways it happens (blocked
     // Shift+→'s own successful retry, Shift+←, or the last field on a page
-    // auto-advancing via advanceFocusOrPage) — lands on a page the alert
+    // auto-advancing via advanceFocusOrPage), lands on a page the alert
     // hasn't been attempted-and-blocked on yet, so always clear it here
     // rather than only at the Shift+→ call sites (a stale true would
     // otherwise leak onto the next page's fresh, untouched fields).
@@ -359,8 +359,8 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
       focus.setFocusIndex(0);
       loadDraftForField(PAGES[nextPage]?.fields[0]);
       persistOnboardingMeta(root, [...committedSet], nextPage, nextPage === COMPLETION_PAGE_INDEX);
-      // Committing a page's last field can itself land on a new page — the
-      // same "leaving a page" event goToPage handles for Shift+←/→ — so
+      // Committing a page's last field can itself land on a new page: the
+      // same "leaving a page" event goToPage handles for Shift+←/→, so
       // clear the gate here too, or a stale true from an earlier blocked
       // Shift+→ on the previous page would falsely re-trigger the alert
       // against the new page's (still untouched) fields.
@@ -427,7 +427,7 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
    * What Enter means in a location field once the user has typed
    * something. A suggestion only replaces their text if they explicitly
    * arrowed onto it, or if it genuinely *completes* what they typed
-   * (case-insensitive prefix — "seat" → "Seattle, WA").
+   * (case-insensitive prefix: "seat" → "Seattle, WA").
    *
    * Previously this was `suggestions[suggestionIndex] ?? typed`, which
    * blindly took the top fuzzy match: typing a city that isn't in
@@ -461,7 +461,7 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
         field.kind === "multi-location" ? resolveLocationChoice(typed) : suggestions[suggestionIndex];
       if (!chosen) {
         setEntryHint(
-          "No matching vetted company — pick one from the list, or leave blank and press enter twice to skip.",
+          "No matching vetted company. Pick one from the list, or leave blank and press enter twice to skip.",
         );
         return;
       }
@@ -481,14 +481,14 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
     // Both commit empty. Locations are deliberately NOT defaulted to a
     // starter list any more: they vary per person (a Seattle-area default
     // is wrong for most users), and per AGENTS.md "Location handling"
-    // preferred_locations is a priority list, not a filter — so empty
+    // preferred_locations is a priority list, not a filter, so empty
     // costs the user nothing except result ordering.
     commitAndAdvance(field.id, []);
   }
 
   /** Date-of-birth editing. `draftText` holds the *formatted* value; the
    *  raw digits are derived from it, so there's no second source of truth
-   *  to keep in sync. The cursor is pinned to the end — the separators are
+   *  to keep in sync. The cursor is pinned to the end: the separators are
    *  machine-inserted, so mid-string editing would only fight the
    *  formatter. */
   function editDob(input: string, key: Key) {
@@ -523,7 +523,7 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
     const suggestionsOpen =
       (field.kind === "location" || field.kind === "multi-location" || field.kind === "multi-company") &&
       suggestions.length > 0;
-    // Up/down move between fields — the wizard's other navigation key
+    // Up/down move between fields: the wizard's other navigation key
     // besides tab. Requested because tab-only meant that once focus left a
     // field the only way back was to walk the page or bounce off it. An
     // open suggestion list claims up/down first (it needs them to pick a
@@ -553,8 +553,8 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
         return;
       case "select3": {
         // Stores the option's machine value ("not_veteran"/"veteran"/
-        // "decline", etc.) — same convention FieldInput.tsx (Tauri) uses
-        // for this kind — not the display label, so both UIs write the
+        // "decline", etc.): same convention FieldInput.tsx (Tauri) uses
+        // for this kind, not the display label, so both UIs write the
         // same shape to safe_fields.
         const opts3 = field.options ?? [];
         if (key.return) {
@@ -596,13 +596,13 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
         return;
       }
 
-      // PageUp/PageDown are the primary back/forward keys — a dedicated,
+      // PageUp/PageDown are the primary back/forward keys: a dedicated,
       // unambiguous escape sequence (\x1b[5~ / \x1b[6~) every terminal
       // sends the same way, unlike Shift+Arrow: several Windows terminal
       // hosts (legacy conhost.exe, and some Windows Terminal/shell
       // combinations) don't reliably emit the modifier-prefixed CSI
       // sequence arrow keys need to report Shift, so key.shift can just
-      // never come through — silently making Shift+←/→ inert with no
+      // never come through, silently making Shift+←/→ inert with no
       // error, which read as "the back/forth buttons don't work" on
       // Windows. Shift+←/→ stays wired too (works fine on most
       // terminals, and is worth keeping for muscle memory), but
@@ -610,7 +610,7 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
       if (key.pageUp || (key.shift && key.leftArrow)) return goToPage(currentPage - 1);
       if (key.pageDown || (key.shift && key.rightArrow)) {
         // Commit first, then gate. A value typed but not yet Entered is an
-        // answer — checking the gate before committing meant typing a field
+        // answer: checking the gate before committing meant typing a field
         // and pressing shift+→ was refused with "answer every field on this
         // page", pointing at the field the user had just filled in.
         const committedNow = commitDraftForField(focusedField) ?? focus.committed;
@@ -622,7 +622,7 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
       }
 
       // Enter is taken on this page by ResumesScreen itself (converts the
-      // selected resume / shows a status message) — it's the one page
+      // selected resume / shows a status message): it's the one page
       // where the universal "commit & advance" key doesn't advance, so
       // Escape doubles as an explicit, easy-to-guess "skip this step"
       // (PageDown/Shift+→, handled above, still works too).
@@ -666,7 +666,7 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
           </Text>
           <Box marginTop={1}>
             <Text wrap="wrap">
-              This will guide you through the installation process — your profile, job targets, and resumes.
+              This will guide you through the installation process: your profile, job targets, and resumes.
               Everything is optional and editable later in Settings.
             </Text>
           </Box>
@@ -718,7 +718,7 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
             placeholder={field.placeholder}
             help={field.help}
             // Only the live per-keystroke complaint (e.g. "Feb has 28
-            // days in 2005") — refused digits simply don't appear.
+            // days in 2005"); refused digits simply don't appear.
             warning={isFocused && entryHint ? entryHint : undefined}
           />
         );
@@ -733,7 +733,7 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
             placeholder={field.placeholder}
             warning={
               isFocused && skipFlow.warned
-                ? `No roles entered — aplyx will use its default list: ${readExampleArray(root, "role_keywords").join(", ")}. Press enter again to accept, or start typing to override.`
+                ? `No roles entered; aplyx will use its default list: ${readExampleArray(root, "role_keywords").join(", ")}. Press enter again to accept, or start typing to override.`
                 : undefined
             }
           />
@@ -774,8 +774,8 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
         const warning = isFocused
           ? skipFlow.warned
             ? field.kind === "multi-location"
-              ? "No preferred locations — aplyx still searches the whole US either way; these only push matching jobs to the top. Press enter again to continue, or start typing to add one."
-              : "No companies added — the project's vetted company list is still watched regardless. Press enter again to continue, or start typing to add one."
+              ? "No preferred locations: aplyx still searches the whole US either way; these only push matching jobs to the top. Press enter again to continue, or start typing to add one."
+              : "No companies added: the project's vetted company list is still watched regardless. Press enter again to continue, or start typing to add one."
             : entryHint || undefined
           : undefined;
         return (
@@ -825,7 +825,7 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
     body = (
       <QuestionFrame
         title={page.title}
-        alert={showAdvanceGateAlert ? "Answer every field on this page before continuing — press enter on each (blank is fine)." : undefined}
+        alert={showAdvanceGateAlert ? "Answer every field on this page before continuing: press enter on each (blank is fine)." : undefined}
       >
         {page.fields.map((field, idx) => renderField(field, idx))}
       </QuestionFrame>

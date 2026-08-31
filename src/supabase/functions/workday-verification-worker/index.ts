@@ -1,4 +1,4 @@
-// workday-verification-worker — hosted Gmail verification ingestion for
+// workday-verification-worker: hosted Gmail verification ingestion for
 // active Workday sessions (docs/workday-personal-inbox-plan.md).
 //
 // This is a SEPARATE function from email-tracking-worker (the post-
@@ -7,19 +7,19 @@
 // resolves the account-creation/verification mail a Workday apply flow
 // needs BEFORE any application is submitted. They share the same OAuth
 // refresh-token path and Gmail read-only scope, but never the same
-// correlation logic, the same tables, or the same outcome — confusing them
+// correlation logic, the same tables, or the same outcome; confusing them
 // would either hand an employer reply to a verification flow or record a
 // verification code as an application outcome. Safe utilities (token
 // refresh, MIME plain-text extraction) are duplicated narrowly rather than
 // shared across a network boundary Edge Functions can't cross.
 //
 // Required secrets (set via `supabase secrets set`):
-//   SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY — provided automatically.
-//   CRON_SECRET — purpose-scoped; the pg_cron job (migration 0039) sends
+//   SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY: provided automatically.
+//   CRON_SECRET: purpose-scoped; the pg_cron job (migration 0039) sends
 //   it as x-cron-secret. NOT the service-role key.
 //
 // Deploy: supabase functions deploy workday-verification-worker --no-verify-jwt
-// (caller is pg_net, not a Supabase-session client — same reasoning as
+// (caller is pg_net, not a Supabase-session client, same reasoning as
 // email-tracking-worker. NOT deployed by this change; needs a separate
 // explicit go-ahead before `supabase functions deploy`.)
 
@@ -45,7 +45,7 @@ import {
 // Bounded search window: a verification mail is only useful within a few
 // minutes of account creation. Gmail's "after:" is day-granularity, so we
 // search the last 2 days and rely on session correlation (recipient +
-// tenant + sender/subject tokens) to reject unrelated mail — never on the
+// tenant + sender/subject tokens) to reject unrelated mail, never on the
 // time window alone. A session past its expires_at is excluded by the RPC.
 const SEARCH_AFTER_DAYS = 2;
 const MAX_MESSAGES_PER_SESSION = 10;
@@ -71,7 +71,7 @@ async function refreshGoogleAccessToken(
   const data = await resp.json();
   // Google does not always return a new refresh_token, but when it does
   // (e.g. the first refresh after a grant, or rotation policies), the old
-  // one may be invalidated — persist the new one or lose the connection.
+  // one may be invalidated; persist the new one or lose the connection.
   const newRefreshToken = String(data.refresh_token ?? "");
   if (newRefreshToken && newRefreshToken !== refreshToken) {
     await supabase.rpc("service_update_mail_connection_refresh_token", {
@@ -216,7 +216,7 @@ async function processSession(
 
   if (!kind || !secret) {
     // Correlated message but no extractable secret and no manual-required
-    // signal — still manual_required, never guess.
+    // signal; still manual_required, never guess.
     await supabase.rpc("service_record_verification_message", {
       p_session_id: session.session_id,
       p_provider_message_id: best.messageId,
@@ -269,7 +269,7 @@ Deno.serve(async (req: Request) => {
 
   const results = [];
   for (const session of (sessions ?? []) as ActiveSession[]) {
-    // Best-effort per session — one bad refresh/search shouldn't abort
+    // Best-effort per session: one bad refresh/search shouldn't abort
     // the whole scan, same posture as email-tracking-worker.
     try {
       results.push(await processSession(supabase, session));

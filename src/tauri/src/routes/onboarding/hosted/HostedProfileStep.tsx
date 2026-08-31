@@ -7,11 +7,11 @@ import { FieldInput } from "../../../components/FieldInput";
 type FieldValue = string | string[];
 
 /**
- * Hosted-mode counterpart of the local wizard's ProfileStep — same shared
+ * Hosted-mode counterpart of the local wizard's ProfileStep: same shared
  * field schema (src/core/src/onboarding/fields.ts), but reads/writes
  * through SupabaseAdapter instead of LocalAdapter. SupabaseAdapter has no
  * node:fs/child_process dependency (pure @supabase/supabase-js calls), so
- * it runs directly in the webview — no Rust bridge needed for hosted
+ * it runs directly in the webview; no Rust bridge needed for hosted
  * writes, only for local-mode ones. Profile PII lands in the `profiles`
  * table per the operator's 2026-07-16 decision to sync it for signed-in
  * users (see src/core/src/onboarding/profile.ts).
@@ -39,7 +39,7 @@ export function HostedProfileStep({
         if (cancelled) return;
         setValues((prev) => ({ ...prev, ...Object.fromEntries(entries) }));
       })
-      // A failed prefill must not strand the page on its loading state —
+      // A failed prefill must not strand the page on its loading state:
       // the fields just start empty and the write path reports its own
       // errors.
       .finally(() => {

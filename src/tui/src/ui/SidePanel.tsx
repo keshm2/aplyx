@@ -11,18 +11,18 @@ const GREETINGS = ["Hello,", "Welcome,", "Nice to see you,", "Hey there,"] as co
 
 /**
  * Compact greeting + name + clock, meant for the app shell's top header
- * band (always visible, every tab) rather than the right sidebar — freed
+ * band (always visible, every tab) rather than the right sidebar: freed
  * up so screens that need more horizontal room (the Jobs list) can hide
  * the sidebar without losing this.
  *
  * Every Ink render is a full terminal erase + full rewrite (no partial
- * line diffing — see log-update.js), so anything here that re-renders on
+ * line diffing; see log-update.js), so anything here that re-renders on
  * its own timer forces a full-screen repaint for as long as the app is
  * open. Two things previously did that unconditionally, all session long
- * — reported live as TUI flicker on Windows, worst at the bottom of the
+ * reported live as TUI flicker on Windows, worst at the bottom of the
  * screen and worst when fullscreened (more rows to erase/rewrite each
  * cycle): the rainbow name animation below (fixed by stopping it after a
- * brief flourish — see RainbowText's `stopAfterMs`) and this clock's own
+ * brief flourish; see RainbowText's `stopAfterMs`) and this clock's own
  * 1 s tick, which re-rendered 60x more often than its displayed
  * hour:minute string (no seconds shown) could ever actually change.
  * Scheduling the first tick for the next minute boundary and then once a

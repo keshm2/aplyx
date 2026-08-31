@@ -7,6 +7,52 @@ but trimmed to fit a small in-repo doc.
 > Per-`docs/RELEASE.md` is the canonical, deep-dive release
 > document for each tagged build. This file is the index.
 
+## [1.0.3b] - 2026-08-31
+
+Fifth beta. Workday goes from "checkpoint-heavy" to seamless: real login-URL,
+race-condition, and unverified-account bugs fixed against a live Capital One
+run, plus a transcript-upload feature so Workday's education step can stop
+routing to review over a missing document. Workday and Oracle tenant
+scraping coverage grew from a handful of hand-picked companies to 52 and 13
+verified tenants respectively. Docs were cut down to what's actually true
+today, and the website picked up a full technical/SEO pass.
+
+### Added
+
+- **Transcript upload** (Documents screen): a dedicated slot for a
+  transcript file, separate from the resume, used only when a Workday
+  education entry actually has a transcript upload control. aplyx never
+  reads or analyzes it, only attaches it as-is.
+- `docs/NEXT_STEPS.md`: single source of truth for what's built vs.
+  outstanding, replacing several stale/completed planning docs.
+- Robots.txt, sitemap.xml, llms.txt, a custom 404 page, canonical tags,
+  Organization/SoftwareApplication JSON-LD, and social share images
+  across the marketing site.
+- 48 additional verified Workday tenants and a new
+  `oracle_vetted_tenants.json` registry (13 verified Oracle tenants).
+
+### Fixed
+
+- Workday continuation logins were bouncing to a dead
+  `community.workday.com/invalid-url` page for any tenant whose apply URL
+  has no `/search/` segment (Capital One included): the login URL now
+  finds the real site segment generically.
+- Two render-race conditions where the account-mode check or the
+  generic field-fill loop ran before Workday's SPA had finished painting,
+  silently skipping the login/password step or a field.
+- An unverified Workday account used to dead-end at `login_failed`; it
+  now clicks Resend Account Verification and checkpoints as
+  `awaiting_verification` instead.
+- The State/Province field had no fill logic at all; it's now derived
+  from the profile's combined "City, ST" location field.
+- Workday's custom State, "How Did You Hear About Us?", and Phone
+  Device Type dropdowns have no accessible name Playwright's label
+  matchers can resolve; they're now filled via Workday's own internal
+  `button[name=...]` attribute as a fallback.
+- Removed several stale/completed planning docs; an ongoing pass is
+  also clearing em-dashes from code comments and user-facing copy
+  across the codebase and website.
+
 ## [1.0.2b] — 2026-08-26
 
 Fourth beta. Two threads: a free hosted-account tier (sign-in, live

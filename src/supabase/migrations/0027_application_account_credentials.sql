@@ -1,9 +1,9 @@
--- ATS account-credential layer — Package 1 (data model + RLS) of
+-- ATS account-credential layer: Package 1 (data model + RLS) of
 -- docs/ats-account-credentials-plan.md. Scoped deliberately: this
 -- migration adds the three tables, their RLS, and ownership-enforcing
 -- constraints. It does NOT add Vault secret creation/rotation/reveal
 -- RPCs (Package 2), apply_runs.account_id wiring (Package 3), or any
--- UI — those are separate follow-up packages per the plan's own
+-- UI; those are separate follow-up packages per the plan's own
 -- "one phase at a time" sequencing, confirmed with the operator
 -- 2026-08-22 (scope: Package 1 only, stop and report before Package 2).
 --
@@ -13,7 +13,7 @@
 --
 -- 1. application_account_links.applied_job_id is `text`, not `uuid`, and
 --    is a composite FK (user_id, applied_job_id) -> applied_jobs
---    (user_id, job_id) — applied_jobs (migration 0001) has no surrogate
+--    (user_id, job_id); applied_jobs (migration 0001) has no surrogate
 --    uuid id at all; its primary key is the composite (user_id, job_id)
 --    where job_id is text. A bare `uuid` column as the plan specified
 --    would reference nothing.
@@ -21,11 +21,11 @@
 --    `login_hint text null`, but the "Vault secret format" section later
 --    requires the *unique constraint* to key on `login_hint_hash`, and
 --    separately says a lookup hint must be "a keyed HMAC ... plus a
---    masked display value" — two distinct values, not one. This adds
+--    masked display value": two distinct values, not one. This adds
 --    `login_hint_hash text null` alongside `login_hint` (the masked
 --    display value) to satisfy both requirements the plan actually
 --    states. Computing the HMAC itself is a Package 2 concern (needs a
---    server-only keying secret inside a SECURITY DEFINER function) —
+--    server-only keying secret inside a SECURITY DEFINER function);
 --    this migration only adds the column.
 
 -- --- application_accounts -----------------------------------------------
@@ -37,17 +37,17 @@ create table if not exists public.application_accounts (
   tenant_key text not null,
   company_name text not null,
   -- Masked display value only ("j***@company.com"), never the real
-  -- login identifier — that lives in Vault (credential_secret_id) per
+  -- login identifier; that lives in Vault (credential_secret_id) per
   -- the plan's Security Model.
   login_hint text,
   -- Keyed HMAC of the real login identifier, computed server-side by a
-  -- future Package 2 RPC — never the plaintext identifier itself. Used
+  -- future Package 2 RPC; never the plaintext identifier itself. Used
   -- for the duplicate-account lookup the unique constraint below covers
   -- and for "find an existing account within tenant scope" without ever
   -- reversing or storing the real value outside Vault.
   login_hint_hash text,
   -- Points at a Vault secret holding {"username":...,"password":...} as
-  -- one JSON payload (see plan's "Vault secret format") — created only
+  -- one JSON payload (see plan's "Vault secret format"), created only
   -- by a Package 2 RPC, never directly by a client. No "on delete"
   -- clause on purpose: a metadata row must never end up pointing at a
   -- vault.secrets row that no longer exists, so deleting the secret
@@ -63,7 +63,7 @@ create table if not exists public.application_accounts (
       'login_failed', 'locked', 'reset_required', 'disabled', 'deleted'
     )),
   -- Not given an explicit enum by the plan (unlike `status`, which has a
-  -- "Recommended states" list) — inferred from the verification lifecycle
+  -- "Recommended states" list), inferred from the verification lifecycle
   -- narrated in "Account Creation Lifecycle" / "Verification and Inbox
   -- Handling". Revisit in Package 2 if the actual verification RPC needs
   -- a different vocabulary.
@@ -82,7 +82,7 @@ create table if not exists public.application_accounts (
 
 -- NULLs don't collide under a standard unique constraint (Postgres
 -- treats each NULL as distinct), so this only actually prevents a
--- duplicate once login_hint_hash is populated — a row created before
+-- duplicate once login_hint_hash is populated; a row created before
 -- the real identifier is known (see plan's Account Creation Lifecycle
 -- step 6, "before account-form submission") can't be deduplicated by
 -- this constraint alone. Package 2's create_application_account RPC is
@@ -116,12 +116,12 @@ create table if not exists public.application_account_links (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   account_id uuid not null references public.application_accounts (id) on delete cascade,
-  -- text, not uuid — see the file header. Nullable: a link can exist
+  -- text, not uuid; see the file header. Nullable: a link can exist
   -- before the application itself has landed in applied_jobs yet.
   applied_job_id text,
   job_key text not null,
   created_at timestamptz not null default now(),
-  -- Composite FKs, not a bare column check — this is what actually
+  -- Composite FKs, not a bare column check: this is what actually
   -- enforces "the account and application belong to the same user" at
   -- the database layer (plan's own wording) rather than relying on
   -- application code to remember to check both.
@@ -137,7 +137,7 @@ create index if not exists application_account_links_account_idx
 alter table public.application_account_links enable row level security;
 
 -- Every policy re-checks account ownership via EXISTS, not just the
--- link's own user_id column — belt-and-suspenders per the plan's
+-- link's own user_id column, belt-and-suspenders per the plan's
 -- explicit requirement that access "requires both the link's user_id
 -- and its referenced account's user_id to equal auth.uid()", not just
 -- one or the other.
@@ -178,7 +178,7 @@ create table if not exists public.application_account_events (
     'status_check_failed', 'disabled', 'deleted'
   )),
   -- Redacted before insertion, by whichever Package 2 function writes
-  -- here — this migration only enforces that inserts can't happen at
+  -- here; this migration only enforces that inserts can't happen at
   -- all except through such a function (see the RLS note below); it
   -- can't itself enforce what's inside this jsonb.
   metadata jsonb not null default '{}'::jsonb,
@@ -192,12 +192,12 @@ create index if not exists application_account_events_account_idx
 
 alter table public.application_account_events enable row level security;
 
--- Read-only from the client on purpose — deliberately no insert/update/
+-- Read-only from the client on purpose: deliberately no insert/update/
 -- delete policy for `authenticated`/`anon`. "Inserts happen through
 -- controlled server functions" (plan's own wording): a SECURITY DEFINER
 -- function (Package 2) bypasses RLS entirely via its owning role, so it
 -- can still write here with zero policies granting that to regular
--- users — this is an append-only audit log, not a table anyone should
+-- users; this is an append-only audit log, not a table anyone should
 -- ever be able to insert into directly.
 create policy "application_account_events_select_own" on public.application_account_events
   for select using (auth.uid() = user_id);

@@ -16,11 +16,11 @@ export function isValidProjectRoot(dir: string): boolean {
 
 /**
  * A tiny installer-written pointer file (`~/.aplyx/root`, one absolute
- * path, no other content) — the primary resolution signal for a
+ * path, no other content), the primary resolution signal for a
  * Finder/Dock-launched desktop app. Every other signal findProjectRoot()
  * has is meaningless there: no shell env vars, a working directory
  * that's never the checkout, and a compiled bridge that (now that it's
- * bundled as a Tauri resource so a downloaded install works at all — see
+ * bundled as a Tauri resource so a downloaded install works at all; see
  * src/tauri/src-tauri/src/lib.rs) lives inside the app bundle, nowhere near
  * the user's actual checkout. `src/scripts/install/install.sh`,
  * `install_desktop.sh`, and their `.ps1` equivalents all write this file
@@ -50,7 +50,7 @@ export function writePinnedRoot(root: string): void {
 
 /**
  * Locate the aplyx project root. The TUI is an overlay over the repo's
- * Python core — every command needs the root to find src/scripts/,
+ * Python core: every command needs the root to find src/scripts/,
  * src/config/, data/, and logs/. Resolution order: $APLYX_ROOT (legacy $FLUX_ROOT,
  * then $ARES_ROOT, honored), then the installer-written pin file, then
  * upward from the working directory, then upward from this module

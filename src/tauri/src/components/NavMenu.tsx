@@ -22,7 +22,7 @@ export function NavMenu({
   queueBadge,
 }: {
   items: NavMenuItem[];
-  /** Live count shown on whichever item's `to` matches — see AppShell's
+  /** Live count shown on whichever item's `to` matches: see AppShell's
    *  review-queue count. Also surfaces as a small dot on the trigger
    *  itself when that item isn't the one currently active, so "something
    *  needs review" is still visible with the menu closed. */
@@ -61,7 +61,7 @@ export function NavMenu({
     };
   }, [open]);
 
-  // Clicking an item navigates, which changes location.pathname — that's
+  // Clicking an item navigates, which changes location.pathname: that's
   // the signal to close, rather than every item needing its own onClick.
   useEffect(() => {
     setOpen(false);
@@ -77,7 +77,7 @@ export function NavMenu({
         onClick={toggleOpen}
         aria-expanded={open}
         aria-haspopup="menu"
-        aria-label={`Navigate — currently on ${active.label}`}
+        aria-label={`Navigate, currently on ${active.label}`}
       >
         <active.Icon />
         <span className="nav-menu-trigger-label">{active.label}</span>

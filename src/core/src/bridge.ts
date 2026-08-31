@@ -31,8 +31,8 @@ import readline from "node:readline";
 
 /**
  * Local-mode IPC bridge for the Tauri desktop app (docs/app-integration-plan.md
- * "Adapter seam"). The frontend never touches node:fs/child_process directly —
- * a Tauri webview can't — so the Rust shell (src/tauri/src-tauri) spawns this as
+ * "Adapter seam"). The frontend never touches node:fs/child_process directly
+ * (a Tauri webview can't), so the Rust shell (src/tauri/src-tauri) spawns this as
  * a subprocess (stdio, not a localhost server) and passes one command name
  * plus one JSON-args blob per invocation. This dispatcher reuses
  * @aplyx/core's existing functions verbatim; it adds no new business logic.
@@ -68,16 +68,16 @@ async function dispatch(command: string, args: Args): Promise<unknown> {
       const resolved = path.resolve(dir);
       if (!isValidProjectRoot(resolved)) {
         throw new Error(
-          `"${resolved}" doesn't look like a aplyx checkout — expected to find src/scripts/state/job_state.py and AGENTS.md there.`,
+          `"${resolved}" doesn't look like a aplyx checkout: expected to find src/scripts/state/job_state.py and AGENTS.md there.`,
         );
       }
       // A manual pick self-heals future launches (and reinstalls) the
-      // same way an installer-written pin does — best-effort, never
+      // same way an installer-written pin does; best-effort, never
       // blocks the caller from proceeding with the now-validated root.
       try {
         writePinnedRoot(resolved);
       } catch {
-        // ignore — the caller's own localStorage cache still works
+        // ignore; the caller's own localStorage cache still works
       }
       return { root: resolved };
     }
@@ -109,8 +109,8 @@ async function dispatch(command: string, args: Args): Promise<unknown> {
     // Batched siblings of readProfileField/writeProfileField: the desktop
     // app's onboarding ProfileStep and Settings' ProfileScreen used to fire
     // one bridge call per field (one per-call `node <script>` process spawn
-    // each, since the Rust side has no long-lived bridge process — see
-    // src/tauri/src-tauri/src/lib.rs's run_bridge) — a page with 5 fields
+    // each, since the Rust side has no long-lived bridge process, see
+    // src/tauri/src-tauri/src/lib.rs's run_bridge), a page with 5 fields
     // meant 5 concurrent cold-started node processes just to load it, and
     // another 5 to save it. Reported live as multiple flashing console
     // windows per click and multi-second page transitions on Windows,
@@ -246,7 +246,7 @@ async function dispatch(command: string, args: Args): Promise<unknown> {
       const dest = path.join(dir, `${stem}.pdf`);
       fs.copyFileSync(sourcePath, dest);
       // Resumes carry the user's full PII (name, address, phone, education
-      // history) — don't rely on ambient umask for a file living outside
+      // history); don't rely on ambient umask for a file living outside
       // data/'s otherwise-consistent handling.
       fs.chmodSync(dest, 0o600);
       return { ok: true, path: dest };
@@ -254,7 +254,7 @@ async function dispatch(command: string, args: Args): Promise<unknown> {
 
     case "importResumeBytes": {
       // Counterpart to importResumeFile above for a resume that doesn't
-      // exist as a local file yet — the hosted-to-local profile pull
+      // exist as a local file yet; the hosted-to-local profile pull
       // (docs/web-onboarding-hosted-sync-plan.md Part B) downloads a PDF
       // from Supabase Storage in the webview and hands it here as base64
       // (JSON has no binary type; the Rust IPC layer round-trips it as a
@@ -270,6 +270,42 @@ async function dispatch(command: string, args: Args): Promise<unknown> {
       // Same PII-carrying-file reasoning as importResumeFile above.
       fs.chmodSync(dest, 0o600);
       return { ok: true, path: dest };
+    }
+
+    case "importDocumentFile": {
+      // A generic single-file-per-kind store for documents that are
+      // never parsed or tailored by aplyx — unlike resumes.ts's
+      // multi-file, stem-keyed model, a "kind" (e.g. "transcript") has
+      // exactly one current file, overwritten on re-upload, extension
+      // preserved from the source pick.
+      const root = resolveRoot(args);
+      const sourcePath = String(args.sourcePath ?? "");
+      const kind = String(args.kind ?? "");
+      if (!sourcePath || !kind) throw new Error("importDocumentFile requires { sourcePath, kind }");
+      if (!/^[a-z0-9_-]+$/i.test(kind)) throw new Error("invalid kind");
+      const rawExt = path.extname(sourcePath) || ".pdf";
+      const ext = /^\.[a-z0-9]+$/i.test(rawExt) ? rawExt : ".pdf";
+      const dir = path.join(root, "data", "documents");
+      fs.mkdirSync(dir, { recursive: true });
+      const dest = path.join(dir, `${kind}${ext}`);
+      fs.copyFileSync(sourcePath, dest);
+      // A transcript can carry PII (DOB, student ID) — same file-
+      // permission discipline as resumes.
+      fs.chmodSync(dest, 0o600);
+      return { ok: true, path: dest };
+    }
+
+    case "getDocumentStatus": {
+      const root = resolveRoot(args);
+      const kind = String(args.kind ?? "");
+      if (!kind) throw new Error("getDocumentStatus requires { kind }");
+      if (!/^[a-z0-9_-]+$/i.test(kind)) throw new Error("invalid kind");
+      const dir = path.join(root, "data", "documents");
+      if (!fs.existsSync(dir)) return { exists: false };
+      const match = fs.readdirSync(dir).find((f) => f.startsWith(`${kind}.`));
+      if (!match) return { exists: false };
+      const stat = fs.statSync(path.join(dir, match));
+      return { exists: true, filename: match, uploadedAt: stat.mtime.toISOString() };
     }
 
     case "openExtensionFolder": {

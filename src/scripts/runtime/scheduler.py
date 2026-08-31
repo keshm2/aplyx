@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""scheduler.py — cross-platform 30-minute schedule management.
+"""scheduler.py: cross-platform 30-minute schedule management.
 
 Ported from scheduler.sh. Manages an always-on ~30-minute schedule that runs
 the job agent 24/7. Overlap protection lives in the runner itself; the
@@ -47,16 +47,16 @@ def _old_plist_paths() -> list[str]:
 
 def _launchd_path() -> str:
     """PATH to bake into the plist. launchd's own default environment for a
-    GUI agent is a bare `/usr/bin:/bin:/usr/sbin:/sbin` — none of opencode,
+    GUI agent is a bare `/usr/bin:/bin:/usr/sbin:/sbin`: none of opencode,
     claude, codex, or copilot live there (they're typically under
     ~/.opencode/bin, a global npm prefix, Homebrew, etc., all only on the
     PATH your interactive shell builds via .zshrc/.bash_profile). Without
     this, `scheduler.py install` "succeeds" but every scheduled run crashes
-    immediately with FileNotFoundError on the harness binary — silent until
+    immediately with FileNotFoundError on the harness binary; silent until
     someone reads logs/launchd.err.log. Capturing the *installing* shell's
     own PATH (already proven to resolve the harness, or install couldn't
     have been run from it) and writing it into the plist is the general
-    fix — not a hardcoded guess at where any particular harness lives."""
+    fix, not a hardcoded guess at where any particular harness lives."""
     return os.environ.get("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")
 
 
@@ -93,17 +93,17 @@ def _launchd_loaded(uid: int, label: str) -> bool:
 
 def _bootout_and_verify(uid: int, label: str, attempts: int = 10, poll_interval: float = 0.5) -> bool:
     """`launchctl bootout` can return before a *live* job has actually torn
-    down — reproduced live: toggling the scheduler off while a real scrape/
+    down. Reproduced live: toggling the scheduler off while a real scrape/
     apply session is mid-flight, bootout returns success immediately, but
-    `launchctl print` still shows the job loaded (its process — run_job_
-    agent.py, still running opencode — hasn't finished dying yet; SIGTERM
+    `launchctl print` still shows the job loaded (its process, run_job_
+    agent.py, still running opencode, hasn't finished dying yet; SIGTERM
     reaches it correctly, but a live harness can take a few seconds to
     actually exit). The old code trusted bootout's immediate return and
-    reported "uninstalled" regardless, then deleted the plist — leaving an
+    reported "uninstalled" regardless, then deleted the plist, leaving an
     orphaned, still-loaded launchd registration with no plist backing it.
     The next `install` call's `bootstrap` then failed outright ("Bootstrap
     failed: 5: Input/output error", a real launchd error for "a job with
-    this label is already loaded") — surfacing to the UI as a toggle that
+    this label is already loaded"), surfacing to the UI as a toggle that
     visually flips on click, then silently reverts, over and over, exactly
     the "have to spam click it" symptom this was reported as. Polling
     bootout+print until the job is verifiably gone (or genuinely exhausting
@@ -133,13 +133,13 @@ def _mac_install() -> int:
         except OSError:
             pass
     # Clear any stale/orphaned registration for our own label first (see
-    # _bootout_and_verify's docstring) — bootstrap fails outright if one is
+    # _bootout_and_verify's docstring), bootstrap fails outright if one is
     # still live, and this is exactly how that happens in practice: a prior
     # uninstall that didn't fully land before the app (or user) tried to
     # turn it back on again.
     if not _bootout_and_verify(uid, LABEL):
         sys.stderr.write(
-            f"scheduler: a stale {LABEL} registration would not clear — "
+            f"scheduler: a stale {LABEL} registration would not clear: "
             "its previous process may still be shutting down. Try again "
             "in a few seconds.\n"
         )
@@ -148,14 +148,14 @@ def _mac_install() -> int:
                        stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
     if r.returncode != 0:
         # No check=True: an uncaught CalledProcessError here used to crash
-        # with a raw Python traceback on stderr — which the JS bridge still
+        # with a raw Python traceback on stderr, which the JS bridge still
         # treated as a rejected promise, but with no clean error message to
         # show, just a stack trace. A clear one-line message + a real exit
         # code lets the UI surface something a user can actually read.
         sys.stderr.write(f"scheduler: bootstrap failed: {r.stderr.strip()}\n")
         return 1
     print(f"scheduler: installed {LABEL} (every {INTERVAL // 60} min, 24/7).")
-    print("scheduler: NOTE — RunAtLoad is true: a run starts now.")
+    print("scheduler: NOTE (RunAtLoad is true): a run starts now.")
     return 0
 
 
@@ -172,7 +172,7 @@ def _mac_uninstall() -> int:
             pass
     if not ok:
         sys.stderr.write(
-            f"scheduler: {LABEL} still appears loaded — its process may "
+            f"scheduler: {LABEL} still appears loaded: its process may "
             "still be shutting down a live run. It will finish on its own; "
             "try again in a few seconds if it still shows as running.\n"
         )
@@ -284,7 +284,7 @@ def _linux_note(json_mode: bool = False) -> int:
         return 0
     minutes = INTERVAL // 60
     sys.stderr.write(
-        "scheduler: no built-in Linux scheduler — install a systemd user timer "
+        "scheduler: no built-in Linux scheduler: install a systemd user timer "
         f"running src/scripts/runtime/run_job_agent.sh every {minutes} min "
         "(APLYX_SCHEDULE_INTERVAL_SEC). See docs/SETUP.md section 5.\n"
     )

@@ -8,7 +8,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 
 // Tauri's auto-injected data-tauri-drag-region listener and this explicit
 // handler both call the same gated `core:window:allow-start-dragging`
-// command (capabilities/default.json) — kept explicit here rather than
+// command (capabilities/default.json), kept explicit here rather than
 // relying solely on the injected script.
 function handleDragMouseDown(e: MouseEvent) {
   if (e.button !== 0) return;
@@ -19,7 +19,7 @@ function handleDragMouseDown(e: MouseEvent) {
 // first, but every other route (both onboarding wizards, the entire app
 // shell with all six of its screens) used to be eagerly bundled into one
 // ~500KB JS file that had to be parsed before the window could even
-// render — real cost on every launch, and worse on slower WebView engines
+// render: real cost on every launch, and worse on slower WebView engines
 // (Windows WebView2, and especially Linux's WebKitGTK) than on macOS's
 // WKWebView. Each of these now loads as its own chunk, fetched only when
 // actually navigated to.

@@ -1,9 +1,9 @@
-/* Shimmering placeholder shapes — shown while a screen's real data is
+/* Shimmering placeholder shapes: shown while a screen's real data is
  * still loading, in the same box each real row/card will occupy (reuses
  * .data-row / .stat-card / .home-next directly), so the layout
  * doesn't jump when the real content swaps in. The swap itself needs no
  * special transition: the incoming real content already plays its own
- * mount animation (aplyx-fade-rise, .data-list's aplyx-fade-in) — the
+ * mount animation (aplyx-fade-rise, .data-list's aplyx-fade-in); the
  * skeleton simply unmounts. */
 
 .skeleton {
@@ -40,7 +40,7 @@
   flex-shrink: 0;
 }
 
-/* Disable the real row/card's hover-lift and click affordance — these
+/* Disable the real row/card's hover-lift and click affordance: these
  * are plain <div>s standing in for content, not yet interactive. Compound
  * selectors (two classes) so this reliably outranks .data-row:hover /
  * .stat-card:hover / .home-next:hover regardless of stylesheet

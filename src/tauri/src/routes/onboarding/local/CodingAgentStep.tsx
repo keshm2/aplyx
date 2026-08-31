@@ -28,7 +28,7 @@ export function CodingAgentStep({
     return (
       <p>
         No supported coding agent (opencode, Claude Code, Codex, or GitHub Copilot) was found on
-        this machine yet. Install one, then come back to this step — you can also finish setup
+        this machine yet. Install one, then come back to this step. You can also finish setup
         now and pick an agent later in Settings.
       </p>
     );

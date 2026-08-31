@@ -78,7 +78,7 @@ const WELCOME_OPTIONS: Array<WelcomeOption & { tab: Tab; mode?: Mode }> = [
   },
   {
     label: "Documents",
-    description: "Read the tailored resume bullets and cover letter aplyx produced for a queued posting — view-only, so nothing here can be mistakenly changed.",
+    description: "Read the tailored resume bullets and cover letter aplyx produced for a queued posting: view-only, so nothing here can be mistakenly changed.",
     tab: "documents",
   },
   {
@@ -135,7 +135,7 @@ function stdoutSize(): { columns: number; rows: number } {
 
 /** The persistent shell: banner, tab row, content region, key-hint bar.
  *  Every band is derived from the live terminal size and re-derived on
- *  resize — nothing is laid out from fixed dimensions. */
+ *  resize; nothing is laid out from fixed dimensions. */
 export function App({
   root,
   initialTab = "status",
@@ -148,7 +148,7 @@ export function App({
   updateVersion?: string;
   onUpdateInstall?: () => void;
   /** Fired (via SettingsScreen) when the user triggers "Install desktop
-   *  app" from Settings — same exit-then-run-on-the-normal-screen handoff
+   *  app" from Settings: same exit-then-run-on-the-normal-screen handoff
    *  as onUpdateInstall, see cli.tsx's openApp. */
   onInstallDesktopApp?: () => void;
 }) {
@@ -175,22 +175,22 @@ export function App({
   const [hour24, setHour24] = useState(() => resolveHour24Clock(root));
 
   // Settings' Theme / Reduced motion / 24-hour clock fields (Preferences
-  // section) apply in-session, not just on next launch — applied here
+  // section) apply in-session, not just on next launch; applied here
   // via a lazy useState initializer (not a useEffect) specifically so
   // relaunching never shows the wrong theme, even briefly. A useEffect
   // runs AFTER the first paint/commit, and mutating the shared `theme`
   // object (applyThemeMode's whole mechanism) doesn't itself trigger a
-  // re-render — only `setHour24` did, and only when the persisted value
+  // re-render; only `setHour24` did, and only when the persisted value
   // actually differed from `hour24`'s own initial useState above, which
   // it usually didn't (that already reads the correct value from the
   // start). So the very first paint always used module-load theme
   // defaults, and unless something UNRELATED happened to re-render the
-  // tree shortly after mount, that flash never got corrected — "the
+  // tree shortly after mount, that flash never got corrected: "the
   // theme doesn't show up properly" was really "no re-render ever
   // happened to fix it," not a resolution/persistence bug. A lazy
   // useState initializer runs synchronously as part of the FIRST render
   // itself, before anything paints, so theme/reduced-motion are already
-  // correct by the time Banner/SidePanel/etc. render in that same pass —
+  // correct by the time Banner/SidePanel/etc. render in that same pass:
   // deterministic every launch, not dependent on what else happens to
   // trigger a re-render afterward. refresh() (below) still re-applies
   // both on every tab switch, for in-session edits.
@@ -204,7 +204,7 @@ export function App({
     // user resize can fire a burst of 'resize' events (Windows Terminal's
     // maximize/snap animation reports several intermediate sizes), and
     // reacting to every one re-renders the whole shell that many times in
-    // a row — visible as flicker, worst in the last-painted rows (hint
+    // a row; visible as flicker, worst in the last-painted rows (hint
     // bar, sidebar). Settling on the final size before re-rendering
     // collapses the burst into one update.
     let resizeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -280,7 +280,7 @@ export function App({
       setConfirmQuit(false);
       if (input === "?") return setHelpOpen(true);
       // esc backs out of any screen to the welcome menu (never quits, and
-      // never mid-run — navigation is locked while an agent run is live).
+      // never mid-run: navigation is locked while an agent run is live).
       // Screens' own esc handling happens while typing, which deactivates
       // this handler via childInputActive.
       if (input === "w" || key.escape) {
@@ -308,23 +308,23 @@ export function App({
   );
 
   const unresolved = state.queue.filter((e) => !isResolved(state, e)).length;
-  // Cheap fs read, re-checked every render (no caching) — same convention
+  // Cheap fs read, re-checked every render (no caching): same convention
   // pendingConversionCount used to follow before the single-resume model
   // replaced it. Badge is a plain "needs attention" marker now, not a
-  // count — there's only ever one resume, so there's nothing left to
+  // count: there's only ever one resume, so there's nothing left to
   // count once it has real content.
   const resumeForBadge = readMasterResume(root);
   const resumeNeedsAttention = !(resumeForBadge && (resumeForBadge.experience.length > 0 || resumeForBadge.projects.length > 0));
-  // Automatic run's gate (AutomaticModeGate) — only computed on the Jobs
+  // Automatic run's gate (AutomaticModeGate): only computed on the Jobs
   // tab in automatic mode, since both checks are real fs/PATH work and
   // every other tab has no use for them. Re-run fresh every render (no
   // caching here or in the helpers themselves), so installing a coding
   // agent or adding a resume while the TUI is open clears the block on
-  // the very next render — a tab switch (which already calls refresh())
+  // the very next render: a tab switch (which already calls refresh())
   // or the m key toggling back and forth is enough, no restart needed.
   const automaticGateActive = tab === "jobs" && mode === "automatic" && !welcome;
   // @resume-tailor reads data/resumes/resume.json now, not the old
-  // per-category .md files — a resume with only contact info filled in
+  // per-category .md files; a resume with only contact info filled in
   // has nothing to tailor from either, so this checks for at least one
   // real experience or project entry, not just the file's existence.
   const masterResumeForGate = automaticGateActive ? readMasterResume(root) : null;
@@ -368,7 +368,7 @@ export function App({
   // the threshold it hides and the content takes the full width (clean
   // degradation on narrower/shorter terminals).
   // 72 (not 64): the welcome menu column needs ~44 cols, so the sidebar
-  // only appears once the content band keeps at least ~48 cols beside it —
+  // only appears once the content band keeps at least ~48 cols beside it:
   // below that the two columns collided and wrapped, corrupting the frame
   // on resize.
   // Never on the Jobs tab: its results table wants the full content width
@@ -376,7 +376,7 @@ export function App({
   // the greeting/clock that used to live only in the sidebar now show in
   // the header on every tab (TopStatusBar, below) so nothing is lost.
   // rows >= 18 + updateRows: on a short terminal, showing the update box
-  // eats 7 more rows out of the same budget — without accounting for that
+  // eats 7 more rows out of the same budget; without accounting for that
   // here, the sidebar kept claiming its full natural content height (see
   // the height/overflow constraint added on its Box below) right up
   // against where the update box needed to start, which is what made the
@@ -426,7 +426,7 @@ export function App({
   const globalHints = childInputActive
     ? "" // the edit hints above are the whole story while typing
     : runInProgress
-      // Spelled out because quitting does NOT stop the run — users reached
+      // Spelled out because quitting does NOT stop the run: users reached
       // for q expecting it to, then had no way to end the run at all.
       ? "q quit (run keeps going)"
       : "1-8/←→ tabs · esc/w menu · m mode · R reload · ? help · q quit";
@@ -436,7 +436,7 @@ export function App({
   // clipped: a frame taller than the terminal is unmanageable for Ink
   // (it can't erase what scrolled away), which is what corrupts the
   // screen on resize and clips the banner. Children stack from the top
-  // with no flex spacer, so the hint bar still hugs the content — the
+  // with no flex spacer, so the hint bar still hugs the content; the
   // unused rows sit below it. Screens size themselves from contentRows
   // so they fit instead of being clipped.
   return (
@@ -486,7 +486,7 @@ export function App({
           </Box>
         ))}
       </Box>
-      {/* Header rule — anchors the header band. */}
+      {/* Header rule: anchors the header band. */}
       <Box paddingX={pad}>
         <Text color={theme.rule}>{"─".repeat(ruleWidth)}</Text>
       </Box>
@@ -510,12 +510,12 @@ export function App({
             the sidebar; with a fixed band the inner Texts truncate.
             Explicit height, too (added alongside the sidebar's matching
             fix): `overflow="hidden"` alone doesn't clip anything unless
-            the box's own layout size is pinned to something — without it,
+            the box's own layout size is pinned to something; without it,
             a screen whose natural content runs longer than contentRows
             (WelcomeScreen's item list + per-option description text,
             observed live) grew this box past its budget, pushing the
             whole document past `rows`, and whatever didn't fit got
-            clipped from wherever the overflow physically landed — which
+            clipped from wherever the overflow physically landed, which
             could be the update box below, even though it did nothing
             wrong itself. Pinning height here is what actually enforces
             the budget contentRows only computes. */}
@@ -642,7 +642,7 @@ export function App({
             // height + overflow: without an explicit height, a flex child
             // with no flexGrow of its own renders at its natural content
             // size (SidePanel's ~10 rows) regardless of how much room this
-            // row actually has — it never shrank to fit contentRows the
+            // row actually has; it never shrank to fit contentRows the
             // way the main content column does. On a short terminal (or
             // any time the update box's own 7-row reservation left less
             // room than the sidebar's natural height), the sidebar just
@@ -673,7 +673,7 @@ export function App({
           </Box>
         ) : null}
       </Box>
-      {/* Update prompt — bottom-right band above the hint bar. Shown
+      {/* Update prompt: bottom-right band above the hint bar. Shown
           once per session when a newer upstream VERSION was detected at
           launch. Keyboard-first (y/n); see UpdateBox for the mouse note. */}
       {showUpdateBox ? (
@@ -692,11 +692,11 @@ export function App({
           />
         </Box>
       ) : null}
-      {/* Hint bar — pinned to the bottom as a status bar. */}
+      {/* Hint bar: pinned to the bottom as a status bar. */}
       <Box paddingX={pad} marginTop={1}>
         {confirmQuit ? (
           <Text color={theme.warn}>
-            A run is in progress — press q again to quit (the run keeps going in the background), any other key to stay.
+            A run is in progress: press q again to quit (the run keeps going in the background), any other key to stay.
           </Text>
         ) : helpOpen ? (
           <KeyHints hints="?/esc/enter close help" />
@@ -704,7 +704,7 @@ export function App({
           <KeyHints hints="↑↓/j/k move · enter open · ? full key reference · q quit" />
         ) : (
           <>
-            {runInProgress ? <Text color={theme.warn}>● run active — navigation locked  </Text> : null}
+            {runInProgress ? <Text color={theme.warn}>● run active: navigation locked  </Text> : null}
             {childInputActive ? <Text color={theme.warn}>✎ typing  </Text> : null}
             <KeyHints hints={allHints} />
           </>

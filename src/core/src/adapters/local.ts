@@ -6,8 +6,8 @@ import { readLocalProfileField, writeLocalProfileField } from "../onboarding/pro
 
 /**
  * Local-mode adapter: reads/writes src/config/*.json directly (via settings.ts/
- * profileLinks.ts/companyTargets.ts) and reads runtime state from data/*.json
- * — the same files and helpers the TUI already uses. No network calls, no
+ * profileLinks.ts/companyTargets.ts) and reads runtime state from data/*.json,
+ * the same files and helpers the TUI already uses. No network calls, no
  * account. `root` is the local aplyx installation directory (resolved the
  * same way the TUI resolves it: $APLYX_ROOT, or discovered during the
  * desktop app's onboarding "Environment checks" step).

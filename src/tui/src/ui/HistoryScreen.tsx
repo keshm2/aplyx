@@ -13,9 +13,9 @@ export function HistoryScreen({
 }: {
   state: AplyxState;
   active: boolean;
-  /** Rows the shell hands this screen — the list grows/shrinks with it. */
+  /** Rows the shell hands this screen: the list grows/shrinks with it. */
   contentRows?: number;
-  /** Columns of the content band — a detail pane opens when it fits. */
+  /** Columns of the content band: a detail pane opens when it fits. */
   columns?: number;
 }) {
   const jobs = [...state.applied].reverse(); // newest first
@@ -53,7 +53,7 @@ export function HistoryScreen({
       if (key.return || input === "o") {
         const entry = jobs[cursor];
         if (!entry) {
-          setMessage("No outcomes recorded yet — nothing to open.");
+          setMessage("No outcomes recorded yet. Nothing to open.");
           return;
         }
         try {
@@ -98,14 +98,14 @@ export function HistoryScreen({
             const glyph = statusGlyph[job.status] ?? "•";
             const atsTail =
               typeof job.ats_score === "number" ? `  ats ${job.ats_score}` : "";
-            // Selected row: one inverse string (monochrome accent — selection
+            // Selected row: one inverse string (monochrome accent, selection
             // is the dominant signal, glyph still carries status meaning).
             // Non-selected row: same character grid, status prefix colored,
             // date dimmed. Both share the exact same spacing so columns align.
             if (idx === cursor) {
               return (
                 <Text key={`${job.job_id}-${idx}`} color={theme.accent} inverse wrap="truncate-end">
-                  {`${marker} ${glyph} ${job.status.padEnd(13)} ${job.date_applied}  ${job.company} — ${job.title}${atsTail}`}
+                  {`${marker} ${glyph} ${job.status.padEnd(13)} ${job.date_applied}  ${job.company} · ${job.title}${atsTail}`}
                 </Text>
               );
             }
@@ -114,7 +114,7 @@ export function HistoryScreen({
                 {`${marker} `}
                 <Text color={statusColor(job.status) ?? "white"}>{`${glyph} ${job.status.padEnd(13)}`}</Text>
                 <Text dimColor>{` ${job.date_applied}  `}</Text>
-                {`${job.company} — ${job.title}`}
+                {`${job.company} · ${job.title}`}
                 {atsTail ? <Text dimColor>{atsTail}</Text> : null}
               </Text>
             );
@@ -126,7 +126,7 @@ export function HistoryScreen({
             {selected ? (
               <>
                 <Text bold color={theme.accent} wrap="truncate-end">
-                  {selected.company} — {selected.title}
+                  {selected.company} · {selected.title}
                 </Text>
                 <PaneRow
                   label="status"
@@ -186,7 +186,7 @@ export function HistoryScreen({
         </Box>
       ) : (
         <Box marginTop={1}>
-          <Text dimColor>Want automatic interview/rejection detection? That's a hosted-account feature — aplyx.app</Text>
+          <Text dimColor>Want automatic interview/rejection detection? That's a hosted-account feature: aplyx.app</Text>
         </Box>
       )}
     </Box>

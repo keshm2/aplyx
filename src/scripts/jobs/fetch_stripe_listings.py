@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""fetch_stripe_listings.py — Stripe careers search (Phase 16B, rewritten
-2026-08-10 — the original HTML-parsed approach broke).
+"""fetch_stripe_listings.py: Stripe careers search (Phase 16B, rewritten
+2026-08-10; the original HTML-parsed approach broke).
 
 Stripe's careers site moved from stripe.com/jobs/search to
 stripe.com/careers/search (Next.js-rendered) at some point after this
-adapter first shipped — confirmed live: the old regex parser (looking
+adapter first shipped; confirmed live: the old regex parser (looking
 for `<tr class="TableRow">` rows) found nothing on the new markup and
 silently returned zero jobs on every query, which read as "no jobs
 right now" instead of "this adapter needs a rewrite."
@@ -12,32 +12,32 @@ right now" instead of "this adapter needs a rewrite."
 Investigating the new page found something better than a parser rewrite
 would have been anyway: Stripe's own careers listings carry a
 `greenhouseId` field, and Stripe is, underneath its custom front end,
-fully served by the standard public Greenhouse Jobs API — confirmed live
+fully served by the standard public Greenhouse Jobs API: confirmed live
 against `boards-api.greenhouse.io/v1/boards/stripe/jobs?content=true`
 (550 real postings, full JD text included, same API every other
 Greenhouse-hosted company in this codebase already uses). This is
-exactly the "Class 3 — branded front-end, standard ATS back-end" pattern
+exactly the "Class 3: branded front-end, standard ATS back-end" pattern
 `docs/ATS.md` already documents for Datadog/Palantir/OpenAI (Greenhouse/
-Lever/Ashby respectively) — Stripe just wasn't recognized as belonging
+Lever/Ashby respectively); Stripe just wasn't recognized as belonging
 to that class before. This adapter is kept as its own file (rather than
 just adding "stripe" to `greenhouse_company_slugs` and retiring this
 file) so the "stripe" board name in targets.json "boards" keeps working
-unchanged for anyone who already has it configured — it's just backed by
+unchanged for anyone who already has it configured; it's just backed by
 a reliable API now instead of a regex over markup that could (and did)
 change without notice. `source` in the raw-job output stays "stripe",
 not "greenhouse", for the same backward-compat reason.
 
 Unlike the old adapter, the list response carries FULL JD text
-(`content`, HTML) — no separate per-posting detail fetch needed, same
+(`content`, HTML); no separate per-posting detail fetch needed, same
 as Amazon/Google/Muse. `--jd-url` is kept only for backward
 compatibility with anything that saved an old-style stripe.com/jobs/
 listing/... or gh_jid=... URL and wants to re-fetch its JD; new list
 fetches never need it.
 
 Output contract:
-  stdout — raw-job JSONL (list mode) or a single JD JSON (--jd-url),
+  stdout: raw-job JSONL (list mode) or a single JD JSON (--jd-url),
            list mode sorted by (title, external_job_id).
-  stderr — a machine-parseable summary line:
+  stderr: a machine-parseable summary line:
            fetch_stripe_listings: complete jobs=<n> failed=<true|false>
 
 Exit codes:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""append_state_entry.py — deterministic JSON-array state writer.
+"""append_state_entry.py: deterministic JSON-array state writer.
 
 Cross-platform (stdlib-only) port of append_state_entry.sh: no jq/bash, so
 it runs natively on Windows as well as macOS/Linux. Behaviour and exit codes
@@ -82,7 +82,7 @@ def append_entry(file: str, raw_entry: str) -> "None":
         if any(isinstance(el, dict) and el.get("job_id") == jid for el in arr):
             sys.stderr.write(
                 f"append_state_entry: duplicate job_id '{jid}' already present "
-                f"in {file} — append refused\n"
+                f"in {file}; append refused\n"
             )
             raise SystemExit(2)
 

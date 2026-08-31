@@ -17,8 +17,8 @@ export function useSkipDefaultFlow(resetKey: string) {
   }, [resetKey]);
 
   /** Call on a blank Enter (no text typed / nothing added yet). Returns
-   *  "commit-default" the second time in a row — the caller should commit
-   *  its defaults and advance then — or "warn" the first time, meaning
+   *  "commit-default" the second time in a row: the caller should commit
+   *  its defaults and advance then, or "warn" the first time, meaning
    *  the caller should just show the warning and wait. */
   function resolveBlankEnter(): "warn" | "commit-default" {
     if (warned) {

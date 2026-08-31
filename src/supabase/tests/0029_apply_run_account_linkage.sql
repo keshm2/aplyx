@@ -11,7 +11,7 @@
 --    rejected by the composite FK, not silently accepted.
 -- 3. Deleting the application_accounts row sets apply_runs.account_id to
 --    NULL (ON DELETE SET NULL) rather than cascading the apply_runs row
---    away — apply-run history must survive an account deletion.
+--    away; apply-run history must survive an account deletion.
 
 begin;
 
@@ -44,7 +44,7 @@ begin
     raise exception 'FAIL: account_id did not persist on the owner''s own run';
   end if;
 
-  -- 2. A run belonging to user_b cannot be linked to user_a's account —
+  -- 2. A run belonging to user_b cannot be linked to user_a's account:
   -- the composite FK must reject this even though account_a is a real,
   -- valid application_accounts.id (a bare id-only FK would have let it
   -- through, hiding an ownership bug).

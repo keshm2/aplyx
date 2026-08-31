@@ -1,10 +1,10 @@
-// Background service worker — the only component that holds the bridge
+// Background service worker, the only component that holds the bridge
 // token and talks to the localhost bridge. Content scripts message it;
 // safe_fields values pass through only for the specific keys a page's
 // form actually mapped.
 import { BridgeMessage, DEFAULT_BRIDGE_URL } from "./shared.js";
 
-// There's no popup UI (manifest's "action" has no default_popup) — a
+// There's no popup UI (manifest's "action" has no default_popup), so a
 // toolbar-icon click would otherwise do nothing. Options is the one
 // screen the extension has, so that's where a click should land, same
 // as the right-click context menu's existing "Options" entry already
@@ -35,7 +35,7 @@ async function callBridge(
   if (!token) {
     return {
       ok: false,
-      error: "bridge token not set — open the aplyx extension options and paste the token from src/config/extension_bridge.json",
+      error: "bridge token not set: open the aplyx extension options and paste the token from src/config/extension_bridge.json",
     };
   }
   let response: Response;
@@ -51,7 +51,7 @@ async function callBridge(
   } catch {
     return {
       ok: false,
-      error: "bridge unreachable — start src/scripts/runtime/extension_bridge.py (Windows: py -3 ..., macOS/Linux: python3 ...)",
+      error: "bridge unreachable: start src/scripts/runtime/extension_bridge.py (Windows: py -3 ..., macOS/Linux: python3 ...)",
     };
   }
   try {

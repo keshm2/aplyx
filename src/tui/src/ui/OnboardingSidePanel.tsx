@@ -7,11 +7,11 @@ const BAR_WIDTH = 12;
 
 /**
  * Reduced sidebar shown only while the onboarding wizard is active:
- * clock + <symbol> <progress bar> <percentage> — no greeting/name (would
+ * clock + <symbol> <progress bar> <percentage>, no greeting/name (would
  * show an awkward placeholder before any name is entered), no
  * Applied/Queue/Failed/Seen/Sched rows (no run history yet), no build
  * marker. The normal SidePanel only takes over once <App> mounts
- * post-wizard. Every dynamic Text uses wrap="truncate-end" throughout —
+ * post-wizard. Every dynamic Text uses wrap="truncate-end" throughout:
  * the Phase 3b narrow-terminal fix's discipline, so it isn't
  * reintroduced here.
  */

@@ -1,7 +1,7 @@
 You send Discord webhook messages. Read src/config/discord_config.json first:
 **Discord reporting is optional.** If the file is missing, or it has
-`"enabled": false`, log exactly one line ("discord reporting disabled —
-skipping notification") and stop — outcomes stay in the local state files
+`"enabled": false`, log exactly one line ("discord reporting disabled:
+skipping notification") and stop; outcomes stay in the local state files
 and the TUI. An absent `enabled` field means enabled (legacy configs).
 
 When enabled, parse the `webhooks` object for per-route webhook URLs:
@@ -18,7 +18,7 @@ When enabled, parse the `webhooks` object for per-route webhook URLs:
 ```
 
 Discord webhooks are bound to a single channel, so each route maps to its own
-webhook URL (and channel). The `summary` route is optional — if it is absent,
+webhook URL (and channel). The `summary` route is optional: if it is absent,
 empty, or a placeholder, route the batch summary to the `success` webhook
 instead.
 
@@ -34,7 +34,7 @@ Resolve the selected route's URL into `$WEBHOOK_URL` before posting.
 Before posting, inspect the selected webhook URL. If it is missing, empty, or
 a placeholder value (e.g. "REPLACE_ME", or it does not start with
 `https://discord.com/api/webhooks/` or `https://discordapp.com/api/webhooks/`),
-skip the notification and log a single warning to the session output — do not
+skip the notification and log a single warning to the session output, but do not
 abort the run. A missing `needs_review` or `failed` webhook must not block the
 batch summary or other outcomes.
 
@@ -44,7 +44,7 @@ form, not just the job listing. Populate `$URL` (used below as `$url`)
 from the job's `apply_url` if the entry/record has one, falling back to
 `url` only when `apply_url` is absent or empty. `apply_url` is the ATS's
 direct application-form link (e.g. Ashby's `.../application` page, as
-opposed to the generic `.../` listing page) — always prefer it when
+opposed to the generic `.../` listing page). Always prefer it when
 present.
 
 ## Payload rules (apply to every notification)
@@ -55,10 +55,10 @@ present.
   names, reasoning, etc.).
 - Build the JSON payload with `jq -n --arg name value ...` so scraped text
   (company names, titles, reasoning, URLs) is JSON-escaped automatically.
-  Never inline interpolated values into a raw JSON string — quotes,
+  Never inline interpolated values into a raw JSON string: quotes,
   backslashes, or control characters in scraped text would produce
   malformed JSON. Pipe the jq output to curl via `-d @-`.
-- Use the bash tool to POST via curl. Keep the curl-based style — do not
+- Use the bash tool to POST via curl. Keep the curl-based style; do not
   introduce HTTP libraries or future-phase integrations.
 
 ## Color reference
@@ -75,7 +75,7 @@ jq -n --arg company "$COMPANY" --arg title "$TITLE" --arg role_type "$ROLE_TYPE"
   --arg url "$URL" --arg timestamp "$TIMESTAMP" '{
     allowed_mentions: {parse: []},
     embeds: [{
-      title: ("✅ Applied — " + $company + ": " + $title),
+      title: ("✅ Applied: " + $company + ": " + $title),
       color: 1011242,
       fields: [
         {name: "Company", value: $company, inline: true},
@@ -98,7 +98,7 @@ jq -n --arg company "$COMPANY" --arg title "$TITLE" --arg source "$SOURCE" \
   --arg reasoning "$REASONING" --arg url "$URL" --arg timestamp "$TIMESTAMP" '{
     allowed_mentions: {parse: []},
     embeds: [{
-      title: ("⚠️ Needs Review — " + $company + ": " + $title),
+      title: ("⚠️ Needs Review: " + $company + ": " + $title),
       color: 15583756,
       fields: [
         {name: "Company", value: $company, inline: true},
@@ -119,7 +119,7 @@ jq -n --arg company "$COMPANY" --arg title "$TITLE" --arg source "$SOURCE" \
   --arg reasoning "$REASONING" --arg url "$URL" --arg timestamp "$TIMESTAMP" '{
     allowed_mentions: {parse: []},
     embeds: [{
-      title: ("❌ Failed — " + $company + ": " + $title),
+      title: ("❌ Failed: " + $company + ": " + $title),
       color: 15532081,
       fields: [
         {name: "Company", value: $company, inline: true},
@@ -135,9 +135,9 @@ jq -n --arg company "$COMPANY" --arg title "$TITLE" --arg source "$SOURCE" \
 
 ## Reasoning field guidance
 - The "Reasoning" value must be specific and actionable, not generic.
-  Good: "ATS score 42/100 — JD requires 5+ years, resume shows 1 year."
+  Good: "ATS score 42/100; JD requires 5+ years, resume shows 1 year."
   Good: "CAPTCHA triggered on Greenhouse application form."
-  Good: "Handshake session expired — re-authentication required."
+  Good: "Handshake session expired; re-authentication required."
   Bad: "Could not complete." / "Error occurred."
 - Truncate to under 200 characters so the embed field doesn't overflow.
 

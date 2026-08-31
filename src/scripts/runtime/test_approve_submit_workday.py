@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Deterministic unit tests for the NVIDIA Workday application-flow fix in
-approve_submit_workday.py. Uses a fake Playwright page — no browser, no
+approve_submit_workday.py. Uses a fake Playwright page: no browser, no
 network, no real application is ever submitted.
 
 Run: python3 -m unittest src.scripts.runtime.test_approve_submit_workday
@@ -45,7 +45,7 @@ class FakeLocator:
         return self
 
     def nth(self, index: int) -> "FakeLocator":
-        # This fixture doesn't model distinct per-index text — every
+        # This fixture doesn't model distinct per-index text: every
         # matched element shares the page's single _body_text, same
         # simplification the rest of FakePage already makes.
         return self
@@ -313,7 +313,7 @@ class LooksLikeBlankAutofillShellTests(unittest.TestCase):
 class PublicApplyDoesNotTriggerFinalSubmitBranch(unittest.TestCase):
     """End-to-end-ish check of the core regression: on the public posting
     page with only an `Apply` control and zero fields filled, the final-submit
-    branch must not fire — _submit_button returns None, so the caller never
+    branch must not fire: _submit_button returns None, so the caller never
     reaches the ready_to_submit checkpoint."""
 
     def test_public_apply_not_treated_as_final_submit(self):
@@ -335,7 +335,7 @@ class PublicApplyDoesNotTriggerFinalSubmitBranch(unittest.TestCase):
 class ChallengeDetectionTests(unittest.TestCase):
     """Package 4 (browser resilience, docs/ats-account-credentials-plan.md):
     a CAPTCHA/challenge marker on the final review page must make
-    _attempt_final_submit fail closed without ever clicking submit —
+    _attempt_final_submit fail closed without ever clicking submit:
     the plan's "CAPTCHA... fail closed" and "final submission is never
     automatically retried" requirements both depend on the challenge
     check running before the click, not after."""
@@ -359,7 +359,7 @@ class ChallengeDetectionTests(unittest.TestCase):
 class LocalPasswordSidecarTests(unittest.TestCase):
     """Package 4's checkpoint contract (docs/ats-account-credentials-plan.md:
     a checkpoint must never include a password) is enforced by keeping the
-    Workday account password out of the main state dict entirely — these
+    Workday account password out of the main state dict entirely: these
     tests cover the sidecar file it lives in instead. Keyed by account
     identity (alias email + tenant), not job_id, so jobs sharing one
     Workday account reuse the same credentials."""
@@ -403,7 +403,7 @@ class LocalPasswordSidecarTests(unittest.TestCase):
 
     def test_different_tenant_gets_different_sidecar(self):
         """Different Workday tenants (different hosts) get different
-        password sidecars even with the same alias — they are separate
+        password sidecars even with the same alias: they are separate
         accounts."""
         key_a = wd._account_key("alias@mail.aplyx.app", "https://co-a.wd5.myworkdayjobs.com/site")
         key_b = wd._account_key("alias@mail.aplyx.app", "https://co-b.wd1.myworkdayjobs.com/site")
@@ -431,7 +431,7 @@ class AppCredentialFileTests(unittest.TestCase):
 class CheckpointSanitizationTests(unittest.TestCase):
     """_save_state must strip forbidden keys even if a future code path
     adds one to the state dict directly, per Package 4's checkpoint
-    exclusion list (password/OTP/cookie/session-token) — the sidecar
+    exclusion list (password/OTP/cookie/session-token): the sidecar
     file above is the primary control; this is the backstop."""
 
     def test_forbidden_keys_are_stripped_on_save(self):
@@ -457,7 +457,7 @@ class ValidationErrorDetectionTests(unittest.TestCase):
     """Regression coverage from a real live-site finding (2026-08-23):
     NVIDIA's Workday tenant rejects a "Save and Continue" click with
     required-question validation errors that never raise an exception
-    and never navigate away — the page just stays put with inline
+    and never navigate away: the page just stays put with inline
     error text. _validation_errors must still surface that text so the
     run() loop's post-click check (added the same day) can checkpoint
     with an actionable message instead of only catching this later via
@@ -481,7 +481,7 @@ class ValidationErrorDetectionTests(unittest.TestCase):
 
 class PageSignatureTests(unittest.TestCase):
     """_page_signature now delegates to the shared browser_resilience
-    helper (Package 4) — confirms the delegation didn't change its
+    helper (Package 4): confirms the delegation didn't change its
     observable shape, since approve_submit_workday.py's own repeated-
     signature loop detection depends on this exact format."""
 
@@ -493,7 +493,7 @@ class PageSignatureTests(unittest.TestCase):
 
 class WorkdayStepTitleTests(unittest.TestCase):
     """Regression coverage from a real live-site finding (2026-08-23):
-    NVIDIA's Workday tenant is a client-side-only multi-step wizard —
+    NVIDIA's Workday tenant is a client-side-only multi-step wizard:
     the URL never changes between steps, and none of the previous
     fallback selectors (pageHeader/jobPostingHeader/h1/h2) matched
     anything on this employer's page, so every step reported the same
@@ -535,7 +535,7 @@ _AGENTS_MD = os.path.join(_ROOT_DIR, "AGENTS.md")
 
 # A clearly-in-scope Workday job: strong role+level keyword match, US scope,
 # no hard-reject signal. The fit gate is deliberately conservative, so this
-# scores as `needs_review` (borderline-promising), not `candidate` — that is
+# scores as `needs_review` (borderline-promising), not `candidate`; that is
 # fine. The regression we pin is that it is NOT `skipped_unfit` (i.e. not
 # hard-rejected) and that its verdict is identical to the same job under a
 # different source, proving the gate is source-agnostic and a Workday job is
@@ -556,7 +556,7 @@ _FIT_WORKDAY_RAW = {
     ),
 }
 # Same job re-sourced to Ashby (different URL/source) to prove the fit gate
-# verdict is independent of source — the load-bearing property behind "a
+# verdict is independent of source: the load-bearing property behind "a
 # Workday job is not rejected solely because its family is Workday".
 _FIT_ASHBY_RAW = {
     **_FIT_WORKDAY_RAW,
@@ -585,7 +585,7 @@ class WorkdayRoutingTests(unittest.TestCase):
     def test_fit_gate_does_not_reject_workday_job_for_being_workday(self):
         """The fit gate is the deterministic cutoff. A clearly-in-scope
         Workday job must NOT be hard-rejected (skipped_unfit) solely for
-        being Workday — it must land in candidate or needs_review like any
+        being Workday: it must land in candidate or needs_review like any
         other in-scope job. skipped_unfit here would mean a source-based
         hard reject crept into the gate."""
         p = _run_helper([sys.executable, _JOB_STATE, "canonicalize",
@@ -790,6 +790,20 @@ class CreateAccountVerificationTests(unittest.TestCase):
             "https://expedia.wd108.myworkdayjobs.com/en-US/search/login?redirect=%2Fen-US%2Fsearch%2Fjob%2FWashington---Seattle-Campus%2FSoftware-Development-Engineer-II_R-108814%2Fapply%2FautofillWithResume",
         )
 
+    def test_workday_login_url_includes_site_segment_for_bare_job_path(self):
+        """Real bug found live against Capital One, 2026-08-31: a tenant
+        whose apply path is just "/<site>/job/..." (no "/search/" segment)
+        previously produced a site-less "/login", which Workday's own auth
+        flow can't resolve post-login (bounces to
+        community.workday.com/invalid-url). The site segment must be
+        derived generically from whatever precedes "job", not only the
+        "/search/"-shaped case."""
+        url = "https://capitalone.wd12.myworkdayjobs.com/Capital_One/job/McLean-VA/Software-Engineer_R12345"
+        self.assertEqual(
+            wd._workday_login_url(url),
+            "https://capitalone.wd12.myworkdayjobs.com/Capital_One/login?redirect=%2FCapital_One%2Fjob%2FMcLean-VA%2FSoftware-Engineer_R12345%2Fapply%2FautofillWithResume",
+        )
+
     def test_linkedin_profile_url_uses_canonical_host(self):
         self.assertEqual(
             wd._normalize_profile_url("linkedin_url", "https://linkedin.com/in/ukeshwaran"),
@@ -872,13 +886,13 @@ class VerificationFlagEmissionTests(unittest.TestCase):
 class SeenSignaturesInvocationScopeTests(unittest.TestCase):
     """Fix 1: a ready_to_submit Workday continuation must not abort on
     persisted seen_signatures from a previous run. seen_signatures is
-    invocation-scoped — loop detection only fires within one invocation's
+    invocation-scoped: loop detection only fires within one invocation's
     page-advance loop, not across continuation boundaries."""
 
     def test_persisted_seen_signatures_do_not_block_resume(self):
         """Simulate a resume: state has seen_signatures from a prior run,
         and the current page signature matches one of them. The runtime
-        must NOT treat this as a loop — it should proceed to fill/submit
+        must NOT treat this as a loop: it should proceed to fill/submit
         since this is the page it's resuming onto."""
         page = FakePage(AUTOFILL_URL, body_text="Review and submit")
         page.with_selector("[data-automation-id='progressBarActiveStep']")
@@ -909,7 +923,7 @@ class TailoredResumeAndCoverLetterTests(unittest.TestCase):
     def test_resume_pdf_path_falls_back_when_tailored_missing(self):
         # A nonexistent tailored path should fall back to the master/default
         result = wd._resume_pdf_path("/nonexistent/tailored.pdf")
-        # Either the default resume exists or None — but never the bogus path
+        # Either the default resume exists or None, but never the bogus path
         self.assertNotEqual(result, "/nonexistent/tailored.pdf")
 
     def test_resume_pdf_path_falls_back_when_no_tailored(self):
@@ -957,7 +971,7 @@ class PersonalAccountEmailTests(unittest.TestCase):
 
     def test_account_email_and_alias_email_both_absent_rejected(self):
         """run() must refuse when neither account_email nor alias_email is
-        supplied — a personal email is never a silent fallback."""
+        supplied: a personal email is never a silent fallback."""
         with tempfile.TemporaryDirectory() as tmp:
             rc = wd.run("job-x", "/no/such/queue.json", tmp, "", apply_url=POSTING_URL)
             self.assertNotEqual(rc, 0)
@@ -1003,7 +1017,7 @@ class PersonalAccountEmailTests(unittest.TestCase):
 class ManualRequiredDetectionTests(unittest.TestCase):
     """docs/workday-personal-inbox-plan.md: TOTP apps, push approval,
     security keys, SSO, and unsupported MFA must checkpoint
-    manual_required — never claimed verified or submitted on ambiguity."""
+    manual_required: never claimed verified or submitted on ambiguity."""
 
     def test_totp_authenticator_app_detected(self):
         page = FakePage(AUTOFILL_URL, body_text="Open your authenticator app and enter the code")
@@ -1022,8 +1036,8 @@ class ManualRequiredDetectionTests(unittest.TestCase):
         self.assertEqual(wd._manual_required_reason(page), "sso")
 
     def test_plain_otp_page_not_flagged_as_manual(self):
-        """A normal OTP entry page must NOT be misclassified as manual_required
-        — that would stop a flow the runtime can actually complete."""
+        """A normal OTP entry page must NOT be misclassified as manual_required:
+        that would stop a flow the runtime can actually complete."""
         page = FakePage(AUTOFILL_URL, body_text="Enter your verification code")
         self.assertIsNone(wd._manual_required_reason(page))
 
@@ -1059,7 +1073,7 @@ class NoSubmitPreservedTests(unittest.TestCase):
         self.assertIn("--no-submit", out.getvalue())
 
     def test_account_email_does_not_weaken_fail_closed(self):
-        """A personal email must not change the outcome_unclear verdict —
+        """A personal email must not change the outcome_unclear verdict:
         the fail-closed property is independent of which email drove
         account creation."""
         page = FakePage(AUTOFILL_URL, body_text="Review your application")
@@ -1107,7 +1121,7 @@ _MASTER_RESUME = {
 
 
 class ResumeDateParsingTests(unittest.TestCase):
-    """Safe parsing of resume date ranges — never fabricates a date."""
+    """Safe parsing of resume date ranges: never fabricates a date."""
 
     def test_parse_current_role(self):
         sm, sy, em, ey = wd._parse_resume_date_range("Jun 2025 – Present")
@@ -1225,7 +1239,7 @@ class EntryExistsTests(unittest.TestCase):
 
 
 class ResumeIdempotencyTests(unittest.TestCase):
-    """Requirement 1: resume upload must be idempotent — a prior checkpoint
+    """Requirement 1: resume upload must be idempotent: a prior checkpoint
     showing resume_attached or visible uploaded-file evidence must prevent
     re-calling attach_resume on later continuations."""
 
@@ -1268,7 +1282,7 @@ class ResumeIdempotencyTests(unittest.TestCase):
         page = FakePage(AUTOFILL_URL, body_text="My Information")
         page.with_selector("input[type=file]")
         # attach_resume calls set_input_files which FakeLocator doesn't
-        # implement — the exception is caught and resume_attached=False.
+        # implement: the exception is caught and resume_attached=False.
         result = wd._fill_workday_page(page, {}, None, None, skip_resume=False)
         self.assertFalse(result["resume_skipped"])
         # resume_attached is False because FakeLocator.set_input_files raises
@@ -1294,7 +1308,7 @@ class MyExperiencePageDetectionTests(unittest.TestCase):
 
 class MyExperienceFillTests(unittest.TestCase):
     """Requirement 2: fill Work Experience and Education from the master
-    resume, idempotently — existing entries are not re-added."""
+    resume, idempotently: existing entries are not re-added."""
 
     def test_skips_work_entry_that_already_exists(self):
         """If the page body already contains the company and title, the
@@ -1348,7 +1362,7 @@ class MyExperienceFillTests(unittest.TestCase):
 
     def test_languages_not_filled_from_programming_skills(self):
         """Programming languages (Python, Java, etc.) must NOT be inferred
-        as spoken languages — the Languages section is left alone."""
+        as spoken languages: the Languages section is left alone."""
         body = "My Experience Work Experience Education Languages"
         page = FakePage(AUTOFILL_URL, body_text=body)
         page.with_selector("button[data-automation-id='add-button']", count=3)
@@ -1414,7 +1428,7 @@ class InferredWorkedAtCompanyTests(unittest.TestCase):
 
     def test_unresolved_when_company_absent_for_broad_affiliates(self):
         """Fix 4: for the broad 'or affiliates' wording, an absent company
-        must return unresolved (None) rather than asserting No — an
+        must return unresolved (None) rather than asserting No: an
         affiliate may be named differently in the resume."""
         q = "Have you ever worked at Expedia or affiliates?"
         self.assertIsNone(wd._infer_worked_at_company_answer(q, _MASTER_RESUME))
@@ -1459,7 +1473,7 @@ class InferredRelocationTests(unittest.TestCase):
         self.assertEqual(wd._infer_relocation_answer("Are you willing to relocate?", "Remote", self.PREFERRED), "Yes")
 
     def test_unresolved_when_location_does_not_match(self):
-        """A job in a non-preferred location must NOT be auto-answered —
+        """A job in a non-preferred location must NOT be auto-answered:
         checkpoint as manual review instead of guessing."""
         self.assertIsNone(wd._infer_relocation_answer("Are you willing to relocate?", "Boise, ID", self.PREFERRED))
 
@@ -1475,7 +1489,7 @@ class InferredRelocationTests(unittest.TestCase):
 
 class AIAtestationTests(unittest.TestCase):
     """Requirement 3: the Expedia AI-attestation question must NEVER be
-    auto-answered — it is a material applicant acknowledgment."""
+    auto-answered: it is a material applicant acknowledgment."""
 
     def test_detected_as_ai_attestation(self):
         self.assertTrue(wd._is_ai_attestation_question("Do you attest that you will not use AI to complete this application?"))
@@ -1488,7 +1502,7 @@ class AIAtestationTests(unittest.TestCase):
 
 class InferredQuestionsIntegrationTests(unittest.TestCase):
     """_fill_inferred_questions returns unresolved questions that aplyx
-    cannot safely answer — the caller checkpoints as manual review."""
+    cannot safely answer: the caller checkpoints as manual review."""
 
     def test_relocation_unresolved_when_location_not_preferred(self):
         body = "Application Questions Are you willing to relocate for this position?"
@@ -1515,7 +1529,7 @@ class InferredQuestionsIntegrationTests(unittest.TestCase):
 
     def test_empty_resume_data_still_detects_ai_attestation(self):
         """Fix 3: AI-attestation detection must run even when resume_data
-        is empty/corrupt — that question must never be auto-answered
+        is empty/corrupt: that question must never be auto-answered
         regardless of resume state."""
         body = "Application Questions Do you attest that you will not use AI to complete this application?"
         page = FakePage(AUTOFILL_URL, body_text=body)
@@ -1524,7 +1538,7 @@ class InferredQuestionsIntegrationTests(unittest.TestCase):
 
     def test_empty_resume_data_no_inferred_questions_on_plain_page(self):
         """With empty resume_data and no inferred questions on the page,
-        unresolved is empty — the AI-attestation scan runs but finds
+        unresolved is empty: the AI-attestation scan runs but finds
         nothing."""
         page = FakePage(AUTOFILL_URL, body_text="My Information First Name Last Name")
         self.assertEqual(wd._fill_inferred_questions(page, {}, "Seattle", ["Seattle"]), [])
@@ -1558,7 +1572,7 @@ class ResumeStateFlagTests(unittest.TestCase):
 
     def test_prior_resume_attached_reads_dedicated_flag(self):
         """The dedicated flag alone (no fill_history) must trigger the
-        skip — this is what survives the fill_history cap."""
+        skip: this is what survives the fill_history cap."""
         self.assertTrue(wd._prior_resume_attached({"resume_attached": True}))
 
     def test_prior_resume_attached_flag_wins_over_empty_history(self):
@@ -1578,7 +1592,7 @@ class ResumeStateFlagTests(unittest.TestCase):
 
     def test_fill_history_cap_does_not_lose_resume_flag(self):
         """Simulate 12 fill_history entries (only last 10 kept) where the
-        resume was attached in entry 0 — the dedicated flag must still be
+        resume was attached in entry 0: the dedicated flag must still be
         True so the skip decision survives the cap."""
         state: dict = {"fill_history": []}
         for i in range(12):
@@ -1656,14 +1670,14 @@ class StructuredFillSuccessFailureTests(unittest.TestCase):
 
     def test_education_unresolved_when_exact_degree_missing(self):
         """A degree that maps to a Workday option but whose exact option
-        is absent from the dropdown must produce unresolved — never
+        is absent from the dropdown must produce unresolved: never
         silently pass."""
         page = FakePage(AUTOFILL_URL, body_text="Education")
         page.with_selector("input[name='schoolName']")
         page.with_selector('button[name="degree"]')
         page.with_tag('button[name="degree"]', "button")
         page.with_attr('button[name="degree"]', "aria-haspopup", "listbox")
-        # Only GED/High School available — Bachelors is not.
+        # Only GED/High School available: Bachelors is not.
         page.with_options(["GED", "High School"])
         report = wd._fill_education_entry_fields(page, _MASTER_RESUME["education"][0])
         self.assertFalse(report["ok"])
@@ -1701,7 +1715,7 @@ class StructuredFillSuccessFailureTests(unittest.TestCase):
 
 class ExceptionToUnresolvedTests(unittest.TestCase):
     """Fix 3: exceptions around _fill_my_experience / _fill_inferred_questions
-    must NOT be swallowed — any failure produces an unresolved/manual-review
+    must NOT be swallowed: any failure produces an unresolved/manual-review
     sentinel so the runtime cannot proceed toward submit while safety
     checks are unavailable."""
 
@@ -1767,7 +1781,7 @@ class NewlineQuestionMatchingTests(unittest.TestCase):
 
 class BroadAffiliatesUnresolvedTests(unittest.TestCase):
     """Fix 4: 'Have you ever worked at X or affiliates?' with X absent
-    from the resume must return unresolved (None), not No — an affiliate
+    from the resume must return unresolved (None), not No: an affiliate
     may be named differently in the resume."""
 
     def test_broad_affiliates_absent_returns_none(self):
@@ -1847,7 +1861,7 @@ class DateFailureReportingTests(unittest.TestCase):
         self.assertIn("6", month_fills)
 
     def test_date_fill_does_not_fabricate_missing_dates(self):
-        """A None month must not be fabricated — only the year is filled."""
+        """A None month must not be fabricated: only the year is filled."""
         page = FakePage(AUTOFILL_URL, body_text="Work Experience")
         page.with_selector("input[data-automation-id='dateSectionMonth-input']", count=2)
         page.with_selector("input[data-automation-id='dateSectionYear-input']", count=2)
@@ -1875,7 +1889,7 @@ class PasswordSaveFailureTests(unittest.TestCase):
 
     def test_run_aborts_when_password_save_fails(self):
         """run() must return a non-zero result with a clear message when
-        the password sidecar cannot be persisted — never proceed to
+        the password sidecar cannot be persisted: never proceed to
         account creation with an unpersisted credential."""
         with tempfile.TemporaryDirectory() as tmp:
             # Block the .secrets directory with a file.
@@ -1909,7 +1923,7 @@ class JobLocationArgumentTests(unittest.TestCase):
         self.assertIn("--job-location", out.getvalue())
 
     def test_apply_entry_fresh_run_has_no_location(self):
-        """A fresh --apply-url entry carries no location — the runtime
+        """A fresh --apply-url entry carries no location: the runtime
         must get it from --job-location instead."""
         entry = wd._apply_entry("job-loc", "/no/such/queue.json", POSTING_URL)
         self.assertNotIn("location", entry)
@@ -1929,7 +1943,7 @@ class JobLocationArgumentTests(unittest.TestCase):
         """run() must use the --job-location argument when the entry has
         no location (fresh --apply-url run). We verify by checking that
         relocation inference would resolve: the run reaches the playwright
-        import gate (no playwright needed for this check — it fails earlier
+        import gate (no playwright needed for this check; it fails earlier
         on the email gate, but we supply a valid email so it reaches the
         playwright import and fails there, proving job_location was
         accepted without error)."""
@@ -1960,7 +1974,7 @@ class ManualReviewBrowserMessageTests(unittest.TestCase):
         """The message emitted when unresolved questions are found must
         tell the user to close the browser window before re-running."""
         # We can't easily run the full loop, but we can check the message
-        # string is present in the source — it's the load-bearing contract.
+        # string is present in the source: it's the load-bearing contract.
         import inspect
         src = inspect.getsource(wd.run)
         self.assertIn("MUST close this browser window", src)

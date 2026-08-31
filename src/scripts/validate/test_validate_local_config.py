@@ -75,7 +75,7 @@ class PlaceholderSafeFieldTests(unittest.TestCase):
     def test_real_values_pass(self):
         with tempfile.TemporaryDirectory() as tmp:
             _write_config(tmp, _base_targets())
-            # Should not raise — real values are valid.
+            # Should not raise: real values are valid.
             vlc.main([tmp])
 
     def test_placeholder_pair_does_not_count_as_configured(self):

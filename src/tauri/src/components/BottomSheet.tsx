@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import "./BottomSheet.css";
 
 /**
- * A sheet that slides up from the bottom, not a side detail panel —
+ * A sheet that slides up from the bottom, not a side detail panel:
  * StatusScreen's online-application detail view specifically (the local
  * side never gets this; see StatusScreen.tsx). Kept mounted after first
  * open (same pattern as Dropdown.tsx/NotificationBell) so closing plays a

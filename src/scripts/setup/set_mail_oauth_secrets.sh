@@ -1,5 +1,5 @@
 #!/bin/bash
-# set_mail_oauth_secrets.sh — configure Gmail (and optionally Microsoft)
+# set_mail_oauth_secrets.sh: configure Gmail (and optionally Microsoft)
 # OAuth secrets on the linked Supabase project so the hosted mail-oauth
 # Edge Functions can run the inbox-consent flow.
 #
@@ -75,8 +75,8 @@ fi
 cd "$SUPABASE_DIR"
 
 # MAIL_OAUTH_STATE_SECRET: generate on first use.
-# `supabase secrets list` only exposes a digest, so we cannot read the value back
-# — if it is already set we leave it untouched (rotation is a separate explicit step).
+# `supabase secrets list` only exposes a digest, so we cannot read the value back:
+# if it is already set we leave it untouched (rotation is a separate explicit step).
 STATE_SECRET=""
 if ! supabase secrets list 2>/dev/null | grep -q '^ *MAIL_OAUTH_STATE_SECRET'; then
   STATE_SECRET="$(openssl rand -hex 32)"
@@ -95,7 +95,7 @@ SECRETS=()
 echo "Setting ${#SECRETS[@]} secret(s) on the linked Supabase project…"
 supabase secrets set "${SECRETS[@]}"
 
-# The callback URL that must be registered in the developer console — must
+# The callback URL that must be registered in the developer console: must
 # match _shared/mail_oauth.ts's callbackUrl() exactly (SUPABASE_URL +
 # /functions/v1/mail-oauth-callback). NOT the <ref>.functions.supabase.co
 # form: that's the domain `supabase functions deploy` mentions, but

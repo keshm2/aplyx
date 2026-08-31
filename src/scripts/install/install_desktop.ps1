@@ -28,10 +28,10 @@ function Warn { param($m) Write-Host "install-desktop: WARNING: $m" -ForegroundC
 function Fail { param($m) Write-Host "install-desktop: ERROR: $m" -ForegroundColor Red; exit 1 }
 
 # Builds a $Width-column bar with a $Block-wide highlighted segment that
-# slides back and forth (ping-pong) as $I increases — the indeterminate-
+# slides back and forth (ping-pong) as $I increases: the indeterminate-
 # progress analog of Format-DownloadBar below, for steps with no byte
-# total to measure against (npm install, cargo build). Not a percentage —
-# there's nothing to measure it against — but visually one system with
+# total to measure against (npm install, cargo build). Not a percentage:
+# there's nothing to measure it against, but visually one system with
 # the byte-tracked download bar instead of a bare spinner character.
 function Format-IndeterminateBar {
   param([int]$I, [int]$Width, [int]$Block)
@@ -49,7 +49,7 @@ function Format-IndeterminateBar {
 }
 
 # Runs $Block with an indeterminate sliding bar next to $Message while
-# it's in a background job — for steps with no byte total to show (npm
+# it's in a background job, for steps with no byte total to show (npm
 # install, cargo build), unlike the prebuilt-bundle download below which
 # uses Get-FileWithProgress instead. Falls back to a plain "$Message..."
 # line with no live redraw when output isn't a real console.
@@ -106,7 +106,7 @@ function Format-DownloadBar {
 }
 
 # Total on-disk size of one or more directories, human-readable (decimal
-# MB/GB) — printed after a build so "ready" also answers "how much did
+# MB/GB), printed after a build so "ready" also answers "how much did
 # that just cost me," the same way the download bar above already shows
 # MB downloaded instead of just "done." Missing directories are skipped
 # rather than erroring (e.g. a surface with no dist/ yet).
@@ -123,7 +123,7 @@ function Format-DirSize {
   return "{0:N0}MB" -f ($bytes / 1000000)
 }
 
-# Downloads $Url to $OutFile with a live byte-tracked bar — a HEAD request
+# Downloads $Url to $OutFile with a live byte-tracked bar: a HEAD request
 # gets the total size, a background job does the real download, and this
 # polls the growing file's size to redraw the bar. Falls back to a single
 # "downloading..." line with no live redraw when output isn't a real
@@ -161,7 +161,7 @@ $projectRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $scrip
 Set-Location $projectRoot
 
 # Refresh PATH from the registry before cargo/winget/rustup-init get
-# probed below — same fix and same reasoning as install.ps1's matching
+# probed below: same fix and same reasoning as install.ps1's matching
 # refresh: this script runs as its own spawned subprocess (either as
 # install.ps1's opt-in step 8b, or standalone), so its inherited
 # $env:PATH can be stale relative to the registry even when the same
@@ -181,7 +181,7 @@ Set-Content -Path (Join-Path $pinDir "root") -Value $projectRoot -NoNewline
 
 # Marker file the TUI's Settings screen checks (see
 # @aplyx/core/desktopApp.ts's isDesktopAppInstalled) to show "already
-# installed" instead of offering to install again. Plain text, one line —
+# installed" instead of offering to install again. Plain text, one line,
 # same convention as the root pin file above. Written once install
 # actually succeeds (see the two call sites below), not here at the top,
 # so an interrupted/failed run doesn't falsely claim success.
@@ -401,7 +401,7 @@ if (-not $hasLinker) {
 # $LASTEXITCODE check: on PowerShell 7.3+ with
 # $PSNativeCommandUseErrorActionPreference on (increasingly the default), a
 # non-zero exit under $ErrorActionPreference = "Stop" throws instead of
-# just setting $LASTEXITCODE — same gotcha install.ps1 already works
+# just setting $LASTEXITCODE: same gotcha install.ps1 already works
 # around for its Python check. Uncaught, that would abort with a raw
 # exception instead of this script's own clean Fail message.
 
@@ -421,7 +421,7 @@ try {
   Spin -Message "building the desktop frontend" -Block {
     Push-Location src\tauri
     # --no-progress: see Build-NodeSurface's matching comment in
-    # install.ps1 — npm's own fetch spinner otherwise fights our bar for
+    # install.ps1: npm's own fetch spinner otherwise fights our bar for
     # the same terminal line.
     npm install --silent --no-progress
     if ($LASTEXITCODE -ne 0) { throw "npm install failed" }

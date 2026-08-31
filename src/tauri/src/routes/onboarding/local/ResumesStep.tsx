@@ -5,11 +5,11 @@ import { listResumeDetails, importResumeFile, convertResume, setResumeDescriptio
 import "../../../components/formFields.css";
 
 /** Descriptions are keyed by stem, saved on blur (or Enter) via
- *  setResumeDescription — a plain, best-effort "what roles does this
+ *  setResumeDescription: a plain, best-effort "what roles does this
  *  target" label. Most useful right here: a freshly-imported PDF's stem
  *  comes straight from its original filename (sanitized), so uploading
  *  two generically-named resumes ("resume.pdf", "resume (1).pdf") gives
- *  resolve_resume.py nothing to go on by name alone — see
+ *  resolve_resume.py nothing to go on by name alone; see
  *  src/scripts/state/resolve_resume.py's own docstring for how it uses
  *  this description once resume-tailor.md asks it to resolve a category. */
 export function ResumesStep({ root }: { root: string }) {
@@ -65,7 +65,7 @@ export function ResumesStep({ root }: { root: string }) {
   return (
     <div>
       <p>
-        Add at least one base resume — aplyx tailors a copy of it per application. PDFs work
+        Add at least one base resume. aplyx tailors a copy of it per application. PDFs work
         best; you can add more (per role type) any time from Resumes in Settings.
       </p>
       {files.length > 0 && (
@@ -81,7 +81,7 @@ export function ResumesStep({ root }: { root: string }) {
                 onKeyDown={(e) => {
                   if (e.key === "Enter") void saveDescription(f.stem);
                 }}
-                placeholder='What roles is this for? Optional — e.g. "backend + cloud infra roles"'
+                placeholder='What roles is this for? Optional, e.g. "backend + cloud infra roles"'
                 style={{ marginTop: "0.25rem", width: "100%" }}
               />
             </li>
@@ -98,7 +98,7 @@ export function ResumesStep({ root }: { root: string }) {
       )}
       {files.length === 0 && (
         <p className="field-help" style={{ marginTop: "0.75rem" }}>
-          You can skip this and add resumes later — aplyx won&rsquo;t apply anywhere without one.
+          You can skip this and add resumes later, but aplyx won&rsquo;t apply anywhere without one.
         </p>
       )}
     </div>

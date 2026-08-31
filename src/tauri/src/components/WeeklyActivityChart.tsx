@@ -16,7 +16,7 @@ interface DayPoint {
 }
 
 /** Applications sent per day for the last DAYS days (oldest first), derived
- *  entirely from state.applied — no bridge call needed, the data's already
+ *  entirely from state.applied: no bridge call needed, the data's already
  *  loaded. Days with zero applications are included (not skipped), so a
  *  quiet stretch reads as a real dip in the line, not a gap. */
 function computeDailyActivity(applied: AppliedJob[], days: number): DayPoint[] {
@@ -42,7 +42,7 @@ function computeDailyActivity(applied: AppliedJob[], days: number): DayPoint[] {
   return points;
 }
 
-/** Catmull-Rom -> cubic Bezier conversion (tension 1/6) — the standard way
+/** Catmull-Rom -> cubic Bezier conversion (tension 1/6): the standard way
  *  to draw a smooth curve through a set of points without overshoot, rather
  *  than straight line-segments between them (a plain polyline is exactly
  *  the "static/slanted" look this chart is meant to avoid). */
@@ -83,7 +83,7 @@ export function WeeklyActivityChart({ applied }: { applied: AppliedJob[] }) {
   const linePath = smoothPath(coords);
   const areaPath = `${linePath} L ${coords[coords.length - 1].x},${PAD_TOP + plotH} L ${coords[0].x},${PAD_TOP + plotH} Z`;
 
-  // Sparse x-axis labels — every ~3rd day plus the last, so 14 labels never
+  // Sparse x-axis labels: every ~3rd day plus the last, so 14 labels never
   // collide into an unreadable row.
   const labelStep = Math.ceil(points.length / 5);
 
@@ -103,7 +103,7 @@ export function WeeklyActivityChart({ applied }: { applied: AppliedJob[] }) {
         onMouseLeave={() => setHoverIndex(null)}
       >
         {/* Moss's three-stop identity (moss → honey → clay), applied
-           here instead of a flat --accent fill — the one other place
+           here instead of a flat --accent fill: the one other place
            besides the hero card that earns real color, since it's the
            chart a "how's it going" glance actually looks at. Colors live
            in CSS (activity-chart-stop-a/b/c below), not inline, matching
@@ -116,7 +116,7 @@ export function WeeklyActivityChart({ applied }: { applied: AppliedJob[] }) {
           </linearGradient>
         </defs>
 
-        {/* Recessive reference lines — just enough to anchor the eye, not a full grid. */}
+        {/* Recessive reference lines: just enough to anchor the eye, not a full grid. */}
         {[0, 0.5, 1].map((t) => (
           <line
             key={t}

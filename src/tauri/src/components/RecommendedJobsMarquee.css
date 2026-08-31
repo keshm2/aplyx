@@ -1,5 +1,5 @@
 /*
- * Recommended-jobs marquee for the Home dashboard — same auto-scroll
+ * Recommended-jobs marquee for the Home dashboard: same auto-scroll
  * technique as src/site's company-logo marquee (duplicated track groups,
  * translateX(0) -> translateX(-50%) so the loop point is invisible, paused
  * on hover, disabled under prefers-reduced-motion), rebuilt here against
@@ -11,7 +11,7 @@
 .rec-jobs-marquee {
   overflow: hidden;
   /* Top/bottom breathing room for .rec-job-card:hover's translateY(-2px) +
-     box-shadow — without this, a card sitting flush against this
+     box-shadow: without this, a card sitting flush against this
      container's edge gets its own top clipped by overflow:hidden the
      moment it lifts on hover. */
   padding: var(--space-2) 0;
@@ -22,7 +22,7 @@
   width: max-content;
   /* Duration is set inline per-render (RecommendedJobsMarquee.tsx), scaled
      to card count so the scroll speed stays visually consistent regardless
-     of how many recommended jobs there are — a fixed duration here was the
+     of how many recommended jobs there are; a fixed duration here was the
      actual bug: a short track (2-3 real cards) moving that slowly read as
      "completely static" even though it was animating. */
   animation-name: rec-jobs-scroll;
@@ -44,7 +44,7 @@
 
 .rec-job-card {
   flex-shrink: 0;
-  /* Grows with a long company name instead of truncating it — capped so one
+  /* Grows with a long company name instead of truncating it: capped so one
      outlier name can't blow out the whole row's rhythm; min-width keeps
      short-name cards from looking cramped. */
   width: max-content;
@@ -109,7 +109,7 @@
 .rec-job-card-company {
   font-size: var(--text-xs);
   color: var(--text-muted);
-  /* No truncation — the card itself grows (width: max-content on
+  /* No truncation: the card itself grows (width: max-content on
      .rec-job-card, up to its max-width) to fit the name instead. */
   overflow-wrap: anywhere;
 }
@@ -171,7 +171,7 @@
     transform: translateX(0);
   }
   to {
-    /* Exactly one .rec-jobs-group's width — the two duplicated groups are
+    /* Exactly one .rec-jobs-group's width: the two duplicated groups are
        identical, so this lands group 2 precisely where group 1 started. */
     transform: translateX(-50%);
   }

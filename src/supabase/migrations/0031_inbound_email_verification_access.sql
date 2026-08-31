@@ -1,20 +1,20 @@
--- ATS account-credential layer — Package 5 (verification and recovery)
+-- ATS account-credential layer: Package 5 (verification and recovery)
 -- of docs/ats-account-credentials-plan.md.
 --
 -- Real, live bug found while implementing this package: inbound_emails
 -- (migration 0012) has RLS enabled with ZERO policies by design ("nothing
--- but service-role, ever" — 0012's own comment says per-user scoping was
+-- but service-role, ever"; 0012's own comment says per-user scoping was
 -- meant to happen "via the alias_id -> managed_aliases -> user_id join at
 -- read time"), but SupabaseAdapter.listInboundEmails/consumeInboundEmail
 -- (src/core/src/adapters/supabase.ts) query the table directly using the
 -- signed-in user's own JWT-scoped client, not a service-role client.
 -- Under RLS with zero policies that join was never actually implemented
--- anywhere — every authenticated call silently returns zero rows (RLS
+-- anywhere: every authenticated call silently returns zero rows (RLS
 -- filters, it doesn't error), so the hosted Workday verification-mail
 -- flow in ReviewScreen.tsx has been non-functional for any real signed-in
 -- user: it always sees an empty inbox and never finds a link/OTP to hand
 -- to the local script. This migration adds the missing ownership-checked
--- access path as two SECURITY DEFINER RPCs, rather than an RLS policy —
+-- access path as two SECURITY DEFINER RPCs, rather than an RLS policy;
 -- 0012 deliberately avoided RLS here because the table carries real
 -- employer email content and the ownership check needs a join through
 -- managed_aliases, which is exactly what a SECURITY DEFINER function
@@ -23,11 +23,11 @@
 -- This migration also closes two OTP-handling gaps the plan's own
 -- "Verification and Inbox Handling" section calls out directly:
 -- - "Keep pending OTP state encrypted and expiring quickly if
---   persistence is required" — inbound_emails had no expiry column at
+--   persistence is required": inbound_emails had no expiry column at
 --   all; a parsed_otp/parsed_link sat in the table forever. Adds
 --   expires_at, and list_own_inbound_emails() redacts parsed_otp/
 --   parsed_link once expired.
--- - "Store no OTP after successful use" — consumeInboundEmail only ever
+-- - "Store no OTP after successful use": consumeInboundEmail only ever
 --   stamped consumed_at; the plaintext OTP/link stayed in the row
 --   indefinitely even after being marked consumed. consume_inbound_email()
 --   now also nulls parsed_otp/parsed_link at the same time.
@@ -40,7 +40,7 @@ create index if not exists inbound_emails_apply_run_idx
 
 -- Ownership-checked read: returns inbound_emails rows for an alias the
 -- caller actually owns (verified via managed_aliases.user_id = auth.uid()),
--- with parsed_otp/parsed_link redacted once past expires_at — an expired
+-- with parsed_otp/parsed_link redacted once past expires_at; an expired
 -- verification secret is treated the same as a consumed one, gone for
 -- good, not just harder to find.
 create or replace function public.list_own_inbound_emails(p_alias_id uuid)
@@ -86,7 +86,7 @@ revoke all on function public.list_own_inbound_emails(uuid) from public;
 grant execute on function public.list_own_inbound_emails(uuid) to authenticated;
 
 -- Ownership-checked consume: marks a row consumed AND redacts the
--- verification secret it carried, in the same call — a one-time
+-- verification secret it carried, in the same call: a one-time
 -- verification link/OTP must never be readable again after use, not
 -- just marked "used" while the plaintext lingers.
 create or replace function public.consume_inbound_email(p_id uuid)

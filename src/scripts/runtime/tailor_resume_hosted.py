@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tailor a resume for one job, via a direct Anthropic API call — the hosted
+"""Tailor a resume for one job, via a direct Anthropic API call: the hosted
 review_only pipeline's counterpart to @resume-tailor (src/agents/bodies/
 resume-tailor.md).
 
@@ -7,10 +7,10 @@ Unlike the local subagent, this script never resolves a resume file from
 data/resumes/ itself: the hosted worker (src/worker/) already downloaded the
 signed-in user's one uploaded resume from Supabase Storage and converted it
 to markdown (convert_resume.py) before calling this script, so there is no
-category system to run — one hosted account, one resume. The system prompt
+category system to run: one hosted account, one resume. The system prompt
 is resume-tailor.md's body verbatim, PLUS a prepended override telling the
-model to skip its own "Step 1 — Select base resume" (which assumes
-resolve_resume.py exists) and go straight to "Step 2 — Tailor" using the
+model to skip its own "Step 1: Select base resume" (which assumes
+resolve_resume.py exists) and go straight to "Step 2: Tailor" using the
 resume_markdown given in the payload.
 
 Same reliability pattern as generate_interest_letter.py: tool-use forces the
@@ -50,7 +50,7 @@ _SUBMIT_TAILORED_RESUME_TOOL = {
             "tailored_bullets": {
                 "type": "array",
                 "items": {"type": "string"},
-                "description": "Reordered/rewritten resume bullets, front-loading what's most relevant to this JD. Never fabricated — only rephrased from resume_markdown.",
+                "description": "Reordered/rewritten resume bullets, front-loading what's most relevant to this JD. Never fabricated, only rephrased from resume_markdown.",
             },
             "ats_score": {
                 "type": "integer",
@@ -94,13 +94,13 @@ def _build_system_prompt(root: str) -> str:
         "HOSTED-WORKER CONTEXT OVERRIDE: you are being invoked directly by "
         "the hosted review_only pipeline (src/worker/), not job-scraper. "
         "This account's one resume is already given to you below as "
-        "`resume_markdown` in the user message — skip \"Step 1 — Read the "
+        "`resume_markdown` in the user message: skip \"Step 1: Read the "
         "master resume\" entirely (there is no local data/resumes/ "
         "filesystem in this context; do not attempt to run any command or "
-        "read any file). Go straight to \"Step 2 — Tailor\" using the given "
+        "read any file). Go straight to \"Step 2: Tailor\" using the given "
         "resume_markdown as the resume content. Your actual output schema "
         "is fixed by the submit_tailored_resume tool call, not by Step 2's "
-        "JSON example — that tool only wants tailored_bullets, ats_score, "
+        "JSON example; that tool only wants tailored_bullets, ats_score, "
         "and missing_keywords; ignore the resume_used and tailored_resume "
         "fields entirely, this hosted context has no PDF-rendering step to "
         "hand them to.\n\n---\n\n"

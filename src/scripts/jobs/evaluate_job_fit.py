@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""evaluate_job_fit.py — deterministic JD fit gate (Phase 4).
+"""evaluate_job_fit.py: deterministic JD fit gate (Phase 4).
 
 Evaluates one canonical job record before tailoring/application effort is spent.
 The helper is deterministic, stdlib-only, and returns a machine-readable JSON
@@ -31,7 +31,7 @@ DECISION_VERSION = "phase4-v5"
 
 
 # Candidate skills derived from all five shipped base resumes (data/resumes/
-# base_resume_{swe,ai_ml,cyber,networking_cyber,balanced}.md) — every entry
+# base_resume_{swe,ai_ml,cyber,networking_cyber,balanced}.md): every entry
 # here should trace back to something actually on one of those resumes, not
 # a generic "any tech buzzword" list; the fit helper only awards overlap
 # points, and now (RecommendedJobsMarquee) directly displays this as "which
@@ -39,7 +39,7 @@ DECISION_VERSION = "phase4-v5"
 # ungrounded entry would misrepresent the candidate, not just mis-score a
 # job. Keys are display-cased since they're shown as-is in the UI now, not
 # just folded into prose. Re-derive this list by hand if the resumes change
-# meaningfully — there's no automated resume->skills extraction here.
+# meaningfully; there's no automated resume->skills extraction here.
 SKILL_PATTERNS: Dict[str, re.Pattern[str]] = {
     # Languages
     "Python": re.compile(r"\bpython\b", re.I),
@@ -156,7 +156,7 @@ VISA_ONLY_RE = re.compile(
 # VISA_ONLY_RE above: a posting that will NOT sponsor a visa, or that
 # requires citizenship/permanent residency outright. Only a hard reject for
 # a candidate who actually needs sponsorship (require_sponsorship in
-# safe_fields) — for a candidate who doesn't need it, this language is
+# safe_fields); for a candidate who doesn't need it, this language is
 # irrelevant, not disqualifying, so this is checked conditionally in
 # evaluate_fit rather than unconditionally like the other hard rejects.
 NO_SPONSORSHIP_RE = re.compile(
@@ -174,7 +174,7 @@ NO_SPONSORSHIP_RE = re.compile(
 )
 
 # Explicit graduating-class-year requirements ("Class of 2025", "graduating
-# between December 2025 and June 2026") — a real eligibility gate for
+# between December 2025 and June 2026"): a real eligibility gate for
 # internships AND early-career/entry-level roles alike, distinct from the
 # generic level_keywords/YOE checks, since "early career" or "entry level"
 # in the title says nothing about whether *this candidate's* graduation
@@ -194,7 +194,7 @@ ALREADY_GRADUATED_RE = re.compile(
     re.I,
 )
 # A class-year mention only counts as an eligibility requirement if it's
-# actually pointed at the candidate — otherwise "our founder graduated
+# actually pointed at the candidate: otherwise "our founder graduated
 # Stanford in 2015" in a company-bio paragraph would false-positive a
 # reject. Require one of these nearby in the same clause.
 CANDIDATE_DIRECTED_RE = re.compile(
@@ -228,7 +228,7 @@ US_STATE_TOKENS = {
 
 FOREIGN_LOCATION_RE = re.compile(
     # Countries first (deliberately name Canada/UK/India/etc. even though a
-    # matching city almost always co-occurs — a bare "Remote, Canada" or
+    # matching city almost always co-occurs; a bare "Remote, Canada" or
     # "Location: Germany" with no city named still needs to hard-reject).
     r"\b(?:"
     r"uk|united\s+kingdom|england|scotland|wales|northern\s+ireland|"
@@ -244,7 +244,7 @@ FOREIGN_LOCATION_RE = re.compile(
     r"iceland|luxembourg|croatia|slovakia|slovenia|bulgaria|serbia|estonia|"
     r"latvia|lithuania|morocco|tunisia|algeria|ghana|ethiopia|uganda"
     r")\b|"
-    # Non-US cities — the coverage gap that let jobs slip through: a
+    # Non-US cities: the coverage gap that let jobs slip through: a
     # foreign posting naming only a city (no country, e.g. "Bengaluru,
     # Karnataka") matched nothing in the countries-only list above.
     r"\b(?:"
@@ -299,7 +299,7 @@ def load_json_arg(arg: str) -> dict:
 
 
 def load_json_array_arg(arg: str) -> list:
-    """Same as load_json_arg but for a JSON array — used by --batch."""
+    """Same as load_json_arg but for a JSON array; used by --batch."""
     raw = sys.stdin.read() if arg == "-" else arg
     try:
         obj = json.loads(raw)
@@ -473,7 +473,7 @@ def graduation_mismatch_reason(jd_text: str, graduation_date: str) -> Optional[s
     """A hard-reject reason when the JD explicitly names graduating class
     years, or requires the candidate to have already graduated, that the
     candidate's own graduation_date can't satisfy. Runs for internships and
-    full-time/early-career postings alike — a class-year requirement is a
+    full-time/early-career postings alike: a class-year requirement is a
     class-year requirement regardless of which level_keyword matched.
     Returns None on anything short of an explicit statement, matching the
     bar the other hard-reject gates (degree/clearance/visa) already hold to.
@@ -579,12 +579,12 @@ def evaluate_fit(job: dict, targets: dict) -> dict:
     level_keywords = [str(v) for v in targets.get("level_keywords", [])]
     # Opt-in, defaults to False so an operator who has never touched the
     # Settings Levels submenu keeps today's exact intern/new-grad-only
-    # behavior. Set by the "Full time (3+ yrs exp)" level checkbox — see
+    # behavior. Set by the "Full time (3+ yrs exp)" level checkbox; see
     # src/tui/src/data/levelCategories.ts. Relaxes the two experience-based
     # hard rejects below; every other gate (role match, US location,
     # advanced degree, clearance, visa) still applies unchanged.
     allow_experienced_roles = bool(targets.get("allow_experienced_roles", False))
-    # graduation_date lives under safe_fields in a real local install — the
+    # graduation_date lives under safe_fields in a real local install; the
     # Profile screen and TUI Settings both write there (writeSafeField), so
     # checking it first always reflects the operator's latest edit rather
     # than the stale top-level duplicate a local targets.json also carries.
@@ -593,7 +593,7 @@ def evaluate_fit(job: dict, targets: dict) -> dict:
     # ScratchTargets, and run_conformance.py's GOLDEN_TARGETS).
     graduation_date = str((targets.get("safe_fields") or {}).get("graduation_date") or targets.get("graduation_date", ""))
     # Same safe_fields-first, top-level-fallback pattern as graduation_date
-    # above. Only "yes"/"true"-shaped values count as needing sponsorship —
+    # above. Only "yes"/"true"-shaped values count as needing sponsorship:
     # an empty/unset field (never filled in during onboarding) must not
     # silently start hard-rejecting every "no sponsorship" posting for a
     # candidate who never said they needed one.
@@ -720,7 +720,7 @@ def evaluate_fit(job: dict, targets: dict) -> dict:
         )
 
     # If the role matched but there is no level signal at all, this is still
-    # likely not an internship/new-grad role in the current pipeline —
+    # likely not an internship/new-grad role in the current pipeline;
     # UNLESS the operator has opted into experienced/full-time roles
     # (allow_experienced_roles), in which case a role is allowed through
     # without needing an explicit junior/level signal at all.
@@ -819,7 +819,7 @@ def evaluate_fit(job: dict, targets: dict) -> dict:
     # matched_level_keyword only ever equals it when nothing more
     # student-specific (intern, new grad, campus, entry level, ...) also
     # matched. Real "early career" postings routinely mean "already have a
-    # little professional experience," not "about to graduate" — the JD
+    # little professional experience," not "about to graduate": the JD
     # rarely spells this out explicitly enough for graduation_mismatch_reason
     # above to catch it. For a candidate who hasn't graduated yet, that's a
     # real ambiguity worth a human glance rather than a confident match.
@@ -828,7 +828,7 @@ def evaluate_fit(job: dict, targets: dict) -> dict:
         if still_enrolled:
             status = "needs_review"
             fit_reasons.append(
-                "Level signal is 'early career' only, and the candidate hasn't graduated yet — "
+                "Level signal is 'early career' only, and the candidate hasn't graduated yet; "
                 "these roles often expect some experience already, so this needs a manual look."
             )
 
@@ -865,7 +865,7 @@ def build_result(
         "matched_level_keyword": matched_level_keyword,
         "matched_level_source": matched_level_source,
         "years_required": years_required,
-        # Only ever populated on the successful (post-hard-reject) path —
+        # Only ever populated on the successful (post-hard-reject) path:
         # the early skipped_unfit/needs_review returns above bail out before
         # matched_skills() is computed, so they pass nothing and get [] here
         # rather than a misleading partial list.
@@ -885,7 +885,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         "--batch", action="store_true",
         help="job_json is a JSON array of canonical jobs; evaluate all of them in one "
              "process (JSONL output, one result per line, in input order) instead of "
-             "one process per job — added for src/worker/'s hosted pipeline (Phase 17), "
+             "one process per job; added for src/worker/'s hosted pipeline (Phase 17), "
              "which was spawning one interpreter per candidate job at real scale.",
     )
     args = parser.parse_args(argv)
@@ -896,7 +896,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         jobs = load_json_array_arg(args.job_json)
         for job in jobs:
             if not isinstance(job, dict):
-                # One malformed item shouldn't cost the rest of the batch —
+                # One malformed item shouldn't cost the rest of the batch:
                 # emit an inline error result (same {"ok": False, "error"}
                 # shape a single-job error() call would print) and continue,
                 # rather than exiting the whole process.
@@ -906,7 +906,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 result = evaluate_fit(job, targets)
             except SystemExit:
                 # evaluate_fit() itself calls error() (JSON + sys.exit) on a
-                # job missing title/company — same per-item tolerance as
+                # job missing title/company; same per-item tolerance as
                 # canonicalize-batch, so one bad item can't silently cost
                 # the whole batch's results.
                 print(json.dumps({"ok": False, "error": "evaluate_fit failed for this item (missing required field)"}))

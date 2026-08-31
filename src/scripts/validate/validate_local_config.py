@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""validate_local_config.py — startup config validation for the job agent.
+"""validate_local_config.py: startup config validation for the job agent.
 
 Cross-platform (stdlib-only) port of validate_local_config.sh: no jq/bash, so
 it runs natively on Windows as well as macOS/Linux. Behaviour, messages, and
@@ -80,7 +80,7 @@ def main(argv: list) -> None:
         except ImportError:
             missing_py_pkgs.append(pkg)
     if missing_py_pkgs:
-        fail(f"missing required Python package(s): {', '.join(missing_py_pkgs)} — "
+        fail(f"missing required Python package(s): {', '.join(missing_py_pkgs)}; "
              f"run 'python3 -m pip install --user {' '.join(missing_py_pkgs)}' and re-run.")
 
     # --- Existence + JSON validity -----------------------------------------
@@ -95,7 +95,7 @@ def main(argv: list) -> None:
     discord = None
     if not os.path.isfile(discord_path):
         discord_enabled = False
-        warn(f"{discord_path} missing — Discord reporting disabled; outcomes "
+        warn(f"{discord_path} missing: Discord reporting disabled; outcomes "
              "stay local (enable via 'aplyx setup')")
     else:
         discord = load_json(discord_path)
@@ -103,7 +103,7 @@ def main(argv: list) -> None:
             fail(f"invalid JSON in {discord_path}")
         if discord.get("enabled", True) is False:
             discord_enabled = False
-            warn(f"Discord reporting disabled in {discord_path} — outcomes stay "
+            warn(f"Discord reporting disabled in {discord_path}: outcomes stay "
                  "local (enable via 'aplyx setup')")
 
     # --- targets.json field validation -------------------------------------
@@ -150,7 +150,7 @@ def main(argv: list) -> None:
             fail(f"{targets_path}: safe_fields.{key} must be a non-empty string")
         val = sf[key].strip()
         if is_placeholder(val):
-            fail(f"{targets_path}: safe_fields.{key} is still a placeholder ({val!r}) — replace it with a real value before running")
+            fail(f"{targets_path}: safe_fields.{key} is still a placeholder ({val!r}): replace it with a real value before running")
 
     def has_safe_field(key):
         sf = targets.get("safe_fields")
@@ -178,7 +178,7 @@ def main(argv: list) -> None:
     if isinstance(workday_alias_email, str) and (
         workday_alias_email == "REPLACE_ME" or workday_alias_email.startswith("YOUR_")
     ):
-        warn(f"{targets_path}: workday_alias_email is still a placeholder — Workday apply will wait for verification setup")
+        warn(f"{targets_path}: workday_alias_email is still a placeholder: Workday apply will wait for verification setup")
     check_array_or_absent("oracle_tenants")
     check_object(targets, targets_path, "safe_fields")
 
@@ -209,7 +209,7 @@ def main(argv: list) -> None:
         if summary_url and summary_url != "REPLACE_ME":
             if not WEBHOOK_RE.match(summary_url):
                 warn(f"{discord_path}: webhooks.summary does not look like a Discord "
-                     "webhook URL — summary will fall back to the success webhook at runtime")
+                     "webhook URL: summary will fall back to the success webhook at runtime")
 
     # --- vetted slug auto-seeding (non-fatal) ------------------------------
     seeder = os.path.join(SCRIPT_DIR, "seed_vetted_slugs.py")
@@ -219,7 +219,7 @@ def main(argv: list) -> None:
             stdout=subprocess.DEVNULL, stderr=sys.stderr,
         )
         if r.returncode != 0:
-            warn("vetted slug auto-seeding failed — continuing with existing slug config")
+            warn("vetted slug auto-seeding failed; continuing with existing slug config")
         else:
             targets = load_json(targets_path)  # reload after possible seeding
     except OSError:
@@ -244,11 +244,11 @@ def main(argv: list) -> None:
         ("jazzhr_company_slugs", "JazzHR"),
     ):
         if key_absent(key):
-            warn(f"{key} is not configured — {board} board will be skipped this run")
+            warn(f"{key} is not configured: {board} board will be skipped this run")
         else:
             ph = placeholder_slugs(key)
             if ph:
-                warn(f"{key} contains placeholder value(s): {ph} — {board} board will be skipped this run")
+                warn(f"{key} contains placeholder value(s): {ph}; {board} board will be skipped this run")
 
     for key, board in (
         ("workday_tenants", "Workday"),
@@ -256,16 +256,16 @@ def main(argv: list) -> None:
         ("simplify_feeds", "SimplifyJobs"),
     ):
         if key_absent(key):
-            warn(f"{key} is not configured — {board} board will be skipped this run")
+            warn(f"{key} is not configured: {board} board will be skipped this run")
         else:
             ph = placeholder_slugs(key)
             if ph:
-                warn(f"{key} contains placeholder value(s): {ph} — {board} board will be skipped this run")
+                warn(f"{key} contains placeholder value(s): {ph}; {board} board will be skipped this run")
 
     # --- Google Sheets sync config (optional) ------------------------------
     sheets_path = os.path.join(project_root, "src", "config", "google_sheets_config.json")
     if not os.path.isfile(sheets_path):
-        warn(f"Google Sheets sync config not found ({sheets_path}) — Sheets sync "
+        warn(f"Google Sheets sync config not found ({sheets_path}): Sheets sync "
              "will be skipped. See docs/SETUP.md section 3.")
     else:
         try:
@@ -274,7 +274,7 @@ def main(argv: list) -> None:
             if not isinstance(sheets, dict):
                 raise ValueError
         except (OSError, json.JSONDecodeError, ValueError):
-            warn(f"{sheets_path}: invalid JSON — Sheets sync will be skipped.")
+            warn(f"{sheets_path}: invalid JSON: Sheets sync will be skipped.")
             sheets = None
 
         if isinstance(sheets, dict):
@@ -282,36 +282,36 @@ def main(argv: list) -> None:
             if enabled is False:
                 warn(f"Google Sheets sync is disabled (enabled=false in {sheets_path}).")
             elif enabled is not True:
-                warn(f"{sheets_path}: 'enabled' is not a boolean — Sheets sync will be skipped.")
+                warn(f"{sheets_path}: 'enabled' is not a boolean: Sheets sync will be skipped.")
             else:
                 sheets_id = sheets.get("spreadsheet_id") or ""
                 sheets_tab = sheets.get("worksheet_title") or ""
                 sheets_key = sheets.get("service_account_key_path") or ""
                 if not sheets_id or sheets_id == "REPLACE_ME":
-                    warn(f"{sheets_path}: spreadsheet_id is missing or placeholder — Sheets sync will be skipped.")
+                    warn(f"{sheets_path}: spreadsheet_id is missing or placeholder: Sheets sync will be skipped.")
                 if not sheets_tab:
-                    warn(f"{sheets_path}: worksheet_title is missing — Sheets sync will be skipped.")
+                    warn(f"{sheets_path}: worksheet_title is missing: Sheets sync will be skipped.")
                 if not sheets_key or sheets_key == "REPLACE_ME":
-                    warn(f"{sheets_path}: service_account_key_path is missing or placeholder — Sheets sync will be skipped.")
+                    warn(f"{sheets_path}: service_account_key_path is missing or placeholder: Sheets sync will be skipped.")
                 else:
                     if not sheets_key.endswith(".json"):
-                        warn(f"{sheets_path}: service_account_key_path should end with .json — got: {sheets_key}")
+                        warn(f"{sheets_path}: service_account_key_path should end with .json; got: {sheets_key}")
                     key_abs = sheets_key
                     if not os.path.isabs(key_abs):
                         key_abs = os.path.join(project_root, key_abs)
                     if not os.path.isfile(key_abs):
-                        warn(f"{sheets_path}: service-account key file not found at {sheets_key} — "
+                        warn(f"{sheets_path}: service-account key file not found at {sheets_key}: "
                              "Sheets sync will be skipped until the key is placed. See docs/SETUP.md section 3.3.")
 
     # --- Phase 11: hosted Supabase backend config (optional) ---------------
     # Hosted/signed-in mode is opt-in from the desktop app
-    # (docs/app-integration-plan.md) — a local-only setup never needs this
+    # (docs/app-integration-plan.md); a local-only setup never needs this
     # file. Same warn-and-continue contract as the Sheets check above:
     # absence or a placeholder value only means "Sign in" isn't usable yet
     # on this machine, never a failing run.
     supabase_path = os.path.join(project_root, "src", "config", "supabase.json")
     if not os.path.isfile(supabase_path):
-        warn(f"Hosted backend config not found ({supabase_path}) — hosted sign-in "
+        warn(f"Hosted backend config not found ({supabase_path}): hosted sign-in "
              "will be unavailable in the desktop app. See src/config/supabase.example.json.")
     else:
         try:
@@ -320,16 +320,16 @@ def main(argv: list) -> None:
             if not isinstance(supabase_cfg, dict):
                 raise ValueError
         except (OSError, json.JSONDecodeError, ValueError):
-            warn(f"{supabase_path}: invalid JSON — hosted sign-in will be unavailable.")
+            warn(f"{supabase_path}: invalid JSON: hosted sign-in will be unavailable.")
             supabase_cfg = None
 
         if isinstance(supabase_cfg, dict):
             url = supabase_cfg.get("url") or ""
             anon_key = supabase_cfg.get("anonKey") or ""
             if not url or "YOUR_PROJECT_REF" in url:
-                warn(f"{supabase_path}: url is missing or still the placeholder — hosted sign-in will be unavailable.")
+                warn(f"{supabase_path}: url is missing or still the placeholder: hosted sign-in will be unavailable.")
             if not anon_key or anon_key == "YOUR_SUPABASE_ANON_KEY":
-                warn(f"{supabase_path}: anonKey is missing or still the placeholder — hosted sign-in will be unavailable.")
+                warn(f"{supabase_path}: anonKey is missing or still the placeholder: hosted sign-in will be unavailable.")
 
     print("validate_local_config: OK")
 

@@ -12,14 +12,14 @@ interface Props {
   /** Only the focused tab receives keys (and never on piped stdin). */
   active: boolean;
   /** Incremented by the shell on global refresh so this screen reloads
-   *  its internal state copy — without this, App "R" only updates App's
+   *  its internal state copy: without this, App "R" only updates App's
    *  own state and this screen stays stale. */
   refreshNonce?: number;
   /** Notify the shell that a mutation occurred so top-level badges refresh. */
   onStateChange?: () => void;
-  /** Rows the shell hands this screen — the list grows/shrinks with it. */
+  /** Rows the shell hands this screen: the list grows/shrinks with it. */
   contentRows?: number;
-  /** Columns of the content band — a detail pane opens when it fits. */
+  /** Columns of the content band: a detail pane opens when it fits. */
   columns?: number;
 }
 
@@ -46,7 +46,7 @@ export function ReviewScreen({ root, active, refreshNonce, onStateChange, conten
   const selected: QueueEntry | undefined = entries[cursor];
 
   // Shell-level refresh (App "R" / tab switch) reloads this screen's
-  // internal state copy — without this, App refresh only updates its own
+  // internal state copy: without this, App refresh only updates its own
   // state and this screen stays stale.
   useEffect(() => {
     setState(loadState(root));
@@ -67,8 +67,8 @@ export function ReviewScreen({ root, active, refreshNonce, onStateChange, conten
   //
   // Computed during render (via a ref, not useState+useEffect): an effect
   // reacting to `cursor` only adjusts the offset AFTER the commit that
-  // already moved the cursor, so there's a real intermediate frame —
-  // actually painted to the terminal, not just theoretical — where the
+  // already moved the cursor, so there's a real intermediate frame (
+  // actually painted to the terminal, not just theoretical) where the
   // selected row has scrolled out of the still-stale window and nothing
   // visible carries the selection marker. Deriving offset synchronously
   // here means the window rendered this pass is already correct.
@@ -107,14 +107,14 @@ export function ReviewScreen({ root, active, refreshNonce, onStateChange, conten
       if (input === "x") return setShowResolved((s) => !s);
       if (!selected) {
         if (input === "o" || input === "a" || input === "d" || key.return) {
-          setMessage("Queue is empty — nothing selected.");
+          setMessage("Queue is empty. Nothing selected.");
         }
         return;
       }
       try {
         if (input === "o" || key.return) {
           // A fill record means this application was actually filled out
-          // (in full or in part) before landing in review — reopen it
+          // (in full or in part) before landing in review: reopen it
           // pre-filled (fields, resume, cover letter already in place)
           // instead of a blank form. Entries with nothing to replay (e.g.
           // Workday, which never reaches the fill step) fall back to the
@@ -160,7 +160,7 @@ export function ReviewScreen({ root, active, refreshNonce, onStateChange, conten
           {empty ? (
             <Box flexDirection="column">
               <Text dimColor>{statusGlyph.applied} Nothing to review.</Text>
-              <Text dimColor>Queue is empty{showResolved ? "" : " — new items appear as the agent runs"}.</Text>
+              <Text dimColor>Queue is empty{showResolved ? "" : ": new items appear as the agent runs"}.</Text>
             </Box>
           ) : (
             page.map((entry, i) => {
@@ -171,7 +171,7 @@ export function ReviewScreen({ root, active, refreshNonce, onStateChange, conten
               const ats =
                 typeof entry.ats_score === "number" ? `  ats ${entry.ats_score}` : "";
               const tail = resolved ? "  [resolved]" : "";
-              const label = `${glyph} ${entry.company} — ${entry.title}${ats}${tail}`;
+              const label = `${glyph} ${entry.company} · ${entry.title}${ats}${tail}`;
               return idx === cursor ? (
                 <Text key={`${entry.job_id}-${idx}`} color={theme.accent} inverse wrap="truncate-end">
                   {`${marker} ${label}`}
@@ -189,7 +189,7 @@ export function ReviewScreen({ root, active, refreshNonce, onStateChange, conten
             {selected ? (
               <>
                 <Text bold color={theme.accent} wrap="truncate-end">
-                  {selected.company} — {selected.title}
+                  {selected.company} · {selected.title}
                 </Text>
                 <PaneRow
                   label="state"

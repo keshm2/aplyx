@@ -1,10 +1,10 @@
 #!/bin/bash
-# validate_local_config.sh — startup config validation for the job agent.
+# validate_local_config.sh: startup config validation for the job agent.
 #
 # Validates the live local config files (src/config/targets.json and
 # src/config/discord_config.json) that the current single-user deployment relies
 # on. Fails fast and clearly when required files or fields are missing or
-# invalid. Warns — but does not fail — when Ashby/Lever slug config or the
+# invalid. Warns, but does not fail, when Ashby/Lever slug config or the
 # SimplifyJobs feed config still holds placeholder values, so a
 # partially-configured run can proceed for the other boards.
 #
@@ -40,9 +40,9 @@ MISSING_PY_PKGS=""
 if command -v python3 >/dev/null 2>&1; then
   python3 -c "import pypdf" >/dev/null 2>&1 || MISSING_PY_PKGS="pypdf"
   python3 -c "import playwright" >/dev/null 2>&1 || MISSING_PY_PKGS="${MISSING_PY_PKGS}${MISSING_PY_PKGS:+ }playwright"
-  [ -z "$MISSING_PY_PKGS" ] || fail "missing required Python package(s): $MISSING_PY_PKGS — run 'python3 -m pip install --user $MISSING_PY_PKGS' and re-run."
+  [ -z "$MISSING_PY_PKGS" ] || fail "missing required Python package(s): $MISSING_PY_PKGS; run 'python3 -m pip install --user $MISSING_PY_PKGS' and re-run."
 else
-  fail "python3 not found — required to run aplyx at all"
+  fail "python3 not found: required to run aplyx at all"
 fi
 
 # --- Existence + JSON validity ---------------------------------------------
@@ -51,17 +51,17 @@ fi
 jq -e . "$TARGETS" >/dev/null 2>&1 || fail "invalid JSON in $TARGETS"
 
 # Discord is OPTIONAL: a missing file or "enabled": false disables Discord
-# reporting entirely (outcomes stay local) — a warning, never an error. An
+# reporting entirely (outcomes stay local); a warning, never an error. An
 # absent `enabled` field means enabled (legacy configs).
 DISCORD_ENABLED=1
 if [ ! -f "$DISCORD" ]; then
   DISCORD_ENABLED=0
-  warn "$DISCORD missing — Discord reporting disabled; outcomes stay local (enable via 'aplyx setup')"
+  warn "$DISCORD missing: Discord reporting disabled; outcomes stay local (enable via 'aplyx setup')"
 else
   jq -e . "$DISCORD" >/dev/null 2>&1 || fail "invalid JSON in $DISCORD"
   if [ "$(jq -r 'if has("enabled") then .enabled else true end' "$DISCORD")" = "false" ]; then
     DISCORD_ENABLED=0
-    warn "Discord reporting disabled in $DISCORD — outcomes stay local (enable via 'aplyx setup')"
+    warn "Discord reporting disabled in $DISCORD; outcomes stay local (enable via 'aplyx setup')"
   fi
 fi
 
@@ -158,7 +158,7 @@ check_object "$DISCORD" webhooks
 # Discord webhook URL shape: https://discord.com/api/webhooks/<numeric_id>/<token>
 WEBHOOK_RE='^https://(discord\.com|discordapp\.com)/api/webhooks/[0-9]+/.+$'
 
-# Required route — hard-fail when missing/placeholder/invalid.
+# Required route: hard-fail when missing/placeholder/invalid.
 check_webhook_route_required() {
   local file="$1" route="$2" val
   val="$(jq -r --arg r "$route" '.webhooks[$r] // empty' "$file")"
@@ -177,7 +177,7 @@ check_webhook_route_required "$DISCORD" failed
 SUMMARY_URL="$(jq -r '.webhooks.summary // empty' "$DISCORD")"
 if [ -n "$SUMMARY_URL" ] && [ "$SUMMARY_URL" != "REPLACE_ME" ]; then
   printf '%s' "$SUMMARY_URL" | grep -Eq "$WEBHOOK_RE" \
-    || warn "$DISCORD: webhooks.summary does not look like a Discord webhook URL — summary will fall back to the success webhook at runtime"
+    || warn "$DISCORD: webhooks.summary does not look like a Discord webhook URL; summary will fall back to the success webhook at runtime"
 fi
 
 fi # DISCORD_ENABLED
@@ -192,9 +192,9 @@ fi # DISCORD_ENABLED
 
 if command -v python3 >/dev/null 2>&1; then
   python3 "$SCRIPT_DIR/seed_vetted_slugs.py" --targets "$TARGETS" \
-    || warn "vetted slug auto-seeding failed — continuing with existing slug config"
+    || warn "vetted slug auto-seeding failed; continuing with existing slug config"
 else
-  warn "python3 not found — vetted slug auto-seeding skipped"
+  warn "python3 not found: vetted slug auto-seeding skipped"
 fi
 
 # --- Placeholder slug warnings (non-fatal) ---------------------------------
@@ -219,34 +219,34 @@ WORKABLE_PLACEHOLDER="$(placeholder_slugs "$TARGETS" workable_company_slugs)"
 JAZZHR_PLACEHOLDER="$(placeholder_slugs "$TARGETS" jazzhr_company_slugs)"
 
 if key_absent "$TARGETS" ashby_company_slugs; then
-  warn "ashby_company_slugs is not configured — Ashby board will be skipped this run"
+  warn "ashby_company_slugs is not configured: Ashby board will be skipped this run"
 elif [ -n "$ASHBY_PLACEHOLDER" ]; then
-  warn "ashby_company_slugs contains placeholder value(s): $ASHBY_PLACEHOLDER — Ashby board will be skipped this run"
+  warn "ashby_company_slugs contains placeholder value(s): $ASHBY_PLACEHOLDER; Ashby board will be skipped this run"
 fi
 if key_absent "$TARGETS" lever_company_slugs; then
-  warn "lever_company_slugs is not configured — Lever board will be skipped this run"
+  warn "lever_company_slugs is not configured: Lever board will be skipped this run"
 elif [ -n "$LEVER_PLACEHOLDER" ]; then
-  warn "lever_company_slugs contains placeholder value(s): $LEVER_PLACEHOLDER — Lever board will be skipped this run"
+  warn "lever_company_slugs contains placeholder value(s): $LEVER_PLACEHOLDER; Lever board will be skipped this run"
 fi
 if key_absent "$TARGETS" greenhouse_company_slugs; then
-  warn "greenhouse_company_slugs is not configured — Greenhouse board will be skipped this run"
+  warn "greenhouse_company_slugs is not configured: Greenhouse board will be skipped this run"
 elif [ -n "$GREENHOUSE_PLACEHOLDER" ]; then
-  warn "greenhouse_company_slugs contains placeholder value(s): $GREENHOUSE_PLACEHOLDER — Greenhouse board will be skipped this run"
+  warn "greenhouse_company_slugs contains placeholder value(s): $GREENHOUSE_PLACEHOLDER; Greenhouse board will be skipped this run"
 fi
 if key_absent "$TARGETS" smartrecruiters_company_slugs; then
-  warn "smartrecruiters_company_slugs is not configured — SmartRecruiters board will be skipped this run"
+  warn "smartrecruiters_company_slugs is not configured: SmartRecruiters board will be skipped this run"
 elif [ -n "$SMARTRECRUITERS_PLACEHOLDER" ]; then
-  warn "smartrecruiters_company_slugs contains placeholder value(s): $SMARTRECRUITERS_PLACEHOLDER — SmartRecruiters board will be skipped this run"
+  warn "smartrecruiters_company_slugs contains placeholder value(s): $SMARTRECRUITERS_PLACEHOLDER; SmartRecruiters board will be skipped this run"
 fi
 if key_absent "$TARGETS" workable_company_slugs; then
-  warn "workable_company_slugs is not configured — Workable board will be skipped this run"
+  warn "workable_company_slugs is not configured: Workable board will be skipped this run"
 elif [ -n "$WORKABLE_PLACEHOLDER" ]; then
-  warn "workable_company_slugs contains placeholder value(s): $WORKABLE_PLACEHOLDER — Workable board will be skipped this run"
+  warn "workable_company_slugs contains placeholder value(s): $WORKABLE_PLACEHOLDER; Workable board will be skipped this run"
 fi
 if key_absent "$TARGETS" jazzhr_company_slugs; then
-  warn "jazzhr_company_slugs is not configured — JazzHR board will be skipped this run"
+  warn "jazzhr_company_slugs is not configured: JazzHR board will be skipped this run"
 elif [ -n "$JAZZHR_PLACEHOLDER" ]; then
-  warn "jazzhr_company_slugs contains placeholder value(s): $JAZZHR_PLACEHOLDER — JazzHR board will be skipped this run"
+  warn "jazzhr_company_slugs contains placeholder value(s): $JAZZHR_PLACEHOLDER; JazzHR board will be skipped this run"
 fi
 
 # SimplifyJobs feeds (phase 5): same warn-and-skip contract as the slug
@@ -256,9 +256,9 @@ fi
 # are parsed/validated by src/scripts/jobs/fetch_workday_listings.py at fetch time.
 WORKDAY_PLACEHOLDER="$(placeholder_slugs "$TARGETS" workday_tenants)"
 if key_absent "$TARGETS" workday_tenants; then
-  warn "workday_tenants is not configured — Workday board will be skipped this run"
+  warn "workday_tenants is not configured: Workday board will be skipped this run"
 elif [ -n "$WORKDAY_PLACEHOLDER" ]; then
-  warn "workday_tenants contains placeholder value(s): $WORKDAY_PLACEHOLDER — Workday board will be skipped this run"
+  warn "workday_tenants contains placeholder value(s): $WORKDAY_PLACEHOLDER; Workday board will be skipped this run"
 fi
 
 # Oracle Recruiting Cloud tenants (phase 16B): same warn-and-skip contract.
@@ -266,20 +266,20 @@ fi
 # at fetch time.
 ORACLE_PLACEHOLDER="$(placeholder_slugs "$TARGETS" oracle_tenants)"
 if key_absent "$TARGETS" oracle_tenants; then
-  warn "oracle_tenants is not configured — Oracle board will be skipped this run"
+  warn "oracle_tenants is not configured: Oracle board will be skipped this run"
 elif [ -n "$ORACLE_PLACEHOLDER" ]; then
-  warn "oracle_tenants contains placeholder value(s): $ORACLE_PLACEHOLDER — Oracle board will be skipped this run"
+  warn "oracle_tenants contains placeholder value(s): $ORACLE_PLACEHOLDER; Oracle board will be skipped this run"
 fi
 
 SIMPLIFY_PLACEHOLDER="$(placeholder_slugs "$TARGETS" simplify_feeds)"
 if key_absent "$TARGETS" simplify_feeds; then
-  warn "simplify_feeds is not configured — SimplifyJobs board will be skipped this run"
+  warn "simplify_feeds is not configured: SimplifyJobs board will be skipped this run"
 elif [ -n "$SIMPLIFY_PLACEHOLDER" ]; then
-  warn "simplify_feeds contains placeholder value(s): $SIMPLIFY_PLACEHOLDER — SimplifyJobs board will be skipped this run"
+  warn "simplify_feeds contains placeholder value(s): $SIMPLIFY_PLACEHOLDER; SimplifyJobs board will be skipped this run"
 fi
 
 # --- Phase 3: Google Sheets sync config (optional) -------------------------
-# The Sheets sync config is optional. If absent, warn and continue — job-board
+# The Sheets sync config is optional. If absent, warn and continue; job-board
 # runs must not break when Sheets sync is not yet configured. If present and
 # enabled, validate required fields and the service-account key path shape.
 # All findings here are WARNINGs only; none raise the exit code.
@@ -287,10 +287,10 @@ fi
 SHEETS="$PROJECT_ROOT/src/config/google_sheets_config.json"
 
 if [ ! -f "$SHEETS" ]; then
-  warn "Google Sheets sync config not found ($SHEETS) — Sheets sync will be skipped. See docs/SETUP.md section 3."
+  warn "Google Sheets sync config not found ($SHEETS); Sheets sync will be skipped. See docs/SETUP.md section 3."
 else
   if ! jq -e . "$SHEETS" >/dev/null 2>&1; then
-    warn "$SHEETS: invalid JSON — Sheets sync will be skipped."
+    warn "$SHEETS: invalid JSON: Sheets sync will be skipped."
   else
     # Use an explicit null-check instead of `//`: jq's alternative operator
     # treats `false` as falsy, so `.enabled // true` would turn an explicit
@@ -300,26 +300,26 @@ else
     if [ "$SHEETS_ENABLED" = "false" ]; then
       warn "Google Sheets sync is disabled (enabled=false in $SHEETS)."
     elif [ "$SHEETS_ENABLED" != "true" ]; then
-      warn "$SHEETS: 'enabled' is not a boolean — Sheets sync will be skipped."
+      warn "$SHEETS: 'enabled' is not a boolean: Sheets sync will be skipped."
     else
-      # enabled (or enabled absent, defaulting to true) — validate fields.
+      # enabled (or enabled absent, defaulting to true): validate fields.
       SHEETS_ID="$(jq -r '.spreadsheet_id // empty' "$SHEETS")"
       SHEETS_TAB="$(jq -r '.worksheet_title // empty' "$SHEETS")"
       SHEETS_KEY="$(jq -r '.service_account_key_path // empty' "$SHEETS")"
 
       if [ -z "$SHEETS_ID" ] || [ "$SHEETS_ID" = "REPLACE_ME" ]; then
-        warn "$SHEETS: spreadsheet_id is missing or placeholder — Sheets sync will be skipped."
+        warn "$SHEETS: spreadsheet_id is missing or placeholder: Sheets sync will be skipped."
       fi
       if [ -z "$SHEETS_TAB" ]; then
-        warn "$SHEETS: worksheet_title is missing — Sheets sync will be skipped."
+        warn "$SHEETS: worksheet_title is missing: Sheets sync will be skipped."
       fi
       if [ -z "$SHEETS_KEY" ] || [ "$SHEETS_KEY" = "REPLACE_ME" ]; then
-        warn "$SHEETS: service_account_key_path is missing or placeholder — Sheets sync will be skipped."
+        warn "$SHEETS: service_account_key_path is missing or placeholder: Sheets sync will be skipped."
       else
         # Key path shape: should end with .json.
         case "$SHEETS_KEY" in
           *.json) ;;
-          *) warn "$SHEETS: service_account_key_path should end with .json — got: $SHEETS_KEY" ;;
+          *) warn "$SHEETS: service_account_key_path should end with .json (got: $SHEETS_KEY)" ;;
         esac
         # Resolve relative to project root and check existence (warn only).
         KEY_ABS="$SHEETS_KEY"
@@ -328,7 +328,7 @@ else
           *) KEY_ABS="$PROJECT_ROOT/$KEY_ABS" ;;
         esac
         if [ ! -f "$KEY_ABS" ]; then
-          warn "$SHEETS: service-account key file not found at $SHEETS_KEY — Sheets sync will be skipped until the key is placed. See docs/SETUP.md section 3.3."
+          warn "$SHEETS: service-account key file not found at $SHEETS_KEY; Sheets sync will be skipped until the key is placed. See docs/SETUP.md section 3.3."
         fi
       fi
     fi
@@ -336,26 +336,26 @@ else
 fi
 
 # --- Phase 11: hosted Supabase backend config (optional) -------------------
-# Hosted/signed-in mode is opt-in from the desktop app (docs/app-integration-plan.md)
-# — a local-only setup never needs this file. Same warn-and-continue contract
+# Hosted/signed-in mode is opt-in from the desktop app (docs/app-integration-plan.md):
+# a local-only setup never needs this file. Same warn-and-continue contract
 # as the Google Sheets check above: absence or a placeholder value only means
 # "Sign in" isn't usable yet on this machine, never a failing run.
 
 SUPABASE="$PROJECT_ROOT/src/config/supabase.json"
 
 if [ ! -f "$SUPABASE" ]; then
-  warn "Hosted backend config not found ($SUPABASE) — hosted sign-in will be unavailable in the desktop app. See src/config/supabase.example.json."
+  warn "Hosted backend config not found ($SUPABASE); hosted sign-in will be unavailable in the desktop app. See src/config/supabase.example.json."
 else
   if ! jq -e . "$SUPABASE" >/dev/null 2>&1; then
-    warn "$SUPABASE: invalid JSON — hosted sign-in will be unavailable."
+    warn "$SUPABASE: invalid JSON: hosted sign-in will be unavailable."
   else
     SUPABASE_URL="$(jq -r '.url // empty' "$SUPABASE")"
     SUPABASE_ANON_KEY="$(jq -r '.anonKey // empty' "$SUPABASE")"
     if [ -z "$SUPABASE_URL" ] || [ "$SUPABASE_URL" = "YOUR_PROJECT_REF" ] || printf '%s' "$SUPABASE_URL" | grep -q "YOUR_PROJECT_REF"; then
-      warn "$SUPABASE: url is missing or still the placeholder — hosted sign-in will be unavailable."
+      warn "$SUPABASE: url is missing or still the placeholder: hosted sign-in will be unavailable."
     fi
     if [ -z "$SUPABASE_ANON_KEY" ] || [ "$SUPABASE_ANON_KEY" = "YOUR_SUPABASE_ANON_KEY" ]; then
-      warn "$SUPABASE: anonKey is missing or still the placeholder — hosted sign-in will be unavailable."
+      warn "$SUPABASE: anonKey is missing or still the placeholder: hosted sign-in will be unavailable."
     fi
   fi
 fi

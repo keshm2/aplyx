@@ -1,5 +1,5 @@
 /**
- * Apply-run state machine — the lifecycle a single application
+ * Apply-run state machine, the lifecycle a single application
  * submission attempt moves through, from package assembly to a
  * terminal outcome. Framework-agnostic: the local apply loop
  * (src/agents/bodies/job-scraper.md Phase 3), the browser extension's
@@ -15,7 +15,7 @@
  *   verification pauses in `confirm_before_submit` until a human
  *   approves the submit. This is strictly safer than local's default
  *   (which submits directly) and is the trust-building rollout path
- *   for hosted auto-apply. A run in this state is NOT submitted — the
+ *   for hosted auto-apply. A run in this state is NOT submitted: the
  *   UI must not render it as "applied".
  * - **ready_to_submit** is the state after pre-submit field-by-field
  *   verification passes but before the human (or, in Stage 2, the
@@ -27,7 +27,7 @@
  *
  * Terminal states (submitted, needs_review, failed, canceled) match
  * the existing AppliedJob.status taxonomy (applied/failed/needs_review)
- * plus `canceled` for an operator/timeout abort — a run that never
+ * plus `canceled` for an operator/timeout abort, a run that never
  * reached submit and was abandoned, distinct from `failed` (submit
  * attempted but errored/rejected).
  */
@@ -110,7 +110,7 @@ export class IllegalTransitionError extends Error {
   }
 }
 
-/** Pure state-machine transition — validates the edge, returns the new
+/** Pure state-machine transition: validates the edge, returns the new
  *  status, throws IllegalTransitionError on an invalid move. The
  *  caller (the apply loop, the worker, the UI's approve/reject action)
  *  owns persistence; this function carries no I/O so it's testable
@@ -144,7 +144,7 @@ export const APPLY_DOUBT_SIGNALS: readonly string[] = [
 
 /** Decide whether a run carrying the given doubt signals may proceed
  *  from filling → ready_to_submit. Any doubt signal present means the
- *  run must route to needs_review instead — never guess-and-continue.
+ *  run must route to needs_review instead: never guess-and-continue.
  *  This is the state-machine encoding of AGENTS.md's "never accept an
  *  unconfirmed dropdown match" / "always verify before submitting"
  *  rules: the doubt signal is the machine-checkable reason, and the

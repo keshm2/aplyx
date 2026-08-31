@@ -7,19 +7,19 @@ export interface SupabaseConfig {
 }
 
 /**
- * aplyx's own hosted-auth Supabase project — the backend "Sign in / Sync
+ * aplyx's own hosted-auth Supabase project, the backend "Sign in / Sync
  * across devices" on the desktop app's entry screen actually talks to.
  * An anon key is meant to be public (every Supabase web/mobile app ships
  * one in its client bundle; access control is Row Level Security on the
  * backend, not secrecy of this key), so baking it in here is the normal,
- * correct way to do this — the alternative, requiring every end user to
+ * correct way to do this: the alternative, requiring every end user to
  * stand up their own Supabase project just to click "Sign in," is what
  * was actually shipping: src/config/supabase.json is gitignored and reaches
  * no distribution channel (git tarball, npm package, or the desktop
  * app's bundled resources all exclude it), so literally every install
  * outside this maintainer's own dev machine hit the "isn't set up yet"
  * dead end. `readSupabaseConfig` below still checks for a local
- * src/config/supabase.json first — self-hosters who want their own backend
+ * src/config/supabase.json first: self-hosters who want their own backend
  * still get to override this, same as before.
  */
 export const DEFAULT_SUPABASE_CONFIG: SupabaseConfig = {
@@ -28,10 +28,10 @@ export const DEFAULT_SUPABASE_CONFIG: SupabaseConfig = {
 };
 
 /**
- * Reads src/config/supabase.json — a live, gitignored, *local override* of
+ * Reads src/config/supabase.json, a live, gitignored, *local override* of
  * DEFAULT_SUPABASE_CONFIG above (src/config/supabase.example.json is the
  * committed placeholder template, same convention as every other
- * src/config/*.example.json file) — and falls back to the baked-in default
+ * src/config/*.example.json file), and falls back to the baked-in default
  * when it's missing or still holds the example placeholders. Every real
  * install gets working hosted sign-in against aplyx's own backend without
  * any setup; a self-hoster who wants a different backend still can by
@@ -42,16 +42,16 @@ export function readSupabaseConfig(root: string): SupabaseConfig {
 }
 
 /**
- * Reads src/config/job_cache_supabase.json — a deliberately separate project
+ * Reads src/config/job_cache_supabase.json, a deliberately separate project
  * from src/config/supabase.json's (hosted auth/profile sync). Split apart
  * 2026-07-23 after the auth project's disk I/O usage climbed toward its
- * free-tier limit (partly from job_cache's own write volume — ~14k rows
- * across 47 companies, refreshed hourly at the time — daily since
+ * free-tier limit (partly from job_cache's own write volume, ~14k rows
+ * across 47 companies, refreshed hourly at the time, daily since
  * 2026-07-30) and started producing Cloudflare
  * 522s on unrelated requests; the two workloads no longer share one
  * project's resource ceiling. job_cache holds no personal data (see
  * src/job_cache_supabase/supabase/migrations/0003_job_cache.sql's RLS comment), so this project
- * doesn't need to be the same one hosted auth uses — jobCache.ts and
+ * doesn't need to be the same one hosted auth uses: jobCache.ts and
  * refreshJobCache.ts are the only callers, both entirely independent of
  * the desktop app's SupabaseAdapter/auth flow, which still reads
  * readSupabaseConfig() above unchanged.

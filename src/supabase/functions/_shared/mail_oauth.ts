@@ -44,12 +44,12 @@ export async function verifyState(state: string, secret: string): Promise<Record
   }
 }
 
-// Deliberately NOT derived from the incoming request's own URL — Supabase's
+// Deliberately NOT derived from the incoming request's own URL: Supabase's
 // edge network doesn't guarantee req.url reflects the public invoke URL
 // (in practice it's the internal /functions/v1/<name> form supabase-js
 // actually calls, not the project's own base), and this value MUST match
 // byte-for-byte both the redirect_uri Google receives at consent time and
-// the one this callback later sends back during token exchange — a
+// the one this callback later sends back during token exchange; a
 // mismatch fails as "invalid_request" on Google's side with no useful
 // detail. SUPABASE_URL is the one stable, always-correct value available.
 export function callbackUrl(): string {

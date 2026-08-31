@@ -24,7 +24,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-/** One dense line per screen — used when the terminal is too short for
+/** One dense line per screen: used when the terminal is too short for
  *  the sectioned reference (an overflowing frame corrupts Ink's repaint). */
 function CompactHelp() {
   const lines: Array<[string, string]> = [
@@ -74,14 +74,14 @@ export function HelpOverlay({ contentRows = 40 }: { contentRows?: number }) {
           <Key k="?" desc="open / close this help" />
           <Key k="q" desc="quit (asks to confirm while a run is active)" />
         </Section>
-        <Section title="Jobs — MANUAL (live search)">
+        <Section title="Jobs: MANUAL (live search)">
           <Key k="/" desc="edit the query · enter runs the search · esc stops typing" />
           <Key k="↑↓ or j/k" desc="select a posting" />
           <Key k="enter / o" desc="open the selected posting in your browser" />
           <Key k="f" desc="run the deterministic fit gate on the selection" />
           <Key k="s" desc="save the selection to the review queue" />
         </Section>
-        <Section title="Jobs — AUTO (agent run)">
+        <Section title="Jobs: AUTO (agent run)">
           <Key k="e" desc="set this cycle's application cap (1–25; colored by cost, 25 = MAX warns)" />
           <Key k="p" desc="optional extra prompt for the agent (empty = standard workflow)" />
           <Key k="s" desc="start the run (streams the session log)" />

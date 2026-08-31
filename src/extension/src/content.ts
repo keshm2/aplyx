@@ -1,4 +1,4 @@
-// Content script — runs on the four supported ATS families. Renders a
+// Content script: runs on the four supported ATS families. Renders a
 // small shadow-DOM panel with three user-driven actions:
 //
 //   Fit check     -> extract the posting, ask the bridge for the phase 4
@@ -6,7 +6,7 @@
 //   Autofill      -> map the visible form controls to safe_fields keys,
 //                    request ONLY those keys' values from the bridge, and
 //                    fill empty controls. Unmapped required fields are
-//                    highlighted for the user — values are never invented.
+//                    highlighted for the user; values are never invented.
 //   Record        -> after the USER submits, record applied (or save for
 //                    review) through the bridge's helper-backed writes.
 //
@@ -33,7 +33,7 @@ if (ats) watchForForm();
 /** How long to keep watching a page for a form that isn't there yet at
  *  document_idle before giving up quietly. Several supported ATS
  *  families (Ashby, Workday) hydrate their application form client-side
- *  well after the initial page load — a single one-shot scan would miss
+ *  well after the initial page load; a single one-shot scan would miss
  *  those and never prompt at all. Bounded, not indefinite: a page that
  *  genuinely never gets a form (a board index, a "thanks for applying"
  *  page) must not leave an observer running for the rest of the tab's
@@ -47,7 +47,7 @@ function hasApplicationForm(): boolean {
 
 /** Detect-then-prompt, not always-on: the extension now stays completely
  *  invisible on any page that isn't an actual application form (a job
- *  listing, a search results page, a "thanks for applying" page) — a
+ *  listing, a search results page, a "thanks for applying" page); a
  *  real improvement over the previous design, which showed a persistent
  *  corner panel on every matched-hostname page regardless of whether a
  *  fillable form was anywhere on it. */
@@ -56,7 +56,7 @@ function watchForForm(): void {
     init();
     return;
   }
-  // Debounced, not scanned on every callback — a React/Vue app hydrating
+  // Debounced, not scanned on every callback: a React/Vue app hydrating
   // (Ashby, Workday) can fire dozens of mutation records in the same
   // burst, and each scan walks every input/textarea/select on the page
   // plus a getComputedStyle() call per element. Re-running that on every
@@ -89,12 +89,12 @@ interface MappedControl {
 
 /** A zero-size bounding rect alone (display:none, or a display:none
  *  ancestor) already covers most hidden cases, but NOT visibility:hidden
- *  or opacity:0 — both can still report a nonzero rect. That gap matters
+ *  or opacity:0: both can still report a nonzero rect. That gap matters
  *  here specifically: several ATS forms plant honeypot fields (invisible
  *  to a real applicant, meant to catch bots) using exactly those two
  *  properties rather than display:none. Autofilling one and having the
  *  user submit it would look like automated/bot traffic to the ATS's own
- *  anti-abuse checks — the opposite of this extension's entire "a human
+ *  anti-abuse checks, the opposite of this extension's entire "a human
  *  reviews and submits" safety story. */
 function visible(el: HTMLElement): boolean {
   const rect = el.getBoundingClientRect();
@@ -169,7 +169,7 @@ function resolveValue(key: FieldKey, fields: Record<string, string>): string {
 async function autofill(): Promise<string> {
   const { mapped, unmappedRequired } = scanForm();
   if (mapped.length === 0 && unmappedRequired.length === 0) {
-    return "No application form detected on this page — open the posting's Apply form first.";
+    return "No application form detected on this page. Open the posting's Apply form first.";
   }
   const keys = new Set<string>();
   for (const { key } of mapped) {
@@ -192,8 +192,8 @@ async function autofill(): Promise<string> {
   for (const { el, key } of mapped) {
     const value = resolveValue(key, response.fields);
     if (!value) {
-      // The profile has no value for this mapped field — highlight, never invent.
-      outline(el, "#d97706", "aplyx: no profile value for this field — fill it yourself");
+      // The profile has no value for this mapped field: highlight, never invent.
+      outline(el, "#d97706", "aplyx: no profile value for this field; fill it yourself");
       attention += 1;
       continue;
     }
@@ -202,7 +202,7 @@ async function autofill(): Promise<string> {
         outline(el, "#0f6e2a", "aplyx: filled from your profile");
         filled += 1;
       } else {
-        outline(el, "#d97706", `aplyx: no option matches "${value}" — pick one yourself`);
+        outline(el, "#d97706", `aplyx: no option matches "${value}"; pick one yourself`);
         attention += 1;
       }
       continue;
@@ -213,7 +213,7 @@ async function autofill(): Promise<string> {
     filled += 1;
   }
   for (const el of unmappedRequired) {
-    outline(el, "#d97706", "aplyx: required field the profile can't answer — fill it yourself");
+    outline(el, "#d97706", "aplyx: required field the profile can't answer; fill it yourself");
     attention += 1;
   }
   return `Filled ${filled} field${filled === 1 ? "" : "s"}.` +
@@ -222,7 +222,7 @@ async function autofill(): Promise<string> {
 }
 
 // ---------------------------------------------------------------------------
-// Prompt UI (shadow DOM so page CSS can't corrupt it and vice versa) —
+// Prompt UI (shadow DOM so page CSS can't corrupt it and vice versa),
 // only mounted once watchForForm() above has confirmed a real
 // application form is present. Slides down from top-center asking a
 // single yes/no question first, matching the "detects a form, asks
@@ -237,17 +237,17 @@ function init(): void {
   shadow.innerHTML = `
     <style>
       :host { all: initial; }
-      /* Moss — the app's actual dark palette (src/tauri/src/styles/tokens.css)
-         — plus a frosted-glass material (translucent + backdrop blur) over
+      /* Moss, the app's actual dark palette (src/tauri/src/styles/tokens.css),
+         plus a frosted-glass material (translucent + backdrop blur) over
          it, and the site's own --ease-out-expo curve (src/site/styles.css:
          cubic-bezier(.16,1,.3,1)) for the entrance, instead of an invented
          easing. Always dark regardless of the host page's own light/dark
-         styling — deliberate, same reasoning as the homepage's review-demo
+         styling; deliberate, same reasoning as the homepage's review-demo
          mockup: this is a fixed recreation of a specific product surface,
          not a surface that should chameleon to whatever page it's overlaid
          on.
          Starts translated up + scaled down + transparent (not fully
-         off-screen) — closer to how a real macOS notification banner
+         off-screen), closer to how a real macOS notification banner
          actually enters than a hard slide from off-canvas, and
          pointer-events:none while hidden matters here specifically: unlike
          the old off-screen-translate version, this hidden state still sits
@@ -333,8 +333,8 @@ function init(): void {
         <div class="fit" id="fitResult"></div>
         <button id="autofillAgain">Autofill again</button>
         <button id="save" class="secondary">Save for review</button>
-        <button id="applied" class="secondary">I submitted this — record it</button>
-        <div class="note">aplyx never submits a form — you review and click submit yourself.</div>
+        <button id="applied" class="secondary">I submitted this (record it)</button>
+        <div class="note">aplyx never submits a form; you review and click submit yourself.</div>
       </div>
     </div>`;
   document.documentElement.appendChild(host);
@@ -348,7 +348,7 @@ function init(): void {
     (id) => shadow.getElementById(id) as HTMLButtonElement,
   );
 
-  // Two rAFs, not one — the element has to actually paint once at its
+  // Two rAFs, not one: the element has to actually paint once at its
   // off-screen transform before adding .visible, or the browser can
   // coalesce both style changes into a single frame and the slide-down
   // never animates, it just appears already in place.
@@ -359,7 +359,7 @@ function init(): void {
   }
   shadow.getElementById("close")!.addEventListener("click", dismiss);
 
-  // "Not now" means "don't autofill yet," not "go away" — it still
+  // "Not now" means "don't autofill yet," not "go away"; it still
   // reveals the same fit-check/save/record actions the old panel always
   // had reachable together, just without running autofill. Only the ×
   // in the header actually dismisses the whole thing.
@@ -374,11 +374,11 @@ function init(): void {
   };
 
   // All actions talk to the same single-threaded bridge and read/write
-  // the same job's state — running two at once (a fast double-click, or
+  // the same job's state: running two at once (a fast double-click, or
   // clicking Autofill while Fit check is still in flight) has no guard
   // otherwise, risking overlapping bridge calls racing each other.
   // Disabling every action button for the duration of any one of them,
-  // not just the clicked one, is the simplest correct fix — these are
+  // not just the clicked one, is the simplest correct fix; these are
   // all quick, sequential, single-user actions with no legitimate reason
   // to overlap.
   let busy = false;
@@ -412,7 +412,7 @@ function init(): void {
   shadow.getElementById("fit")!.addEventListener("click", () =>
     runExclusive(async () => {
       const extracted = job();
-      if (!extracted) return say("Could not read a posting from this page — open a specific job posting.");
+      if (!extracted) return say("Could not read a posting from this page. Open a specific job posting.");
       if (!extracted.jd_text) return say("No description text found on this page.");
       say("Running the fit gate…");
       const result = (await chrome.runtime.sendMessage({ type: "fit", job: extracted })) as FitResponse;

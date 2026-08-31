@@ -2,10 +2,10 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>aplyx — options</title>
+    <title>aplyx: options</title>
     <style>
       :root {
-        /* Moss dark palette (src/tauri/src/styles/tokens.css) — the
+        /* Moss dark palette (src/tauri/src/styles/tokens.css): the
            extension's real brand identity. This page used to hardcode an
            unrelated violet (#7c3aed) that matched nothing else aplyx ships. */
         --surface: #1e1b14;
@@ -85,14 +85,14 @@
   <body>
     <div class="head">
       <img src="icons/icon48.png" alt="" />
-      <h1>aplyx — bridge connection</h1>
+      <h1>aplyx: bridge connection</h1>
     </div>
     <p class="note">
       The extension talks only to the local aplyx bridge
       (<code>py -3 src/scripts/runtime/extension_bridge.py</code> on Windows,
       <code>python3 src/scripts/runtime/extension_bridge.py</code> on macOS/Linux).
       The token lives in <code>src/config/extension_bridge.json</code> in your
-      aplyx checkout — print it with the same command plus
+      aplyx checkout; print it with the same command plus
       <code>--show-token</code>.
     </p>
     <label for="bridgeUrl">Bridge URL</label>

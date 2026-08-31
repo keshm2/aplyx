@@ -24,10 +24,10 @@ tailors a resume and cover letter, applies on your behalf, pings
 Discord with the outcome, and appends successful applications to
 a Google Sheet tracker.
 
-It's built on top of a coding agent — aplyx is the workflow, the
+It's built on top of a coding agent: aplyx is the workflow, the
 agent is the executor.
 
-> **Build 1.0.1b** — see [Release notes](docs/RELEASE.md) and
+> **Build 1.0.1b**: see [Release notes](docs/RELEASE.md) and
 > [Changelog](docs/CHANGELOG.md).
 
 ## You need a coding agent
@@ -44,7 +44,7 @@ up whatever you have and asks if you have more than one.
 
 ## Install
 
-One installer sets up everything, including the **desktop app** —
+One installer sets up everything, including the **desktop app**,
 the recommended way to run aplyx day to day. A terminal UI (`aplyx`)
 comes with it either way, for anyone who'd rather stay in a shell.
 
@@ -62,7 +62,7 @@ irm https://raw.githubusercontent.com/keshm2/aplyx/main/src/scripts/install/inst
 
 Answer `y` when it asks about the desktop app (the default) and
 it installs to `/Applications` (macOS), via your package manager
-or an AppImage (Linux), or a per-user installer (Windows) — no
+or an AppImage (Linux), or a per-user installer (Windows); no
 Rust toolchain needed for a released build, just the installer
 itself. Open it from Applications/Start Menu when it's done.
 
@@ -73,15 +73,15 @@ npm install -g @keshm/aplyx
 aplyx
 ```
 
-**Or from a release archive** — see [docs/SETUP.md §1.4](docs/SETUP.md)
+**Or from a release archive**: see [docs/SETUP.md §1.4](docs/SETUP.md)
 for the full curl/PowerShell snippets.
 
 The installer drops aplyx in `~/aplyx` (or `%USERPROFILE%\aplyx`
 on Windows; override with `APLYX_HOME`), asks for your coding
-agent, your profile (kept **locally only** — gitignored files on
+agent, your profile (kept **locally only**, gitignored files on
 your machine, never uploaded), and whether you want Discord
 status updates, creates the `data/resumes/` folder (add your base
-resumes there — see [docs/SETUP.md](docs/SETUP.md) for the expected
+resumes there; see [docs/SETUP.md](docs/SETUP.md) for the expected
 filenames), and puts `aplyx` on your PATH. When it finishes, open
 the desktop app, or just type `aplyx` for the terminal UI.
 
@@ -109,7 +109,7 @@ mail/OTP, so a Workday application stops at the awaiting-verification
 checkpoint on the scheduled path and you supply the verification
 link or OTP via the **Continue Workday** action in Review to cross
 it. Configure `workday_alias_email` in `src/config/targets.json`
-first — a missing alias routes the job to review with a clear
+first; a missing alias routes the job to review with a clear
 configuration message rather than applying.
 
 ## Using it
@@ -117,7 +117,7 @@ configuration message rather than applying.
 **Desktop app (recommended):** open aplyx from Applications (macOS),
 your Start Menu (Windows), or your app launcher (Linux). It walks
 you through a guided setup wizard, then gives you Jobs, Review,
-Status, Documents/Resumes, and Settings screens — including turning
+Status, Documents/Resumes, and Settings screens, including turning
 the 30-minute background schedule on or off with a switch.
 
 **Terminal UI**, for anyone who'd rather not leave a shell:
@@ -132,11 +132,11 @@ aplyx review | history   # jump straight to a screen
 bash src/scripts/runtime/scheduler.sh install    # 30-minute always-on schedule (launchd)
 ```
 
-Both surfaces read and write the exact same local files — nothing
+Both surfaces read and write the exact same local files: nothing
 about your setup, resumes, or history depends on which one you use,
 and you can switch between them freely.
 
-Updates happen automatically — each run and terminal-UI launch
+Updates happen automatically: each run and terminal-UI launch
 checks for a newer build and installs it before continuing (your
 config, data, logs, and resumes are never touched); the desktop app
 checks for its own updates the same way and prompts from Settings
@@ -156,7 +156,7 @@ These are how aplyx is wired, not suggestions:
 - **The browser extension never submits a form.** Autofill stops
   at a filled form; you click submit.
 - **Discord is optional.** If you don't set it up, outcomes stay
-  local — missing config is a warning, not an error.
+  local; missing config is a warning, not an error.
 - **Only successful applications sync to the Google Sheet.** A
   sync hiccup never turns a successful application into a
   failure.
@@ -165,12 +165,12 @@ These are how aplyx is wired, not suggestions:
   Workday account verification mail/OTP, so a Workday application
   checkpoints at `awaiting_verification` and you cross it by running
   **Continue Workday** with the forwarded verification link or OTP.
-  This is a missing-inbox blocker, not a policy prohibition —
+  This is a missing-inbox blocker, not a policy prohibition;
   configure `workday_alias_email` and the runtime handles the rest.
 
-For the full walkthrough — boards, Discord webhooks, the Google
+For the full walkthrough (boards, Discord webhooks, the Google
 Sheets sync, per-agent quickstarts, the scheduler, and the
-browser extension — see **[docs/SETUP.md](docs/SETUP.md)**.
+browser extension), see **[docs/SETUP.md](docs/SETUP.md)**.
 
 ## Repository layout
 
@@ -183,14 +183,14 @@ canonical behavioral docs every coding agent reads first.
 | [`AGENTS.md`](AGENTS.md) | Canonical behavioral rules for any agent operating in this repo |
 | [`docs/SETUP.md`](docs/SETUP.md) | Full install/config walkthrough |
 | [`docs/RELEASE.md`](docs/RELEASE.md) / [`docs/CHANGELOG.md`](docs/CHANGELOG.md) | Release notes / changelog |
-| `src/tauri/` | The desktop app (Tauri) — the recommended way to use aplyx |
+| `src/tauri/` | The desktop app (Tauri), the recommended way to use aplyx |
 | `src/tui/` | The `aplyx` terminal UI (Ink/React) |
 | `src/core/` | Shared TypeScript core (`@aplyx/core`) used by both apps |
-| `src/scripts/` | Deterministic Python/bash helpers — the only things allowed to write state |
+| `src/scripts/` | Deterministic Python/bash helpers: the only things allowed to write state |
 | `src/agents/` | Source of truth for agent prompts (generated into `.claude/`, `.opencode/`, `.github/`, `.codex/`) |
 | `src/extension/` | The browser extension (user-driven hybrid mode) |
 | `src/config/` | Committed config templates (live, per-user configs are gitignored) |
-| `data/`, `logs/` | Runtime state and logs — gitignored, stay at the repo root, hold your PII |
+| `data/`, `logs/` | Runtime state and logs: gitignored, stay at the repo root, hold your PII |
 
 ## License
 

@@ -1,7 +1,7 @@
 /*
  * Home as a real dashboard (docs/ui-development-plan.md, Phase 14C):
  * fewer, larger, more meaningful sections instead of many equal-weight
- * boxes — a stat row for orientation, then one clear "what's next" card
+ * boxes: a stat row for orientation, then one clear "what's next" card
  * instead of a flat checklist.
  */
 
@@ -19,7 +19,7 @@
 }
 
 /* The app's one other constant, always-on glow (.home-next, HomeScreen.css)
- * is the "what to do next" card — this is the other legitimate case for
+ * is the "what to do next" card; this is the other legitimate case for
  * it: the greeting is the very first thing seen on Home, once per visit,
  * not a repeating list item. Same restrained values (--glow-blur/
  * --glow-opacity), not a new, louder treatment. */
@@ -30,12 +30,12 @@
   z-index: -1;
   /* Confirmed live (operator report, 2026-08-22): this decorative glow's
    * negative inset bleeds it upward far enough to geometrically overlap
-   * TopBar's nav-menu dropdown sitting above it on the page — and being
+   * TopBar's nav-menu dropdown sitting above it on the page, and being
    * a later DOM sibling, it paints on top there, so without this it
    * silently intercepted clicks meant for the real button underneath,
    * reproducing as "have to click above the dropdown for it to
    * register." isolation:isolate on the parent scopes this element's
-   * negative z-index for PAINT ordering, not for hit-testing — pointer
+   * negative z-index for PAINT ordering, not for hit-testing: pointer
    * events on a purely decorative box need to be turned off explicitly. */
   pointer-events: none;
   background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 45%, transparent), transparent 70%) 30%
@@ -49,7 +49,7 @@
 .home-greeting h1 {
   font-size: var(--text-4xl);
   margin-bottom: var(--space-1);
-  /* The one gradient-text moment in the app — Moss's identity gradient
+  /* The one gradient-text moment in the app: Moss's identity gradient
    * spent on the single most-looked-at line on the screen you land on
    * first, not smeared across every heading. */
   background: var(--accent-gradient);
@@ -62,7 +62,7 @@
   color: var(--text-muted);
   font-size: var(--text-sm);
   /* p's own global max-width: 65ch (base.css) makes this a narrower box
-   * than the heading above — margin: 0 auto keeps that narrower box
+   * than the heading above; margin: 0 auto keeps that narrower box
    * centered under it instead of flush against the flex container's left
    * edge, same fix DigitalClock's sibling position below needs to avoid. */
   margin: 0 auto;
@@ -90,7 +90,7 @@
   gap: var(--space-2);
 }
 
-/* A card per pending assessment, not a plain list row — the deadline/link
+/* A card per pending assessment, not a plain list row: the deadline/link
  * is the actionable part, so it gets a footer with a real CTA instead of
  * being just another line of text in a list. */
 .home-alert-cards {
@@ -162,7 +162,7 @@
   }
 }
 
-/* The one place in the app with a constant, always-on glow — everywhere
+/* The one place in the app with a constant, always-on glow: everywhere
  * else earns it only on hover/focus (see .home-next-cta below), because
  * this card is seen once per Home visit, not dozens of times a session.
  * isolation: isolate keeps ::before's negative z-index scoped to this
@@ -226,7 +226,7 @@
   transition: box-shadow var(--duration-quick) var(--ease-out), transform var(--duration-quick) var(--ease-snap);
 }
 
-/* A real :hover rule, not gated behind a click/focus state — this is a
+/* A real :hover rule, not gated behind a click/focus state: this is a
  * mouse-driven desktop app, so (hover: hover) and (pointer: fine) reliably
  * matches whenever a real pointing device is present, same as every other
  * hover rule already in this file. */

@@ -3,7 +3,7 @@ import { useState } from "react";
 /**
  * Which field on the current page is focused, plus the commit/percentage
  * bookkeeping the sidebar's progress bar needs. `committed` is the live
- * mirror of src/config/targets.json's `_onboarding.committed_fields` — ids
+ * mirror of src/config/targets.json's `_onboarding.committed_fields`: ids
  * the wizard has already asked-and-recorded (filled or explicitly
  * skipped). Committing is idempotent: re-committing an already-committed
  * field (e.g. editing a value on a page you've come back to) never

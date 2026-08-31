@@ -9,7 +9,7 @@
   align-items: center;
   justify-content: space-between;
   /* Extra top clearance so the brand mark isn't under the macOS traffic
-   * lights — the native title bar is transparent and reserves no space
+   * lights; the native title bar is transparent and reserves no space
    * of its own anymore (see .app-drag-region in base.css). */
   padding: 2.75rem var(--space-6) var(--space-4);
   border-bottom: 1px solid var(--border);
@@ -92,7 +92,7 @@
 }
 
 /* Same "arrives and settles" easing as AppShell's route transition
- * (--ease-glide) — the two are meant to feel like one consistent system,
+ * (--ease-glide): the two are meant to feel like one consistent system,
  * not two independently-tuned animations. */
 .wizard-step-in {
   animation: wizard-step-in var(--duration-normal) var(--ease-glide) both;
@@ -115,7 +115,7 @@
   gap: var(--space-4);
 }
 
-/* Same convention as the shell screens' message-banner (dataList.css) —
+/* Same convention as the shell screens' message-banner (dataList.css),
  * duplicated here rather than imported, since this component intentionally
  * has no dependency on the shell's stylesheet. */
 .message-banner {

@@ -4,7 +4,7 @@
  * Catmull-Rom curve instead of straight segments between points, an
  * animated draw-in, a hover crosshair+tooltip, and recessive gridlines.
  * Uses this app's own accent tokens (not a separate chart palette) so it
- * follows Moss's light/dark mode automatically — the area/line now paint
+ * follows Moss's light/dark mode automatically: the area/line now paint
  * through a 3-stop gradient (moss/honey/clay, defined below and
  * referenced from the <linearGradient> in WeeklyActivityChart.tsx)
  * instead of a flat single accent, matching Moss's actual identity.
@@ -70,7 +70,7 @@
   stroke-linecap: round;
   stroke-linejoin: round;
   /* pathLength="1" on the element lets this be expressed as a 0-1 fraction
-     regardless of the path's actual geometry — draws in left-to-right on
+     regardless of the path's actual geometry; draws in left-to-right on
      mount rather than appearing all at once. */
   stroke-dasharray: 1;
   stroke-dashoffset: 1;

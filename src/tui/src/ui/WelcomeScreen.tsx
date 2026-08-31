@@ -59,7 +59,7 @@ export function WelcomeScreen({
   const showLastRun = contentRows >= 16;
   // Row tiers: the frame is clipped at the viewport (App pins height with
   // overflow hidden), so on short terminals the menu sheds its supporting
-  // bands — intro, description, state, footer hint — before the options
+  // bands (intro, description, state, footer hint) before the options
   // themselves get cut off.
   const showIntro = contentRows >= 14;
   const showSelected = contentRows >= 12;

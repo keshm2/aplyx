@@ -6,12 +6,12 @@ import { useEffect, useState } from "react";
  * - theme: "system" leaves the attribute off (the prefers-color-scheme
  *   media query decides); "light"/"dark" set data-theme, which wins over
  *   the media query in both directions.
- * - font: "manrope" (default pairing — Manrope display + Inter body,
+ * - font: "manrope" (default pairing: Manrope display + Inter body,
  *   matching Supabase's own pairing) or one of the other bundled variable
  *   faces, or "system" to opt back into the OS's native UI font (see
  *   base.css @font-face and this file's FONT_LABELS).
- * Purely a webview concern — nothing here touches the Python-owned state.
- * There used to be a third axis (themeFamily — which of six palettes) but
+ * Purely a webview concern; nothing here touches the Python-owned state.
+ * There used to be a third axis (themeFamily, which of six palettes) but
  * the app now ships exactly one palette (Moss, tokens.css), so that axis
  * was removed rather than left as a single-option picker.
  */
@@ -48,7 +48,7 @@ export function applyUiPrefs(theme: ThemePref = loadThemePref(), font: FontPref 
   if (theme === "system") delete root.dataset["theme"];
   else root.dataset["theme"] = theme;
   // "manrope" is the default, so it's the one relying on attribute absence
-  // (tokens.css's bare :root) — "system" moved to an explicit
+  // (tokens.css's bare :root); "system" moved to an explicit
   // [data-font="system"] rule instead.
   if (font === "manrope") delete root.dataset["font"];
   else root.dataset["font"] = font;

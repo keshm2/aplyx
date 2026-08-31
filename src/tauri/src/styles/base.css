@@ -1,7 +1,7 @@
 @import "./tokens.css";
 @import "./motion.css";
 
-/* Geist + Geist Mono (SIL OFL 1.1, bundled from the `geist` npm package —
+/* Geist + Geist Mono (SIL OFL 1.1, bundled from the `geist` npm package,
  * no CDN fetch, works fully offline). Loaded lazily: nothing references
  * these families unless the user picks the Geist font option in Settings
  * (data-font="geist" on the root). */
@@ -21,11 +21,11 @@
   font-display: swap;
 }
 
-/* Inter, IBM Plex Sans/Mono, Atkinson Hyperlegible Next — the other font
+/* Inter, IBM Plex Sans/Mono, Atkinson Hyperlegible Next: the other font
  * directions from docs/ui-development-plan.md's Priority 4, each bundled
  * the same way as Geist above (OFL-licensed, self-hosted via @fontsource,
  * no CDN fetch, picked in Settings via data-font). Subset to the latin
- * unicode-range @fontsource ships for each family — smaller offline
+ * unicode-range @fontsource ships for each family: smaller offline
  * bundle than Geist's unsubset file; anything outside that range falls
  * back to the next family in the stack, which only matters for non-Latin
  * text this app doesn't otherwise localize into. */
@@ -69,9 +69,9 @@
     U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
-/* Manrope — the new default display/heading face (operator-directed,
+/* Manrope: the new default display/heading face (operator-directed,
  * 2026-08-10: "match the Supabase font"). Supabase's own marketing site
- * pairs Manrope (headings) with Inter (body) — confirmed by inspecting
+ * pairs Manrope (headings) with Inter (body), confirmed by inspecting
  * its shipped @font-face rules, not guessed. Inter above already covers
  * the body half of that pairing; this adds the missing display half.
  * Same bundling as every other face here: OFL-licensed, self-hosted via
@@ -114,7 +114,7 @@ h2,
 h3 {
   font-family: var(--font-display);
   line-height: var(--leading-tight);
-  /* Large text reads as loosely spaced at 0 tracking — tighten headings,
+  /* Large text reads as loosely spaced at 0 tracking: tighten headings,
    * leave body copy alone (optical sizing, WWDC 2020 "Details of UI
    * Typography"). */
   letter-spacing: var(--tracking-tight);
@@ -140,13 +140,13 @@ textarea {
  * background/border falls back to the OS's own control chrome instead of
  * the app's theme: a plain grey/white bezeled control on macOS WebKit.
  * Reported live: the sign-out button visibly "stuck out" against the
- * rest of the page instead of blending in — it was relying on the
+ * rest of the page instead of blending in; it was relying on the
  * browser default for exactly the chrome this resets. Individual button
  * classes (.wizard-next, .btn-*, .notif-bell-btn, etc.) already set
  * their own background/border where they want one; this just removes
  * the *native* fallback everything else was silently inheriting, so a
  * button with no styling of its own reads as plain text rather than a
- * mismatched OS control. (No native <select> remains in the app — Jobs'
+ * mismatched OS control. (No native <select> remains in the app: Jobs'
  * sort/results-per-page dropdowns moved to the custom Dropdown component,
  * 2026-08-22, after a WebKit-only <select> hit-region bug that Chrome
  * tooling couldn't reproduce; a select-specific reset isn't needed
@@ -164,7 +164,7 @@ a {
   text-decoration: none;
 }
 
-/* Visible keyboard focus everywhere — never removed without a replacement. */
+/* Visible keyboard focus everywhere. Never removed without a replacement. */
 :focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
@@ -177,13 +177,13 @@ a {
 }
 
 /* Digits that align in a column instead of each glyph claiming its own
- * proportional width — the same convention Supabase's dashboard uses for
+ * proportional width, the same convention Supabase's dashboard uses for
  * row counts/metrics, so a stat that ticks up doesn't visibly reflow. */
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
 
-/* Announced to screen readers, invisible otherwise — pairs with the
+/* Announced to screen readers, invisible otherwise, pairs with the
  * skeleton loading placeholders (components/Skeleton.tsx), whose
  * shimmering bars are themselves aria-hidden since they carry no real
  * content of their own. */
@@ -201,10 +201,10 @@ a {
 
 /* Native title bar is transparent (tauri.conf.json) so the page's own
  * --ground background shows straight through instead of the OS's default
- * gray chrome — it already recolors with theme/mode, no extra syncing
+ * gray chrome; it already recolors with theme/mode, no extra syncing
  * needed. This invisible strip is what makes the window draggable from
  * anywhere along the top, since removing the native title bar also
- * removes the OS's built-in drag handling. No background of its own —
+ * removes the OS's built-in drag handling. No background of its own:
  * purely a hit-target, layered above everything. Screens with top-anchored
  * content (the app shell sidebar, the wizard header) add extra top
  * padding so nothing sits underneath the macOS traffic lights. */

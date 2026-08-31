@@ -13,8 +13,19 @@
     })();
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Install — aplyx</title>
+  <title>Install: aplyx</title>
   <meta name="description" content="Install aplyx on macOS, Linux, or Windows: one command, no coding-agent-specific setup required." />
+  <link rel="canonical" href="https://aplyx.app/install.html" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="aplyx" />
+  <meta property="og:title" content="Install: aplyx" />
+  <meta property="og:description" content="Install aplyx on macOS, Linux, or Windows: one command, no coding-agent-specific setup required." />
+  <meta property="og:url" content="https://aplyx.app/install.html" />
+  <meta property="og:image" content="https://aplyx.app/assets/logo-mark.png" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Install: aplyx" />
+  <meta name="twitter:description" content="Install aplyx on macOS, Linux, or Windows: one command, no coding-agent-specific setup required." />
+  <meta name="twitter:image" content="https://aplyx.app/assets/logo-mark.png" />
   <link rel="icon" href="favicon.ico" sizes="any" />
   <link rel="icon" type="image/png" href="assets/favicon-32.png" sizes="32x32" />
   <link rel="icon" type="image/png" href="assets/favicon-16.png" sizes="16x16" />
@@ -70,7 +81,7 @@
           <div class="direct-download" data-reveal>
             <h2>Get aplyx</h2>
             <p>
-              The desktop app installs itself and walks you through setup — profile, resumes, the
+              The desktop app installs itself and walks you through setup: profile, resumes, the
               rest. Rather use a terminal, or want the TUI too? Skip to the commands below.
             </p>
             <div class="download-stage">
@@ -140,7 +151,7 @@
             </div>
           </div>
 
-          <h2>A coding agent — only if you're running locally</h2>
+          <h2>A coding agent (only if you're running locally)</h2>
           <p>
             Running aplyx yourself, offline, needs a coding agent to drive it: full capability
             (browser-automated applies included) with
@@ -168,7 +179,7 @@
 
           <h2 id="extension">The browser extension</h2>
           <p>
-            Submitted to the Chrome Web Store &mdash; once it's approved, this section switches to
+            Submitted to the Chrome Web Store; once it's approved, this section switches to
             a one-click "Add to Chrome" link. Until then, install it the same way any Manifest V3
             extension gets loaded during development:
           </p>
@@ -206,22 +217,22 @@
       // GitHub Release binaries (confirmed live: macOS arm64+x64 dmg,
       // Linux AppImage/deb/rpm exist on every recent release; Windows
       // will once a pending CI fix ships in a future release). Never a
-      // hardcoded/versioned link — Tauri's own bundle filenames embed
+      // hardcoded/versioned link: Tauri's own bundle filenames embed
       // the exact version string per release (e.g.
       // "aplyx_1.0.1-beta.0_aarch64.dmg"), so a static link goes stale
       // on every single release. Instead this fetches the GitHub API
       // client-side and matches assets by filename suffix, same "check
       // live, don't hardcode" discipline the account.js job-search page
-      // already follows for its own backend calls — this needs no site
+      // already follows for its own backend calls, so this needs no site
       // update ever again as new versions ship.
       //
-      // Deliberately GET /releases (the list), NOT /releases/latest —
+      // Deliberately GET /releases (the list), NOT /releases/latest;
       // confirmed live this matters: GitHub's own "latest release"
       // convenience endpoint explicitly excludes every release flagged
       // prerelease, and every real aplyx release IS flagged prerelease
       // (still in beta), so /releases/latest actually resolved to a
       // stale pre-rename release from before "applyr" became "aplyx"
-      // (assets literally named applyr_0.1.0_*) — it would have quietly
+      // (assets literally named applyr_0.1.0_*), so it would have quietly
       // shipped a badly outdated download to every visitor. The list
       // endpoint returns newest-first regardless of prerelease status;
       // index 0 is the real latest release either way.
@@ -229,11 +240,11 @@
       var allWrap = document.getElementById("direct-download-all");
       if (!primary) return;
 
-      // aplyx is a desktop app — it cannot run on a phone regardless of
+      // aplyx is a desktop app: it cannot run on a phone regardless of
       // what a release happens to have assets for, so a real mobile
       // device gets an explanatory note instead of functional download
       // links. Deliberately a device check (UA), not a viewport-width
-      // check — a desktop browser window narrowed below the mobile CSS
+      // check: a desktop browser window narrowed below the mobile CSS
       // breakpoint is still a desktop and should stay fully functional.
       function isMobileDevice() {
         return /Android|iPhone|iPod|Mobi|BlackBerry|IEMobile|Windows Phone/i.test(navigator.userAgent);
@@ -242,12 +253,12 @@
         primary.innerHTML = "";
         var note = document.createElement("p");
         note.className = "direct-download-status";
-        note.textContent = "aplyx is a desktop app — open this page on a Mac, Windows, or Linux computer to download it.";
+        note.textContent = "aplyx is a desktop app. Open this page on a Mac, Windows, or Linux computer to download it.";
         primary.appendChild(note);
         return;
       }
 
-      // Icon glyphs, one per OS family — same stroke-based line-icon idiom
+      // Icon glyphs, one per OS family: same stroke-based line-icon idiom
       // as the rest of the site (viewBox 24x24, currentColor), except the
       // mac glyph, which is a filled apple silhouette since that shape
       // doesn't read as an apple in outline form.
@@ -282,7 +293,7 @@
           '<span class="download-card-icon">' + ICONS[match.os] + '</span>' +
           '<span class="download-card-text">' +
             '<span class="download-card-eyebrow">Download for</span>' +
-            '<span class="download-card-label">' + match.label + ' <span class="download-card-detail">— ' + match.detail + '</span></span>' +
+            '<span class="download-card-label">' + match.label + ' <span class="download-card-detail">: ' + match.detail + '</span></span>' +
           '</span>';
         return a;
       }
@@ -304,7 +315,7 @@
 
           primary.innerHTML = "";
           var platform = detectedPlatform();
-          // One clear hero CTA rather than several same-size buttons —
+          // One clear hero CTA rather than several same-size buttons:
           // Apple Silicon is the default hero on Mac (most new Macs since
           // 2020), with an Intel alternative offered as a small compact
           // link right underneath instead of buried in "other platforms".

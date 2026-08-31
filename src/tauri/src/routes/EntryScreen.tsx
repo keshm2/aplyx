@@ -11,7 +11,7 @@ export function EntryScreen() {
   const [checkingLocal, setCheckingLocal] = useState(false);
 
   // Supabase keeps a signed-in session across app relaunches
-  // (persistSession: true) — a returning user shouldn't have to click
+  // (persistSession: true): a returning user shouldn't have to click
   // "Sign in" again just to reach the app they were already in. Wait for
   // onboardingCompleted to resolve so a signup that never finished the
   // wizard resumes it instead of skipping ahead to an empty dashboard.
@@ -27,7 +27,7 @@ export function EntryScreen() {
       const completed = await readOnboardingCompleted(root);
       navigate(completed ? "/app" : "/onboarding/local");
     } catch {
-      // No local install found (or the check failed) — the wizard's own
+      // No local install found (or the check failed); the wizard's own
       // root-detection step already handles that case with a clear message.
       navigate("/onboarding/local");
     } finally {
@@ -36,7 +36,7 @@ export function EntryScreen() {
   }
 
   // A persisted session resolving, or already resolved and about to
-  // redirect via the effect above — render nothing rather than flashing
+  // redirect via the effect above: render nothing rather than flashing
   // the chooser cards first.
   if (status === "checking" || status === "signed-in") {
     return (
@@ -56,7 +56,7 @@ export function EntryScreen() {
         <div className="entry-hero">
           <h1>Your job search, applied to.</h1>
           <p className="entry-subhead">
-            aplyx searches job boards, tailors your resume, and applies on your behalf —
+            aplyx searches job boards, tailors your resume, and applies on your behalf,
             with every decision reviewable before it goes out.
           </p>
         </div>
@@ -78,7 +78,7 @@ export function EntryScreen() {
         </div>
 
         <p className="entry-footnote">
-          Local-first by default — your resume and personal details never have to leave this
+          Local-first by default: your resume and personal details never have to leave this
           device. You can always start locally and connect an account later.
         </p>
       </div>

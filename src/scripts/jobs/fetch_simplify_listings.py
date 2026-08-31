@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""fetch_simplify_listings.py — community listing-tracker ingestion (Phase 5,
+"""fetch_simplify_listings.py: community listing-tracker ingestion (Phase 5,
 extended Phase 16B).
 
-Fetches project-owned community listing-tracker feeds (raw GitHub JSON —
+Fetches project-owned community listing-tracker feeds (raw GitHub JSON,
 no auth, no scraping), filters to active + visible postings, and emits
 one raw-job JSON object per line on stdout, shaped for
 `src/scripts/state/job_state.py canonicalize`. Despite the filename this
-is no longer SimplifyJobs-only — vanshb03's independently-scraped feeds
+is no longer SimplifyJobs-only: vanshb03's independently-scraped feeds
 share the same listings.json schema and are registered the same way (see
 FEEDS below); each raw job's "source" field reflects which tracker it
 actually came from.
@@ -17,16 +17,16 @@ Feeds are configured in src/config/targets.json:
 
 Skip behavior mirrors the other optional boards: a missing, empty, or
 placeholder-only ("REPLACE_ME") simplify_feeds array means the board is
-skipped — a single warning goes to stderr, nothing is written to
+skipped: a single warning goes to stderr, nothing is written to
 stdout, and the exit code is 0 so the run continues.
 
 Output contract:
-  stdout — raw-job JSONL only (one JSON object per line), sorted by
+  stdout: raw-job JSONL only (one JSON object per line), sorted by
            (company, title, external_job_id) for deterministic review.
-  stderr — warnings and a final machine-parseable summary line:
+  stderr: warnings and a final machine-parseable summary line:
            fetch_simplify_listings: complete feeds=<n> jobs=<n> failed=<n>
 
-The emitted `sponsorship` field is informational/audit-only — the
+The emitted `sponsorship` field is informational/audit-only: the
 phase 4 fit gate remains the only classifier.
 
 Exit codes:
@@ -54,19 +54,19 @@ PLACEHOLDER = "replace_me"
 USER_AGENT = "aplyx-job-agent/phase16b (+https://github.com/keshm2/aplyx)"
 
 # Project-owned feed map. Adding a feed here is a code change reviewed in
-# a PR — feeds are never taken from remote config at run time.
+# a PR; feeds are never taken from remote config at run time.
 #
 # Every repo in this ecosystem gets renamed to the next hiring cycle each
 # year (Summer2026-Internships -> Summer2027-Internships, New-Grad-2026 ->
 # New-Grad-2027, ...). GitHub redirects the old raw.githubusercontent.com
-# path to the renamed repo, so a stale name here wouldn't break outright —
+# path to the renamed repo, so a stale name here wouldn't break outright,
 # but it's still worth pointing at the current canonical name rather than
 # leaning on a redirect indefinitely. Confirmed 2026-08-09: SimplifyJobs/
 # Summer2026-Internships (repo id 794545597 at the time) was renamed to
 # Summer2027-Internships; SimplifyJobs/New-Grad-Positions was NOT renamed
 # (no year in its name). "source" is distinct per feed (not always
 # "simplify") so downstream provenance/debugging can tell which tracker a
-# job actually came from — see AGENTS.md and docs/ATS.md's own stated
+# job actually came from; see AGENTS.md and docs/ATS.md's own stated
 # principle that every source should carry enough provenance to know how
 # much to trust it.
 FEEDS = {
@@ -88,7 +88,7 @@ FEEDS = {
     },
     # vanshb03's trackers share the SimplifyJobs listings.json schema (a
     # de facto shared convention across this whole community-tracker
-    # ecosystem) but are independently scraped/curated — confirmed live
+    # ecosystem) but are independently scraped/curated: confirmed live
     # 2026-08-09 with different entry counts than the SimplifyJobs feeds
     # above, so this is real incremental coverage, not a duplicate.
     "vanshb03_summer_internships": {
@@ -133,7 +133,7 @@ def load_configured_feeds(targets_path: str) -> list:
 
     raw = targets.get("simplify_feeds")
     if raw is None:
-        warn("simplify_feeds is not configured — SimplifyJobs board skipped this run")
+        warn("simplify_feeds is not configured: SimplifyJobs board skipped this run")
         return []
     if not isinstance(raw, list):
         die("targets config field 'simplify_feeds' must be an array")
@@ -146,7 +146,7 @@ def load_configured_feeds(targets_path: str) -> list:
         feeds.append(name)
     if not feeds:
         warn(
-            "simplify_feeds is empty or placeholder-only — "
+            "simplify_feeds is empty or placeholder-only: "
             "SimplifyJobs board skipped this run"
         )
         return []
@@ -228,13 +228,13 @@ def main(argv=None) -> int:
         spec = FEEDS.get(name)
         if spec is None:
             warn(
-                f"unknown feed '{name}' (known: {', '.join(sorted(FEEDS))}) — skipped"
+                f"unknown feed '{name}' (known: {', '.join(sorted(FEEDS))}), skipped"
             )
             continue
         try:
             listings = fetch_feed(spec["url"], args.timeout)
         except (urllib.error.URLError, ValueError, json.JSONDecodeError, OSError) as exc:
-            warn(f"feed '{name}' failed to fetch: {exc} — skipped")
+            warn(f"feed '{name}' failed to fetch: {exc}, skipped")
             failed_feeds += 1
             continue
         fetched_feeds += 1

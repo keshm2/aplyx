@@ -1,15 +1,15 @@
--- ATS account-credential layer — Package 3 (apply-run integration) of
+-- ATS account-credential layer: Package 3 (apply-run integration) of
 -- docs/ats-account-credentials-plan.md. Links apply_runs (migration 0013)
 -- to application_accounts (migration 0027) so an account-required
 -- family's apply run can carry which ATS account it used, without ever
--- carrying a credential — the plan's own Package 3 acceptance criteria
+-- carrying a credential; the plan's own Package 3 acceptance criteria
 -- ("Apply runs store account_id, never a password").
 --
 -- A composite foreign key, not a bare `references application_accounts
 -- (id)`, for the same reason migration 0027's application_account_links
 -- used one: a bare id-only FK would let a user_id mismatch slip through
 -- (nothing stops a bug from writing another user's account_id onto your
--- apply_runs row) — the database, not application code, must be the
+-- apply_runs row); the database, not application code, must be the
 -- thing that refuses that. That requires a unique target on
 -- (user_id, id) in application_accounts, added first below.
 --

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""fetch_eightfold_listings.py — Eightfold-powered careers sites (multi-tenant).
+"""fetch_eightfold_listings.py: Eightfold-powered careers sites (multi-tenant).
 
 Eightfold is a white-labeled ATS platform many large employers run their
-careers site on — Microsoft's `apply.careers.microsoft.com` and Netflix's
+careers site on: Microsoft's `apply.careers.microsoft.com` and Netflix's
 `explore.jobs.netflix.net` are both Eightfold deployments, confirmed live,
 under completely different custom domains (Eightfold has no single common
 hostname suffix the way Workday/Oracle tenants do). Two DIFFERENT search
 APIs exist on the same platform, and which one is enabled is a per-tenant
-setting, not a platform constant — confirmed live: Microsoft's tenant has
+setting, not a platform constant; confirmed live: Microsoft's tenant has
 PCSX enabled and its host rejects the generic endpoint ("Not authorized
 for PCSX"); Netflix's has the generic endpoint enabled and rejects PCSX
 ("PCSX is not enabled for this user"). This script tries PCSX first, and
@@ -19,7 +19,7 @@ per tenant, per request.
 
 Both cap page size at 10 regardless of a larger `num` (confirmed live for
 both). Tenants are configured in src/config/targets.json as "<host>/<domain>"
-strings — NOT the same shape as Oracle/Workday's "<host>/<site>" (site is
+strings; NOT the same shape as Oracle/Workday's "<host>/<site>" (site is
 an ATS-internal identifier; domain here is the employer's own domain,
 e.g. "microsoft.com", used as an API parameter, not a path segment):
 
@@ -29,19 +29,19 @@ e.g. "microsoft.com", used as an API parameter, not a path segment):
   ]
 
 Unlike Microsoft's old Microsoft-only adapter, this one has a WORKING JD
-detail endpoint — `/api/apply/v2/jobs/<id>?domain=<domain>` — confirmed
+detail endpoint (`/api/apply/v2/jobs/<id>?domain=<domain>`), confirmed
 live for BOTH Microsoft and Netflix, returning full `job_description`
 HTML regardless of which search endpoint (PCSX or generic) is enabled for
 that tenant's LISTING. (An earlier, narrower Microsoft-specific version of
-this adapter incorrectly concluded no JD-detail endpoint existed — it had
+this adapter incorrectly concluded no JD-detail endpoint existed; it had
 only tried a wrong guess at the URL shape, `api/pcsx/jobdetails`, not this
 one. Corrected here.) So unlike Oracle/Workday/SmartRecruiters, this
 adapter does NOT need a Playwright JD-enrichment fallback.
 
 Output contract:
-  stdout — raw-job JSONL (list mode) or a single JD JSON (--jd-url),
+  stdout: raw-job JSONL (list mode) or a single JD JSON (--jd-url),
            list mode sorted by (company, title, external_job_id).
-  stderr — warnings and a machine-parseable summary line:
+  stderr: warnings and a machine-parseable summary line:
            fetch_eightfold_listings: complete tenants=<n> jobs=<n> failed=<n>
 
 Exit codes:
@@ -93,7 +93,7 @@ def _is_safe_host(host: str) -> bool:
     """Reject anything that isn't a plausible public DNS hostname.
 
     Unlike the Workday/Oracle adapters, this can't anchor to a single fixed
-    suffix — Eightfold tenants live on arbitrary employer-owned custom
+    suffix: Eightfold tenants live on arbitrary employer-owned custom
     domains (module docstring above: Microsoft's apply.careers.microsoft.com,
     Netflix's explore.jobs.netflix.net, no shared suffix). This host comes
     straight from src/config/targets.json's eightfold_tenants and is used
@@ -101,7 +101,7 @@ def _is_safe_host(host: str) -> bool:
     it rejects the SSRF-classic shapes: raw IP literals (including the
     169.254.169.254 cloud-metadata address and loopback/private ranges),
     bracketed/IPv6 forms, "localhost", and numeric-shorthand IPs like
-    "127.1" that some resolvers still expand to a loopback address — while
+    "127.1" that some resolvers still expand to a loopback address, while
     still accepting any real multi-label DNS hostname.
     """
     host = host.strip().lower()
@@ -109,7 +109,7 @@ def _is_safe_host(host: str) -> bool:
         return False
     try:
         ipaddress.ip_address(host)
-        return False  # raw IP literal — reject regardless of scope
+        return False  # raw IP literal: reject regardless of scope
     except ValueError:
         pass
     labels = host.split(".")
@@ -139,7 +139,7 @@ def load_configured_tenants(targets_path: str) -> list:
         die(f"could not read targets config {targets_path}: {exc}")
     raw = targets.get("eightfold_tenants")
     if raw is None:
-        warn("eightfold_tenants is not configured — Eightfold board skipped this run")
+        warn("eightfold_tenants is not configured: Eightfold board skipped this run")
         return []
     if not isinstance(raw, list):
         die("targets config field 'eightfold_tenants' must be an array")
@@ -150,11 +150,11 @@ def load_configured_tenants(targets_path: str) -> list:
             continue
         parsed = parse_tenant(text)
         if parsed is None:
-            warn(f"malformed eightfold tenant '{text}' (expected <host>/<domain>) — skipped")
+            warn(f"malformed eightfold tenant '{text}' (expected <host>/<domain>), skipped")
             continue
         tenants.append(parsed)
     if not tenants:
-        warn("eightfold_tenants is empty or placeholder-only — Eightfold board skipped this run")
+        warn("eightfold_tenants is empty or placeholder-only: Eightfold board skipped this run")
     return tenants
 
 
@@ -173,7 +173,7 @@ def api_get(url: str, timeout: int) -> tuple[int, dict]:
 
 def search_page(host: str, domain: str, query: str, start: int, timeout: int) -> tuple[list, int, str]:
     """Tries PCSX, falls back to the generic v2 endpoint on any non-2xx
-    response. Returns (positions, total_count, variant) — variant is
+    response. Returns (positions, total_count, variant): variant is
     "pcsx" or "v2", used by to_raw_job to know which field names apply."""
     pcsx_params = urllib.parse.urlencode({"domain": domain, "query": query, "location": "", "start": start, "num": PAGE_SIZE})
     status, body = api_get(f"https://{host}/api/pcsx/search?{pcsx_params}", timeout)
@@ -198,7 +198,7 @@ def to_raw_job(position: dict, host: str, domain: str, variant: str) -> dict:
         department = position.get("department")
     else:
         url = str(position.get("canonicalPositionUrl", "")).strip()
-        # t_update, not t_create — closer to PCSX's postedTs semantics
+        # t_update, not t_create: closer to PCSX's postedTs semantics
         # (most recent posting activity) than the tenant's internal
         # first-creation timestamp.
         posted_ts = position.get("t_update")
@@ -227,7 +227,7 @@ def fetch_jd(url: str, targets_path: str, timeout: int) -> dict:
     """Posting URL -> JD JSON via the per-tenant detail endpoint. Needs
     `domain` (an API parameter, not present in the posting URL itself),
     recovered by matching the URL's host against the configured tenant
-    list — same reason fetch_oracle_listings.py's --jd-url needs the
+    list; same reason fetch_oracle_listings.py's --jd-url needs the
     posting URL to already encode host+site, except here the domain
     genuinely isn't derivable from the URL alone."""
     m = re.match(r"https?://([^/]+)/careers/job/(\d+)", url.strip())
@@ -237,7 +237,7 @@ def fetch_jd(url: str, targets_path: str, timeout: int) -> dict:
     tenants = load_configured_tenants(targets_path)
     domain = next((d for h, d in tenants if h == host), None)
     if domain is None:
-        die(f"host '{host}' is not in any configured eightfold_tenants entry — cannot recover its domain param")
+        die(f"host '{host}' is not in any configured eightfold_tenants entry; cannot recover its domain param")
     status, detail = api_get(f"https://{host}/api/apply/v2/jobs/{job_id}?domain={urllib.parse.quote(domain)}", timeout)
     if status != 200:
         die(f"JD detail fetch failed for {url}: HTTP {status}")
@@ -280,7 +280,7 @@ def _fetch_one_tenant(host: str, domain: str, args) -> tuple[list, str | None]:
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         prog="fetch_eightfold_listings.py",
-        description="Fetch postings from Eightfold-powered careers sites (multi-tenant — Microsoft, Netflix, and others).",
+        description="Fetch postings from Eightfold-powered careers sites (multi-tenant: Microsoft, Netflix, and others).",
     )
     parser.add_argument("--targets", default=DEFAULT_TARGETS)
     parser.add_argument("--search", default="", help="search query, e.g. 'software engineer intern'")
@@ -306,7 +306,7 @@ def main(argv=None) -> int:
     fetched = 0
     failed = 0
     jobs = []
-    # Tenants fetched concurrently, not one after another — see the
+    # Tenants fetched concurrently, not one after another; see the
     # matching comment in fetch_oracle_listings.py's main(). Eightfold
     # tenants also each try up to two endpoint variants per page (see
     # search_page), so this matters even more per-tenant here than for
@@ -320,7 +320,7 @@ def main(argv=None) -> int:
             host, domain = future_to_tenant[future]
             tenant_jobs, error = future.result()
             if error is not None:
-                warn(f"tenant '{host}/{domain}' failed to fetch: {error} — skipped")
+                warn(f"tenant '{host}/{domain}' failed to fetch: {error}; skipped")
                 failed += 1
             else:
                 fetched += 1

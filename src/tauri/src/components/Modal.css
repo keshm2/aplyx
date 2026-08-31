@@ -29,7 +29,7 @@
   box-shadow: var(--shadow-lift);
   z-index: 91;
   padding: var(--space-5) var(--space-6) var(--space-6);
-  /* Nothing in the real world appears from nothing — 0.96 not 0, same as
+  /* Nothing in the real world appears from nothing: 0.96 not 0, same as
    * every other entrance in this app (Dropdown/NavMenu panels). Centered
    * transform-origin: a modal isn't anchored to a trigger, unlike those. */
   transform: translate(-50%, -50%) scale(0.96);

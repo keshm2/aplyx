@@ -6,7 +6,7 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "
 const MAIL_OAUTH_STATE_SECRET = Deno.env.get("MAIL_OAUTH_STATE_SECRET") ?? "";
 
 // This is the only Edge Function in this repo called directly from the
-// browser/webview (client.functions.invoke) — every other function runs
+// browser/webview (client.functions.invoke): every other function runs
 // server-to-server (cron, webhooks, OAuth redirects), so this is the only
 // one that ever hits a CORS preflight. Without these headers, the desktop
 // app's webview blocks the OPTIONS preflight before the real POST is even

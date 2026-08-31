@@ -3,7 +3,7 @@
 -- app-password/IMAP path (email_tracking_config, migration 0008). Gmail
 -- OAuth here only ever requested gmail.readonly, not the broader
 -- https://mail.google.com/ scope IMAP requires, so the worker reads via
--- the Gmail REST API instead of IMAP for these accounts — same
+-- the Gmail REST API instead of IMAP for these accounts, same
 -- read-only guarantee, no re-consent needed from anyone already
 -- connected.
 --
@@ -37,7 +37,7 @@ grant execute on function public.get_enabled_oauth_mail_connections() to service
 -- Persists the refreshed access token in place after each run (Google
 -- access tokens last ~1hr; the worker refreshes unconditionally at the
 -- start of each account's scan rather than tracking expiry, simpler and
--- avoids ever attempting a stale token) — subsequent runs still benefit
+-- avoids ever attempting a stale token); subsequent runs still benefit
 -- from a warm token if this one is called more than once before it
 -- naturally expires.
 create or replace function public.service_update_mail_connection_access_token(p_connection_id uuid, p_access_token text)
@@ -59,7 +59,7 @@ $$;
 revoke all on function public.service_update_mail_connection_access_token(uuid, text) from public, authenticated, anon;
 grant execute on function public.service_update_mail_connection_access_token(uuid, text) to service_role;
 
--- The Gmail-API path's equivalent of email_tracking_config.last_uid —
+-- The Gmail-API path's equivalent of email_tracking_config.last_uid:
 -- mail_connections has no dedicated cursor column, so this reuses the
 -- existing watch_state jsonb (already used to store imap_server/imap_port
 -- for the app-password path) rather than adding a migration for one field.

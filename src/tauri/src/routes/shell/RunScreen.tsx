@@ -30,7 +30,7 @@ function RunChecklist({ checklist }: { checklist: PhaseInfo | null }) {
 }
 
 /**
- * Trigger and watch a live run without leaving the app — the desktop
+ * Trigger and watch a live run without leaving the app: the desktop
  * app's counterpart to the TUI's RunScreen.tsx. Rust owns the actual
  * spawn + log-tail (src-tauri/src/lib.rs's start_run/spawn_run_watcher);
  * this screen just renders whatever useRunState() has accumulated from
@@ -98,7 +98,7 @@ export function RunScreen() {
         <section className="settings-section">
           <h2 style={{ fontSize: "var(--text-lg)", marginBottom: "var(--space-3)" }}>Start a run</h2>
           <p className="field-help">
-            Scrapes your configured boards, fit-gates, tailors a resume and cover letter, and applies —
+            Scrapes your configured boards, fit-gates, tailors a resume and cover letter, and applies:
             up to {SESSION_CAP_MAX} applications this cycle.
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)", margin: "var(--space-4) 0" }}>
@@ -145,7 +145,7 @@ export function RunScreen() {
             <div style={{ flex: 1 }}>
               <div className="check-label">A run is already active{run.pid ? ` (pid ${run.pid})` : ""}</div>
               <div className="check-detail">
-                Started from the terminal UI, the background scheduler, or another aplyx window — only
+                Started from the terminal UI, the background scheduler, or another aplyx window. Only
                 one run goes at a time.
               </div>
             </div>
@@ -214,7 +214,7 @@ export function RunScreen() {
         <section className="settings-section">
           <div className="check-row">
             {/* exitCode is `null`, not 0, when the process was killed by a
-             * signal (e.g. Stop) rather than exiting on its own — treat
+             * signal (e.g. Stop) rather than exiting on its own: treat
              * that as neutral ("stopped"), not success or failure. */}
             <span
               className={`check-icon ${

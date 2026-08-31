@@ -11,7 +11,7 @@ function emptyValueFor(kind: string): FieldValue {
 }
 
 /** Every field editable during onboarding (src/core/src/onboarding/fields.ts),
- *  re-surfaced here as a plain settings page grouped into the same 8 sections —
+ *  re-surfaced here as a plain settings page grouped into the same 8 sections,
  *  so changing a preference later never means re-running the whole setup wizard. */
 export function ProfileScreen() {
   const [root, setRoot] = useState<string | undefined>(undefined);
@@ -64,7 +64,7 @@ export function ProfileScreen() {
       <div style={{ maxWidth: "42rem", margin: "0 auto", display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
         <h1 style={{ fontSize: "var(--text-3xl)" }}>Profile</h1>
         <p className="field-help">
-          Connect a local install in Settings first — profile fields live in your local aplyx checkout.
+          Connect a local install in Settings first: profile fields live in your local aplyx checkout.
         </p>
       </div>
     );
@@ -75,7 +75,7 @@ export function ProfileScreen() {
       <div>
         <h1 style={{ fontSize: "var(--text-3xl)", marginBottom: "var(--space-2)" }}>Profile</h1>
         <p style={{ color: "var(--text-muted)" }}>
-          Everything you set up during onboarding, editable here — nothing requires redoing setup.
+          Everything you set up during onboarding, editable here. Nothing requires redoing setup.
         </p>
       </div>
 

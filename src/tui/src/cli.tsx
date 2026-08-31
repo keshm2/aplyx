@@ -16,11 +16,11 @@ import { runWizard } from "./wizard.js";
 import { runAgent } from "./run.js";
 import { withAltScreen } from "./altScreen.js";
 
-const HELP = `aplyx — persistent TUI for the aplyx job-application agent
+const HELP = `aplyx: persistent TUI for the aplyx job-application agent
 
 Usage: aplyx [command]
 
-  (no command)      open the app (status · jobs · review · history) —
+  (no command)      open the app (status · jobs · review · history):
                     runs the setup wizard first if onboarding isn't done
   review | history  open the app on that screen
   resumes           open the app on the Resumes screen
@@ -42,7 +42,7 @@ install command instead).
 
 Inside the app, press ? for the full key reference.
 
-State writes go through the repo's Python/bash helpers — the TUI never
+State writes go through the repo's Python/bash helpers; the TUI never
 edits state JSON directly. Set APLYX_ROOT to run outside the repo.`;
 
 const VERSION_URL = "https://raw.githubusercontent.com/keshm2/aplyx/main/VERSION";
@@ -57,7 +57,7 @@ function bootstrapOneLiner(): string {
 }
 
 /** Fetches the remote VERSION file (upstream main), or null on any
- *  failure/timeout — shared by detectUpdate (the launch-time probe) and
+ *  failure/timeout: shared by detectUpdate (the launch-time probe) and
  *  the `aplyx version` command below. */
 async function fetchRemoteVersion(): Promise<string | null> {
   try {
@@ -75,7 +75,7 @@ async function fetchRemoteVersion(): Promise<string | null> {
 
 /** Launch-time update probe: compare the local VERSION to upstream
  *  main and return the remote version when it differs, so the TUI can
- *  ask before installing (see App's UpdateBox). Strictly fail-open — a
+ *  ask before installing (see App's UpdateBox). Strictly fail-open: a
  *  dead network, missing VERSION, or slow GitHub never delays launch
  *  more than the 2.5 s fetch timeout, and APLYX_AUTO_UPDATE=0 skips it. */
 async function detectUpdate(root: string): Promise<string | null> {
@@ -87,25 +87,25 @@ async function detectUpdate(root: string): Promise<string | null> {
     if (!remote || remote === local) return null;
     return remote;
   } catch {
-    /* fail-open — updating is a convenience, never a launch blocker */
+    /* fail-open: updating is a convenience, never a launch blocker */
   }
   return null;
 }
 
-/** `aplyx version` — prints the local VERSION, with " (latest)" appended
+/** `aplyx version`: prints the local VERSION, with " (latest)" appended
  *  when it matches upstream main. Unlike detectUpdate (the launch-time
  *  probe this shares its fetch with), this always checks regardless of
- *  APLYX_AUTO_UPDATE or TTY-ness — an explicit `aplyx version` should
+ *  APLYX_AUTO_UPDATE or TTY-ness, an explicit `aplyx version` should
  *  always get a real answer instead of being silently skipped the way
  *  the launch-time convenience probe is allowed to be. Never fails the
- *  command outright on a dead network — it just can't say "(latest)"
+ *  command outright on a dead network: it just can't say "(latest)"
  *  then, same fail-open spirit as detectUpdate. */
 async function printVersion(root: string): Promise<number> {
   let local = "unknown";
   try {
     local = fs.readFileSync(path.join(root, "VERSION"), "utf8").trim() || "unknown";
   } catch {
-    /* fail-open — still print something rather than crashing */
+    /* fail-open: still print something rather than crashing */
   }
   const remote = await fetchRemoteVersion();
   const suffix = remote && remote === local ? " (latest)" : "";
@@ -117,31 +117,31 @@ async function printVersion(root: string): Promise<number> {
  *  Mirrors the old silent auto-update install step.
  *
  *  Refreshing a stale desktop app used to be checked here too, but that
- *  only covers `aplyx update` run through the TUI — the launchd/schtasks
+ *  only covers `aplyx update` run through the TUI: the launchd/schtasks
  *  scheduler and run_job_agent.py's own pre-run auto-update both call
  *  src/scripts/install/update.py directly and never go through this file at
  *  all, so a desktop app that only ever updates via a scheduled run
  *  stayed permanently stale even after that fix (reported live as
  *  "still not updating everything properly"). The check now lives in
- *  update.py's own _post_update() instead — the one place every
- *  invocation path already funnels through — so `--auto` below already
+ *  update.py's own _post_update() instead: the one place every
+ *  invocation path already funnels through, so `--auto` below already
  *  covers it; doing it here too would just race a second install attempt
  *  against the one update.py already started. */
 function installUpdate(root: string): void {
   const upd = py(["src/scripts/install/update.py", "--auto"]);
   const r = spawnSync(upd.cmd, upd.args, { cwd: root, stdio: "inherit" });
   if (r.status === 0) {
-    console.log("Update installed — restart aplyx to load it.\n");
+    console.log("Update installed. Restart aplyx to load it.\n");
   }
 }
 
 /** Run install_desktop.sh/.ps1 now (after the TUI has left the alternate
- *  screen, same handoff installUpdate above uses) — triggered from
+ *  screen, same handoff installUpdate above uses): triggered from
  *  Settings' "Install desktop app" action. Runs the LOCAL copy already in
  *  this checkout (not a fresh curl/irm download like bootstrapCore's
  *  first-run path), since a core checkout already exists by the time this
  *  can even be reached. The script itself is interactive (its own
- *  prompts, progress bars) — stdio: "inherit" puts it on the real
+ *  prompts, progress bars); stdio: "inherit" puts it on the real
  *  terminal, not inside Ink's raw mode. */
 function installDesktopApp(root: string): void {
   const r =
@@ -153,10 +153,10 @@ function installDesktopApp(root: string): void {
         )
       : spawnSync("bash", [path.join(root, "src", "scripts", "install", "install_desktop.sh")], { cwd: root, stdio: "inherit" });
   if (r.status === 0) {
-    console.log("Desktop app installed — open it from your applications menu; `aplyx` still works the same as before.\n");
+    console.log("Desktop app installed. Open it from your applications menu; `aplyx` still works the same as before.\n");
   } else {
     console.log(
-      "Desktop app install did not complete — see the output above. Retry any time with: bash src/scripts/install/install_desktop.sh " +
+      "Desktop app install did not complete. See the output above. Retry any time with: bash src/scripts/install/install_desktop.sh " +
         "(or: powershell -ExecutionPolicy Bypass -File scripts\\install\\install_desktop.ps1 on Windows).\n",
     );
   }
@@ -187,7 +187,7 @@ async function bootstrapCore(): Promise<string | null> {
           `irm ${BOOTSTRAP_URL_PS1} | iex`], { stdio: "inherit" })
       : spawnSync("bash", ["-c", oneLiner], { stdio: "inherit" });
   if (r.status !== 0 || !fs.existsSync(path.join(target, "AGENTS.md"))) {
-    console.error("aplyx: core install did not complete — see the output above.");
+    console.error("aplyx: core install did not complete. See the output above.");
     return null;
   }
   return target;
@@ -211,7 +211,7 @@ async function openApp(root: string, initialTab: Tab, updateVersion?: string): P
   const interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY);
   if (!interactive) {
     // Piped/CI: render one frame, wait for the unmount lifecycle to flush,
-    // then leave. No update prompt — there's no keyboard to answer it.
+    // then leave. No update prompt. There's no keyboard to answer it.
     const app = render(<App root={root} initialTab={initialTab} />);
     app.unmount();
     await app.waitUntilExit();
@@ -247,7 +247,7 @@ async function openApp(root: string, initialTab: Tab, updateVersion?: string): P
 }
 
 /** First-run (and not-yet-onboarded) auto-launch: a fresh or incomplete
- * `_onboarding` block means `<App>` must not mount yet — render the wizard
+ * `_onboarding` block means `<App>` must not mount yet: render the wizard
  * first and only fall through once its `onDone` fires. Only applies to a
  * plain `aplyx` invocation on a real TTY; every other command/context
  * behaves exactly as before. */
@@ -275,7 +275,7 @@ async function maybeRunOnboarding(root: string): Promise<void> {
 
 async function main(): Promise<number> {
   // Piped/CI renders: Ink falls back to 80 columns when stdout is not a
-  // TTY, while the app honors $COLUMNS/$LINES — sync Ink to the same
+  // TTY, while the app honors $COLUMNS/$LINES, sync Ink to the same
   // values so one-frame test renders lay out exactly like a real
   // terminal of that size.
   if (!process.stdout.isTTY) {
@@ -306,7 +306,7 @@ async function main(): Promise<number> {
   // ahead of onboarding. Every other command/context is untouched.
   if (command === "") await maybeRunOnboarding(root);
 
-  // Auto-update only on a plain app open — one-shot commands
+  // Auto-update only on a plain app open: one-shot commands
   // (status/run/review) stay instant and scriptable. The probe reuses
   // the existing VERSION fetch; the TUI prompts before installing.
   let pendingUpdate: string | null = null;
@@ -340,7 +340,7 @@ async function main(): Promise<number> {
     case "status": {
       // Unlike "review"/"history"/"resumes"/"" (all routed through
       // openApp -> <App>, which resolves theme/reduced-motion itself on
-      // mount), this case renders <StatusScreen> directly — without this,
+      // mount), this case renders <StatusScreen> directly: without this,
       // it always used the module-load default theme (Aplyx Default),
       // silently ignoring the Settings "Theme"/"Reduced motion" fields.
       applyThemeMode(resolveThemeMode(root));

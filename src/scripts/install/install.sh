@@ -1,5 +1,5 @@
 #!/bin/bash
-# install.sh — universal first-run installer (Phase 15).
+# install.sh: universal first-run installer (Phase 15).
 #
 # One command from a fresh GitHub clone to a validated, harness-configured
 # setup. Non-destructive: existing live configs are never overwritten.
@@ -14,9 +14,9 @@
 #   2. Copy src/config/*.example.json to live configs where missing.
 #   3. Detect installed coding agents (opencode, claude) and write
 #      src/config/harness.json (only if missing).
-#   4. Ask for the user's profile (safe_fields) — kept locally only.
+#   4. Ask for the user's profile (safe_fields), kept locally only.
 #   5. Offer to create .claude/settings.json (headless permission
-#      pre-approval) when Claude Code is the harness — asks first.
+#      pre-approval) when Claude Code is the harness; asks first.
 #   6. Regenerate per-harness agent definitions from src/agents/.
 #   7. Run the config validator (which also auto-seeds vetted slugs).
 #   8. Optionally build the TUI (src/tui/) when node is available.
@@ -30,13 +30,13 @@ fail() { echo "install: ERROR: $*" >&2; exit 1; }
 # Everything a fresh, non-dev install doesn't need to run: CI workflow
 # definitions, per-harness agent files (step 6 below regenerates them
 # fresh from src/agents/ anyway), hosted-backend (Supabase) migrations that
-# only matter to whoever runs that backend, the marketing site (src/site/ —
+# only matter to whoever runs that backend, the marketing site (src/site/:
 # it's deployed straight from the repo on GitHub Pages, never built or
 # read by a local install), and internal design/process/planning docs. A
 # fresh install should hold exactly what it needs to work, not a mirror
 # of the whole source tree. Shared by both trim call sites below (the
-# piped/tarball bootstrap, and — since it's the same "not a dev clone"
-# situation — an extracted release-archive checkout with no .git dir).
+# piped/tarball bootstrap, and, since it's the same "not a dev clone"
+# situation, an extracted release-archive checkout with no .git dir).
 CRUFT_PATHS=(
   .github .claude .opencode .codex .gitignore
   CLAUDE.md research-notes.md src/supabase src/site
@@ -52,10 +52,10 @@ trim_cruft() { # <target-dir>
 }
 
 # Builds a $2-column bar with a $3-wide highlighted segment that slides
-# back and forth (ping-pong) as $1 increases — the indeterminate-progress
+# back and forth (ping-pong) as $1 increases: the indeterminate-progress
 # analog of _draw_download_bar below, for steps with no byte total to
-# measure against (npm install, a tsc build). Not a percentage — there's
-# nothing to measure it against — but visually one system with the
+# measure against (npm install, a tsc build). Not a percentage: there's
+# nothing to measure it against, but visually one system with the
 # byte-tracked download bar instead of a bare spinner character.
 _indeterminate_bar() {
   local i="$1" width="$2" block="$3"
@@ -78,11 +78,11 @@ _indeterminate_bar() {
 }
 
 # Runs "$@" with an indeterminate sliding bar next to $1 (the message)
-# while it's in the background — for steps with no byte total to show
+# while it's in the background, for steps with no byte total to show
 # (npm install, a package manager resolving deps), unlike the tarball
 # download below which uses download_with_progress instead. Falls back to
 # a plain "$msg..." line with no live redraw when stdout isn't a TTY
-# (piped install, CI, a log file) — \r redraws would just spam a log with
+# (piped install, CI, a log file); \r redraws would just spam a log with
 # junk rather than animate.
 spin() {
   local msg="$1"; shift
@@ -107,7 +107,7 @@ spin() {
 }
 
 # Renders a fixed-width [====>.....] bar plus "current/total" in MB (decimal
-# — matches how download sizes are usually advertised) for $current/$total
+# : matches how download sizes are usually advertised) for $current/$total
 # bytes into $width columns. $total <= 0 (Content-Length wasn't available)
 # degrades to a bytes-downloaded counter with no bar/percentage, since
 # there's nothing to measure progress against.
@@ -129,7 +129,7 @@ _draw_download_bar() {
   fi
 }
 
-# Downloads $2 (url) to $1 (outfile) with a live byte-tracked bar — a HEAD
+# Downloads $2 (url) to $1 (outfile) with a live byte-tracked bar: a HEAD
 # request gets the total size, a background curl does the real download,
 # and this polls the growing file's size to redraw the bar. Falls back to
 # a single "downloading..." line with no live redraw when stdout isn't a
@@ -138,11 +138,11 @@ download_with_progress() {
   local outfile="$1" url="$2"
   local total
   # awk-only, not grep|awk: codeload.github.com's tarball response has no
-  # Content-Length header at all (confirmed live — it's a dynamically
+  # Content-Length header at all (confirmed live: it's a dynamically
   # generated archive, not a static file), so grep finds zero matches and
   # exits 1; under this script's `set -o pipefail`, that non-zero pipeline
   # exit silently killed the ENTIRE installer right here, before the real
-  # download ever started — reproduced live, this was why `curl | bash`
+  # download ever started. Reproduced live, this was why `curl | bash`
   # died right after printing "downloading aplyx into ~/aplyx" with no
   # further output or error on every single run. awk's own exit status is
   # always 0 whether or not its pattern ever matched a line, so folding
@@ -198,7 +198,7 @@ else
   command -v tar  >/dev/null 2>&1 || fail "tar is required for the one-line install"
   TARGET_DIR="${APLYX_HOME:-${FLUX_HOME:-$HOME/aplyx}}"
   if [ -f "$TARGET_DIR/AGENTS.md" ]; then
-    say "existing install found at $TARGET_DIR — refreshing it from GitHub before re-running."
+    say "existing install found at $TARGET_DIR, refreshing it from GitHub before re-running."
   else
     say "downloading aplyx into $TARGET_DIR …"
   fi
@@ -211,7 +211,7 @@ else
   # A full-path template ("$TMPDIR/prefix.XXXXXX"), not `mktemp -t prefix`:
   # confirmed live on macOS's BSD mktemp, `-t` treats its argument as a
   # literal prefix and does NOT substitute the XXXXXX pattern the way GNU
-  # mktemp (Linux) does — produced a real, valid, still-unique file, just
+  # mktemp (Linux) does; it produced a real, valid, still-unique file, just
   # with the literal string "aplyx-src.XXXXXX" embedded in its name
   # instead of a proper temp suffix. Harmless by itself, but confusing
   # (looked like a real bug while investigating the actual crash below)
@@ -221,7 +221,7 @@ else
   trap 'rm -f "$TARBALL"' EXIT
   download_with_progress "$TARBALL" "https://codeload.github.com/keshm2/aplyx/tar.gz/refs/heads/main"
   tar -xz --strip-components=1 -C "$TARGET_DIR" -f "$TARBALL"
-  # Only runs on THIS downloaded-tarball path — never on a real git
+  # Only runs on THIS downloaded-tarball path, never on a real git
   # checkout someone points this script at directly (the `if` branch
   # above, untouched). See CRUFT_PATHS above for what and why.
   trim_cruft "$TARGET_DIR"
@@ -239,14 +239,14 @@ cd "$PROJECT_ROOT"
 
 # The other documented non-dev install path (docs/SETUP.md's "release
 # archive": download a GitHub tag's zip, unzip, run this script from
-# inside it) never goes through the piped bootstrap above — $SELF is
+# inside it) never goes through the piped bootstrap above; $SELF is
 # already set, so the `if` branch runs instead. It needs the same
 # trimming for the same reason: no .git directory is the reliable signal
 # that this is an extracted archive, not a real clone a developer/
 # contributor is working in (which must never have files silently
 # deleted out from under it).
 if [ ! -d "$PROJECT_ROOT/.git" ]; then
-  say "no .git directory found — trimming files a local install doesn't need to run."
+  say "no .git directory found, trimming files a local install doesn't need to run."
   trim_cruft "$PROJECT_ROOT"
 fi
 
@@ -261,8 +261,8 @@ mkdir -p "$HOME/.aplyx"
 printf '%s' "$PROJECT_ROOT" > "$HOME/.aplyx/root"
 
 # --- 1. Prerequisites --------------------------------------------------------
-# Detect everything missing FIRST — tools plus the required Python packages,
-# pypdf and playwright below — and ask once instead of hard-failing on the
+# Detect everything missing FIRST: tools plus the required Python packages,
+# pypdf and playwright below, and ask once instead of hard-failing on the
 # first missing thing. Most people running the one-liner have no idea what
 # jq/python3/pypdf/playwright even are, and would rather aplyx just handled it.
 MISSING_TOOLS=""
@@ -272,7 +272,7 @@ MISSING_TOOLS="${MISSING_TOOLS# }"
 
 # pypdf handles resume PDF -> markdown conversion. playwright is what
 # render_resume_pdf.py uses to render every tailored resume to the PDF that
-# actually gets attached to an application — Playwright's Python bindings
+# actually gets attached to an application; Playwright's Python bindings
 # drive the user's own already-installed Chrome (channel="chrome", no
 # bundled-browser download needed, see requirements.txt's comment). Skip
 # this package and every apply fails at the PDF step. It used to be that
@@ -289,7 +289,7 @@ fi
 if [ -n "$MISSING_TOOLS" ] || [ -n "$MISSING_PY_PKGS" ]; then
   echo
   [ -n "$MISSING_TOOLS" ]  && warn "not detected: $MISSING_TOOLS"
-  [ -n "$MISSING_PY_PKGS" ] && warn "not detected (Python package): $MISSING_PY_PKGS — needed to render/convert resume PDFs"
+  [ -n "$MISSING_PY_PKGS" ] && warn "not detected (Python package): $MISSING_PY_PKGS, needed to render/convert resume PDFs"
   warn "these are needed to continue installing aplyx."
   INSTALL_DEPS="y"
   if [ -t 0 ]; then
@@ -297,7 +297,7 @@ if [ -n "$MISSING_TOOLS" ] || [ -n "$MISSING_PY_PKGS" ]; then
     read -r INSTALL_DEPS || INSTALL_DEPS="y"
     [ -z "$INSTALL_DEPS" ] && INSTALL_DEPS="y"
   else
-    warn "non-interactive install — proceeding to install them automatically (re-run interactively to be asked first)."
+    warn "non-interactive install: proceeding to install them automatically (re-run interactively to be asked first)."
   fi
   case "$INSTALL_DEPS" in
     y|Y) ;;
@@ -308,33 +308,33 @@ if [ -n "$MISSING_TOOLS" ] || [ -n "$MISSING_PY_PKGS" ]; then
     SUDO=""
     [ "$(id -u 2>/dev/null || echo 0)" -ne 0 ] && command -v sudo >/dev/null 2>&1 && SUDO="sudo"
     if command -v brew >/dev/null 2>&1; then
-      brew install $MISSING_TOOLS || fail "failed to install $MISSING_TOOLS via brew — install manually and re-run."
+      brew install $MISSING_TOOLS || fail "failed to install $MISSING_TOOLS via brew; install manually and re-run."
     elif command -v apt-get >/dev/null 2>&1; then
       $SUDO apt-get update && $SUDO apt-get install -y $MISSING_TOOLS \
-        || fail "failed to install $MISSING_TOOLS via apt-get — install manually and re-run."
+        || fail "failed to install $MISSING_TOOLS via apt-get; install manually and re-run."
     elif command -v dnf >/dev/null 2>&1; then
-      $SUDO dnf install -y $MISSING_TOOLS || fail "failed to install $MISSING_TOOLS via dnf — install manually and re-run."
+      $SUDO dnf install -y $MISSING_TOOLS || fail "failed to install $MISSING_TOOLS via dnf; install manually and re-run."
     elif command -v yum >/dev/null 2>&1; then
-      $SUDO yum install -y $MISSING_TOOLS || fail "failed to install $MISSING_TOOLS via yum — install manually and re-run."
+      $SUDO yum install -y $MISSING_TOOLS || fail "failed to install $MISSING_TOOLS via yum; install manually and re-run."
     elif command -v pacman >/dev/null 2>&1; then
-      $SUDO pacman -Sy --noconfirm $MISSING_TOOLS || fail "failed to install $MISSING_TOOLS via pacman — install manually and re-run."
+      $SUDO pacman -Sy --noconfirm $MISSING_TOOLS || fail "failed to install $MISSING_TOOLS via pacman; install manually and re-run."
     elif command -v apk >/dev/null 2>&1; then
-      $SUDO apk add $MISSING_TOOLS || fail "failed to install $MISSING_TOOLS via apk — install manually and re-run."
+      $SUDO apk add $MISSING_TOOLS || fail "failed to install $MISSING_TOOLS via apk; install manually and re-run."
     else
-      fail "no supported package manager found (brew/apt/dnf/yum/pacman/apk) — install $MISSING_TOOLS manually and re-run."
+      fail "no supported package manager found (brew/apt/dnf/yum/pacman/apk); install $MISSING_TOOLS manually and re-run."
     fi
     say "installed: $MISSING_TOOLS"
   fi
 
   if [ -n "$MISSING_PY_PKGS" ]; then
     python3 -m pip install --user $MISSING_PY_PKGS \
-      || fail "failed to install $MISSING_PY_PKGS via pip — run 'python3 -m pip install --user $MISSING_PY_PKGS' manually and re-run."
+      || fail "failed to install $MISSING_PY_PKGS via pip; run 'python3 -m pip install --user $MISSING_PY_PKGS' manually and re-run."
     say "installed: $MISSING_PY_PKGS"
   fi
 fi
 
-command -v jq      >/dev/null 2>&1 || fail "jq is required and still missing — install it manually and re-run."
-command -v python3 >/dev/null 2>&1 || fail "python3 is required and still missing — install it manually and re-run."
+command -v jq      >/dev/null 2>&1 || fail "jq is required and still missing; install it manually and re-run."
+command -v python3 >/dev/null 2>&1 || fail "python3 is required and still missing; install it manually and re-run."
 
 # --- 1b. Repair a stale pre-restructure layout (idempotent, always runs) ----
 # The automatic update path (aplyx update / the scheduled auto-update) can
@@ -342,20 +342,20 @@ command -v python3 >/dev/null 2>&1 || fail "python3 is required and still missin
 # currently-running code predates that migration: its self-relaunch targets
 # a script path cached before the update, which the update itself may have
 # just moved (this is exactly what happened to every pre-existing install
-# on the 2026-07-29 src/ restructure — see update.py's --repair-layout-only
+# on the 2026-07-29 src/ restructure; see update.py's --repair-layout-only
 # comment for the full mechanics). Re-running this installer is the one
 # path immune to that: it is a brand-new process every time, so there is no
 # stale cached path to go wrong. No-op (near-instant) on an already-current
-# install or a genuinely fresh one — safe to always run.
+# install or a genuinely fresh one, safe to always run.
 python3 src/scripts/install/update.py --repair-layout-only || true
 
 # --- 2. Live configs from examples -------------------------------------------
 if [ -f "src/config/targets.json" ]; then
-  say "src/config/targets.json exists — keeping it."
+  say "src/config/targets.json exists, keeping it."
 else
   cp "src/config/targets.example.json" "src/config/targets.json"
   chmod 600 "src/config/targets.json"
-  say "created src/config/targets.json from the example — fill in the placeholders (or run 'aplyx setup')."
+  say "created src/config/targets.json from the example: fill in the placeholders (or run 'aplyx setup')."
 fi
 
 # --- 2b. Discord status updates (OPTIONAL, opt-in) -----------------------------
@@ -368,7 +368,7 @@ write_disabled_discord() {
   chmod 600 "$DISCORD_LIVE"
 }
 if [ -f "$DISCORD_LIVE" ]; then
-  say "$DISCORD_LIVE exists — keeping it."
+  say "$DISCORD_LIVE exists, keeping it."
 elif [ -t 0 ]; then
   echo
   printf "Use Discord for status updates (applied / needs-review / failed / summary)? [y/N] "
@@ -398,7 +398,7 @@ elif [ -t 0 ]; then
       U_SUCCESS="$U_ALL"; U_REVIEW="$U_ALL"; U_FAILED="$U_ALL"; U_SUMMARY="$U_ALL"
     fi
     if [ -z "$U_SUCCESS" ]; then
-      warn "no webhook URL entered — writing Discord as disabled; enable later with 'aplyx setup'."
+      warn "no webhook URL entered, writing Discord as disabled; enable later with 'aplyx setup'."
       write_disabled_discord
     else
       jq -n --arg s "$U_SUCCESS" --arg r "$U_REVIEW" --arg f "$U_FAILED" --arg m "$U_SUMMARY" \
@@ -409,17 +409,17 @@ elif [ -t 0 ]; then
     fi
   else
     write_disabled_discord
-    say "Discord skipped — outcomes stay local (state files + TUI). Enable any time with 'aplyx setup'."
+    say "Discord skipped: outcomes stay local (state files + TUI). Enable any time with 'aplyx setup'."
   fi
 else
   write_disabled_discord
-  say "non-interactive install — wrote $DISCORD_LIVE as disabled (enable via 'aplyx setup')."
+  say "non-interactive install: wrote $DISCORD_LIVE as disabled (enable via 'aplyx setup')."
 fi
 
 # --- 3. Harness detection (Phase 15 + 16: all four major coding agents) -------
 # Detected agents are offered in full-capability-first order; Codex and
 # Copilot run the documented degraded path (no browser automation by
-# default) — see the "Harness capability matrix" in AGENTS.md.
+# default); see the "Harness capability matrix" in AGENTS.md.
 DETECTED=""
 label_for() {
   case "$1" in
@@ -441,12 +441,12 @@ if [ -z "$DETECTED" ]; then
 fi
 
 if [ -f "src/config/harness.json" ]; then
-  say "src/config/harness.json exists — keeping it ($(jq -r '.harness // "?"' src/config/harness.json))."
+  say "src/config/harness.json exists, keeping it ($(jq -r '.harness // "?"' src/config/harness.json))."
 else
   HARNESS=""
   set -- $DETECTED
   if [ "$#" -gt 1 ] && [ -t 0 ]; then
-    # More than one agent installed and we can ask — let the user choose.
+    # More than one agent installed and we can ask; let the user choose.
     echo
     echo "Which coding agent should aplyx use for runs?"
     i=1
@@ -470,22 +470,22 @@ else
   fi
   if [ -n "$HARNESS" ]; then
     printf '{\n  "harness": "%s"\n}\n' "$HARNESS" > src/config/harness.json
-    say "wrote src/config/harness.json (harness: $HARNESS — change any time by editing the file or re-running this installer)."
+    say "wrote src/config/harness.json (harness: $HARNESS, change any time by editing the file or re-running this installer)."
   else
-    say "skipped src/config/harness.json — no supported coding agent detected yet."
+    say "skipped src/config/harness.json: no supported coding agent detected yet."
   fi
 fi
 
 # --- 4. User profile (safe_fields) ---------------------------------------
-say "profile: run 'aplyx' (or 'aplyx setup') to fill in your name, contact info, and job targets through the guided wizard — or edit src/config/targets.json by hand (see the _help notes in src/config/targets.example.json)."
-say "status tracking: automatic interview/rejection/offer detection from your inbox is a hosted-account feature (see aplyx.app) — this local install won't show it; local history still tracks applied/needs_review/failed outcomes via 'aplyx history'."
+say "profile: run 'aplyx' (or 'aplyx setup') to fill in your name, contact info, and job targets through the guided wizard; or edit src/config/targets.json by hand (see the _help notes in src/config/targets.example.json)."
+say "status tracking: automatic interview/rejection/offer detection from your inbox is a hosted-account feature (see aplyx.app); this local install won't show it; local history still tracks applied/needs_review/failed outcomes via 'aplyx history'."
 
 mkdir -p data/resumes
 echo
 echo "${C_NOTICE}📄  Resumes: add your base resumes (markdown + matching PDF) to${C_RESET}"
 echo "${C_NOTICE}    $PROJECT_ROOT/data/resumes/${C_RESET}"
-echo "${C_NOTICE}    See docs/SETUP.md for the expected filenames — aplyx picks one per${C_RESET}"
-echo "${C_NOTICE}    job by category and tailors it. This folder is gitignored — local only.${C_RESET}"
+echo "${C_NOTICE}    See docs/SETUP.md for the expected filenames; aplyx picks one per${C_RESET}"
+echo "${C_NOTICE}    job by category and tailors it. This folder is gitignored: local only.${C_RESET}"
 echo
 
 # --- 5. Claude Code headless permissions (opt-in, asks first) ----------------
@@ -515,7 +515,7 @@ if command -v claude >/dev/null 2>&1 && [ ! -f ".claude/settings.json" ]; then
 JSON
     say "wrote .claude/settings.json."
   else
-    say "skipped .claude/settings.json — headless Claude runs will prompt for permissions."
+    say "skipped .claude/settings.json: headless Claude runs will prompt for permissions."
   fi
 fi
 
@@ -526,13 +526,13 @@ python3 src/scripts/validate/generate_agent_definitions.py
 if bash src/scripts/validate/validate_local_config.sh; then
   say "config valid."
 else
-  warn "config not valid yet — edit the files named above (or run 'aplyx setup'), then re-run:"
+  warn "config not valid yet: edit the files named above (or run 'aplyx setup'), then re-run:"
   warn "  bash src/scripts/validate/validate_local_config.sh"
 fi
 
 # --- 8. TUI / extension (optional) ---------------------------------------------
 # --no-progress: npm's OWN fetch-progress spinner (a rotating -\|/ cursor
-# on terminals without Unicode/Braille support, which is npm's fallback —
+# on terminals without Unicode/Braille support, which is npm's fallback,
 # most commonly hit on a plain Windows console) writes to the same line
 # via \r as our own bar above, and the two fighting over that line is what
 # looks like "the bar doesn't show, it's back to a spinner." --silent only
@@ -540,18 +540,18 @@ fi
 # it leaves our bar as the only thing animating this line.
 # --workspace="$1" (run from PROJECT_ROOT, already the cwd here) scopes the
 # install to just this workspace's own dependencies plus its declared
-# workspace deps (e.g. @aplyx/core) — a plain `cd "$1" && npm install`
+# workspace deps (e.g. @aplyx/core); a plain `cd "$1" && npm install`
 # instead resolves and hoists EVERY workspace's dependencies into the root
 # node_modules regardless of which one you're building. Confirmed live:
 # installing just the TUI that way also pulled in the desktop app's full
 # Tauri/Vite/Supabase/font dependency tree (and installing just the desktop
-# app pulled in the TUI's Ink/esbuild tree) — measured at roughly 2x the
+# app pulled in the TUI's Ink/esbuild tree), measured at roughly 2x the
 # actual footprint either surface alone needs, adding real extra download/
 # postinstall (native-binary) work on top of whatever's actually being built.
 _npm_install_and_build() { npm install --workspace="$1" --silent --no-progress && (cd "$1" && npm run build --silent); }
 
 # Total on-disk size of a built surface (node_modules + dist), human-
-# readable — printed after a build so "ready" also answers "how much did
+# readable, printed after a build so "ready" also answers "how much did
 # that just cost me," the same way the tarball/installer downloads above
 # already show MB downloaded instead of just "done."
 _dir_size_human() {
@@ -569,16 +569,16 @@ build_node_surface() {
   fi
   spin "building $label ($dir/)" _npm_install_and_build "$dir" \
     && say "$label ready ($(_dir_size_human "$dir/node_modules" "$dir/dist"))." \
-    || warn "$label build failed — see docs/SETUP.md."
+    || warn "$label build failed: see docs/SETUP.md."
 }
 
 if command -v npm >/dev/null 2>&1; then
-  # src/core has no install/prepare hook that builds it automatically —
+  # src/core has no install/prepare hook that builds it automatically:
   # src/tui/'s and src/tauri/'s own `tsc` builds both need its dist/ already
   # present to resolve `@aplyx/core/*` imports, which is never true on a
   # fresh clone. Build it first so both surfaces build clean below.
   # `npm run build:core` alone assumes `tsc` is already resolvable in
-  # src/core/node_modules — true on this maintainer's machine (already
+  # src/core/node_modules, true on this maintainer's machine (already
   # installed once) but never true on a genuinely fresh clone, where
   # `npm install` has not run anywhere yet: confirmed live, this failed
   # outright with "sh: tsc: command not found" on a from-scratch checkout,
@@ -592,43 +592,43 @@ if command -v npm >/dev/null 2>&1; then
     # A workspace-scoped `npm install --workspace=X` can, on a genuinely
     # empty npm cache, extract an incomplete copy of a dependency that's
     # ALSO declared by another workspace (@supabase/supabase-js, shared
-    # with src/tauri) — missing its dist/ output entirely even though the
+    # with src/tauri), missing its dist/ output entirely even though the
     # real published tarball has it (confirmed live: reproducible 100% of
-    # the time with a brand-new npm cache — exactly what a fresh install
-    # has — and gone as soon as any full, unscoped `npm install` has run
+    # the time with a brand-new npm cache, exactly what a fresh install
+    # has, and gone as soon as any full, unscoped `npm install` has run
     # once). Retrying with one costs more disk than the scoped install
     # this step normally uses, but heals this deterministically, and the
     # scoped TUI/extension installs below inherit the now-correct
     # cache/extraction so they don't need the same fallback.
-    warn "scoped core install looked incomplete — retrying with a full npm install…"
+    warn "scoped core install looked incomplete: retrying with a full npm install…"
     # rm -rf node_modules first: npm sees the broken extraction already
     # matches package-lock.json's pinned version/integrity and skips
     # re-extracting it on a plain re-install, silently keeping the exact
-    # same incomplete copy in place (confirmed live — the "full install"
+    # same incomplete copy in place (confirmed live: the "full install"
     # retry alone was not sufficient without this).
     spin "building the shared core (retry)" bash -c \
       'rm -rf node_modules && npm install --silent --no-progress && npm run build:core --silent' \
       && say "shared core ready after retry." \
-      || warn "core build failed — the TUI build below will likely fail too. See docs/SETUP.md."
+      || warn "core build failed: the TUI build below will likely fail too. See docs/SETUP.md."
   fi
   build_node_surface src/tui "the TUI"
   build_node_surface src/extension "the browser extension"
-  # build_node_surface only builds dist/ — a Chrome extension has no
+  # build_node_surface only builds dist/: a Chrome extension has no
   # scriptable install path (Chrome refuses to let anything but the user
   # themselves, via chrome://extensions, or the Chrome Web Store enable
   # one), so this step can't finish the job for them the way the TUI/
   # desktop-app steps do. Printed unconditionally (not gated on this
   # run's own build having just succeeded) since the same load-unpacked
   # step is still owed even when the build was a no-op ("already
-  # installed" from a previous run) — this used to only ever be
+  # installed" from a previous run); this used to only ever be
   # documented on the website, never here, so a from-scratch installer
   # run with no browser in sight left a built dist/ folder and no next
   # step at all.
   if [ -d "src/extension/dist" ]; then
-    say "browser extension built — load it in Chrome: chrome://extensions -> Developer mode -> Load unpacked -> src/extension/dist/. See docs/SETUP.md §2.6 or aplyx.app/extension.html."
+    say "browser extension built. Load it in Chrome: chrome://extensions -> Developer mode -> Load unpacked -> src/extension/dist/. See docs/SETUP.md §2.6 or aplyx.app/extension.html."
   fi
 else
-  say "node/npm not found — skipping the optional TUI and browser extension (docs/SETUP.md)."
+  say "node/npm not found: skipping the optional TUI and browser extension (docs/SETUP.md)."
 fi
 
 # --- 8b. Desktop app (recommended) ----------------------------------
@@ -639,34 +639,34 @@ fi
 # prerequisites the TUI doesn't have, so it lives in its own script
 # (install_desktop.sh) and a failure here just leaves the already-working
 # TUI install alone. Non-interactive installs (curl|bash, no TTY) still
-# skip it by default — turning a one-line, few-second install into a
+# skip it by default: turning a one-line, few-second install into a
 # multi-minute Rust compile with nobody watching isn't a good surprise.
 # Run install_desktop.sh any time afterward to add it.
 if [ -f "src/tauri/package.json" ] && command -v npm >/dev/null 2>&1; then
   echo
-  echo "aplyx has a native desktop app — the recommended way to use it day to"
+  echo "aplyx has a native desktop app, the recommended way to use it day to"
   echo "day. (The aplyx terminal UI, just installed, works great too and stays"
-  echo "fully supported — the desktop app is an addition, not a replacement.)"
-  echo "Building it needs a Rust toolchain and some OS build tools — this script"
+  echo "fully supported; the desktop app is an addition, not a replacement.)"
+  echo "Building it needs a Rust toolchain and some OS build tools; this script"
   echo "offers to install anything missing, and first-time compiling can take"
   echo "several minutes."
   INSTALL_APP="y"
   if [ -t 0 ]; then
     printf "Install the desktop app too? [Y/n] "
-    # Fails closed, not open. A failed read — stdin closed or EOF mid-
+    # Fails closed, not open. A failed read (stdin closed or EOF mid-
     # prompt, or a -t 0 false positive from some automation harness that
-    # reports a tty but has nothing real behind it — means we genuinely
+    # reports a tty but has nothing real behind it) means we genuinely
     # don't know what the user wants. Defaulting to "y" here once actually
     # triggered an unattended download+install. "n" is the safe failure
     # mode anyway, since this is opt-in to begin with.
     read -r INSTALL_APP || INSTALL_APP="n"
   else
-    say "non-interactive install — skipping the desktop app for now (run 'bash src/scripts/install/install_desktop.sh' any time to add it)."
+    say "non-interactive install: skipping the desktop app for now (run 'bash src/scripts/install/install_desktop.sh' any time to add it)."
     INSTALL_APP="n"
   fi
   if [ "$INSTALL_APP" != "n" ] && [ "$INSTALL_APP" != "N" ]; then
     bash "$PROJECT_ROOT/src/scripts/install/install_desktop.sh" \
-      || warn "desktop app install failed (see above) — the TUI is unaffected. Fix the issue and retry any time with: bash src/scripts/install/install_desktop.sh"
+      || warn "desktop app install failed (see above). The TUI is unaffected. Fix the issue and retry any time with: bash src/scripts/install/install_desktop.sh"
   fi
 fi
 
@@ -685,14 +685,14 @@ if [ -f "src/tui/dist/cli.js" ] && command -v node >/dev/null 2>&1; then
     say "removed the older \`flux\` command ($OLD_WRAPPER)."
   fi
   if [ -e "$WRAPPER" ] && ! grep -q "aplyx wrapper" "$WRAPPER" 2>/dev/null; then
-    warn "$WRAPPER exists and is not aplyx's wrapper — leaving it alone."
+    warn "$WRAPPER exists and is not aplyx's wrapper, leaving it alone."
   else
     mkdir -p "$BIN_DIR"
     cat > "$WRAPPER" <<WRAP
 #!/bin/sh
-# aplyx wrapper — generated by src/scripts/install/install.sh; safe to delete.
+# aplyx wrapper, generated by src/scripts/install/install.sh; safe to delete.
 # Falls back to common install locations if this was moved or renamed
-# after install, before giving up with an actionable error — rather
+# after install, before giving up with an actionable error, rather
 # than the raw Node MODULE_NOT_FOUND stack trace a stale hardcoded
 # path would otherwise produce.
 PIN="$PROJECT_ROOT"
@@ -711,7 +711,7 @@ WRAP
     say "installed the aplyx command: $WRAPPER"
     case ":$PATH:" in
       *":$BIN_DIR:"*) ;;
-      *) warn "$BIN_DIR is not on your PATH — add it (e.g. export PATH=\"$BIN_DIR:\$PATH\" in your shell profile)." ;;
+      *) warn "$BIN_DIR is not on your PATH: add it (e.g. export PATH=\"$BIN_DIR:\$PATH\" in your shell profile)." ;;
     esac
   fi
 fi

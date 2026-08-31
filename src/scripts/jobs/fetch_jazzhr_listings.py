@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""fetch_jazzhr_listings.py — JazzHR ingestion (Phase 16B, HTML-first adapter).
+"""fetch_jazzhr_listings.py: JazzHR ingestion (Phase 16B, HTML-first adapter).
 
-JazzHR has no public, unauthenticated JSON API — the documented Apply API
+JazzHR has no public, unauthenticated JSON API: the documented Apply API
 requires a partner-provisioned bearer token (confirmed via
 apidoc.jazzhrapis.com), not self-serve like Greenhouse/Lever/Workable.
-The career-page listing, however, is fully server-side rendered HTML —
+The career-page listing, however, is fully server-side rendered HTML:
 each posting is a plain `<tr>` row with no JS execution required to see
-it — so this is a Class 4 HTML adapter (same class as
+it, so this is a Class 4 HTML adapter (same class as
 fetch_apple_listings.py), not a JSON API client.
 
 Tenants are configured in src/config/targets.json as the account
@@ -17,7 +17,7 @@ from empowerproject.applytojob.com/apply/jobs/details/...):
 
 Skip behavior mirrors the other optional boards: a missing, empty, or
 placeholder-only ("REPLACE_ME") jazzhr_company_slugs array means the
-board is skipped — a warning goes to stderr, nothing on stdout, exit 0.
+board is skipped: a warning goes to stderr, nothing on stdout, exit 0.
 
   GET https://<slug>.applytojob.com/apply/jobs
 
@@ -26,13 +26,13 @@ ilsos): every posting row looks like
 `<tr id="row_job_<YYYYMMDDHHMMSS>_<hash>">` containing
 `<a class="job_title_link" href="/apply/jobs/details/<id>?&">Title</a>`
 and a location cell. Each posting appears TWICE on the page (a desktop
-table layout and a duplicate "Mobile layout" section further down) —
+table layout and a duplicate "Mobile layout" section further down):
 same duplicate-anchor pattern fetch_apple_listings.py already handles;
 kept only the first occurrence per unique job id. The row id's embedded
-timestamp is a real, more-precise-than-usual posted_at signal — no other
+timestamp is a real, more-precise-than-usual posted_at signal; no other
 adapter in this codebase gets one for free from the list markup.
 
-The list page carries NO JD body (confirmed live — only a title,
+The list page carries NO JD body (confirmed live: only a title,
 optional department, and location). After role filtering and before the
 fit gate, the orchestrator fetches the JD per surviving candidate, same
 two-step rule as Oracle/Workday/SmartRecruiters:
@@ -41,24 +41,24 @@ two-step rule as Oracle/Workday/SmartRecruiters:
 
 The detail page (`<slug>.applytojob.com/apply/jobs/details/<id>`) embeds
 the full JD as plain server-rendered HTML in `<div class="job_description">`
-— no JS execution needed — along with the real company display name in
+(no JS execution needed), along with the real company display name in
 `<h2 class="job_company">` (more reliable than title-casing the slug,
 which is what list mode falls back to since the list page never shows a
 company name at all).
 
 CAPTCHA note: some JazzHR tenants enable a reCAPTCHA on the actual APPLY
 FORM (confirmed live on ilsos.applytojob.com's detail page,
-`<div class="g-recaptcha" data-sitekey="...">`) — this is a per-tenant
+`<div class="g-recaptcha" data-sitekey="...">`): this is a per-tenant
 toggle, not universal, and it never blocks reading the listing or JD
 text (both plain server-rendered HTML, no form interaction). It only
 matters at the actual apply step, which already routes any detected
-CAPTCHA to needs_review generically (AGENTS.md "Error handling") —
+CAPTCHA to needs_review generically (AGENTS.md "Error handling"):
 nothing new to handle here.
 
 Output contract:
-  stdout — raw-job JSONL (list mode) or a single JD JSON (--jd-url),
+  stdout: raw-job JSONL (list mode) or a single JD JSON (--jd-url),
            list mode sorted by (company, title, external_job_id).
-  stderr — warnings and a machine-parseable summary line:
+  stderr: warnings and a machine-parseable summary line:
            fetch_jazzhr_listings: complete companies=<n> jobs=<n> failed=<n>
 
 Exit codes:
@@ -118,7 +118,7 @@ def load_configured_companies(targets_path: str) -> list:
         die(f"could not read targets config {targets_path}: {exc}")
     raw = targets.get("jazzhr_company_slugs")
     if raw is None:
-        warn("jazzhr_company_slugs is not configured — JazzHR board skipped this run")
+        warn("jazzhr_company_slugs is not configured: JazzHR board skipped this run")
         return []
     if not isinstance(raw, list):
         die("targets config field 'jazzhr_company_slugs' must be an array")
@@ -129,7 +129,7 @@ def load_configured_companies(targets_path: str) -> list:
             continue
         companies.append(text)
     if not companies:
-        warn("jazzhr_company_slugs is empty or placeholder-only — JazzHR board skipped this run")
+        warn("jazzhr_company_slugs is empty or placeholder-only: JazzHR board skipped this run")
     return companies
 
 
@@ -141,7 +141,7 @@ def http_get(url: str, timeout: int) -> str:
 
 def _row_posted_at(timestamp: str) -> str | None:
     """The row id's embedded YYYYMMDDHHMMSS prefix -> ISO 8601, or None
-    if it doesn't parse as a real datetime (defensive — never seen live,
+    if it doesn't parse as a real datetime (defensive, never seen live,
     but a malformed id shouldn't crash the whole fetch)."""
     try:
         dt = datetime.datetime.strptime(timestamp, "%Y%m%d%H%M%S").replace(tzinfo=datetime.timezone.utc)
@@ -213,7 +213,7 @@ def main(argv=None) -> int:
         description="Fetch JazzHR company postings via HTML parsing of <slug>.applytojob.com (Phase 16B, no public API).",
     )
     parser.add_argument("--targets", default=DEFAULT_TARGETS)
-    parser.add_argument("--search", default="", help="case-insensitive substring filter on title (client-side — no server-side query param)")
+    parser.add_argument("--search", default="", help="case-insensitive substring filter on title (client-side: no server-side query param)")
     parser.add_argument("--limit", type=int, default=200, help="max postings per company (0 = no cap)")
     parser.add_argument("--timeout", type=int, default=30)
     parser.add_argument("--jd-url", default="", help="fetch one posting's JD JSON instead of listing")
@@ -239,7 +239,7 @@ def main(argv=None) -> int:
     for slug in companies:
         company_jobs, error = _fetch_one_company(slug, args.timeout)
         if error is not None:
-            warn(f"company '{slug}' failed to fetch: {error} — skipped")
+            warn(f"company '{slug}' failed to fetch: {error}, skipped")
             failed += 1
             continue
         fetched += 1

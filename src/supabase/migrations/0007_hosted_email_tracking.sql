@@ -1,18 +1,18 @@
 -- Hosted-only inbox status tracking (2026-08-19, supersedes the
--- forwarding-based and local-IMAP designs explored earlier the same day
--- — see docs/application-status-tracking-plan.md's own history). Matches
+-- forwarding-based and local-IMAP designs explored earlier the same day;
+-- see docs/application-status-tracking-plan.md's own history). Matches
 -- what docs/website.md's pricing page already advertises: "automatic job
 -- status tracking from your account email" is a Pro-tier HOSTED feature,
 -- not something the free local tier gets. Local installs have no access
 -- to this at all; only signed-in hosted accounts do, which sidesteps the
 -- entire "which local install gets to hold a powerful credential"
--- problem the earlier designs kept running into — everything here is
+-- problem the earlier designs kept running into: everything here is
 -- scoped by real Supabase Auth + RLS, same as `profiles`/`applied_jobs`.
 
 create extension if not exists pg_cron with schema extensions;
 create extension if not exists pg_net with schema extensions;
 -- supabase_vault is already installed on this project (confirmed live,
--- 2026-08-19) — used below to store app_password encrypted at rest,
+-- 2026-08-19), used below to store app_password encrypted at rest,
 -- never as a plain column.
 
 -- --- applied_jobs: outcome tracking columns -----------------------------------
@@ -31,7 +31,7 @@ alter table public.applied_jobs
 -- jobs_guard_status_transition above guards `latest_status`: once
 -- rejected/offer/withdrawn is reached, no update (from the worker or
 -- anywhere else) can silently move it again. Fires for every writer,
--- including the service-role worker — triggers aren't bypassed by RLS
+-- including the service-role worker; triggers aren't bypassed by RLS
 -- exemption the way policies are.
 create or replace function public.applied_jobs_guard_outcome_transition()
 returns trigger as $$

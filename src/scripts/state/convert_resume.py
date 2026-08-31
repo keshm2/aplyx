@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""convert_resume.py — extract a resume/cover-letter PDF's text into markdown.
+"""convert_resume.py: extract a resume/cover-letter PDF's text into markdown.
 
 resume-tailor.md picks a base resume from data/resumes/ by filename
-(e.g. base_resume_swe.md) — it reads markdown, not PDFs. This helper
+(e.g. base_resume_swe.md); it reads markdown, not PDFs. This helper
 converts a PDF already sitting in that folder into the matching .md so
 the tailoring agent can use it. Text extraction only (pypdf); it does
 not attempt OCR, so a scanned/image-only PDF with no text layer fails
@@ -18,14 +18,14 @@ Usage:
   data/resumes/base_resume_swe.pdf -> data/resumes/base_resume_swe.md.
 
   --describe-only sets/updates a resume's .resume_meta.json description
-  without converting anything — for a resume that already has its .md
+  without converting anything: for a resume that already has its .md
   (nothing to convert) but was uploaded under a generic name and still
   needs a description so resolve_resume.py's dynamic matching (see
   src/scripts/state/resolve_resume.py) has something to go on. Requires
   at least one of <stem>.md / <stem>.pdf to already exist.
 
 Exit codes:
-  0  converted, or description set (JSON varies by mode — see below)
+  0  converted, or description set (JSON varies by mode; see below)
   1  usage / missing file / extraction / dependency error
      (JSON: {"ok": false, "error"})
 """
@@ -58,7 +58,7 @@ def extract_pdf_text(pdf_path: str) -> str:
         from pypdf import PdfReader
     except ImportError as exc:
         raise RuntimeError(
-            "pypdf is not installed — run: pip3 install pypdf "
+            "pypdf is not installed; run: pip3 install pypdf "
             "(or pip3 install -r requirements.txt)"
         ) from exc
 
@@ -68,7 +68,7 @@ def extract_pdf_text(pdf_path: str) -> str:
         raise RuntimeError(f"could not open PDF: {exc}") from exc
 
     if reader.is_encrypted:
-        raise RuntimeError("PDF is password-protected — remove the password and retry")
+        raise RuntimeError("PDF is password-protected: remove the password and retry")
 
     pages = []
     for page in reader.pages:
@@ -96,7 +96,7 @@ def clean_markdown(raw_text: str, title: str, description: str = "") -> str:
         collapsed.append(line)
     body = "\n".join(collapsed).strip()
     header = (
-        f"<!-- Auto-converted from {title}.pdf by convert_resume.py — "
+        f"<!-- Auto-converted from {title}.pdf by convert_resume.py: "
         "text extraction only, formatting is not preserved. Review and "
         "clean up for best tailoring results. -->\n"
     )
@@ -123,7 +123,7 @@ def write_meta_entry(resumes_dir: str, stem: str, description: str) -> None:
     meta = load_meta(meta_path)
     meta[stem] = {
         "description": description,
-        # Written on every call, not just a real conversion — describe-only
+        # Written on every call, not just a real conversion: describe-only
         # updates (no PDF conversion involved) go through this same
         # function, so "converted_at" would be misleading here.
         "updated_at": datetime.now(timezone.utc).isoformat(),
@@ -151,7 +151,7 @@ def main(argv: "list[str] | None" = None) -> int:
     parser.add_argument(
         "--description", default="",
         help="what roles this resume targets, e.g. \"backend + cloud infra roles\" "
-             "(used by resolve_resume.py's dynamic matching — see its own docstring)",
+             "(used by resolve_resume.py's dynamic matching; see its own docstring)",
     )
     parser.add_argument(
         "--describe-only", action="store_true",
@@ -162,14 +162,14 @@ def main(argv: "list[str] | None" = None) -> int:
     stem = args.stem.strip()
     description = args.description.strip()
     if not stem or not re.fullmatch(r"[A-Za-z0-9_-]+", stem):
-        return error(f"invalid stem {stem!r} — expected a plain filename with no path separators")
+        return error(f"invalid stem {stem!r}: expected a plain filename with no path separators")
 
     pdf_path = os.path.join(args.resumes_dir, f"{stem}.pdf")
     md_path = os.path.join(args.resumes_dir, f"{stem}.md")
 
     if args.describe_only:
         if not os.path.isfile(pdf_path) and not os.path.isfile(md_path):
-            return error(f"neither {pdf_path} nor {md_path} exists — add the resume file first")
+            return error(f"neither {pdf_path} nor {md_path} exists; add the resume file first")
         try:
             write_meta_entry(args.resumes_dir, stem, description)
         except OSError as exc:
@@ -180,7 +180,7 @@ def main(argv: "list[str] | None" = None) -> int:
     if not os.path.isfile(pdf_path):
         return error(f"PDF not found: {pdf_path}")
     if os.path.exists(md_path) and not args.force:
-        return error(f"{md_path} already exists — pass --force to overwrite")
+        return error(f"{md_path} already exists; pass --force to overwrite")
 
     try:
         raw_text = extract_pdf_text(pdf_path)
@@ -189,7 +189,7 @@ def main(argv: "list[str] | None" = None) -> int:
 
     if not raw_text.strip():
         return error(
-            "no extractable text found — the PDF may be a scanned image with no "
+            "no extractable text found: the PDF may be a scanned image with no "
             "text layer; OCR is not supported, create the .md by hand instead",
             pdf_path=pdf_path,
         )

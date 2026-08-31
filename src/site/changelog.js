@@ -1,7 +1,7 @@
-/* aplyx.app /changelog — renders docs/CHANGELOG.md live from GitHub's raw
+/* aplyx.app /changelog: renders docs/CHANGELOG.md live from GitHub's raw
  * content CDN, so every push to main is a push to this page: no build
  * step, no redeploy, nothing to keep in sync by hand. Same "no framework"
- * ethos as site.js — a small hand-rolled parser tuned to this repo's own
+ * ethos as site.js: a small hand-rolled parser tuned to this repo's own
  * Keep-a-Changelog-style formatting (see docs/CHANGELOG.md's own header),
  * not a general-purpose markdown engine. */
 (function () {
@@ -14,7 +14,7 @@
   var DOCS_BLOB_BASE = "https://github.com/" + REPO + "/blob/" + BRANCH + "/docs/";
   var CACHE_KEY = "aplyx.changelogCache.v1";
   // docs/CHANGELOG.md's bullets are deliberately deep-dive (root cause,
-  // repro steps, verification) — great for RELEASE.md, too dense for a
+  // repro steps, verification), great for RELEASE.md, too dense for a
   // scannable timeline. Bullets get cut to roughly one line's worth of
   // summary; the full text is one click away via "View on GitHub."
   var BULLET_CHAR_BUDGET = 150;
@@ -38,7 +38,7 @@
   }
 
   // Relative links in CHANGELOG.md (e.g. "./RELEASE.md") are relative to
-  // the file's own folder (docs/) on GitHub — resolve them to a real blob
+  // the file's own folder (docs/) on GitHub; resolve them to a real blob
   // URL instead of a dead link on this domain.
   function resolveHref(href) {
     if (/^https?:\/\//.test(href) || href.charAt(0) === "#") return href;
@@ -47,7 +47,7 @@
 
   // Cuts raw (pre-inline) markdown text to a word boundary within budget,
   // then backs off further until every `**`, backtick, and [bracket]/(paren)
-  // pair left in the slice is balanced — so inline() below can never render
+  // pair left in the slice is balanced, so inline() below can never render
   // a dangling <strong>/<code>/<a> across the cut point.
   function truncateMarkdown(text, limit) {
     if (text.length <= limit) return text;
@@ -83,7 +83,7 @@
   }
 
   // Block-level pass: headings, blockquotes, tight bullet lists (2-space
-  // indented continuation lines), and flush-left paragraphs — the four
+  // indented continuation lines), and flush-left paragraphs: the four
   // shapes docs/CHANGELOG.md actually uses.
   function parseBlocks(markdown) {
     var startIdx = markdown.indexOf("\n## [");
@@ -196,7 +196,7 @@
     return CATEGORY_COLOR[key] || "neutral";
   }
 
-  // metaClass applies only to the bare-paragraph case — the "npm package:
+  // metaClass applies only to the bare-paragraph case: the "npm package:
   // ..." line rendered directly under a version header, outside any
   // ###-category group, gets the quieter .changelog-meta treatment.
   function renderBlock(b, metaClass) {
@@ -263,7 +263,7 @@
 
   function renderError(cached) {
     var note = cached
-      ? "<p>Couldn't refresh from GitHub just now — showing the last synced copy below.</p>"
+      ? "<p>Couldn't refresh from GitHub just now, showing the last synced copy below.</p>"
       : "";
     root.innerHTML =
       '<div class="changelog-error">' +
@@ -309,7 +309,7 @@
     try {
       localStorage.setItem(CACHE_KEY, JSON.stringify({ markdown: markdown, fetchedAt: fetchedAt }));
     } catch (e) {
-      // localStorage unavailable — page still works, just re-fetches every visit
+      // localStorage unavailable; page still works, just re-fetches every visit
     }
   }
 
@@ -327,7 +327,7 @@
       })
       .then(function (markdown) {
         var fetchedAt = Date.now();
-        // Skip the re-render if nothing changed since the cached paint —
+        // Skip the re-render if nothing changed since the cached paint,
         // avoids a pointless flash on a page that already has this content.
         if (!cached || cached.markdown !== markdown) render(markdown);
         writeCache(markdown, fetchedAt);

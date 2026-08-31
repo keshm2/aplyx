@@ -3,7 +3,7 @@
 -- "Use a different email" flow, added 2026-08-21). service_upsert_mail_
 -- connection_oauth (0018) looked up the existing row by
 -- (user_id, provider, email_address) but named new Vault secrets by
--- (user_id, provider) only — so a second email for the same provider
+-- (user_id, provider) only, so a second email for the same provider
 -- always missed the existing-row lookup (different email_address) and
 -- then collided on vault.secrets' unique `name` column when trying to
 -- create a fresh secret under the same name the first email already

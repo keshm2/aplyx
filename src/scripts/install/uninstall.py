@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""uninstall.py — cross-platform uninstaller.
+"""uninstall.py: cross-platform uninstaller.
 
 Ported from uninstall.sh so it runs natively on Windows as well as
 macOS/Linux. uninstall.sh remains a thin Unix shim.
@@ -9,18 +9,18 @@ macOS/Linux. uninstall.sh remains a thin Unix shim.
   uninstall.py --keep-data  # remove schedule + command, keep the install dir
 
 Removes, in order:
-  1. The schedule (scheduler.py uninstall — launchd/schtasks).
-  2. The `aplyx` command on PATH — only aplyx's own wrapper/shim pointing
+  1. The schedule (scheduler.py uninstall: launchd/schtasks).
+  2. The `aplyx` command on PATH: only aplyx's own wrapper/shim pointing
      at THIS install.
   2b. The desktop app (early preview), if it was installed alongside the
-      TUI via src/scripts/install/install_desktop.sh|ps1 — best-effort,
+      TUI via src/scripts/install/install_desktop.sh|ps1, best-effort,
       never fails the uninstall.
-  3. The install directory (live config, data/ incl. resumes, logs/ — PII),
+  3. The install directory (live config, data/ incl. resumes, logs/, PII),
      only after an explicit confirmation (or --yes).
 
 npm installs: `npm uninstall -g @keshm/aplyx` removes the TUI command (a
 reminder is printed when one is detected). The npm package never owns the
-core directory — this script does.
+core directory; this script does.
 """
 
 from __future__ import annotations
@@ -49,7 +49,7 @@ def _remove_readonly(func, path, _exc):
         pass
 
 
-# Historical command names, newest first — a wrapper/shim from an
+# Historical command names, newest first: a wrapper/shim from an
 # earlier rebrand is still cleaned up on the current uninstall rather
 # than left behind as an orphan.
 _OLD_NAMES = ("aplyx", "flux", "aplyx")
@@ -76,7 +76,7 @@ def _remove_unix_wrapper() -> None:
             except OSError:
                 pass
         else:
-            say(f"{wrapper} points at a different install — left alone.")
+            say(f"{wrapper} points at a different install, left alone.")
 
 
 def _remove_windows_wrapper() -> None:
@@ -101,13 +101,13 @@ def _remove_windows_wrapper() -> None:
                 except OSError:
                     pass
             else:
-                say(f"{shim} points at a different install — left alone.")
+                say(f"{shim} points at a different install, left alone.")
 
 
 def _remove_desktop_app() -> None:
     """Best-effort removal of the early-preview desktop app (Tauri), installed
     by src/scripts/install/install_desktop.sh|ps1 alongside the TUI. Every branch
-    is best-effort and silent on failure — a leftover desktop app is a minor
+    is best-effort and silent on failure: a leftover desktop app is a minor
     annoyance, not worth failing the whole uninstall over."""
     if sys.platform == "darwin":
         for base in ("/Applications", os.path.join(os.path.expanduser("~"), "Applications")):
@@ -120,7 +120,7 @@ def _remove_desktop_app() -> None:
                         shutil.rmtree(app)
                         say(f"removed the desktop app ({app}).")
                     except OSError:
-                        say(f"couldn't remove the desktop app ({app}) — delete it manually.")
+                        say(f"couldn't remove the desktop app ({app}); delete it manually.")
     elif IS_WINDOWS:
         # Tauri's NSIS template (the installer src/scripts/install/install_desktop.ps1
         # prefers) registers a per-user uninstaller here; run it silently if found.
@@ -162,7 +162,7 @@ def _remove_desktop_app() -> None:
                         pass
         if removed_any:
             say("removed the AppImage-installed desktop app.")
-        # Package-manager installs (.deb/.rpm) — best-effort, needs sudo, so
+        # Package-manager installs (.deb/.rpm): best-effort, needs sudo, so
         # just ask rather than silently invoking a privileged command.
         for name in _OLD_NAMES:
             for pkg_mgr, query, remove in (
@@ -172,7 +172,7 @@ def _remove_desktop_app() -> None:
                 if shutil.which(pkg_mgr) and subprocess.run(
                     query, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
                 ).returncode == 0:
-                    say(f"the desktop app is also installed as a system package — remove it with:")
+                    say(f"the desktop app is also installed as a system package, remove it with:")
                     say(f"  sudo {' '.join(remove)}")
 
 
@@ -194,15 +194,15 @@ def main(argv) -> int:
     if os.path.isfile(scheduler):
         rc = subprocess.run([sys.executable, scheduler, "uninstall"],
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode
-        say("removed the schedule." if rc == 0 else "no schedule installed — skipped.")
+        say("removed the schedule." if rc == 0 else "no schedule installed, skipped.")
 
-    # 2. PATH wrapper — only aplyx's own, pointing here.
+    # 2. PATH wrapper: only aplyx's own, pointing here.
     if IS_WINDOWS:
         _remove_windows_wrapper()
     else:
         _remove_unix_wrapper()
 
-    # 2b. The desktop app (early preview, opt-in install — see
+    # 2b. The desktop app (early preview, opt-in install: see
     # src/scripts/install/install_desktop.sh|ps1), if present.
     _remove_desktop_app()
 
@@ -212,11 +212,11 @@ def main(argv) -> int:
         detected = subprocess.run([npm, "ls", "-g", "@keshm/aplyx"],
                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
         if detected:
-            say("npm package detected — also run: npm uninstall -g @keshm/aplyx")
+            say("npm package detected, also run: npm uninstall -g @keshm/aplyx")
 
     # 3. The install directory (PII).
     if keep_data:
-        say(f"kept the install directory ({ROOT}) — delete it later manually.")
+        say(f"kept the install directory ({ROOT}); delete it later manually.")
         say("done.")
         return 0
 

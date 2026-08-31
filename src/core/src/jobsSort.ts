@@ -1,5 +1,5 @@
 /**
- * Pure, fs/network-free search types + sort/match logic — split out of
+ * Pure, fs/network-free search types + sort/match logic, split out of
  * jobs.ts so the desktop app's webview (which can't import node:fs/
  * node:child_process, both used elsewhere in jobs.ts for the Workday/
  * canonicalize/fit/save paths) can import real sort/filter functions
@@ -29,11 +29,11 @@ export interface SearchJob {
   external_job_id?: string;
   location?: string;
   jd_text?: string;
-  /** Best-effort "$117K–$160K/year" or "$45–$65/hour" pay line — Ashby's
+  /** Best-effort "$117K–$160K/year" or "$45–$65/hour" pay line, Ashby's
    *  own structured compensation field for Ashby (most reliable source),
    *  regex-mined from jd_text everywhere else (see extractPay in jobs.ts).
    *  A social-proof-grade signal, not a guaranteed-accurate structured
-   *  field — many postings simply never state pay at all. */
+   *  field; many postings simply never state pay at all. */
   pay_text?: string;
   /** ISO 8601 when known. Ashby/Lever/Greenhouse give an exact timestamp;
    *  Workday's public API only exposes a bucketed relative-age string
@@ -66,7 +66,7 @@ export function sortByTitleAsc(jobs: SearchJob[]): SearchJob[] {
  * Deliberately forgiving in one direction only: a preference of
  * "Seattle, WA" matches a posting that says just "Seattle" or "Seattle,
  * Washington, United States", because boards write locations a dozen
- * different ways. It never matches on the state alone — "WA" appearing
+ * different ways. It never matches on the state alone: "WA" appearing
  * somewhere is not a Seattle job.
  */
 export function isPreferredLocation(job: SearchJob, preferred: string[]): boolean {
@@ -87,7 +87,7 @@ export function isPreferredLocation(job: SearchJob, preferred: string[]): boolea
  * Preferred-location matches first, then newest-first within each group.
  *
  * preferred_locations is a priority list, not a filter (AGENTS.md
- * "Location handling") — this sorts, it never drops a non-preferred
+ * "Location handling"): this sorts, it never drops a non-preferred
  * posting. This is the manual search's default (and, unless the user
  * picks a different sort in the UI, only) ordering: jobs where the user
  * actually wants to work land on the first page, everything else still
@@ -113,7 +113,7 @@ function words(text: string): string[] {
 // "intern" needs its own rule in BOTH directions. A subsequence scorer
 // treats it as satisfied by scattered letters ("Identity"); plain substring
 // makes it a prefix of "Internal"/"International"/"Internet". So it matches
-// only as a whole word — intern/interns/internship/internships.
+// only as a whole word: intern/interns/internship/internships.
 const INTERN_RE = /\bintern(s|ship|ships)?\b/i;
 
 /**
@@ -127,8 +127,8 @@ const INTERN_RE = /\bintern(s|ship|ships)?\b/i;
  * grad/graduate/graduating), and requiring the exact literal form hid real
  * postings.
  *
- * So a term now matches a title word when either is a prefix of the other
- * — which covers every inflection pair above without a stemmer, since the
+ * So a term now matches a title word when either is a prefix of the other,
+ * which covers every inflection pair above without a stemmer, since the
  * divergence is always in the suffix. The min-length guard is what keeps
  * that honest: short tokens ("ai", "ml", "go", "qa") must match a title
  * word exactly, so "ai" can't match "aid" and "go" can't match "google".
@@ -145,7 +145,7 @@ export function termMatchesTitle(term: string, title: string): boolean {
   });
 }
 
-/** Every query word must match somewhere in the title (AND, not OR) — so
+/** Every query word must match somewhere in the title (AND, not OR), so
  *  a search stays predictable and narrow; only the per-word comparison got
  *  more forgiving, not the overall gate. */
 export function titleMatchesQuery(title: string, query: string): boolean {
@@ -154,7 +154,7 @@ export function titleMatchesQuery(title: string, query: string): boolean {
   return terms.every((term) => termMatchesTitle(term, title));
 }
 
-// Legal-entity suffixes stripped when comparing company names for dedup —
+// Legal-entity suffixes stripped when comparing company names for dedup:
 // "SpaceX" and "SpaceX Inc." are the same employer, not two postings.
 const COMPANY_SUFFIXES = new Set(["inc", "llc", "corp", "corporation", "co", "ltd", "plc", "company", "the"]);
 
@@ -166,7 +166,7 @@ const COMPANY_SUFFIXES = new Set(["inc", "llc", "corp", "corporation", "co", "lt
  * landing/tracking page, not the employer's actual ATS URL, so the old
  * `job.url` equality check let the same SpaceX internship show up once
  * per source instead of once. This composes a normalized (company,
- * title, location) triple instead — reusing `words()` so "Engineer,
+ * title, location) triple instead, reusing `words()` so "Engineer,
  * Backend" / "Engineer (Backend)" collapse the same way title search
  * already does, stripping common legal suffixes from the company name,
  * and sorting location tokens so "New York, NY; SF, CA" and "SF, CA;
@@ -175,7 +175,7 @@ const COMPANY_SUFFIXES = new Set(["inc", "llc", "corp", "corporation", "co", "lt
  * Deliberately exact-match, not fuzzy: this is a display-only
  * convenience for the search results list, not the state-registry
  * apply-dedup path (`job_state.py`'s `derive_job_key`, still URL-keyed,
- * untouched here) — a false merge would just hide a result, which is a
+ * untouched here), a false merge would just hide a result, which is a
  * far cheaper mistake here than in the apply pipeline, but it's still
  * not worth risking on a fuzzy/similarity match.
  */

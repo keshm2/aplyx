@@ -1,8 +1,8 @@
-/* Custom listbox (button trigger + animated popover panel) — replaces a
+/* Custom listbox (button trigger + animated popover panel): replaces a
  * wrapping grid of toggle buttons for pickers with too many options to
  * compare at a glance (Settings' Theme family / Font, 6 options each).
  * Same mount-once/outside-click/Escape/reduced-motion mechanics as
- * NotificationBell's dropdown (components/NotificationBell.css) — one
+ * NotificationBell's dropdown (components/NotificationBell.css), one
  * visual language for "a button opens a floating panel" across the app. */
 
 .dropdown-root {
@@ -48,15 +48,15 @@
 }
 
 /* Kept mounted after first open (see Dropdown.tsx's `everOpened`) so
- * closing plays a real exit transition instead of just vanishing —
+ * closing plays a real exit transition instead of just vanishing;
  * identical technique to .notif-dropdown / .notif-dropdown-open.
  *
  * Two deliberate departures from an earlier version of this animation
- * (operator report, 2026-08-22 — the native macOS app needed a click
+ * (operator report, 2026-08-22: the native macOS app needed a click
  * near the TOP of an open panel to register, worse toward the bottom,
  * never reproducible in Chrome-based tooling):
  * 1. No `scale()` in the transform. Scale displaces a point by an amount
- *    proportional to its distance from transform-origin — a point near
+ *    proportional to its distance from transform-origin: a point near
  *    `top` barely moves, one further down moves noticeably more. If a
  *    click ever lands mid-transition against a not-yet-final compositor
  *    frame (a real, WebKit-documented class of timing issue between the

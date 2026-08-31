@@ -12,7 +12,7 @@ export interface KeywordCategory {
 }
 
 /** A category counts as "checked" if ANY of its keywords is present in
- *  the current array — not ALL of them. This is deliberately lenient:
+ *  the current array, not ALL of them. This is deliberately lenient:
  *  a hand-edited config (or one seeded before a category's bundle grew)
  *  that only has a subset of a category's synonyms should still show
  *  that category as checked, rather than surprising the user with an
@@ -28,7 +28,7 @@ export function selectedCategoryIds<C extends KeywordCategory>(categories: C[], 
 }
 
 /** The flat keyword array to write for a given set of checked category
- *  ids — the union of every checked category's keyword bundle, in
+ *  ids: the union of every checked category's keyword bundle, in
  *  category-definition order, deduplicated. */
 export function keywordsForSelectedCategories<C extends KeywordCategory>(
   categories: C[],

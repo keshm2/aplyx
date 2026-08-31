@@ -5,13 +5,13 @@ import { findRoot, hasLocalInstall, loadLocalState } from "./bridge";
 
 /**
  * The notification bell's two tabs. "General" is app-level news (release
- * changelogs); "Jobs" is every job alert/application/status report — the
+ * changelogs); "Jobs" is every job alert/application/status report, the
  * outcomes already recorded in the local install's own state, not a
  * separate write path of their own. There is deliberately no third data
  * source or server round-trip: everything here is derived from data the
  * app already has (CHANGELOG_NOTIFICATIONS, baked in at build time; the
  * local install's applied-jobs list, already fetched for Home) plus a
- * small localStorage-backed "read" set — no new backend surface.
+ * small localStorage-backed "read" set: no new backend surface.
  */
 export type NotificationTab = "general" | "jobs";
 export type NotificationSeverity = "critical" | "warn" | "good" | "info";
@@ -40,7 +40,7 @@ function saveReadIds(ids: Set<string>): void {
   try {
     localStorage.setItem(READ_KEY, JSON.stringify([...ids]));
   } catch {
-    // best-effort — worst case, everything reads as unread again next launch
+    // best-effort: worst case, everything reads as unread again next launch
   }
 }
 
@@ -55,7 +55,7 @@ function buildGeneralNotifications(): NotificationItem[] {
   }));
 }
 
-/** Caps at the most recent 25 outcomes — this is a notification feed, not
+/** Caps at the most recent 25 outcomes: this is a notification feed, not
  *  a full status browser (the Status tab already exists for that). */
 function buildJobNotifications(local: AplyxState | undefined): NotificationItem[] {
   if (!local) return [];
@@ -83,7 +83,7 @@ function buildJobNotifications(local: AplyxState | undefined): NotificationItem[
     });
 }
 
-/** `refreshKey` — pass something that changes on navigation (e.g. the
+/** `refreshKey`: pass something that changes on navigation (e.g. the
  *  router location) so a newly-applied job shows up without requiring a
  *  full app restart, without needing a polling timer. */
 export function useNotifications(refreshKey: unknown): {
@@ -106,7 +106,7 @@ export function useNotifications(refreshKey: unknown): {
         if (!cancelled) setLocal(state ?? undefined);
       })
       .catch(() => {
-        /* no local install / bridge unavailable — General tab still works */
+        /* no local install / bridge unavailable: General tab still works */
       });
     return () => {
       cancelled = true;

@@ -1,20 +1,20 @@
-/* aplyx.app — free hosted account (Tier 0 of docs/hosted-no-agent-tiers-plan.md).
+/* aplyx.app: free hosted account (Tier 0 of docs/hosted-no-agent-tiers-plan.md).
  * Real auth against aplyx's own production Supabase project, exactly the
- * backend src/tauri/src/lib/AuthContext.tsx already talks to — an account
+ * backend src/tauri/src/lib/AuthContext.tsx already talks to: an account
  * created here IS an aplyx account, usable from the desktop app too, not a
  * separate website-only login. Same for the job search below: the anon key
  * embedded here is the identical public key already shipped inside the
- * desktop app's own bundle (src/core/src/supabaseConfig.ts) — an anon key
+ * desktop app's own bundle (src/core/src/supabaseConfig.ts): an anon key
  * is meant to be public; access control is Row Level Security on the
  * backend, not secrecy of this key.
  *
  * ES module (not bundled into site.js) because it needs `import` for the
- * Supabase client — everything else on this site is plain script-tag JS
+ * Supabase client; everything else on this site is plain script-tag JS
  * with no build step, so this stays isolated to the one page that needs it
  * rather than converting the whole site to a module graph. */
 import { supabase } from "./nav-auth.js";
 
-// Deliberately separate project from the auth client above — same split as
+// Deliberately separate project from the auth client above: same split as
 // src/core/src/supabaseConfig.ts's readJobCacheSupabaseConfig: job_cache
 // holds no personal data and doesn't share the auth project's I/O budget.
 const JOB_CACHE_CONFIG = {
@@ -27,7 +27,7 @@ const JOB_CACHE_CONFIG = {
 const TARGETS_URL = "assets/job_cache_targets.json";
 
 // Deliberately smaller than jobCache.ts's own tuned FILTERED_PER_COMPANY_LIMIT
-// (75) / UNFILTERED_PER_COMPANY_LIMIT (10) — those were tuned against a
+// (75) / UNFILTERED_PER_COMPANY_LIMIT (10): those were tuned against a
 // warm in-process cache serving a live app search with a tight latency
 // budget; this is a one-shot page-load fetch with no such constraint, but
 // there's also no value in pulling more rows than a browsing page would
@@ -81,7 +81,7 @@ const atsAccountSave = document.getElementById("ats-account-save");
 const atsAccountMessage = document.getElementById("ats-account-message");
 const atsAccountsList = document.getElementById("ats-accounts-list");
 
-// Rows from the last real fetch, unfiltered — source-chip clicks filter
+// Rows from the last real fetch, unfiltered; source-chip clicks filter
 // this in place (no refetch) since it's already the full merged set.
 let lastRows = [];
 let activeSourceFilter = "all";
@@ -127,7 +127,7 @@ function showAuthed(session) {
   authPanel.hidden = true;
   dashboardPanel.hidden = false;
   dashboardEmail.textContent = session.user.email ?? "";
-  // Browse-all on arrival — an empty dashboard the first time you land is
+  // Browse-all on arrival: an empty dashboard the first time you land is
   // a worse first impression than showing something, and Tier 0's whole
   // point is "real job browsing," not just a search box.
   if (!hasSearchedOnce) {
@@ -153,7 +153,7 @@ supabase.auth.getSession().then(({ data }) => {
 
 // Covers the initial load AND the redirect back from Google OAuth / an
 // email-confirmation link landing on this same page with a session token
-// in the URL — supabase-js parses that automatically and fires this.
+// in the URL; supabase-js parses that automatically and fires this.
 supabase.auth.onAuthStateChange((_event, session) => {
   if (session) {
     showAuthed(session);
@@ -176,7 +176,7 @@ authForm.addEventListener("submit", async (e) => {
       const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) throw error;
       if (!data.session) {
-        // Email confirmation required — Supabase project setting, mirrors
+        // Email confirmation required: Supabase project setting, mirrors
         // AuthContext.tsx's own signup flow in the desktop app.
         authMessage.textContent = "Check your email to confirm your account, then sign in.";
         setAuthMode("signin");
@@ -212,18 +212,18 @@ async function loadTargets() {
   return cachedTargets;
 }
 
-/** One job_cache_search RPC call per source — same request shape as
+/** One job_cache_search RPC call per source: same request shape as
  *  src/core/src/jobCache.ts's postgresJobCacheSearch, reimplemented here
  *  since the browser can't import that Node module directly. Never
  *  throws; a failed/slow source just contributes zero rows rather than
  *  failing the whole search, same "degrade, don't break" contract.
  *
- *  p_query is deliberately always "" here, NOT the user's typed phrase —
+ *  p_query is deliberately always "" here, NOT the user's typed phrase;
  *  it's not a search filter at all. job_cache_search filters on
  *  `jc.query = p_query` (0005_job_cache_search_title_filter.sql), an
  *  exact match against the fetch-mode key a row was CACHED under, and
  *  refreshJobCache.ts writes every row under query='' (the unfiltered
- *  "browse everything" mode — see its own header comment). Passing the
+ *  "browse everything" mode, see its own header comment). Passing the
  *  real search phrase here instead of p_title_words matched zero rows
  *  for any non-empty query, silently: a real bug, not "no results
  *  exist" (fixed 2026-08-26). The actual search filtering happens
@@ -254,7 +254,7 @@ async function searchSource(source, companySlugs, titleWords, perCompanyLimit) {
   }
 }
 
-/** Only ever point a result link at http(s) — this data comes from the
+/** Only ever point a result link at http(s): this data comes from the
  *  shared job_cache table, populated by our own scrapers today, but it's
  *  still external-sourced content, not literal string content, so a
  *  scheme check here costs nothing and rules out a javascript: URI ever
@@ -268,7 +268,7 @@ function safeJobUrl(value) {
   }
 }
 
-/** "2d ago" / "Today" / "3w ago" style — loose, not a full i18n formatter,
+/** "2d ago" / "Today" / "3w ago" style: loose, not a full i18n formatter,
  *  matching the level of polish job-result meta text needs here. Falls
  *  back to nothing (not a raw ISO string) if posted_at is missing or
  *  unparseable, same "degrade quietly" contract as the rest of this file. */
@@ -406,16 +406,16 @@ sourceChips.forEach((chip) => {
   });
 });
 
-/* --- "My activity" — a live, read-write mirror of exactly what
+/* --- "My activity": a live, read-write mirror of exactly what
  * src/core/src/adapters/supabase.ts's SupabaseAdapter reads and writes for
  * the desktop app/TUI (loadState, markQueueEntryApplied, dismissQueueEntry)
  * and what src/core/src/stateDerive.ts derives (isResolved,
- * hasAppliedOrFailed, isDismissed) — same tables, same status vocabulary,
+ * hasAppliedOrFailed, isDismissed): same tables, same status vocabulary,
  * same guard logic, ported by hand since the browser can't import that
  * TypeScript module directly. Kept deliberately faithful rather than
  * reinvented: any drift between this file and supabase.ts is a bug, not a
  * design choice. Realtime (migration 0034) is what makes this live in both
- * directions — a change from the desktop app pushes here instantly, and an
+ * directions: a change from the desktop app pushes here instantly, and an
  * action taken here (mark applied / dismiss) writes through the same
  * tables the desktop app reads, so it shows up there the same way. */
 
@@ -423,9 +423,9 @@ let realtimeChannel;
 let activitySyncDebounce;
 let myState; // { jobs, applied, queue, events, profile }
 let applicationAccounts = [];
-let currentUserId; // from the session, not myState.profile — a profiles row
+let currentUserId; // from the session, not myState.profile; a profiles row
 // may not exist yet if this user never completed hosted onboarding.
-let setupPromptShown; // one nudge per session — see maybePromptSetup()
+let setupPromptShown; // one nudge per session, see maybePromptSetup()
 
 function stopActivitySync() {
   if (realtimeChannel) {
@@ -455,7 +455,7 @@ function startActivitySync(userId) {
   void loadAndRenderActivity();
 
   // One channel, all five tables, each filtered server-side to this user's
-  // own rows — RLS already enforces this at the row level, the filter here
+  // own rows; RLS already enforces this at the row level, the filter here
   // just avoids paying for events this session would immediately discard.
   // Any change on any of them just reloads the whole state and re-renders;
   // at this data volume (a single user's own job history) that's simpler
@@ -478,7 +478,7 @@ function scheduleActivityReload() {
   activitySyncDebounce = setTimeout(() => void loadAndRenderActivity(), 400);
 }
 
-/** Same Range-header pagination as supabase.ts's fetchAllRows — a plain
+/** Same Range-header pagination as supabase.ts's fetchAllRows: a plain
  *  unranged .select("*") silently caps at 1,000 rows server-side, which
  *  was a real, previously-fixed bug there (see that file's own comment).
  *  Ordered by orderCol ascending, looping until a page comes back short. */
@@ -553,7 +553,7 @@ async function recordJobEvent(userId, jobKey, status, reasoning, company, title,
 async function markQueueEntryApplied(userId, entry) {
   const reg = registryByJobId(myState.jobs, entry.job_id);
   if (!reg?.job_key) {
-    throw new Error(`Cannot mark applied: no registry record for "${entry.company} — ${entry.title}". This job was never canonicalized.`);
+    throw new Error(`Cannot mark applied: no registry record for "${entry.company}: ${entry.title}". This job was never canonicalized.`);
   }
   const reasoning = "Marked applied manually via the web dashboard";
   const payload = {
@@ -591,14 +591,14 @@ async function markQueueEntryApplied(userId, entry) {
 
 async function dismissQueueEntry(userId, entry) {
   if (hasAppliedOrFailed(myState, entry)) {
-    throw new Error(`Cannot dismiss: "${entry.company} — ${entry.title}" already has an applied/failed outcome.`);
+    throw new Error(`Cannot dismiss: "${entry.company}: ${entry.title}" already has an applied/failed outcome.`);
   }
   if (isDismissed(myState, entry)) {
-    return; // already dismissed — no-op, matches SupabaseAdapter's own idempotent behavior
+    return; // already dismissed; no-op, matches SupabaseAdapter's own idempotent behavior
   }
   const reg = registryByJobId(myState.jobs, entry.job_id);
   if (!reg?.job_key) {
-    throw new Error(`Cannot dismiss: no registry record for "${entry.company} — ${entry.title}".`);
+    throw new Error(`Cannot dismiss: no registry record for "${entry.company}: ${entry.title}".`);
   }
   await recordJobEvent(userId, reg.job_key, "skipped_unfit", "Dismissed via the web dashboard", entry.company, entry.title, entry.url);
 }
@@ -615,13 +615,13 @@ toggleResolvedButton.addEventListener("click", () => {
 });
 
 /* Hosted daily-run quota, per docs/hosted-paid-tier-plan.md's
- * "Usage-limit tracking" section — get_own_usage() (migration 0035)
+ * "Usage-limit tracking" section: get_own_usage() (migration 0035)
  * returns a real count against hosted_runs and a cap derived from
  * subscriptions.status = 'active', or plan = 'free_hosted' / cap = null
  * when there's no active subscription, which is every account today (no
  * Stripe integration exists yet). Only ever called from
  * loadAndRenderActivity(), itself only reachable once signed in
- * (startActivitySync) — never runs for a signed-out visitor, and this
+ * (startActivitySync); never runs for a signed-out visitor, and this
  * whole dashboard is unreachable without a hosted account in the first
  * place, so a local-only install never sees it either. */
 async function renderUsageBar() {
@@ -640,7 +640,7 @@ async function renderUsageBar() {
     const badge = document.createElement("span");
     badge.className = "account-tier-badge";
     badge.textContent = "Free account";
-    note.append(badge, document.createTextNode(" — search and autofill included, no daily cap."));
+    note.append(badge, document.createTextNode(": search and autofill included, no daily cap."));
     usageBar.appendChild(note);
     return;
   }
@@ -649,7 +649,7 @@ async function renderUsageBar() {
   const head = document.createElement("div");
   head.className = "usage-bar-head";
   const label = document.createElement("span");
-  label.textContent = `${plan[0].toUpperCase()}${plan.slice(1)} plan — hosted runs today`;
+  label.textContent = `${plan[0].toUpperCase()}${plan.slice(1)} plan: hosted runs today`;
   const count = document.createElement("span");
   count.className = "usage-bar-count";
   count.textContent = `${used_today} / ${cap}`;
@@ -703,7 +703,7 @@ function activityRow(entry, { badge, badgeClass, actions } = {}) {
   text.className = "activity-row-text";
   const title = document.createElement("span");
   title.className = "activity-row-title";
-  title.textContent = `${entry.company ?? ""} — ${entry.title ?? ""}`;
+  title.textContent = `${entry.company ?? ""}: ${entry.title ?? ""}`;
   text.appendChild(title);
   if (entry.date_applied || entry.location_tier) {
     const meta = document.createElement("span");
@@ -821,7 +821,7 @@ function renderJobEvents() {
   if (rows.length === 0) {
     const empty = document.createElement("p");
     empty.className = "activity-empty";
-    empty.textContent = "No activity yet — once a search runs on your install, it'll show up here.";
+    empty.textContent = "No activity yet. Once a search runs on your install, it'll show up here.";
     jobEventsList.appendChild(empty);
     return;
   }
@@ -830,7 +830,7 @@ function renderJobEvents() {
     const row = document.createElement("div");
     row.className = "activity-event";
     const label = document.createElement("span");
-    label.textContent = `${event.status} — ${event.company ?? ""} ${event.title ?? ""}`.trim();
+    label.textContent = `${event.status}: ${event.company ?? ""} ${event.title ?? ""}`.trim();
     const when = document.createElement("span");
     when.className = "activity-event-when";
     when.textContent = relativePostedAt(event.recorded_at) || "";
@@ -869,7 +869,7 @@ function renderApplicationAccounts() {
     text.className = "activity-row-text";
     const title = document.createElement("span");
     title.className = "activity-row-title";
-    title.textContent = `${account.company_name} — ${account.ats_family}`;
+    title.textContent = `${account.company_name}: ${account.ats_family}`;
     const meta = document.createElement("span");
     meta.className = "activity-row-meta";
     meta.textContent = [account.login_hint || "login masked", account.tenant_key, account.verification_status.replaceAll("_", " ")].join(" · ");
@@ -886,7 +886,7 @@ async function loadAndRenderActivity() {
   try {
     myState = await loadMyState();
   } catch {
-    return; // transient fetch failure — next Realtime event or tab revisit retries
+    return; // transient fetch failure; next Realtime event or tab revisit retries
   }
   try {
     applicationAccounts = await loadApplicationAccounts();
@@ -945,17 +945,17 @@ atsAccountForm.addEventListener("submit", async (event) => {
   }
 });
 
-/* --- Profile — the same PII fields + 3 preference fields
+/* --- Profile: the same PII fields + 3 preference fields
  * src/core/src/onboarding/fields.ts's wizard collects (FIELD_IDS.length,
  * kept in sync by hand here since this file has no bundler to import that
  * constant from), one page at a time, in the desktop app. Here as one
  * scrollable form instead of 8 wizard pages (no "next page" ceremony
  * needed for an edit, unlike first-time setup), writing all fields in a
  * single upsert rather than SupabaseAdapter.writeProfileField's
- * one-upsert-per-field loop — same end state, far fewer round trips.
+ * one-upsert-per-field loop; same end state, far fewer round trips.
  *
  * This is genuinely the same account.js is already reading via
- * loadMyState()'s myState.profile — no separate fetch. */
+ * loadMyState()'s myState.profile; no separate fetch. */
 
 const PROFILE_PAGES = [
   {
@@ -1073,7 +1073,7 @@ function buildProfileFieldset(page, idPrefix) {
     let input;
     if (field.kind === "yesno" || field.kind === "select3") {
       input = document.createElement("select");
-      const options = field.kind === "yesno" ? [{ value: "", label: "—" }, { value: "yes", label: "Yes" }, { value: "no", label: "No" }] : [{ value: "", label: "—" }, ...field.options];
+      const options = field.kind === "yesno" ? [{ value: "", label: "Not answered" }, { value: "yes", label: "Yes" }, { value: "no", label: "No" }] : [{ value: "", label: "Not answered" }, ...field.options];
       options.forEach((opt) => {
         const optionEl = document.createElement("option");
         optionEl.value = opt.value;
@@ -1121,7 +1121,7 @@ function populateProfileFields(container, profile) {
   });
 }
 
-/** Re-populates form values from myState.profile — skipped while the form
+/** Re-populates form values from myState.profile; skipped while the form
  *  is dirty (the user has typed something not yet saved) so a Realtime
  *  update from another device/tab never silently overwrites an
  *  in-progress edit. The dirty flag clears on a successful save, so the
@@ -1177,18 +1177,18 @@ profileForm.addEventListener("submit", async (e) => {
   }
 });
 
-/* --- Setup walkthrough (account.html #setup-panel) — the guided sequence
+/* --- Setup walkthrough (account.html #setup-panel): the guided sequence
  * a brand-new signup ("no profiles row yet") sees instead of the
  * dashboard, replacing the single banner-to-a-tab nudge this used to be.
  * Reuses the same PROFILE_PAGES field set and save path as the Profile
  * tab above (buildProfileFormInto/populateProfileFields/
- * collectProfilePayload/saveProfilePayload) — a different *sequence* over
+ * collectProfilePayload/saveProfilePayload): a different *sequence* over
  * the identical data, not a second data model.
  *
  * Deliberately does NOT write profiles.onboarding_completed: that flag
  * also gates the desktop hosted wizard's own "Finish hosted setup" step
  * (HostedReadinessStep.tsx), which additionally requires an inbox
- * connection this walkthrough doesn't collect (out of scope here — see
+ * connection this walkthrough doesn't collect (out of scope here, see
  * docs/web-onboarding-hosted-sync-plan.md). Finishing this walkthrough
  * only means "don't show it again this session," tracked the same
  * once-per-session way setupPromptShown already worked before. */
@@ -1215,7 +1215,7 @@ const setupChecklist = document.getElementById("setup-checklist");
 buildProfileFormInto(setupProfileFields, "setup-field-");
 
 // Tracked locally rather than read back from myState.profile at checklist
-// time — myState only refreshes on the next Realtime tick or an explicit
+// time; myState only refreshes on the next Realtime tick or an explicit
 // loadAndRenderActivity() call, neither of which happens between a step
 // save and viewing the finish step's checklist a few seconds later.
 let setupProfileFilled = false;
@@ -1231,7 +1231,7 @@ function showSetupStep(step) {
 }
 
 /** Shown for a brand-new signup instead of the dashboard, once per
- *  session — same "has this account entered anything" check
+ *  session: same "has this account entered anything" check
  *  ImportOrFreshStep.tsx (and the banner this replaced) already used. */
 function updateSetupGate() {
   if (myState.profile?.first_name) {
@@ -1340,7 +1340,7 @@ function setupChecklistRow(ok, label, detail) {
   return row;
 }
 
-/** Resume-presence check — same storage.list()-then-filter-dotfiles logic
+/** Resume-presence check: same storage.list()-then-filter-dotfiles logic
  *  as SupabaseAdapter.readHostedReadiness(), reimplemented here since the
  *  browser can't import that Node module (see loadMyState's neighboring
  *  functions for the same constraint elsewhere on this page). */

@@ -6,7 +6,7 @@
 --
 -- Covers:
 -- 1. Owner can list their own alias's inbound emails via the RPC (the
---    thing that was silently broken before this migration — zero RLS
+--    thing that was silently broken before this migration; zero RLS
 --    policies meant a direct table SELECT as `authenticated` always
 --    returned nothing).
 -- 2. A non-owner (user_b) is rejected by both RPCs for user_a's alias.
@@ -14,7 +14,7 @@
 --    by list_own_inbound_emails, even though the row itself is still
 --    visible.
 -- 4. consume_inbound_email nulls parsed_otp/parsed_link at the same
---    time it sets consumed_at — the secret does not linger after use.
+--    time it sets consumed_at; the secret does not linger after use.
 
 begin;
 
@@ -70,7 +70,7 @@ begin
   -- 4. Consuming the fresh row nulls the secret and stamps consumed_at.
   -- Called as authenticated/user_a (to exercise the RPC's own ownership
   -- check for real), but verified afterward via a direct table read as
-  -- the unrestricted session role — inbound_emails has zero RLS
+  -- the unrestricted session role; inbound_emails has zero RLS
   -- policies by design, so a direct SELECT as `authenticated` would
   -- itself return nothing regardless of whether the update worked,
   -- which would make this assertion meaningless.

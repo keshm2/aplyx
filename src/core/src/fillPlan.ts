@@ -1,5 +1,5 @@
 /**
- * Fill plan — the structured field-mapping an apply run produces before
+ * Fill plan, the structured field-mapping an apply run produces before
  * it types anything into the form. This is the core-level counterpart
  * to the extension's field-mapping (src/extension/src/ats.ts
  * FIELD_PATTERNS / matchField), lifted out of the DOM so a hosted
@@ -10,13 +10,13 @@
  *
  * A fill plan is an array of FillField entries, one per form control the
  * run will touch. Each entry carries: the field's descriptor (label/
- * aria/placeholder/name — what the form called it), the resolved
+ * aria/placeholder/name, what the form called it), the resolved
  * safe_fields key (or an explicit "unmapped" classification), the
  * value to type, the source of that value, and whether the pre-submit
  * verification confirmed it. This mirrors the shape
  * src/scripts/state/record_fill.py persists to
  * data/fill_records/<job_id>.json (FillRecord in stateDerive.ts), so a
- * fill plan and a persisted fill record are the same shape — the plan
+ * fill plan and a persisted fill record are the same shape: the plan
  * is what gets verified, the record is what gets persisted after.
  *
  * The conservative-default fill policy (AGENTS.md) and the doubt-signal
@@ -53,23 +53,23 @@ export type FillFieldKey =
   | "currently_enrolled"
   | "full_name"
   // --- unmapped classifications (not a safe_field) ---
-  /** A free-text motivation/essay question — always parks via the
+  /** A free-text motivation/essay question: always parks via the
    *  interest-letter flow, never auto-answered (AGENTS.md). */
   | "essay"
   /** A required field with no safe_fields mapping and no conservative
-   *  default — routes to needs_review (doubt signal
+   *  default: routes to needs_review (doubt signal
    *  unmapped_required_field). */
   | "unmapped_required"
-  /** An optional field with no safe_fields mapping — left blank, not a
+  /** An optional field with no safe_fields mapping: left blank, not a
    *  doubt signal. */
   | "unmapped_optional"
   /** A field filled by a conservative-default policy category (a–d,
    *  AGENTS.md). Carries a `note` explaining which category applied. */
   | "conservative_default"
-  /** A resume upload field — filled by uploading the resume artifact,
+  /** A resume upload field: filled by uploading the resume artifact,
    *  not by typing a value. */
   | "resume_upload"
-  /** A cover-letter field — filled by pasting the tailored cover
+  /** A cover-letter field: filled by pasting the tailored cover
    *  letter body. */
   | "cover_letter";
 
@@ -85,7 +85,7 @@ export type FillValueSource =
   | "conservative_default";
 
 export interface FillField {
-  /** The form control's label/aria/placeholder/name — what the form
+  /** The form control's label/aria/placeholder/name, what the form
    *  called this field. Used for auditability in the fill record. */
   fieldDescriptor: string;
   /** The resolved safe_fields key or unmapped classification. */
@@ -93,7 +93,7 @@ export interface FillField {
   /** The value to type/paste/upload. Empty string for an unmapped
    *  optional field left blank. */
   filledValue: string;
-  /** The source of filledValue — a safe_fields:<key>, constructed,
+  /** The source of filledValue: a safe_fields:<key>, constructed,
    *  resume_upload, cover_letter, or conservative_default. */
   source: FillValueSource;
   /** True once the pre-submit field-by-field verification (AGENTS.md
@@ -102,7 +102,7 @@ export interface FillField {
    *  check found a mismatch (doubt signal verification_mismatch). */
   verified: boolean;
   /** Required for conservative_default fills (AGENTS.md "Fill
-   *  records" — record_fill.py enforces a non-empty note). States
+   *  records", record_fill.py enforces a non-empty note). States
    *  which category (a–d) applied and what value was chosen. */
   note?: string;
 }
@@ -120,7 +120,7 @@ export interface FillPlan {
  *  is what the state machine consults (via canAdvanceToFilled) to
  *  decide whether filling → ready_to_submit is legal, or whether the
  *  run must route to needs_review. Mirrors the AGENTS.md "Doubt
- *  signals" vocabulary — every field-level signal the plan carries
+ *  signals" vocabulary: every field-level signal the plan carries
  *  maps to one canonical string. */
 export function doubtSignalsForPlan(plan: FillPlan): string[] {
   const signals = new Set<string>();
@@ -128,7 +128,7 @@ export function doubtSignalsForPlan(plan: FillPlan): string[] {
     if (f.key === "unmapped_required") signals.add("unmapped_required_field");
     else if (f.key === "essay") signals.add("unapproved_essay_answer");
     else if (!f.verified && f.key !== "unmapped_optional") signals.add("verification_mismatch");
-    // unrecognized_field is the superset of unmapped_required — only
+    // unrecognized_field is the superset of unmapped_required: only
     // emit the more specific one when both would apply.
   }
   return [...signals];

@@ -7,7 +7,7 @@ description: >
   @discord-reporter. Use this agent for any job search automation task.
 user-invocable: true
 ---
-<!-- GENERATED from src/agents/bodies/job-scraper.md + src/agents/frontmatter/copilot/job-scraper.yaml — edit those sources and run src/scripts/validate/generate_agent_definitions.py -->
+<!-- GENERATED from src/agents/bodies/job-scraper.md + src/agents/frontmatter/copilot/job-scraper.yaml: edit those sources and run src/scripts/validate/generate_agent_definitions.py -->
 
 You are an automated job application engine. You work systematically and
 never guess — if you're unsure about a form field, you skip and log it.
@@ -649,9 +649,9 @@ For each job with ats_score >= 60:
         authenticated/verified.
     b. Shell out to the runtime (do NOT pass `--no-submit`; it must
        submit when it reaches the confirmed final review/submit page):
-        `python3 src/scripts/runtime/approve_submit_workday.py '<job_id>' --apply-url '<apply_url>' --account-email '<candidate_email>'`
-       (or `--alias-email '<workday_alias_email>'` on the managed-alias
-        path). Pass the Phase 2 tailored resume PDF and cover letter so Workday
+         `python3 src/scripts/runtime/approve_submit_workday.py '<job_id>' --apply-url '<apply_url>' --account-email '<candidate_email>' --job-location '<canonical_location>'`
+        (or `--alias-email '<workday_alias_email>'` on the managed-alias
+         path). Pass the Phase 2 tailored resume PDF and cover letter so Workday
         uses them instead of the master resume. Render the tailored resume
         now (Phase 3 step 4 is otherwise skipped for this deterministic
         Workday path) with:
@@ -669,6 +669,14 @@ For each job with ats_score >= 60:
         a path that doesn't exist. The runtime's master-resume fallback is
         reserved for a later UI continuation after temporary artifacts have
         been cleaned up, not for this scheduled first attempt.
+        Pass `--job-location '<canonical_location>'` on a fresh
+        `--apply-url` run using the canonical job record's location (the
+        same value used for `location_tier` classification). A fresh run
+        has no queue entry, so without `--job-location` the runtime has
+        no job location and relocation-inference questions are always
+        unresolved. Queue continuations (step 2Wd) still read location
+        from the queue entry and do not need `--job-location`; omit it
+        on a continuation unless the queue entry has no location.
        If a verification link or OTP is available for this job's pending
        checkpoint (e.g. consumed from a hosted verification session, or
        forwarded from the managed alias inbox), pass it via

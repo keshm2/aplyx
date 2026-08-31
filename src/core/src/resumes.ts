@@ -2,11 +2,11 @@ import fs from "node:fs";
 import path from "node:path";
 
 /**
- * Read-only view of data/resumes/ — the legacy per-category resume files
+ * Read-only view of data/resumes/, the legacy per-category resume files
  * (from before the single-resume model; see src/core/src/masterResume.ts)
  * plus the still-live base_cover_letter reference. Tailoring itself no
- * longer reads any of the resume stems here by name — @resume-tailor
- * reads data/resumes/resume.json directly — so this module's only
+ * longer reads any of the resume stems here by name; @resume-tailor
+ * reads data/resumes/resume.json directly, so this module's only
  * remaining purposes are the TUI's legacy convert/describe screen and the
  * desktop Resumes screen's "import from an existing resume" picker
  * (src/tauri/src/routes/shell/ResumesScreen.tsx), which uses these labels
@@ -14,7 +14,7 @@ import path from "node:path";
  * a plain directory scan done here in TS (matching state.ts's read-only
  * fs reads); actually converting a PDF to markdown needs pypdf, so that
  * stays a Python helper (src/scripts/state/convert_resume.py) invoked from
- * helpers.ts — this module never writes.
+ * helpers.ts. This module never writes.
  */
 
 export interface ResumeFile {
@@ -24,7 +24,7 @@ export interface ResumeFile {
   category?: string;
   hasMarkdown: boolean;
   hasPdf: boolean;
-  /** PDF present, markdown missing — the case the TUI offers to convert. */
+  /** PDF present, markdown missing: the case the TUI offers to convert. */
   needsConversion: boolean;
   /** True for the 6 recognized legacy stems (5 old resume categories + the cover-letter reference). */
   expected: boolean;
@@ -33,11 +33,11 @@ export interface ResumeFile {
 }
 
 // The 5 old per-category resume names are recognized here purely so the
-// import picker can label them nicely — nothing reads them by name for
+// import picker can label them nicely; nothing reads them by name for
 // tailoring anymore (that's resume.json now). base_cover_letter is the
 // one stem still functionally resolved by name, by
 // src/scripts/state/resolve_resume.py. Keep in sync with that script's
-// CONVENTIONAL_STEM and docs/SETUP.md's resume section by hand — there's
+// CONVENTIONAL_STEM and docs/SETUP.md's resume section by hand: there's
 // no single shared source for this the TUI can read at runtime.
 const EXPECTED_RESUMES: Array<{ stem: string; category: string }> = [
   { stem: "base_resume_swe", category: "SWE" },

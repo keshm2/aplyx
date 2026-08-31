@@ -3,11 +3,11 @@ import type { MasterResume } from "@aplyx/core/masterResume.js";
 import { previewTailoredResume, type PreviewTailoredResumeResult } from "../../lib/bridge";
 
 /**
- * "Preview against a job description" — shows what @resume-tailor
+ * "Preview against a job description": shows what @resume-tailor
  * (including the new humanizer skill pass, src/agents/skills/humanizer/
  * SKILL.md) would actually produce for a given title + JD, without
  * applying anywhere. Runs against `resume` as it currently stands in the
- * editor above (including unsaved edits, same as Export PDF) — nothing
+ * editor above (including unsaved edits, same as Export PDF); nothing
  * here is saved, nothing here touches a real application.
  */
 export function PreviewResumePanel({ root, resume }: { root: string; resume: MasterResume }) {
@@ -40,7 +40,7 @@ export function PreviewResumePanel({ root, resume }: { root: string; resume: Mas
         <div>
           <h2 style={{ fontSize: "var(--text-lg)" }}>Preview against a job description</h2>
           <p className="field-help">
-            See what tailoring + humanizing would produce for a specific role — nothing is saved or applied. Runs
+            See what tailoring + humanizing would produce for a specific role, nothing is saved or applied. Runs
             through your configured coding-agent harness, same as a real application; can take a couple of minutes.
           </p>
         </div>
@@ -97,11 +97,11 @@ export function PreviewResumePanel({ root, resume }: { root: string; resume: Mas
               <div className="resume-grid-3" style={{ alignItems: "start" }}>
                 <div className="field">
                   <label className="field-label">Tailoring emphasis</label>
-                  <p>{result.resume_used || "—"}</p>
+                  <p>{result.resume_used || "N/A"}</p>
                 </div>
                 <div className="field">
                   <label className="field-label">ATS score</label>
-                  <p>{typeof result.ats_score === "number" ? `${result.ats_score}/100` : "—"}</p>
+                  <p>{typeof result.ats_score === "number" ? `${result.ats_score}/100` : "N/A"}</p>
                 </div>
                 <div className="field">
                   <label className="field-label">Missing keywords</label>

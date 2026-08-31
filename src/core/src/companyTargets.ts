@@ -12,7 +12,7 @@ const VENDOR_KEYS: Record<CompanyEntry["vendor"], string> = {
   smartrecruiters: "smartrecruiters_company_slugs",
 };
 
-/** Target companies aren't stored under one key — they're derived as the
+/** Target companies aren't stored under one key; they're derived as the
  *  intersection of each vendor's *_company_slugs array with the vetted
  *  directory, so both the onboarding wizard and Settings can show what's
  *  already added without keeping a separate copy of this logic. */
@@ -25,7 +25,7 @@ export function readCommittedCompanyDisplays(root: string, directory: CompanyEnt
 }
 
 /** Maps the chosen display names back to their slugs via the directory,
- *  splits by vendor, and merges into each vendor's existing array —
+ *  splits by vendor, and merges into each vendor's existing array,
  *  dropping any leftover REPLACE_ME placeholder from a fresh install. */
 export function writeCommittedCompanyDisplays(root: string, displays: string[], directory: CompanyEntry[]): void {
   const displaySet = new Set(displays);

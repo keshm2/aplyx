@@ -30,7 +30,7 @@ export function SchedulerStatusCard({ status }: { status: SchedulerStatus }) {
         <>
           <p className="scheduler-status-last-run">
             Last run <strong>{timeAgo(hb.last_run_completed_at)}</strong>
-            {hb.last_run_exit_code !== 0 && <span className="scheduler-status-warn"> — exited with an error</span>}
+            {hb.last_run_exit_code !== 0 && <span className="scheduler-status-warn">, exited with an error</span>}
           </p>
           <div className="scheduler-status-counts">
             <span>
@@ -45,7 +45,7 @@ export function SchedulerStatusCard({ status }: { status: SchedulerStatus }) {
           </div>
           {hb.consecutive_nonzero_exits >= 3 && (
             <p className="scheduler-status-warn scheduler-status-alert">
-              {hb.consecutive_nonzero_exits} runs in a row have failed — check logs/run_job_agent.log.
+              {hb.consecutive_nonzero_exits} runs in a row have failed. Check logs/run_job_agent.log.
             </p>
           )}
         </>

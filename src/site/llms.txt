@@ -1,0 +1,43 @@
+# aplyx
+
+> aplyx is a local-first job-application agent. It searches job boards, deduplicates against
+> your local history, checks each posting against your preferences with deterministic logic
+> (not a model's guess), tailors a resume and cover letter, and applies through a browser or
+> public APIs, with every application reviewable before it goes out.
+
+## What it is
+
+- A terminal app (TUI) and a native desktop app (built with Tauri), both driven by the same
+  local-first core. Runs on macOS, Linux, and Windows.
+- A browser extension (Manifest V3) that detects a real application form on Greenhouse, Lever,
+  Ashby, or Workday, offers to autofill it from your profile, and never submits without you.
+- Searches Ashby, Lever, Greenhouse, Workday, SmartRecruiters, and other job boards in one pass.
+- Free and open source (MIT license) for local use: no account, no waitlist, no cost.
+- Requires a coding agent to drive it locally: full capability, including browser-automated
+  applies, with opencode or Claude Code; a smaller, API-fed-boards-only path with Codex CLI or
+  GitHub Copilot CLI.
+- A hosted account tier is planned (search, tailoring, and auto-apply from aplyx's own servers,
+  no local install or coding agent required) but is not live yet; pricing shown on the site is
+  illustrative and not final.
+
+## Privacy
+
+- Running locally, your profile, resumes, and application history stay on your own machine and
+  are never uploaded by aplyx itself.
+- A hosted account additionally stores your profile and resume file(s) in a cloud database
+  (Supabase-backed), scoped to your account.
+- Resume tailoring and cover-letter drafting send the relevant job description and resume text
+  to whichever coding agent's model provider you're using, the same as using that agent directly.
+- Discord status updates and a Google Sheets tracking sync are both opt-in and off by default.
+- Full detail: https://aplyx.app/privacy.html
+
+## Links
+
+- Homepage: https://aplyx.app/
+- Features: https://aplyx.app/features.html
+- Pricing: https://aplyx.app/pricing.html
+- Install: https://aplyx.app/install.html
+- Browser extension: https://aplyx.app/extension.html
+- Changelog: https://aplyx.app/changelog.html
+- Privacy: https://aplyx.app/privacy.html
+- Source code: https://github.com/keshm2/aplyx

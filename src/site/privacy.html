@@ -13,8 +13,19 @@
     })();
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Privacy — aplyx</title>
+  <title>Privacy: aplyx</title>
   <meta name="description" content="What aplyx stores, why, and where, for the local tool and for a hosted account, in plain language." />
+  <link rel="canonical" href="https://aplyx.app/privacy.html" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="aplyx" />
+  <meta property="og:title" content="Privacy: aplyx" />
+  <meta property="og:description" content="What aplyx stores, why, and where, for the local tool and for a hosted account, in plain language." />
+  <meta property="og:url" content="https://aplyx.app/privacy.html" />
+  <meta property="og:image" content="https://aplyx.app/assets/logo-mark.png" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Privacy: aplyx" />
+  <meta name="twitter:description" content="What aplyx stores, why, and where, for the local tool and for a hosted account, in plain language." />
+  <meta name="twitter:image" content="https://aplyx.app/assets/logo-mark.png" />
   <link rel="icon" href="favicon.ico" sizes="any" />
   <link rel="icon" type="image/png" href="assets/favicon-32.png" sizes="32x32" />
   <link rel="icon" type="image/png" href="assets/favicon-16.png" sizes="16x16" />
@@ -137,14 +148,14 @@
           <p>
             The aplyx browser extension activates only on the four job-application platforms it
             supports (Greenhouse, Lever, Ashby, and Workday), and only once it detects an actual
-            application form on the page &mdash; not on every page you visit. When it does, it
+            application form on the page, not on every page you visit. When it does, it
             reads that page's form field labels and, if you ask it to, the job posting's title,
             company, description, and location, so it can offer to autofill the form and check
             whether the role fits your profile.
           </p>
           <p>
             Everything the extension does today talks only to your own local bridge process
-            (<code>http://127.0.0.1</code>) running on your own machine &mdash; the same local
+            (<code>http://127.0.0.1</code>) running on your own machine: the same local
             data flow as the rest of local mode, described above. Nothing it reads from a page is
             sent anywhere else. It fills form fields for you to review but never clicks submit;
             you always decide when (or whether) to send an application.
@@ -189,7 +200,7 @@
             the same as any other file you own.
           </p>
           <p>
-            This website is served over GitHub Pages. The physical region for hosted-account
+            This website is served over Vercel. The physical region for hosted-account
             storage hasn't been finalized yet. This section will be updated with specifics once
             it is.
           </p>
@@ -351,7 +362,7 @@
           <p><strong>5.2.</strong> Our authentication and database/storage provider: provides sign-in and storage for hosted accounts.</p>
           <p><strong>5.3.</strong> Discord: if you opt in, receives outcome-level status messages via a webhook URL you provide.</p>
           <p><strong>5.4.</strong> Google Sheets: if you opt in, receives the user-facing application-tracking fields you choose to sync.</p>
-          <p><strong>5.5.</strong> GitHub Pages: hosts this public website; no account or personal information passes through it beyond standard web-server access logs kept by GitHub, not by us.</p>
+          <p><strong>5.5.</strong> Vercel: hosts this public website; no account or personal information passes through it beyond standard web-server access logs kept by Vercel, not by us.</p>
           <p><strong>5.6.</strong> GitHub's public API and raw-content endpoints: queried client-side by the install page (releases, for download links) and the changelog page (<code>CHANGELOG.md</code>); neither request includes personal information.</p>
           <p><strong>5.7.</strong> We do not use any analytics, advertising, or crash-reporting service.</p>
 

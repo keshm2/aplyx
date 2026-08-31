@@ -4,7 +4,7 @@ import path from "node:path";
 /**
  * Read/write helpers for the Settings screen. These touch CONFIG files
  * only (src/config/targets.json safe_fields, src/config/discord_config.json,
- * src/config/env.json) — the same files the setup wizard writes; runtime
+ * src/config/env.json), the same files the setup wizard writes; runtime
  * STATE stays with the Python helpers. Writes are read-modify-write so
  * unrelated keys are preserved.
  */
@@ -23,7 +23,7 @@ function readJson(file: string): Json {
 function writeJson(file: string, data: Json): void {
   fs.writeFileSync(file, `${JSON.stringify(data, null, 2)}\n`, "utf8");
   // targets.json/discord_config.json/env.json all carry PII (name, DOB,
-  // address, webhook URLs) — don't rely on ambient umask; writeFileSync's
+  // address, webhook URLs): don't rely on ambient umask; writeFileSync's
   // mode option only applies on create, so chmod explicitly every write.
   fs.chmodSync(file, 0o600);
 }
@@ -36,7 +36,7 @@ const targetsPath = (root: string) => path.join(root, "src", "config", "targets.
  *  committed example template before the first field write, so a
  *  read-modify-write that only knows about one key doesn't silently drop
  *  role_keywords/preferred_locations/target_companies defaults. Shared by
- *  the TUI onboarding wizard and the desktop app's bridge — one seeding
+ *  the TUI onboarding wizard and the desktop app's bridge: one seeding
  *  implementation, not two. */
 export function ensureTargetsFile(root: string): void {
   const file = targetsPath(root);
@@ -45,12 +45,12 @@ export function ensureTargetsFile(root: string): void {
     fs.copyFileSync(path.join(root, "src", "config", "targets.example.json"), file);
     fs.chmodSync(file, 0o600);
   } catch {
-    // best-effort — subsequent reads/writes still degrade gracefully via
+    // best-effort: subsequent reads/writes still degrade gracefully via
     // readJson's own try/catch
   }
 }
 
-/** True once onboarding has been completed at least once — the same
+/** True once onboarding has been completed at least once, the same
  *  targets.json `_onboarding.completed` flag the TUI's OnboardingWizard
  *  writes, so either surface finishing onboarding is recognized by both. */
 export function readOnboardingCompleted(root: string): boolean {
@@ -106,11 +106,11 @@ export function writeTargetsArray(root: string, key: string, value: string): voi
 
 /** List-native counterparts of readTargetsArray/writeTargetsArray. The
  *  comma-string versions above are lossy for any array whose entries
- *  themselves contain a comma — e.g. "Seattle, WA" round-tripped through
+ *  themselves contain a comma: e.g. "Seattle, WA" round-tripped through
  *  a join(", ")+split(",") silently becomes two entries, "Seattle" and
  *  "WA". Every caller that already holds (or produces) a real string[]
- *  — the itemized add/remove editors, the location/company autocomplete
- *  fields — must use these instead so an entry's own commas are never
+ *  (the itemized add/remove editors, the location/company autocomplete
+ *  fields) must use these instead so an entry's own commas are never
  *  mistaken for the array's join delimiter. */
 export function readTargetsArrayList(root: string, key: string): string[] {
   const targets = readJson(targetsPath(root));
@@ -125,7 +125,7 @@ export function writeTargetsArrayList(root: string, key: string, values: string[
   writeJson(file, targets);
 }
 
-/** Top-level targets.json booleans (e.g. allow_experienced_roles) — a
+/** Top-level targets.json booleans (e.g. allow_experienced_roles), a
  *  missing key reads as `false`, matching every such flag's documented
  *  default in targets.example.json's _help notes. */
 export function readTargetsBool(root: string, key: string): boolean {
@@ -174,7 +174,7 @@ export function writeDiscordRoute(root: string, route: string, url: string): voi
   writeJson(file, cfg);
 }
 
-// Inbox status detection is hosted-only (2026-08-19 — matches
+// Inbox status detection is hosted-only (2026-08-19, matches
 // docs/website.md's pricing page, which already lists it as a Pro-tier
 // feature): local installs have no config for it at all. See
 // src/supabase/migrations/0007_hosted_email_tracking.sql,
@@ -201,7 +201,7 @@ export function writeEnvOverride(root: string, key: string, value: string): void
 
 /** Effective value + where it came from (env > src/config/env.json > default).
  *  `key` accepts a list so a rebrand can pass the current name first and
- *  older names (still honored) after — e.g. `["APLYX_X", "FLUX_X"]`. */
+ *  older names (still honored) after: e.g. `["APLYX_X", "FLUX_X"]`. */
 export function effectiveEnv(
   root: string,
   key: string | readonly string[],

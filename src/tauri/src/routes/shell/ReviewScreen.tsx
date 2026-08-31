@@ -14,7 +14,7 @@ import "../../components/dataList.css";
 import "../../components/Skeleton.css";
 
 /** A queue entry is a confirm-before-submit "ready to submit" item when its
- *  status is "ready_to_submit" — the agent ran the full pipeline through
+ *  status is "ready_to_submit": the agent ran the full pipeline through
  *  pre-submit verification then paused with a filled-but-not-submitted form
  *  (docs/hosted-auto-apply-plan.md Stage 1). These surface a screenshot,
  *  structured field summary (fill_record), and resume preview
@@ -40,11 +40,11 @@ function isWorkdayEntry(entry: QueueEntry): boolean {
 }
 
 /** Classifies a Workday checkpoint status (the `status` field the local
- *  runtime writes to data/workday_apply_runs/<job_id>.json — see
+ *  runtime writes to data/workday_apply_runs/<job_id>.json, see
  *  approve_submit_workday.py) into the categories the detail pane and
  *  action buttons branch on. `ready_to_submit` is the final review/submit
  *  stage: the form is filled and verified, and the only remaining step is
- *  the actual submit click — the queue row's status is still
+ *  the actual submit click: the queue row's status is still
  *  `needs_review` at that point (the runtime paused instead of
  *  submitting), so the UI has to surface the checkpoint state itself
  *  rather than trust the queue badge. `submitted` is terminal success;
@@ -112,7 +112,7 @@ function workdayStatusLabel(status: string | undefined): string {
   }
 }
 
-/** Badge class for a Workday checkpoint category — mirrors the queue
+/** Badge class for a Workday checkpoint category: mirrors the queue
  *  row's badge palette so the checkpoint section reads consistently
  *  with the rest of the screen. */
 function workdayBadgeClass(category: WorkdayCheckpointCategory): string {
@@ -126,7 +126,7 @@ function workdayBadgeClass(category: WorkdayCheckpointCategory): string {
 }
 
 /** Derives a Workday tenant key (the full myworkdayjobs.com hostname)
- *  from a queue entry's apply URL — same convention as
+ *  from a queue entry's apply URL, same convention as
  *  atsRegistry.tenantKeyFor. Used to bind a verification session to the
  *  tenant so the Gmail worker can correlate by tenant. */
 function tenantKeyForEntry(entry: QueueEntry): string | undefined {
@@ -142,7 +142,7 @@ function tenantKeyForEntry(entry: QueueEntry): string | undefined {
  *  host plus workday.com itself (Workday sends from noreply@workday.com
  *  across tenants). The verification session uses these for correlation;
  *  an ambiguous match still becomes manual_required, never a guess. No
- *  heuristic company-domain guesses — only the tenant host and
+ *  heuristic company-domain guesses: only the tenant host and
  *  workday.com, both real domains the sender actually uses. */
 function expectedSenderDomainsFor(entry: QueueEntry): string[] {
   const tenant = tenantKeyForEntry(entry);
@@ -167,7 +167,7 @@ function formatWorkdayDetail(result: ApproveSubmitResult): string {
 }
 
 /** Defensively reads the screenshot reference a ready-to-submit entry may
- *  carry — `screenshot_path` (local, a file the bridge reads as a data URL)
+ *  carry: `screenshot_path` (local, a file the bridge reads as a data URL)
  *  or `screenshot_url` (hosted, a URL the webview loads directly). The
  *  core/adapter slice adds whichever field applies to the entry's mode;
  *  both are optional and absent on entries that never reached the fill
@@ -199,7 +199,7 @@ export function ReviewScreen() {
 
   // Queue-first workflow: land on the first pending item rather than a
   // blank detail pane, and when acting on one resolves/removes it from
-  // `entries`, land on the next one automatically — deciding on an item
+  // `entries`, land on the next one automatically: deciding on an item
   // flows straight into the next decision instead of bouncing back to an
   // empty pane that has to be re-clicked into.
   useEffect(() => {
@@ -261,12 +261,12 @@ export function ReviewScreen() {
 
   const open = async (entry: QueueEntry) => {
     // A fill record means this application was actually filled out (in
-    // full or in part) before landing in review — reopen it pre-filled
+    // full or in part) before landing in review: reopen it pre-filled
     // (fields, resume, cover letter already in place) instead of a blank
     // form. Local-only: replaying a fill drives the user's real, already-
     // installed Chrome via Playwright, which a hosted-only session (no
-    // local install on this machine) has no way to do — a hosted entry's
-    // fill_record (content, not a path — see stateDerive.ts) falls back to
+    // local install on this machine) has no way to do; a hosted entry's
+    // fill_record (content, not a path, see stateDerive.ts) falls back to
     // the plain URL open below, same as an entry with nothing to replay
     // (e.g. Workday, which never reaches the fill step).
     if (source === "local" && root && entry.fill_record_path) {
@@ -325,12 +325,12 @@ export function ReviewScreen() {
     }
   };
 
-  // Confirm-before-submit "Approve" — the agent paused with a filled,
+  // Confirm-before-submit "Approve": the agent paused with a filled,
   // verified form; this tells it to click submit. Local mode goes through
   // the bridge (approveSubmit → triggerSingleJobApply as the v1 mechanism);
   // hosted mode calls SupabaseAdapter.approveSubmit, which the core/adapter
   // slice provides. Resolves once the run has launched, not once it
-  // finishes — the actual outcome shows up the normal way (review queue or
+  // finishes: the actual outcome shows up the normal way (review queue or
   // applied_jobs, picked up by useAplyxState's poll).
   const approve = async (entry: QueueEntry) => {
     setBusy(true);
@@ -348,7 +348,7 @@ export function ReviewScreen() {
                   // profile; the verification secret comes from a hosted
                   // verification session the Gmail worker populates. A
                   // managed alias is only used when explicitly configured
-                  // and available — never as a silent fallback when no
+                  // and available, never as a silent fallback when no
                   // authenticated candidate email exists.
                   const candidateEmail = (await adapter.readCandidateEmail()).trim();
                   const inbox = await adapter.getInboxConnection();
@@ -362,7 +362,7 @@ export function ReviewScreen() {
                   );
                   // Managed alias compatibility: only when the user has
                   // explicitly claimed one. Not a fallback for a missing
-                  // personal inbox — if neither is ready, the entry stays
+                  // personal inbox: if neither is ready, the entry stays
                   // queue-only awaiting verification.
                   let managedAlias: { id: string; alias: string } | undefined;
                   try {
@@ -389,7 +389,7 @@ export function ReviewScreen() {
                     });
                     // Bounded poll: the worker runs on a 5-minute cron,
                     // so a single poll here picks up a secret the worker
-                    // already recorded. The UI does NOT loop — a still-
+                    // already recorded. The UI does NOT loop: a still-
                     // empty session stays queue-only awaiting verification.
                     const poll = await adapter.pollVerificationSession(sessionId);
                     let verificationLink: string | undefined;
@@ -397,7 +397,7 @@ export function ReviewScreen() {
                     if (poll?.has_secret) {
                       // REVEAL the secret (not consume) so it can be
                       // handed to the runtime via a 0600 file. The secret
-                      // is NOT redacted yet — consumption/redaction happens
+                      // is NOT redacted yet: consumption/redaction happens
                       // only after the runtime reports
                       // used_verification_link/used_verification_otp, so a
                       // failed runtime run can retry with the same secret.
@@ -415,7 +415,7 @@ export function ReviewScreen() {
                       sessionSecretFile = await writeSessionSecretFile(root!, entry.job_id, { link: verificationLink, otp: verificationOtp });
                     }
                     // When a session secret file exists, omit raw
-                    // --verification-link/--otp from argv entirely — the
+                    // --verification-link/--otp from argv entirely: the
                     // file is the sole secret handoff channel, so the raw
                     // value is never exposed in argv/logs.
                     const result = await approveSubmit(root, entry, {
@@ -428,7 +428,7 @@ export function ReviewScreen() {
                     // confirms it used the link or OTP. If the runtime
                     // failed, checkpointed, or hit manual_required, the
                     // secret remains available for the next Continue
-                    // Workday retry — we do NOT falsely claim consumed.
+                    // Workday retry; we do NOT falsely claim consumed.
                     if (sessionSecretFile && (result.usedVerificationLink || result.usedVerificationOtp)) {
                       try { await adapter.consumeVerificationSecret(sessionId); }
                       catch (e) {
@@ -443,7 +443,7 @@ export function ReviewScreen() {
                   }
 
                   if (managedAlias) {
-                    // Managed-alias compatibility path — unchanged behavior
+                    // Managed-alias compatibility path: unchanged behavior
                     // for users who have explicitly configured one.
                     const alias = managedAlias;
                     const run = await adapter.ensureApplyRunForJob(entry.job_id, "workday", alias.id);
@@ -475,7 +475,7 @@ export function ReviewScreen() {
                     });
                     const consumeWarnings: string[] = [];
                     if (matchedByFallback && (result.usedVerificationLink || result.usedVerificationOtp)) {
-                      consumeWarnings.push("verification mail matched by recency only (no message tagged to this job yet) — confirm it was the right employer");
+                      consumeWarnings.push("verification mail matched by recency only (no message tagged to this job yet): confirm it was the right employer");
                     }
                     if (result.usedVerificationLink && linkRow) {
                       try { await adapter.consumeInboundEmail(linkRow.id); }
@@ -523,7 +523,7 @@ export function ReviewScreen() {
       }
       // Auto-sync a freshly-created Workday account into the online ATS
       // account vault right away, rather than requiring a separate trip
-      // to Settings' "Import from this device" — see
+      // to Settings' "Import from this device", see
       // autoSyncWorkdayCredentialAfterRun's own header for why this is
       // silent/best-effort on the (overwhelmingly common) case where
       // there's nothing new to sync.
@@ -542,7 +542,7 @@ export function ReviewScreen() {
                 await autoSyncWorkdayCredentialAfterRun(client, session.user.id, root, tenantKey, entry.company, accountEmail);
               }
             } catch {
-              // Best-effort — see autoSyncWorkdayCredentialAfterRun.
+              // Best-effort, see autoSyncWorkdayCredentialAfterRun.
             }
           })();
         }
@@ -585,7 +585,7 @@ export function ReviewScreen() {
             <SkeletonRows />
           ) : entries.length === 0 ? (
             <div className="data-empty">
-              Nothing to review — {showResolved ? "the queue is empty" : "new items appear as the agent runs"}.
+              Nothing to review: {showResolved ? "the queue is empty" : "new items appear as the agent runs"}.
             </div>
           ) : (
             <div className="data-list">
@@ -601,7 +601,7 @@ export function ReviewScreen() {
                   >
                     <div className="data-row-main">
                       <span className="data-row-title">
-                        {entry.company} — {entry.title}
+                        {entry.company}, {entry.title}
                       </span>
                       <span className="data-row-sub">
                         {typeof entry.ats_score === "number" ? `ats ${entry.ats_score}` : entry.source ?? ""}
@@ -628,7 +628,7 @@ export function ReviewScreen() {
         {selectedEntry ? (
           <div className="detail-col">
             <div className="detail-title">
-              {selectedEntry.company} — {selectedEntry.title}
+              {selectedEntry.company}, {selectedEntry.title}
             </div>
             {typeof selectedEntry.ats_score === "number" ? (
               <div className="detail-row">
@@ -796,7 +796,7 @@ export function ReviewScreen() {
                   {(() => {
                     const category = classifyWorkdayStatus(workdayCheckpoint.status);
                     if (category === "ready") {
-                      return "Checkpoint reached the final review/submit stage. The queue row still shows needs_review because the runtime paused before clicking submit — approve below to submit.";
+                      return "Checkpoint reached the final review/submit stage. The queue row still shows needs_review because the runtime paused before clicking submit: approve below to submit.";
                     }
                     if (category === "submitted") {
                       return "Checkpoint recorded a submitted application. The queue row should resolve to applied shortly; if it doesn't, mark applied manually.";

@@ -1,20 +1,21 @@
 #!/usr/bin/env python3
-"""seed_vetted_slugs.py — vetted slug auto-seeding (Phase 6, extended Phase 16B).
+"""seed_vetted_slugs.py: vetted slug auto-seeding (Phase 6, extended Phase 16B).
 
 Seeds the Ashby / Lever / Greenhouse / SmartRecruiters / Workable /
-JazzHR company-slug arrays and the Workday tenant array in
-src/config/targets.json from the project-owned vetted lists
-(src/config/ashby_vetted_slugs.json, src/config/lever_vetted_slugs.json,
+JazzHR company-slug arrays and the Workday / Oracle Recruiting Cloud
+tenant arrays in src/config/targets.json from the project-owned vetted
+lists (src/config/ashby_vetted_slugs.json, src/config/lever_vetted_slugs.json,
 config/greenhouse_vetted_slugs.json,
 src/config/smartrecruiters_vetted_slugs.json,
 src/config/workable_vetted_slugs.json, src/config/jazzhr_vetted_slugs.json,
-src/config/workday_vetted_tenants.json) so a fresh clone has real board
+src/config/workday_vetted_tenants.json,
+src/config/oracle_vetted_tenants.json) so a fresh clone has real board
 coverage on the first run.
 
 Seeding rules (per slug array, independently):
   - Seed ONLY when the user's array is unset (key missing), empty
-    ([]), or placeholder-only (every entry is "REPLACE_ME" —
-    case-insensitive, whitespace-trimmed — or blank).
+    ([]), or placeholder-only (every entry is "REPLACE_ME",
+    case-insensitive, whitespace-trimmed, or blank).
   - NEVER overwrite a non-placeholder value: if even one entry is a
     real slug, the array is treated as a deliberate user choice and
     left untouched.
@@ -22,7 +23,7 @@ Seeding rules (per slug array, independently):
     verbatim; a second run sees real slugs and does nothing.
 
 The write is a single atomic JSON write of src/config/targets.json
-(temp file + os.replace in the same directory) preserving key order —
+(temp file + os.replace in the same directory) preserving key order,
 never a hand-rolled jq mutation. When anything is seeded, a visible
 WARNING goes to stderr so the user can review (and `git diff` /
 hand-revert) the change.
@@ -32,7 +33,7 @@ are code changes reviewed in PRs, and nothing is fetched from a remote
 source at run time.
 
 Exit codes:
-  0  success (seeded, or nothing to do, or vetted list missing — warn)
+  0  success (seeded, or nothing to do, or vetted list missing: warn)
   1  usage/config error (unreadable targets file, invalid JSON)
 
 Usage:
@@ -60,10 +61,15 @@ SOURCES = {
     "workable_company_slugs": "workable_vetted_slugs.json",
     "jazzhr_company_slugs": "jazzhr_vetted_slugs.json",
     # Same shape (a plain string array) and same seeding rules as every
-    # other source above — entries are "<host>/<site>" tenant strings,
+    # other source above; entries are "<host>/<site>" tenant strings,
     # not slugs, but is_placeholder_state/load_vetted_slugs don't care
     # about that distinction (docs/ATS.md's proposed-next-phase item 1).
     "workday_tenants": "workday_vetted_tenants.json",
+    # Same shape/rules again; entries are "<host>/<siteNumber>" Oracle
+    # Recruiting Cloud tenant strings (docs/ATS.md's proposed-next-phase
+    # item 1/2, Oracle half, added 2026-08-31 alongside Workday's
+    # research-pass expansion).
+    "oracle_tenants": "oracle_vetted_tenants.json",
 }
 
 
@@ -92,21 +98,21 @@ def is_placeholder_state(value) -> bool:
 def load_vetted_slugs(path: str) -> list | None:
     """Return the vetted slug list, or None (with a warning) when unusable."""
     if not os.path.exists(path):
-        warn(f"vetted list not found: {path} — source left unseeded")
+        warn(f"vetted list not found: {path}, source left unseeded")
         return None
     try:
         with open(path, "r", encoding="utf-8") as f:
             vetted = json.load(f)
     except (OSError, json.JSONDecodeError) as exc:
-        warn(f"could not read vetted list {path}: {exc} — source left unseeded")
+        warn(f"could not read vetted list {path}: {exc}, source left unseeded")
         return None
     slugs = vetted.get("slugs") if isinstance(vetted, dict) else None
     if not isinstance(slugs, list):
-        warn(f"vetted list {path} has no 'slugs' array — source left unseeded")
+        warn(f"vetted list {path} has no 'slugs' array, source left unseeded")
         return None
     cleaned = [str(s).strip() for s in slugs if str(s).strip()]
     if not cleaned:
-        warn(f"vetted list {path} is empty — source left unseeded")
+        warn(f"vetted list {path} is empty, source left unseeded")
         return None
     return cleaned
 
@@ -129,7 +135,7 @@ def atomic_write_json(path: str, data: dict) -> None:
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         prog="seed_vetted_slugs.py",
-        description="Seed placeholder Ashby/Lever/Greenhouse/SmartRecruiters/Workable/JazzHR/Workday slug/tenant arrays from vetted lists (Phase 6/16B, Workday added phase 7D follow-up).",
+        description="Seed placeholder Ashby/Lever/Greenhouse/SmartRecruiters/Workable/JazzHR/Workday/Oracle slug/tenant arrays from vetted lists (Phase 6/16B, Workday added phase 7D follow-up, Oracle added 2026-08-31).",
     )
     parser.add_argument("--targets", default=DEFAULT_TARGETS)
     args = parser.parse_args(argv)
@@ -161,7 +167,7 @@ def main(argv=None) -> int:
         seeded += 1
         warn(
             f"{key} auto-seeded from vetted list {vetted_name} "
-            f"({len(slugs)} slugs) — review the change in {args.targets} "
+            f"({len(slugs)} slugs); review the change in {args.targets} "
             f"and edit/revert if unwanted"
         )
 

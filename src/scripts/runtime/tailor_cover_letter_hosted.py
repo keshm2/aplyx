@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Draft a cover letter for one job, via a direct Anthropic API call — the
+"""Draft a cover letter for one job, via a direct Anthropic API call: the
 hosted review_only pipeline's counterpart to @cover-letter-tailor
 (src/agents/bodies/cover-letter-tailor.md).
 
@@ -7,7 +7,7 @@ The system prompt is cover-letter-tailor.md's body verbatim, plus a
 prepended override: that file's "Style" section resolves a voice/structure
 reference file via resolve_resume.py, which doesn't exist in this hosted,
 config-file-free context. The override tells the model there is no
-reference file here — cover-letter-tailor.md already documents exactly how
+reference file here: cover-letter-tailor.md already documents exactly how
 to handle that (write without one; "confidence: none" is not a blocker),
 so this only supplies the missing fact, not new behavior.
 
@@ -45,7 +45,7 @@ _SUBMIT_COVER_LETTER_TOOL = {
         "properties": {
             "cover_letter": {
                 "type": "string",
-                "description": "The complete, paste-ready letter — greeting through sign-off, plain text, no markdown.",
+                "description": "The complete, paste-ready letter: greeting through sign-off, plain text, no markdown.",
             },
             "word_count": {"type": "integer", "description": "Actual word count of cover_letter."},
         },
@@ -82,7 +82,7 @@ def _build_system_prompt(root: str) -> str:
         "the hosted review_only pipeline (src/worker/), not job-scraper, "
         "with no word_limit/char_limit (target 250-400 words per your own "
         'default). There is no voice/structure reference file in this '
-        "context (resolve_resume.py does not exist here) — treat this "
+        "context (resolve_resume.py does not exist here); treat this "
         'exactly as your own documented `confidence: "none"` case: write '
         "without a reference rather than blocking on one.\n\n---\n\n"
     )

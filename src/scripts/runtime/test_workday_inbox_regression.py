@@ -34,14 +34,14 @@ class OutcomeWorkerUnchangedTests(unittest.TestCase):
         self.verification_src = _read(_VERIFICATION_WORKER)
 
     def test_outcome_worker_still_writes_outcome_status(self):
-        """The outcome worker must still update applied_jobs.outcome_status
-        — the load-bearing outcome-tracking behavior is intact."""
+        """The outcome worker must still update applied_jobs.outcome_status.
+        The load-bearing outcome-tracking behavior is intact."""
         self.assertIn("outcome_status", self.outcome_src)
         self.assertIn("from(\"applied_jobs\")", self.outcome_src)
 
     def test_verification_worker_does_not_write_outcomes(self):
         """The verification worker must never touch applied_jobs or
-        write outcome_status — it resolves verification mail only, a
+        write outcome_status; it resolves verification mail only, a
         different axis entirely. Cross-contamination would either hand an
         employer reply to a verification flow or record a verification
         code as an application outcome. The header comment legitimately
@@ -58,8 +58,8 @@ class OutcomeWorkerUnchangedTests(unittest.TestCase):
         self.assertNotIn("outcome_status :", self.verification_src)
 
     def test_workers_are_separate_files(self):
-        """The two workers must remain separate Edge Functions, not merged
-        — the plan explicitly says 'Do not confuse this with the existing
+        """The two workers must remain separate Edge Functions, not merged:
+        the plan explicitly says 'Do not confuse this with the existing
         post-application outcome worker; share safe utilities only if
         appropriate.'"""
         self.assertNotEqual(_OUTCOME_WORKER, _VERIFICATION_WORKER)
@@ -71,7 +71,7 @@ class OutcomeWorkerUnchangedTests(unittest.TestCase):
         (migration 0038: service_list_active_workday_sessions /
         service_record_verification_message /
         service_update_verification_session_status), not the managed-alias
-        inbound_emails table — the personal-inbox path is distinct from
+        inbound_emails table; the personal-inbox path is distinct from
         the managed-alias path."""
         self.assertIn("service_list_active_workday_sessions", self.verification_src)
         self.assertIn("service_record_verification_message", self.verification_src)
@@ -119,7 +119,7 @@ class BridgeArgvSecrecyTests(unittest.TestCase):
 
     def test_bridge_write_session_secret_file_uses_0600(self):
         """The bridge's writeSessionSecretFile must create the file with
-        mode 0600 — the file holds a one-time verification credential."""
+        mode 0600; the file holds a one-time verification credential."""
         self.assertIn("0o600", self.bridge_src)
 
     def test_no_heuristic_company_domain_in_review_screen(self):

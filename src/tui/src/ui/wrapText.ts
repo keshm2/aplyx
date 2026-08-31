@@ -22,7 +22,7 @@ export function wrapText(text: string, width: number): string[] {
   return lines;
 }
 
-/** Wrap `text` to `width`, then pad with blank lines up to `targetLines` —
+/** Wrap `text` to `width`, then pad with blank lines up to `targetLines`:
  *  the fixed-height half of the pattern above. `targetLines` should come
  *  from the max wrapped length across every candidate string that can
  *  occupy this slot (every option's description, every field's explain

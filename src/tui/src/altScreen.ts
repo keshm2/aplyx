@@ -21,7 +21,7 @@ export async function withAltScreen(renderFn: () => Instance): Promise<void> {
     //
     // Debounced: a single user resize can fire many 'resize' events in a
     // row (observed on Windows Terminal, whose maximize/snap animation
-    // reports several intermediate sizes rather than one final one) — each
+    // reports several intermediate sizes rather than one final one): each
     // one triggering an immediate full-screen clear stacked back-to-back
     // reads as visible flicker, worst at the bottom rows since those paint
     // last in every one of the redraws. Waiting for the burst to settle

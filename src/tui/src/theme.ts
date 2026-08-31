@@ -1,30 +1,30 @@
 import { effectiveEnv } from "@aplyx/core/settings.js";
 
 /**
- * Color roles — defined once, referenced everywhere. The terminal's own
+ * Color roles: defined once, referenced everywhere. The terminal's own
  * foreground/background is the ground; outcome colors (good/warn/danger)
  * are reserved for outcomes and never used decoratively. Ink/chalk
  * degrades hex to 256/16 colors and honors NO_COLOR automatically;
- * meaning never rides on color alone — the glyph map below pairs a
+ * meaning never rides on color alone; the glyph map below pairs a
  * symbol with every semantic color so the 16-color / NO_COLOR runs stay
  * legible.
  *
  * `theme` is a mutable object (properties reassigned by applyThemeMode,
  * never the exported binding itself) rather than the frozen `as const` it
- * used to be — the Settings "Theme" field (see SettingsScreen.tsx's
+ * used to be: the Settings "Theme" field (see SettingsScreen.tsx's
  * Preferences section) needs every one of the ~25 files that already
  * read `theme.accent` etc. to pick up a mode change
  * without themselves becoming aware root-scoped settings even exist.
  * Mutating the same object every consumer already holds a reference to
  * does that with zero call-site changes, at the cost of `theme` no longer
- * being provably immutable — deliberate trade, not an oversight.
+ * being provably immutable: deliberate trade, not an oversight.
  */
-// Four named themes rather than a Dark/Light binary — "dark"/"light"
+// Four named themes rather than a Dark/Light binary: "dark"/"light"
 // describe a terminal background, not a color identity, and once there
 // was more than one palette per background (Aplyx Default/Ember Dusk
 // both dark-tuned; Cloud Surf/Mint Frost both light-tuned) a mode name
 // stopped meaning anything on its own. Each still targets ONE assumed
-// terminal background (declared per-palette below) — that half of the
+// terminal background (declared per-palette below); that half of the
 // original Dark/Light distinction (avoiding e.g. unreadable named
 // "yellow" on white) still matters and is still handled per palette,
 // just no longer conflated with the palette's actual color identity.
@@ -51,25 +51,25 @@ interface Palette {
   /** The color UpdateBox's traveling border highlight (and
    *  sparkleGradient's AUTO-badge/progress-bar wave) blends the accent
    *  color TOWARD, rather than a hardcoded white. A dark-background
-   *  palette wants white — a bright pop against both the accent and the
+   *  palette wants white: a bright pop against both the accent and the
    *  terminal background. A light-background palette wants the reverse:
    *  blending toward white would fade the highlight into an
    *  already-white terminal until it's unreadable, so those palettes
    *  blend toward a deep, near-black shade of their own hue family
-   *  instead — still a bright/dark pop, just inverted to suit the
+   *  instead, still a bright/dark pop, just inverted to suit the
    *  background it's actually tuned for. */
   glow: string;
 }
 
-// Moss — the same identity src/tauri/src/styles/tokens.css carries (accent
+// Moss: the same identity src/tauri/src/styles/tokens.css carries (accent
 // here is that file's dark-mode --accent hex verbatim, rule its light-mode
 // --accent used as the dimmer tone), replacing an earlier violet/purple
 // palette for the same reason tokens.css's own header documents: a
 // violet→purple gradient reads as generic "AI product," not this app's
 // actual identity. Forest green in place of that gradient.
 const APLYX_DEFAULT_PALETTE: Palette = {
-  accent: "#7FAE86", // moss — active tab, selection, titles
-  rule: "#3F6B4A", // deeper forest — header/footer rules only
+  accent: "#7FAE86", // moss: active tab, selection, titles
+  rule: "#3F6B4A", // deeper forest: header/footer rules only
   good: "green",
   warn: "yellow",
   danger: "red",
@@ -77,13 +77,13 @@ const APLYX_DEFAULT_PALETTE: Palette = {
 };
 
 // Named ANSI "yellow" in particular is close to unreadable on a white
-// background — these are explicit darker hexes tuned for a light
+// background: these are explicit darker hexes tuned for a light
 // terminal instead of the dark-terminal-friendly named colors above.
 // A light blue → white identity (see BANNER_GRADIENT_CLOUD_SURF below),
 // applied everywhere theme.accent/theme.rule already flow (sidebar
 // border, tab/option selection, titles) since every consumer already
 // reads the shared `theme` object live. good/warn/danger stay their
-// outcome colors regardless of accent hue — they carry meaning
+// outcome colors regardless of accent hue: they carry meaning
 // (applied/needs-review/failed), not brand.
 const CLOUD_SURF_PALETTE: Palette = {
   accent: "#2563EB",
@@ -91,10 +91,10 @@ const CLOUD_SURF_PALETTE: Palette = {
   good: "#15803D",
   warn: "#A16207",
   danger: "#B91C1C",
-  glow: "#1E3A8A", // deep navy — dark-on-light glow, not white-on-light
+  glow: "#1E3A8A", // deep navy: dark-on-light glow, not white-on-light
 };
 
-// Warm counterpart to Aplyx Default — same dark-terminal assumption
+// Warm counterpart to Aplyx Default: same dark-terminal assumption
 // (named ANSI good/warn/danger are fine there, per the dark palette's
 // own reasoning above), amber/orange in place of violet.
 const EMBER_DUSK_PALETTE: Palette = {
@@ -106,7 +106,7 @@ const EMBER_DUSK_PALETTE: Palette = {
   glow: "#FFFFFF",
 };
 
-// Cool counterpart to Cloud Surf — same light-terminal assumption
+// Cool counterpart to Cloud Surf: same light-terminal assumption
 // (darker good/warn/danger hexes, per Cloud Surf's own reasoning
 // above), teal in place of blue.
 const MINT_FROST_PALETTE: Palette = {
@@ -115,17 +115,17 @@ const MINT_FROST_PALETTE: Palette = {
   good: "#15803D",
   warn: "#A16207",
   danger: "#B91C1C",
-  glow: "#134E4A", // deep teal — dark-on-light glow, not white-on-light
+  glow: "#134E4A", // deep teal: dark-on-light glow, not white-on-light
 };
 
 // Dark-terminal assumption like Aplyx Default/Ember Dusk above (named ANSI
-// good/warn/danger are fine there) — a saturated neon green, "noir" in the
+// good/warn/danger are fine there): a saturated neon green, "noir" in the
 // sense of near-black anchors rather than Aplyx Default's softer, muted
 // moss/honey/clay materials palette; the two stay distinct dark-green
 // options rather than duplicates. Corrected on explicit feedback: the
 // first pass's #B6FF3C leaned yellow (hue ~82°); this is a real green
-// (hue ~117°). rule uses a dimmer, more forest-toned green than accent —
-// same "bright accent, muted rule" relationship every dark palette here
+// (hue ~117°). rule uses a dimmer, more forest-toned green than accent,
+// the same "bright accent, muted rule" relationship every dark palette here
 // keeps, so the sidebar/pane border reads as structure, not a second
 // accent competing with the real one.
 const VOLT_NOIR_PALETTE: Palette = {
@@ -150,7 +150,7 @@ export const theme: Palette = { ...APLYX_DEFAULT_PALETTE };
 let currentThemeMode: ThemeMode = "aplyx-default";
 
 /** Repoints every `theme.*` property at the given theme's palette in
- *  place — called once at launch and again whenever Settings' Theme
+ *  place: called once at launch and again whenever Settings' Theme
  *  field might have changed (App.tsx's refresh(), which already runs on
  *  every tab switch). */
 export function applyThemeMode(mode: ThemeMode): void {
@@ -158,7 +158,7 @@ export function applyThemeMode(mode: ThemeMode): void {
   currentThemeMode = mode;
 }
 
-/** The mode `applyThemeMode` last set — read by anything that needs to
+/** The mode `applyThemeMode` last set: read by anything that needs to
  *  pick between per-theme wholesale assets (e.g. bannerGradient below)
  *  rather than recoloring individual `theme.*` roles. */
 export function currentTheme(): ThemeMode {
@@ -166,7 +166,7 @@ export function currentTheme(): ThemeMode {
 }
 
 /** Reads the Settings "Theme" field (APLYX_TUI_THEME) the same way
- *  jobs.ts's resolveResultsPerPage reads its own env field — real env
+ *  jobs.ts's resolveResultsPerPage reads its own env field: real env
  *  var, then src/config/env.json, then the default. Back-compat: installs
  *  from before the 4-theme rework stored the old "dark"/"light" values,
  *  which still resolve to their closest match (Aplyx Default/Cloud
@@ -181,7 +181,7 @@ export function resolveThemeMode(root: string): ThemeMode {
 
 let reducedMotion = false;
 
-/** Whether the Settings "Reduced motion" field is on — checked by
+/** Whether the Settings "Reduced motion" field is on, checked by
  *  KeyHints.tsx's AutoSparkleText, the one animation this actually wires
  *  into (see that file for why the rest of the app's animations weren't
  *  all converted too). */
@@ -203,7 +203,7 @@ export function resolveHour24Clock(root: string): boolean {
   return effectiveEnv(root, ["APLYX_24_HOUR_CLOCK"], "0").value === "1";
 }
 
-/** A function, not a frozen `Record` — same reasoning as sparkleGradient:
+/** A function, not a frozen `Record`, same reasoning as sparkleGradient:
  *  `theme.good`/`warn`/`danger` are mutated in place by applyThemeMode, so
  *  a plain object built once at module load would keep StatusScreen/
  *  HistoryScreen's outcome colors pinned to the dark palette (defeating
@@ -216,21 +216,21 @@ export function statusColor(status: string): string | undefined {
   return undefined;
 }
 
-/** Status glyphs — paired with statusColor so meaning survives NO_COLOR. */
+/** Status glyphs, paired with statusColor so meaning survives NO_COLOR. */
 export const statusGlyph: Record<string, string> = {
   applied: "✓",
   needs_review: "◐",
   failed: "✗",
 };
 
-/** Selection marker — the one place boldness is spent on focus. */
+/** Selection marker: the one place boldness is spent on focus. */
 export const SELECT_MARKER = "▸";
 
-/** Hot red for the heavy+ tier — deliberately louder than the plain
+/** Hot red for the heavy+ tier: deliberately louder than the plain
  *  `red` outcome color so 22+ caps read as a warning, not a failure. */
 export const HEAVY_PLUS_RED = "#FF3B30";
 
-/** Session-cap tiers — the cap picker colors by cost so the difference
+/** Session-cap tiers: the cap picker colors by cost so the difference
  *  between a 3-job test and a 25-job MAX run is visible at a glance.
  *  25 = MAX (the gauge renders rainbow), 22+ = heavy+ (hot red),
  *  17+ = heavy (yellow). */
@@ -247,7 +247,7 @@ export function capTier(cap: number): CapTier {
 }
 
 /** Same shape as capTier, scaled to the Jobs search "results per page"
- *  setting's 10-75 range — more results per page means more Ashby/Lever/
+ *  setting's 10-75 range: more results per page means more Ashby/Lever/
  *  Greenhouse/Workday calls and a heavier fuzzy-match/render pass, so the
  *  top end reads as a cost warning the same way a 25-job run cap does. */
 export function pageSizeTier(size: number): CapTier {
@@ -258,7 +258,7 @@ export function pageSizeTier(size: number): CapTier {
   return { name: "light", color: theme.good };
 }
 
-/** hsl(hue, 100%, 65%) → #rrggbb — drives the animated MAX-cap warning. */
+/** hsl(hue, 100%, 65%) → #rrggbb: drives the animated MAX-cap warning. */
 export function hueColor(hue: number): string {
   const h = ((hue % 360) + 360) % 360;
   const c = 0.7; // chroma at 100% saturation, 65% lightness
@@ -275,30 +275,30 @@ export function hueColor(hue: number): string {
   return `#${hex(r)}${hex(g)}${hex(b)}`;
 }
 
-/** #rrggbb → [r, g, b] (0-255 each) — helper for gradientColor's lerp. */
+/** #rrggbb → [r, g, b] (0-255 each): helper for gradientColor's lerp. */
 function hexToRgb(hex: string): [number, number, number] {
   const n = parseInt(hex.slice(1), 16);
   return [(n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff];
 }
 
 /** phase (any real number) → #rrggbb, smoothly interpolated within the
- *  given gradient (default BANNER_GRADIENT_APLYX_DEFAULT — every real
+ *  given gradient (default BANNER_GRADIENT_APLYX_DEFAULT; every real
  *  caller passes its own `stops` explicitly, so this default is never
  *  actually exercised; it's just a safe fallback). Bounces back and
  *  forth across the stops (a triangle wave) instead of wrapping the
- *  last stop straight back to the first — a straight wrap would lerp
+ *  last stop straight back to the first: a straight wrap would lerp
  *  maroon (#800020, near-zero green/blue) directly to violet (#A78BFA,
  *  high blue), passing through muddy green/blue-tinted hues on the way.
  *  Ping-ponging means every step is a lerp between two *adjacent*,
  *  intentionally-designed stops, so it can never produce an off-palette
- *  hue — the gradient analog of hueColor's hue wheel, used to drive the
+ *  hue: the gradient analog of hueColor's hue wheel, used to drive the
  *  animated AUTO-mode sparkle. */
 export function gradientColor(phase: number, stops: readonly string[] = BANNER_GRADIENT_APLYX_DEFAULT): string {
   const n = stops.length;
   if (n === 1) return stops[0]!;
   const period = 2 * (n - 1);
   const x = (((phase % period) + period) % period); // wrap into [0, period)
-  const t = x <= n - 1 ? x : period - x; // reflect the second half back — the ping-pong
+  const t = x <= n - 1 ? x : period - x; // reflect the second half back: the ping-pong
   const i = Math.min(n - 2, Math.floor(t));
   const frac = t - i;
   const [r1, g1, b1] = hexToRgb(stops[i]!);
@@ -308,7 +308,7 @@ export function gradientColor(phase: number, stops: readonly string[] = BANNER_G
   return `#${hex(lerp(r1, r2))}${hex(lerp(g1, g2))}${hex(lerp(b1, b2))}`;
 }
 
-/** ASCII banner — the one loud element. Each theme fades through its own
+/** ASCII banner: the one loud element. Each theme fades through its own
  *  identity (see the BANNER_GRADIENT_* constants + bannerGradient below)
  *  rather than sharing one gradient recolored. */
 export const BANNER_ROWS = [
@@ -320,67 +320,67 @@ export const BANNER_ROWS = [
   "╚═╝  ╚═╝╚═╝     ╚══════╝╚═╝   ╚═╝  ╚═╝",
 ] as const;
 
-// Moss's own three materials (moss, honey, clay — tokens.css's --accent/
+// Moss's own three materials (moss, honey, clay: tokens.css's --accent/
 // --accent-2/--accent-3, dark-mode hexes) fading into a deep forest anchor,
 // replacing the old violet→purple→plum→maroon run for the same reason the
 // palette above changed.
 export const BANNER_GRADIENT_APLYX_DEFAULT = [
   "#C3E4C7", // pale moss
-  "#7FAE86", // moss — same hex as APLYX_DEFAULT_PALETTE.accent
+  "#7FAE86", // moss: same hex as APLYX_DEFAULT_PALETTE.accent
   "#D9A24E", // honey
   "#CB8163", // clay
   "#2E5539", // deep forest
 ] as const;
 
 // Cloud Surf's own identity: a light blue → (near-)white fade, matching
-// its blue accent above rather than Aplyx Default's moss/honey/clay — a
+// its blue accent above rather than Aplyx Default's moss/honey/clay: a
 // deliberate departure from "same hue, different shade" so each theme
 // reads as genuinely its own rather than a recolor of one base. The
 // bottom stop (blue-100) is close enough to white to visibly fade
-// toward the terminal background on a true-white profile — read as the
+// toward the terminal background on a true-white profile: read as the
 // intended "to white" effect for decorative ASCII art rather than a
 // contrast bug, since (unlike theme.accent's actual UI text) this row
 // carries no information a fade-out would obscure.
 const BANNER_GRADIENT_CLOUD_SURF = [
   "#1D4ED8", // blue-700
-  "#2563EB", // blue-600 — same hex as CLOUD_SURF_PALETTE.accent
+  "#2563EB", // blue-600: same hex as CLOUD_SURF_PALETTE.accent
   "#3B82F6", // blue-500
   "#60A5FA", // blue-400
   "#93C5FD", // blue-300
-  "#DBEAFE", // blue-100 — fades toward white
+  "#DBEAFE", // blue-100: fades toward white
 ] as const;
 
 // Ember Dusk: warm amber → deep rust, the dark-background counterpart
-// to Cloud Surf's cool fade — light amber at top down through orange to
+// to Cloud Surf's cool fade: light amber at top down through orange to
 // a near-black ember at the bottom, mirroring Aplyx Default's
 // light-to-dark shape but in a completely different hue family.
 const BANNER_GRADIENT_EMBER_DUSK = [
   "#FDBA74", // amber-300
-  "#FB923C", // orange-400 — same hex as EMBER_DUSK_PALETTE.accent
+  "#FB923C", // orange-400: same hex as EMBER_DUSK_PALETTE.accent
   "#F97316", // orange-500
   "#EA580C", // orange-600
   "#C2410C", // orange-700
-  "#7C2D12", // orange-900 — deep ember
+  "#7C2D12", // orange-900: deep ember
 ] as const;
 
 // Mint Frost: teal → (near-)white, the same "fade toward the light
 // background" shape as Cloud Surf, one hue family over.
 const BANNER_GRADIENT_MINT_FROST = [
   "#0F766E", // teal-700
-  "#0D9488", // teal-600 — same hex as MINT_FROST_PALETTE.accent
+  "#0D9488", // teal-600: same hex as MINT_FROST_PALETTE.accent
   "#14B8A6", // teal-500
   "#2DD4BF", // teal-400
   "#5EEAD4", // teal-300
-  "#CCFBF1", // teal-100 — fades toward white
+  "#CCFBF1", // teal-100: fades toward white
 ] as const;
 
 // Volt Noir: pale green → true green → near-black, the dark-background
 // shape (light-to-dark, like Aplyx Default/Ember Dusk) but ending at black
-// itself rather than a deep shade of the hue — "noir" is the point, not
+// itself rather than a deep shade of the hue: "noir" is the point, not
 // just a dark tint of green.
 const BANNER_GRADIENT_VOLT_NOIR = [
   "#A8F5A0", // pale green
-  "#3DEB34", // green — same hex as VOLT_NOIR_PALETTE.accent
+  "#3DEB34", // green: same hex as VOLT_NOIR_PALETTE.accent
   "#2CC224",
   "#1E8E19",
   "#14580F",
@@ -395,7 +395,7 @@ const BANNER_GRADIENTS: Record<ThemeMode, readonly string[]> = {
   "volt-noir": BANNER_GRADIENT_VOLT_NOIR,
 };
 
-/** The current theme's banner gradient — a function, not a constant, for
+/** The current theme's banner gradient: a function, not a constant, for
  *  the same reason sparkleGradient() is: `currentTheme()` can change
  *  after this module first loads (Settings' Theme field, applied live),
  *  so this has to be read fresh by its caller on every render rather
@@ -404,20 +404,20 @@ export function bannerGradient(): readonly string[] {
   return BANNER_GRADIENTS[currentTheme()];
 }
 
-/** Accent → theme.glow — the same two-color blend UpdateBox's traveling
+/** Accent → theme.glow: the same two-color blend UpdateBox's traveling
  *  border ring uses (see blend() there), reused here so every "AUTO"
  *  sparkle (AutoSparkleText, GradientProgressBar) reads as one visual
  *  language across the app. gradientColor's ping-pong bounces cleanly
  *  between the two, so this never touches the banner's plum/maroon end
  *  (which read as "too much red" when it was in the sparkle mix). The
- *  static banner keeps its own full per-theme gradient — this is scoped
+ *  static banner keeps its own full per-theme gradient; this is scoped
  *  to animations only.
  *
  *  A function, not a frozen array: `theme.accent`/`theme.glow` are
  *  mutated in place by applyThemeMode (Settings' Theme field), so a
  *  plain `[theme.accent, "#FFFFFF"] as const` evaluated once at module
  *  load would freeze in whichever theme was active at that moment
- *  forever — and hardcoding white specifically would, for a
+ *  forever, and hardcoding white specifically would, for a
  *  light-background theme (Cloud Surf, Mint Frost), fade the sparkle
  *  into an already-white terminal until it's unreadable. `theme.glow`
  *  is each palette's own answer to "what should this blend toward,"
@@ -428,11 +428,11 @@ export function sparkleGradient(): readonly string[] {
   return [theme.accent, theme.glow];
 }
 
-/** Which coding-agent CLI a run uses — mirrors the four harnesses
+/** Which coding-agent CLI a run uses: mirrors the four harnesses
  *  src/scripts/runtime/run_job_agent.py can invoke (src/config/harness.json /
  *  APLYX_HARNESS). "auto" means neither an env override nor
  *  src/config/harness.json name a specific one (the Python side then
- *  auto-detects a CLI on PATH) — there's no single harness to color for,
+ *  auto-detects a CLI on PATH): there's no single harness to color for,
  *  so it gets its own combined wave instead of guessing one. */
 export type HarnessId = "claude" | "opencode" | "codex" | "copilot" | "auto";
 
@@ -446,7 +446,7 @@ export const HARNESS_LABELS: Record<HarnessId, string> = {
 
 /** One saturated base color per harness, each reused as a run's live
  *  "working" wave (RunScreen's running indicator + progress bar) so the
- *  animation reads as which agent is actually doing the work — Claude
+ *  animation reads as which agent is actually doing the work: Claude
  *  Code's own light-orange "thinking" shimmer, opencode a light maroon,
  *  Codex a lavender, Copilot a darker blue. */
 const HARNESS_BASE_COLOR: Record<Exclude<HarnessId, "auto">, string> = {
@@ -459,7 +459,7 @@ const HARNESS_BASE_COLOR: Record<Exclude<HarnessId, "auto">, string> = {
 /** Each harness's own base blended to a paler tint of the same hue
  *  (rather than SPARKLE_GRADIENT's blend-to-white) so the wave keeps its
  *  color identity all the way through instead of fading toward neutral.
- *  Auto has no single identity to blend toward — its wave cycles through
+ *  Auto has no single identity to blend toward: its wave cycles through
  *  all four saturated bases directly, a literal "combination of those
  *  colors" rather than a tint of one. */
 const HARNESS_PALE_TINT: Record<Exclude<HarnessId, "auto">, string> = {
@@ -477,7 +477,7 @@ export function harnessGradient(id: HarnessId): readonly string[] {
 }
 
 /** Slower, smaller-step tuning for every harness-colored wave (RunScreen's
- *  live "running" indicator, Settings' coding-agent option preview) — a
+ *  live "running" indicator, Settings' coding-agent option preview): a
  *  deliberately calmer cadence than the default AUTO-badge sparkle
  *  (AutoSparkleText's own 90ms/0.35 defaults), since a name you're reading
  *  while it's mid-color-cycle is harder to read than a badge you're just
@@ -485,10 +485,10 @@ export function harnessGradient(id: HarnessId): readonly string[] {
 export const HARNESS_WAVE_TICK_MS = 170;
 export const HARNESS_WAVE_STEP = 0.12;
 
-/** Cycling "working" glyph — the terminal-spinner analog of a color
+/** Cycling "working" glyph: the terminal-spinner analog of a color
  *  animation, a smoothly rotating braille dot cluster (the same family
  *  of spinner most CLIs, including Claude Code's own "thinking"
- *  indicator, use) — used anywhere text needs to signal live activity.
+ *  indicator, use), used anywhere text needs to signal live activity.
  *  Deliberately no plain "." frame: a flat period breaks the glyph's
  *  visual weight/alignment against the rounded braille cells around it,
  *  which is what made the old dot-growing-to-a-star cycle read as a
@@ -514,6 +514,6 @@ export const MIN_ROWS = 12;
  *  report the same build from one source (see src/core/src/version.ts). */
 export { BUILD_MARKER } from "@aplyx/core/version.js";
 
-/** Side panel width — narrow enough to coexist with content on 64-col+
+/** Side panel width: narrow enough to coexist with content on 64-col+
  *  terminals. The panel hides below that width (see App showSidebar). */
 export const SIDE_PANEL_WIDTH = 20;

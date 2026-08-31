@@ -40,16 +40,16 @@ const THEME_OPTIONS: { value: ThemePref; label: string; detail: string }[] = [
 ];
 
 const FONT_OPTIONS: { value: FontPref; detail: string }[] = [
-  { value: "manrope", detail: "Bundled Manrope + Inter — the default; Supabase's own display + body pairing" },
+  { value: "manrope", detail: "Bundled Manrope + Inter: the default; Supabase's own display + body pairing" },
   { value: "system", detail: "Your OS's native UI font" },
-  { value: "geist", detail: "Bundled Geist + Geist Mono — modern, technical-product feel" },
-  { value: "inter", detail: "Bundled Inter — strong for dense, tabular product UI" },
-  { value: "plex", detail: "Bundled IBM Plex Sans + Plex Mono — enterprise, analytical tone" },
-  { value: "atkinson", detail: "Bundled Atkinson Hyperlegible Next — accessibility- and readability-first" },
+  { value: "geist", detail: "Bundled Geist + Geist Mono: modern, technical-product feel" },
+  { value: "inter", detail: "Bundled Inter: strong for dense, tabular product UI" },
+  { value: "plex", detail: "Bundled IBM Plex Sans + Plex Mono: enterprise, analytical tone" },
+  { value: "atkinson", detail: "Bundled Atkinson Hyperlegible Next: accessibility- and readability-first" },
 ];
 
 /** Preferences tab: appearance, which coding agent runs your applies, run
- *  defaults, Discord notifications, and the background scheduler — every
+ *  defaults, Discord notifications, and the background scheduler: every
  *  knob that shapes how a run behaves rather than who's signed in or
  *  which ATS credentials exist. */
 export function SettingsPreferencesTab() {
@@ -58,7 +58,7 @@ export function SettingsPreferencesTab() {
   const { theme, font, setTheme, setFont } = useUiPrefs();
   const [schedulerStatus, setSchedulerStatus] = useState<SchedulerStatus | undefined>(undefined);
   const [schedulerBusy, setSchedulerBusy] = useState(false);
-  // Which direction the in-flight toggle is headed — lets the busy-state
+  // Which direction the in-flight toggle is headed: lets the busy-state
   // copy say something specific ("Stopping current run…") instead of a
   // generic "Working…". Turning off is the one that can genuinely take a
   // few seconds (it has to wait for a live scheduled run to actually
@@ -158,10 +158,10 @@ export function SettingsPreferencesTab() {
     const target = !schedulerStatus.installed;
     const previous = schedulerStatus;
     // Optimistic flip: the switch moves the instant you click, before the
-    // backend round-trip even starts — uninstall in particular can take a
+    // backend round-trip even starts: uninstall in particular can take a
     // real several seconds when it has to verify a currently-running
     // scheduled job has actually finished tearing down (not just fire a
-    // signal and hope — see scheduler.py's _bootout_and_verify), and with
+    // signal and hope, see scheduler.py's _bootout_and_verify), and with
     // no visual change during that wait a click looked like it did
     // nothing, which is exactly what invited repeated clicking. Rolled
     // back below only if the call actually fails.
@@ -213,7 +213,7 @@ export function SettingsPreferencesTab() {
             />
             <p className="field-help">
               {FONT_OPTIONS.find((o) => o.value === font)?.detail} Bundled fonts apply to the
-              whole interface, including headlines and code — no download, works offline.
+              whole interface, including headlines and code: no download, works offline.
             </p>
           </div>
           {root && (
@@ -261,7 +261,7 @@ export function SettingsPreferencesTab() {
               </div>
               <p className="field-help">
                 {executionMode === "byok"
-                  ? "Runs use the coding agent installed on this machine — nothing routes through aplyx's servers."
+                  ? "Runs use the coding agent installed on this machine: nothing routes through aplyx's servers."
                   : "aplyx runs the agent for you on hosted infrastructure. No local install or API key needed."}
               </p>
             </div>
@@ -297,7 +297,7 @@ export function SettingsPreferencesTab() {
             <div className="check-row">
               <span className="check-icon check-icon-pending">–</span>
               <div style={{ flex: 1 }}>
-                <div className="check-label">Hosted plan — coming soon</div>
+                <div className="check-label">Hosted plan (coming soon)</div>
                 <div className="check-detail">
                   Fully managed runs (no local install, no coding agent to install or pay for
                   separately) aren't live yet. Stick with "Bring your own agent" for now.
@@ -315,7 +315,7 @@ export function SettingsPreferencesTab() {
         </section>
       )}
 
-      {/* Local-install-scoped like Discord/Run defaults above — the
+      {/* Local-install-scoped like Discord/Run defaults above: the
        * extension talks to a localhost bridge reading this install's own
        * config, so it means nothing without root. Chrome extensions have
        * no scriptable install path (only chrome://extensions or the
@@ -330,7 +330,7 @@ export function SettingsPreferencesTab() {
           <p className="field-help">
             A Chrome extension for manual, browser-driven applications: it notices a real
             application form on Greenhouse, Lever, Ashby, or Workday, asks before doing anything,
-            and autofills it from this profile — you still review every field and click submit
+            and autofills it from this profile; you still review every field and click submit
             yourself. The installer already built it (
             <code style={CODE_STYLE}>src/extension/dist/</code>); loading it into Chrome is a
             manual step Chrome itself requires.
@@ -403,7 +403,7 @@ export function SettingsPreferencesTab() {
                 {schedulerBusy
                   ? schedulerTarget
                     ? "Registering the background schedule."
-                    : "Waiting for a live scrape/apply session to finish exiting — can take a few seconds."
+                    : "Waiting for a live scrape/apply session to finish exiting (can take a few seconds)."
                   : schedulerStatus.installed
                     ? "Scrapes and applies automatically in the background, 24/7."
                     : "Turn on to scrape and apply automatically every 30 minutes, in the background."}
@@ -418,7 +418,7 @@ export function SettingsPreferencesTab() {
           </div>
           {schedulerError ? <p className="field-help" style={{ color: "var(--danger)" }}>{schedulerError}</p> : null}
           <p className="field-help">
-            This toggle and the terminal control the same thing — you can also turn it on/off with{" "}
+            This toggle and the terminal control the same thing: you can also turn it on/off with{" "}
             <code style={CODE_STYLE}>python3 src/scripts/runtime/scheduler.py install</code> /{" "}
             <code style={CODE_STYLE}>uninstall</code> from your aplyx checkout, or check its status with{" "}
             <code style={CODE_STYLE}>scheduler.py status</code>.

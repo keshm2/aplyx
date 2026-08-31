@@ -5,12 +5,12 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const MAIL_OAUTH_STATE_SECRET = Deno.env.get("MAIL_OAUTH_STATE_SECRET") ?? "";
 
-// Not just `error instanceof Error ? error.message : String(error)` — a
+// Not just `error instanceof Error ? error.message : String(error)`: a
 // PostgrestError from admin.rpc() (service_upsert_mail_connection_oauth)
 // extends Error in the postgrest-js source, but Deno's npm: compat layer
 // can hand back an object that fails instanceof across that boundary even
 // when it has a real .message. String()'ing a plain object gives the
-// literal text "[object Object]" — caught live 2026-08-21: that string
+// literal text "[object Object]", caught live 2026-08-21: that string
 // went out through redirectWithResult's message param and rendered
 // verbatim in the desktop app's error banner, hiding whatever actually
 // went wrong. Checking for a .message property directly works regardless

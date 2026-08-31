@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""extension_bridge.py — localhost bridge for the aplyx browser extension (Phase 10).
+"""extension_bridge.py: localhost bridge for the aplyx browser extension (Phase 10).
 
 The Manifest V3 extension never touches state files directly. Every read
 and write flows through this bridge, and the bridge itself only shells
@@ -16,13 +16,13 @@ Security model:
     generated on first start into src/config/extension_bridge.json
     (gitignored, chmod 600) and pasted once into the extension options.
   - /fields returns only the safe_fields keys the extension explicitly
-    asks for (the fields it is about to fill) — never the whole map.
+    asks for (the fields it is about to fill), never the whole map.
   - The bridge never auto-submits anything; it records outcomes the
     user reports after submitting a form themselves.
 
 src/tui/src/profileLinks.ts is the TS twin of the extract_username/
-derive_full_url helpers below — kept in sync by hand, same as
-src/tui/src/resumes.ts's EXPECTED_RESUMES.
+derive_full_url helpers below (kept in sync by hand, same as
+src/tui/src/resumes.ts's EXPECTED_RESUMES).
 
 Usage:
   python src/scripts/runtime/extension_bridge.py             # start (default port from config)
@@ -83,7 +83,7 @@ SAFE_FIELD_KEYS = {
     # Deliberately NOT here: gender, ethnicity, hispanic_or_latino,
     # date_of_birth, veteran_status, disability_status. The extension's
     # regex-based field detection (ats.ts) has no equivalent to the main
-    # apply agent's pre-submit field-by-field verification (AGENTS.md) —
+    # apply agent's pre-submit field-by-field verification (AGENTS.md);
     # EEO/demographic answers only ever go out through that stricter path.
 }
 
@@ -137,7 +137,7 @@ def load_or_create_bridge_config() -> dict:
             cfg = json.load(fh)
         if not isinstance(cfg.get("token"), str) or len(cfg["token"]) < 32:
             raise SystemExit(
-                f"extension_bridge: {BRIDGE_CONFIG} has no usable token — delete the file and restart to regenerate."
+                f"extension_bridge: {BRIDGE_CONFIG} has no usable token: delete the file and restart to regenerate."
             )
         return cfg
     cfg = {"port": DEFAULT_PORT, "token": secrets.token_hex(32)}
@@ -236,15 +236,15 @@ def can_apply(canonical: dict) -> tuple:
     if proc.returncode == 0:
         return True, ""
     if proc.returncode == 2:
-        # The helper's refusal payload is JSON on stdout — reduce it to a
+        # The helper's refusal payload is JSON on stdout: reduce it to a
         # human-readable reason for the extension badge.
         try:
             refusal = json.loads(proc.stdout[proc.stdout.index("{"):])
             matched_in = refusal.get("matched_in", "history")
             matched_status = refusal.get("matched_status", "recorded")
-            return False, f"already recorded — {matched_in} has status '{matched_status}'"
+            return False, f"already recorded: {matched_in} has status '{matched_status}'"
         except (ValueError, KeyError):
-            return False, "already recorded — dedup refused the write"
+            return False, "already recorded: dedup refused the write"
     raise RuntimeError(f"can-apply failed (rc={proc.returncode}): {proc.stderr.strip()[-400:]}")
 
 
@@ -276,7 +276,7 @@ def record_event(canonical: dict, status: str, reasoning: str, url: str) -> None
 
 
 def sheets_sync(canonical: dict, date_applied: str) -> str:
-    """Best-effort tracker sync — mirrors the agent path. Never raises."""
+    """Best-effort tracker sync, mirrors the agent path. Never raises."""
     try:
         proc = run_helper(
             py_helper(
@@ -295,7 +295,7 @@ def sheets_sync(canonical: dict, date_applied: str) -> str:
                 return "synced"
             return f"skipped: {parsed.get('reason', 'sync disabled or unconfigured')}"
         return f"failed (rc={proc.returncode})"
-    except Exception as exc:  # noqa: BLE001 — sync must never unwind a recorded outcome
+    except Exception as exc:  # noqa: BLE001 - sync must never unwind a recorded outcome
         return f"failed: {exc}"
 
 
@@ -308,7 +308,7 @@ def handle_fit(payload: dict) -> dict:
     if not str(job.get("jd_text", "")).strip():
         # Same rule as the SimplifyJobs enrichment step: an empty JD would
         # bypass every deterministic hard-reject check in the fit gate.
-        raise ValueError("job.jd_text is required — extract the posting description before the fit check")
+        raise ValueError("job.jd_text is required: extract the posting description before the fit check")
     canonical = canonicalize_and_upsert(job)
     fit = helper_json(py_helper("src/scripts/jobs/evaluate_job_fit.py", json.dumps(canonical)))
     if fit.get("fit_status") not in {"candidate", "needs_review", "skipped_unfit"}:
@@ -328,7 +328,7 @@ def handle_fit(payload: dict) -> dict:
 
 def resolve_profile_url(usable: dict, kind: str) -> str:
     """Derive a full profile URL for the extension, whichever of
-    `<kind>_username` / `<kind>_url` is actually populated — the extension
+    `<kind>_username` / `<kind>_url` is actually populated; the extension
     pastes this verbatim into a field expecting a full URL, so it must
     never see a bare username."""
     username = usable.get(f"{kind}_username") or extract_username(kind, usable.get(f"{kind}_url", ""))
@@ -367,7 +367,7 @@ def handle_outcome(payload: dict) -> dict:
     if status == "applied":
         applyable, refusal = can_apply(canonical)
         if not applyable:
-            return {"ok": True, "recorded": False, "reason": refusal or "already recorded — dedup refused the write"}
+            return {"ok": True, "recorded": False, "reason": refusal or "already recorded: dedup refused the write"}
         reasoning = "Applied manually via browser extension (hybrid mode)"
     else:
         reasoning = "Saved for review from browser extension (hybrid mode)"
@@ -388,7 +388,7 @@ def handle_outcome(payload: dict) -> dict:
         "reasoning": reasoning,
     }
     if append_entry("data/applied_jobs.json", entry) == "duplicate":
-        return {"ok": True, "recorded": False, "reason": "already recorded — dedup refused the write"}
+        return {"ok": True, "recorded": False, "reason": "already recorded: dedup refused the write"}
     if status == "needs_review":
         append_entry("data/review_queue.json", entry)
     record_event(canonical, status, reasoning, url)
@@ -448,7 +448,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
             return self._send(200, handler(payload))
         except ValueError as exc:
             return self._send(400, {"ok": False, "error": str(exc)})
-        except Exception as exc:  # noqa: BLE001 — surfaced to the extension, never a stack dump
+        except Exception as exc:  # noqa: BLE001 - surfaced to the extension, never a stack dump
             log(f"ERROR on {self.path}: {exc}")
             return self._send(500, {"ok": False, "error": str(exc)})
 

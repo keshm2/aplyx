@@ -5,7 +5,7 @@ import "./RecommendedJobsMarquee.css";
 
 // Always animates, at a duration scaled to card count rather than one
 // fixed duration for every count: a fixed duration was the actual bug
-// reported here — a real registry commonly turns up only 1-3 candidates,
+// reported here: a real registry commonly turns up only 1-3 candidates,
 // and a track that short covered by a duration tuned for ~12 cards moved
 // so slowly it read as "completely static" even though it was technically
 // animating.
@@ -14,14 +14,14 @@ const MIN_DURATION_S = 8;
 
 // A group needs to be wider than the dashboard itself, or the gap between
 // "last real card" and "loop point" shows as empty space mid-scroll before
-// the repeat — exactly the "appears halfway" bug with only 1-2 real
+// the repeat, exactly the "appears halfway" bug with only 1-2 real
 // candidates. Padding each group up to this many cards (repeating the same
 // real jobs, not fabricating new ones) guarantees enough width regardless
 // of how few distinct recommendations there are.
 const MIN_GROUP_SIZE = 6;
 
 /** Repeats `jobs` (cycling through the same real list) until there are at
- *  least `minSize` — a no-op once the real list is already that long. */
+ *  least `minSize`, a no-op once the real list is already that long. */
 function padJobs(jobs: RecommendedJob[], minSize: number): RecommendedJob[] {
   if (jobs.length === 0 || jobs.length >= minSize) return jobs;
   const padded: RecommendedJob[] = [];
@@ -31,7 +31,7 @@ function padJobs(jobs: RecommendedJob[], minSize: number): RecommendedJob[] {
 
 const COMPANY_SUFFIX_RE = /\b(?:incorporated|corporation|inc|corp|llc|ltd|co)\.?\b/gi;
 
-/** Best-effort company domain guess for a logo lookup — the registry only
+/** Best-effort company domain guess for a logo lookup: the registry only
  *  has the ATS's own URL (jobs.ashbyhq.com/...), never the employer's real
  *  domain, so there's no authoritative source to read this from. Accepted,
  *  known-imperfect tradeoff (e.g. a guessed domain could belong to an

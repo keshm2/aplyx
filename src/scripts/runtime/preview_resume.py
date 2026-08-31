@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""preview_resume.py — preview a tailored + humanized resume for a JD.
+"""preview_resume.py: preview a tailored + humanized resume for a JD.
 
 Usage:
   python3 src/scripts/runtime/preview_resume.py --title "Software Engineer Intern" --jd-file jd.txt
@@ -9,12 +9,12 @@ Usage:
     python3 src/scripts/runtime/preview_resume.py --title "..." --payload-stdin
 
 Runs the real `@resume-tailor` agent (src/agents/bodies/resume-tailor.md
-Steps 1-3, including the humanizer skill pass —
+Steps 1-3, including the humanizer skill pass:
 src/agents/skills/humanizer/SKILL.md) via whatever coding-agent harness
 this install is already configured to use (src/config/harness.json /
-APLYX_HARNESS — same resolution run_job_agent.py itself uses), invoked
+APLYX_HARNESS, same resolution run_job_agent.py itself uses), invoked
 standalone as a one-shot subagent call: no job-scraper run, no board
-search, no fit gate, no live application. This is a preview tool — it is
+search, no fit gate, no live application. This is a preview tool: it is
 never invoked by run_job_agent.py and has no effect on any real
 application.
 
@@ -23,22 +23,22 @@ version of this script did, requiring a separate ANTHROPIC_API_KEY the
 operator would have had to configure on top of whatever's already backing
 their harness). Routing through the configured harness means Preview
 uses the exact same model/credentials the real apply pipeline already
-uses for tailoring — no second credential, and the output reflects what
+uses for tailoring: no second credential, and the output reflects what
 a real run would actually produce.
 
 resume-tailor's own opencode/Claude Code frontmatter marks it
-`mode: subagent` — reachable via in-session delegation (the normal
+`mode: subagent`: reachable via in-session delegation (the normal
 job-scraper -> @resume-tailor path) but NOT via a harness CLI's own
 top-level agent-selection flag; confirmed empirically that opencode
 silently runs the project's default agent instead when asked for a
 subagent-mode one by name. harness_adapter.agent_command()'s
 `standalone=True` flag routes around this by inlining resume-tailor's
 body into the prompt instead (the same mechanism harnesses without any
-subagent registry at all already use) — see harness_adapter.py's own
+subagent registry at all already use); see harness_adapter.py's own
 docstring on `standalone` for the full story.
 
 Never writes to data/resumes/resume.json, data/applied_jobs.json, the job
-registry, or any other state file — read-only except for the optional
+registry, or any other state file; read-only except for the optional
 --out file, which is just a copy of the stdout JSON for your own reference.
 
 Exit codes:
@@ -59,7 +59,7 @@ import harness_adapter  # noqa: E402
 
 # A full tailor+humanize pass is a real multi-step agent task (read the
 # master resume content, read the humanizer skill file, think, write the
-# JSON) — empirically observed to take 90-200s depending on harness/model,
+# JSON); empirically observed to take 90-200s depending on harness/model,
 # not the few-second turnaround a direct API call would have had. Give it
 # real room rather than a copy-pasted short default.
 HARNESS_TIMEOUT_S = 280
@@ -69,7 +69,7 @@ _REQUIRED_KEYS = ("resume_used", "tailored_resume", "tailored_bullets", "ats_sco
 
 def emit(obj: dict) -> None:
     # Single line, matching every other helper's stdout convention (see
-    # record_fill.py, job_state.py, generate_interest_letter.py) — callers
+    # record_fill.py, job_state.py, generate_interest_letter.py); callers
     # that parse this (masterResume.ts's previewTailoredResume) grab the
     # last stdout line as JSON. Pipe to `python3 -m json.tool` or `jq` for
     # pretty terminal output.
@@ -91,12 +91,12 @@ def _read_text(path: str) -> str:
 
 def _extract_json_object(text: str, required_keys: tuple) -> dict | None:
     """The harness CLI's stdout is a model transcript, not a guaranteed
-    single JSON value — even with an explicit "print ONLY the JSON object"
+    single JSON value: even with an explicit "print ONLY the JSON object"
     instruction, a stray progress line or tool-call echo can end up mixed
     in. Scan for every balanced top-level {...} substring, and return the
     last one (the real answer is normally the last thing printed) that
     both parses as JSON and has every key resume-tailor's own output
-    contract requires — a schema-aware pick, not just "the last
+    contract requires: a schema-aware pick, not just "the last
     brace-balanced blob", so stray JSON-shaped noise from the harness
     itself doesn't get mistaken for the actual result."""
     candidates = []
@@ -134,7 +134,7 @@ def main(argv=None) -> int:
         "--payload-stdin", action="store_true",
         help="read a single JSON object {\"master_resume\", \"jd_text\"} from stdin instead of "
              "plain JD text, and use master_resume verbatim instead of reading "
-             "data/resumes/resume.json from disk — lets a caller (e.g. the desktop app's "
+             "data/resumes/resume.json from disk; lets a caller (e.g. the desktop app's "
              "Resumes editor) preview the current in-memory resume, including unsaved edits, "
              "the same way exportResumePdf already works.",
     )
@@ -165,7 +165,7 @@ def main(argv=None) -> int:
         jd_text = jd_text.strip()
 
     if not isinstance(resume, dict) or (not resume.get("experience") and not resume.get("projects")):
-        emit({"ok": False, "error": "no master resume — data/resumes/resume.json is missing or has no "
+        emit({"ok": False, "error": "no master resume: data/resumes/resume.json is missing or has no "
                                      "experience/projects (same hard-blocker resume-tailor itself uses; "
                                      "fill out the Resumes screen first, nothing to preview yet)"})
         return 2
@@ -175,7 +175,7 @@ def main(argv=None) -> int:
 
     harness = harness_adapter.resolve_harness(root)
     if not harness:
-        emit({"ok": False, "error": "no coding-agent harness available — set src/config/harness.json, "
+        emit({"ok": False, "error": "no coding-agent harness available: set src/config/harness.json, "
                                      "APLYX_HARNESS, or install one of: " + ", ".join(harness_adapter.SUPPORTED)})
         return 2
     exe = harness_adapter.resolve_harness_exe(harness)

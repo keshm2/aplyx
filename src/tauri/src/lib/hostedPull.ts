@@ -4,7 +4,7 @@ import { writeProfileFields, importResumeBytes, convertResume } from "./bridge";
 
 /**
  * Hosted-to-local profile pull (docs/web-onboarding-hosted-sync-plan.md
- * Part B) — the direction nothing in this codebase built before: reading
+ * Part B); the direction nothing in this codebase built before: reading
  * an already-filled-in hosted `profiles` row (from the web dashboard, or
  * a previous sign-in on another device) into a local install's own config
  * files. ImportOrFreshStep.tsx's "Import from this machine" is the exact
@@ -18,7 +18,7 @@ export interface HostedProfileSnapshot {
 }
 
 /** One row fetch instead of SupabaseAdapter.readProfileField's per-field
- *  readRow() (which would mean 21 round trips for a full pull) — same
+ *  readRow() (which would mean 21 round trips for a full pull); same
  *  field routing (18 plain columns + 3 preference-array fields folded
  *  into the jsonb `preferences` column) as that method, just batched. */
 export async function readHostedProfileSnapshot(
@@ -40,7 +40,7 @@ export async function readHostedProfileSnapshot(
   }
 
   // Best-effort: a resume-listing failure shouldn't fail the whole
-  // snapshot read — the profile fields are still worth offering on their
+  // snapshot read; the profile fields are still worth offering on their
   // own, same "degrade, don't break" contract as readHostedReadiness.
   let hasResume = false;
   let resumeFileName: string | undefined;
@@ -61,7 +61,7 @@ export async function readHostedProfileSnapshot(
 
 /** Writes a snapshot's profile fields into the local install's own config
  *  (safe_fields + targets.json arrays) via the same batched multi-field
- *  bridge call the local wizard's own ProfileStep page-saves use —
+ *  bridge call the local wizard's own ProfileStep page-saves use,
  *  identical routing, just all fields at once instead of one page's
  *  worth. Overwrites unconditionally; the caller is responsible for any
  *  "this will replace what's already here" confirmation before calling
@@ -72,10 +72,10 @@ export async function writeProfileSnapshotLocally(root: string, snapshot: Hosted
 
 /** Downloads the hosted resume PDF and runs it through the same local
  *  conversion pipeline the local wizard's own ResumesStep calls after a
- *  manual upload (convertResume) — no new resume-parsing code, only the
+ *  manual upload (convertResume); no new resume-parsing code, only the
  *  missing download-and-save step. Throws on failure; callers should treat
  *  a resume-pull failure as non-fatal to the overall profile pull (the
- *  profile fields land regardless — see call sites). */
+ *  profile fields land regardless, see call sites). */
 export async function pullHostedResume(
   client: SupabaseClient,
   userId: string,

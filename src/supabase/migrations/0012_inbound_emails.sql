@@ -1,4 +1,4 @@
--- inbound_emails — employer replies to applications submitted via a
+-- inbound_emails: employer replies to applications submitted via a
 -- managed alias (apply-foundation).
 --
 -- This is a fresh table, not a revival of the dropped 0005
@@ -12,15 +12,15 @@
 -- tracking works for managed-alias applications without the user
 -- forwarding mail or configuring IMAP for the alias.
 --
--- `alias_id` references managed_aliases (0011) — the alias the reply
+-- `alias_id` references managed_aliases (0011): the alias the reply
 -- was sent to. ON DELETE CASCADE: if an alias is ever force-deleted
 -- (which the no-delete-policy discipline makes rare), its replies go
--- too — an alias without its replies is meaningless for audit.
+-- too; an alias without its replies is meaningless for audit.
 --
 -- `from_address` is the employer's sender address; `subject`/`body_text`
 -- carry the reply content. `classified_status` is the deterministic
 -- keyword classification (applied | oa_sent | interview_requested |
--- offer | rejected | withdrawn — same taxonomy as the IMAP worker's
+-- offer | rejected | withdrawn, same taxonomy as the IMAP worker's
 -- outcome_status, docs/application-status-tracking-plan.md) applied
 -- at write time by the inbound-mail receiver, so the UI can filter
 -- without re-classifying. Null when classification hasn't run yet.
@@ -28,7 +28,7 @@
 -- Deliberately no RLS policies for anon/authenticated: this table
 -- carries real email content, so only the service-role key (the
 -- inbound-mail receiver on write, the hosted adapter on read) can
--- touch it — RLS stays enabled with zero policies as a hard
+-- touch it; RLS stays enabled with zero policies as a hard
 -- "nothing but service-role, ever" backstop, same as the original
 -- 0005's reasoning. Per-user scoping happens via the alias_id →
 -- managed_aliases → user_id join at read time, not via a direct
@@ -66,4 +66,4 @@ create index if not exists inbound_emails_alias_received_idx
 alter table public.inbound_emails enable row level security;
 -- No policies: RLS enabled with nothing granted means every role except
 -- service-role (which bypasses RLS entirely) gets zero rows, zero
--- writes, full stop — same backstop as the original 0005.
+-- writes, full stop, same backstop as the original 0005.

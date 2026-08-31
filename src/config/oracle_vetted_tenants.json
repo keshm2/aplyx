@@ -1,0 +1,17 @@
+{
+  "_provenance": "Project-owned vetted Oracle Recruiting Cloud (ORC) tenant list (docs/ATS.md's proposed-next-phase item 1/2, Oracle half). Each tenant was verified live via src/scripts/jobs/fetch_oracle_listings.py (real requisitionList[] items returned, not just an HTTP 200) on the verified_at date. Additions are code changes: verify the tenant by hand with the fetch helper, update verified_at, and review in a PR. This list is never fetched from a remote source at run time. Uses the shared 'slugs' array key seed_vetted_slugs.py's loader expects, even though these entries are '<host>/<siteNumber>' tenant strings rather than literal slugs.",
+  "verified_at": "2026-08-31",
+  "slugs": [
+    "egug.fa.us2.oraclecloud.com/CX_1",
+    "ejwl.fa.us2.oraclecloud.com/CX",
+    "efet.fa.us2.oraclecloud.com/CX_1009",
+    "edmn.fa.us2.oraclecloud.com/CX_1",
+    "fa-eowa-saasfaprod1.fa.ocs.oraclecloud.com/CSXCareers",
+    "ejhp.fa.us6.oraclecloud.com/CX_2",
+    "hdjq.fa.us2.oraclecloud.com/CX_1",
+    "fa-erqb-saasfaprod1.fa.ocs.oraclecloud.com/CX_1",
+    "eofd.fa.us6.oraclecloud.com/CX_1001",
+    "hckd.fa.us2.oraclecloud.com/CX_1",
+    "hdpc.fa.us2.oraclecloud.com/LateralHiring"
+  ]
+}

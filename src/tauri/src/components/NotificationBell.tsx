@@ -84,7 +84,7 @@ function NotificationRow({
 
 /** Bell icon + unread badge + dropdown (General / Jobs tabs). Notification
  *  read state: hovering a row marks it read immediately (no click
- *  required — per spec, "a notification can be considered read if the
+ *  required, per spec, "a notification can be considered read if the
  *  user just hovers their mouse over it"). Critical items (a failed
  *  application) get a gently flashing pastel-red treatment while unread,
  *  same visual language a "needs attention now" toast would use elsewhere,
@@ -93,7 +93,7 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false);
   // Keeps the dropdown mounted after its first open so closing it can
   // play a real exit transition (opacity/transform/visibility, all
-  // CSS-driven — see .notif-dropdown / .notif-dropdown-open) instead of
+  // CSS-driven, see .notif-dropdown / .notif-dropdown-open) instead of
   // just vanishing the instant `open` flips false, the way a plain
   // `{open && <div>}` mount/unmount would. Never rendered at all until
   // the first click, so a session that never opens it pays nothing.

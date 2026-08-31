@@ -35,7 +35,7 @@
   transform: scale(var(--scale-press));
 }
 
-/* Settings gear: a slow, satisfying partial turn on hover — its own
+/* Settings gear: a slow, satisfying partial turn on hover, its own
  * distinct "nice transition" companion to the bell dropdown's, rather
  * than reusing the same motion (a gear turning reads as settings in a
  * way a generic hover state doesn't). Reduced-motion users still get the
@@ -87,7 +87,7 @@
  * slightly shrunk and shifted up toward the bell, non-interactive
  * (pointer-events none) and removed from the a11y/keyboard tree
  * (visibility hidden, delayed so it only takes effect once the fade-out
- * has actually finished — otherwise it'd cut the animation off early). */
+ * has actually finished; otherwise it'd cut the animation off early). */
 .notif-dropdown {
   position: absolute;
   top: calc(100% + var(--space-2));
@@ -107,7 +107,7 @@
   visibility: hidden;
   pointer-events: none;
   /* No `scale()`, and pointer-events delayed until the transition
-   * actually finishes — see Dropdown.css's matching comment
+   * actually finishes. See Dropdown.css's matching comment
    * (2026-08-22); same shared "mount once, animate in" panel pattern. */
   transform: translateY(-0.5rem);
   transition:
@@ -320,9 +320,9 @@
   color: var(--text-faint);
 }
 
-/* Critical + unread: a gentle pastel-red pulse — fades in and out, never
+/* Critical + unread: a gentle pastel-red pulse: fades in and out, never
  * a hard blink, and stops the instant the row is read (the row simply
- * loses this class — see NotificationBell.tsx). Respects reduced motion:
+ * loses this class, see NotificationBell.tsx). Respects reduced motion:
  * the row still reads as critical (icon + tint), it just doesn't pulse. */
 .notif-row-critical {
   background: var(--danger-soft);

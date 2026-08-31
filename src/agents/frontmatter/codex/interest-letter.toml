@@ -1,4 +1,4 @@
 name = "interest-letter"
-description = "Drafts one short answer to an application's free-text motivation question (\"Why do you want to work at X?\"), grounded strictly in the applicant's resume and the job description. Returns {\"letter\", \"word_count\"} and nothing else. Never invents facts and never submits — the user reviews and approves the draft first. Invoked by src/scripts/runtime/generate_interest_letter.py, not by job-scraper."
+description = "Drafts one short answer to an application's free-text motivation question (\"Why do you want to work at X?\"), grounded strictly in the applicant's resume and the job description. Returns {\"letter\", \"word_count\"} and nothing else. Never invents facts and never submits; the user reviews and approves the draft first. Invoked by src/scripts/runtime/generate_interest_letter.py, not by job-scraper."
 model = "gpt-5.4"
 sandbox_mode = "workspace-write"

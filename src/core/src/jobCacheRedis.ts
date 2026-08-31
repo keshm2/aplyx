@@ -9,19 +9,19 @@ const gunzip = promisify(zlib.gunzip);
 /**
  * A slow/hung Redis must never delay falling through to the existing
  * Postgres path (its own CACHE_LOOKUP_TIMEOUT_MS budget of 1200ms in
- * jobCache.ts) — this stays well under that, so the two timeouts can
+ * jobCache.ts), this stays well under that, so the two timeouts can
  * never stack into a search-visible delay the way an earlier version
  * of the Postgres-vs-live fallback bug did (see jobs.ts's maybeCached
  * comment on withDeadline).
  *
  * 900, not something tighter: measured live from a cold, one-shot Node
- * process (the same shape every real search spawns, per bridge.ts) —
+ * process (the same shape every real search spawns, per bridge.ts):
  * 5 consecutive cold runs against a real ~180-row/300KB compressed
  * payload landed at 232-265ms, but one outlier (likely a cold DNS
  * resolution) hit 435ms. A timeout right at the typical case only
  * buys ~2x margin and risks a spurious "miss" (silently falling
  * through to the slower Postgres path) on ordinary network jitter,
- * not just a genuinely broken Redis — the whole point of this cache
+ * not just a genuinely broken Redis: the whole point of this cache
  * is for the fast path to actually fire. 900 keeps real margin over
  * the observed outlier while still leaving Postgres's own fallback
  * budget untouched (500 + 1200 well under any total search deadline
@@ -34,7 +34,7 @@ export const REDIS_LOOKUP_TIMEOUT_MS = 900;
 const KEY_VERSION = "v1";
 
 /**
- * Only the unfiltered "browse everything" case is cached — see
+ * Only the unfiltered "browse everything" case is cached: see
  * jobCache.ts's own tuning comments for why a filtered query is
  * already fast enough (~77-103ms, the RPC's ILIKE pre-filter narrows
  * rows before the expensive jd_text materialization happens) that a
@@ -67,7 +67,7 @@ async function upstashCommand(url: string, token: string, command: unknown[], ti
 }
 
 /**
- * Client-side, read-only lookup. Returns undefined — never throws —
+ * Client-side, read-only lookup. Returns undefined, never throws,
  * on a miss, timeout, network error, malformed payload, or empty
  * result, exactly mirroring readJobCache's own "cache is always
  * optional, live/Postgres fallback is the safety net" contract. An
@@ -94,9 +94,9 @@ export async function redisGetJobs(
 }
 
 /**
- * CI-only write path — refreshJobCache.ts is the sole caller, holding
+ * CI-only write path: refreshJobCache.ts is the sole caller, holding
  * a write-capable Upstash token from an env var (never a config file,
- * never shipped to a client — same discipline as SUPABASE_SECRET_KEY).
+ * never shipped to a client, same discipline as SUPABASE_SECRET_KEY).
  * Never throws: a failed warm just means the next read falls through
  * to Postgres, same as any other cache miss.
  */
@@ -113,7 +113,7 @@ export async function redisSetJobs(
     const value = compressed.toString("base64");
     await upstashCommand(url, writeToken, ["SET", key, value, "EX", String(ttlSeconds)], REDIS_LOOKUP_TIMEOUT_MS * 4);
   } catch {
-    // best-effort warm — a miss just means the next read pays the
+    // best-effort warm: a miss just means the next read pays the
     // existing Postgres RPC cost, not a broken search
   }
 }

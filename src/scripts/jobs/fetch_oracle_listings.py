@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""fetch_oracle_listings.py — Oracle Recruiting Cloud ingestion (Phase 16B).
+"""fetch_oracle_listings.py: Oracle Recruiting Cloud ingestion (Phase 16B).
 
 Fetches job postings from configured Oracle Recruiting Cloud (ORC) tenants
 via the public, auth-free Fusion HCM REST API (no scraping, no Playwright
 needed) and emits one raw-job JSON object per line on stdout, shaped for
 `src/scripts/state/job_state.py canonicalize`. This is a distinct, more modern
 product from the legacy "Taleo" ATS (already covered by the `taleo.net`
-URL pattern in job_state.py) — ORC-hosted career sites live at
+URL pattern in job_state.py); ORC-hosted career sites live at
 `<tenant>.fa.<region>.oraclecloud.com` and are used by many employers
 beyond Oracle itself, discovered here via Oracle's own careers site
 (careers.oracle.com, itself ORC-hosted) as the first configured tenant.
@@ -18,9 +18,9 @@ strings, the same "<host>/<site>" convention Workday tenants already use:
 
 Skip behavior mirrors the other optional boards: a missing, empty, or
 placeholder-only ("REPLACE_ME") oracle_tenants array means the board is
-skipped — a warning goes to stderr, nothing on stdout, exit 0.
+skipped: a warning goes to stderr, nothing on stdout, exit 0.
 
-The list feed carries NO JD body (confirmed live — ExternalQualificationsStr/
+The list feed carries NO JD body (confirmed live; ExternalQualificationsStr/
 ExternalResponsibilitiesStr are null in the search response; only the
 per-requisition detail endpoint has them). After role filtering and before
 the fit gate, the orchestrator fetches the JD per surviving candidate, same
@@ -34,9 +34,9 @@ tenant, not just Oracle's own custom-branded careers.oracle.com domain):
 https://<host>/hcmUI/CandidateExperience/en/sites/<siteNumber>/job/<id>
 
 Output contract:
-  stdout — raw-job JSONL (list mode) or a single JD JSON (--jd-url),
+  stdout: raw-job JSONL (list mode) or a single JD JSON (--jd-url),
            list mode sorted by (company, title, external_job_id).
-  stderr — warnings and a machine-parseable summary line:
+  stderr: warnings and a machine-parseable summary line:
            fetch_oracle_listings: complete tenants=<n> jobs=<n> failed=<n>
 
 Exit codes:
@@ -69,7 +69,7 @@ DEFAULT_DISCOVERED = "src/config/discovered_companies.json"
 PLACEHOLDER = "replace_me"
 USER_AGENT = "aplyx-job-agent/phase16b"
 # The Fusion HCM REST API accepts at least limit=100 in one request
-# (confirmed live) — the original 25 here was copied from what the
+# (confirmed live); the original 25 here was copied from what the
 # careers.oracle.com UI itself requests (its own page-size choice, not an
 # API-enforced cap), and needlessly forced 2+ sequential requests per
 # tenant for every typical search.
@@ -105,7 +105,7 @@ def load_configured_tenants(targets_path: str) -> list:
         die(f"could not read targets config {targets_path}: {exc}")
     raw = targets.get("oracle_tenants")
     if raw is None:
-        warn("oracle_tenants is not configured — Oracle board skipped this run")
+        warn("oracle_tenants is not configured: Oracle board skipped this run")
         return []
     if not isinstance(raw, list):
         die("targets config field 'oracle_tenants' must be an array")
@@ -116,11 +116,11 @@ def load_configured_tenants(targets_path: str) -> list:
             continue
         parsed = parse_tenant(text)
         if parsed is None:
-            warn(f"malformed oracle tenant '{text}' (expected <host>/<siteNumber>) — skipped")
+            warn(f"malformed oracle tenant '{text}' (expected <host>/<siteNumber>): skipped")
             continue
         tenants.append(parsed)
     if not tenants:
-        warn("oracle_tenants is empty or placeholder-only — Oracle board skipped this run")
+        warn("oracle_tenants is empty or placeholder-only: Oracle board skipped this run")
     return tenants
 
 
@@ -137,7 +137,7 @@ def job_url(host: str, site: str, job_id: str) -> str:
 def load_tenant_company_names(discovered_path: str) -> dict:
     """'<host>/<site>' (lowercased) -> human company name, from
     discovered_companies.json's discovered_tenants (see
-    build_discovered_companies.py) — best-effort: a missing/unreadable/
+    build_discovered_companies.py); best-effort: a missing/unreadable/
     malformed file just yields an empty map, so a lookup miss falls back
     to the tenant's own site id (today's behavior), never an error."""
     try:
@@ -165,7 +165,7 @@ def to_raw_job(req: dict, host: str, site: str, company_name: str) -> dict:
         "url": job_url(host, site, job_id),
         "external_job_id": job_id,
         "location": str(req.get("PrimaryLocation", "")).strip(),
-        # jd_text intentionally absent — fetch per candidate with
+        # jd_text intentionally absent: fetch per candidate with
         # --jd-url after role filtering and BEFORE the fit gate (same
         # rule as the SimplifyJobs/Workday/SmartRecruiters feeds).
         "posted_at": (str(req.get("PostedDate", "")).strip() + "T00:00:00Z") if req.get("PostedDate") else None,
@@ -222,10 +222,10 @@ def _fetch_one_tenant(host: str, site: str, company_name: str, args) -> tuple[li
                 f"{keyword_part},sortBy=POSTING_DATES_DESC",
                 safe="=;,\"",
             )
-            # `expand=requisitionList` is required — without it the
+            # `expand=requisitionList` is required: without it the
             # API returns search metadata only, no actual postings
             # (confirmed live). Dropped the unused `.workLocation`
-            # sub-expand (to_raw_job below never reads it) — that
+            # sub-expand (to_raw_job below never reads it); that
             # part turned out not to affect latency (Oracle's
             # ~1.9-2s here is the cost of populating requisitionList
             # at all, expanded or not), but there's no reason to ask
@@ -290,11 +290,11 @@ def main(argv=None) -> int:
     jobs = []
     # Tenants fetched concurrently, not one after another: Oracle's own API
     # costs ~1.9-2s per request regardless of tenant (see the comment on
-    # expand=requisitionList below), so N tenants in sequence is N*2s —
+    # expand=requisitionList below), so N tenants in sequence is N*2s,
     # confirmed live to blow past the interactive search's 2.2s per-source
     # deadline (src/core/src/jobs.ts SOURCE_DEADLINE_MS) with as few as 2
     # tenants configured. Each tenant call is independent I/O, so plain
-    # threads (stdlib concurrent.futures, no new dependency) are enough —
+    # threads (stdlib concurrent.futures, no new dependency) are enough:
     # no shared state to race on, each thread only appends to its own
     # tenant_jobs list.
     with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, len(tenants))) as executor:
@@ -309,7 +309,7 @@ def main(argv=None) -> int:
             host, site = future_to_tenant[future]
             tenant_jobs, error = future.result()
             if error is not None:
-                warn(f"tenant '{site}' ({host}) failed to fetch: {error} — skipped")
+                warn(f"tenant '{site}' ({host}) failed to fetch: {error}; skipped")
                 failed += 1
             else:
                 fetched += 1

@@ -11,11 +11,11 @@ function format(now: Date, hour24: boolean): { time: string; period: string } {
   return { time: `${hh}:${minutes}:${seconds}`, period };
 }
 
-/** A small live clock — genuinely live content next to the greeting
+/** A small live clock: genuinely live content next to the greeting
  *  (ticks every real second), not decoration, and the one deliberately
  *  "different" element on Home: an LCD-style dark chip with glowing
  *  monospace digits, rather than the app's usual card language. No new
- *  font file needed for the digital-clock feel — --font-mono + tabular
+ *  font file needed for the digital-clock feel: --font-mono + tabular
  *  spacing + a colored glow reads as one without shipping a 7-segment
  *  typeface. */
 export function DigitalClock({ hour24 = false }: { hour24?: boolean }) {

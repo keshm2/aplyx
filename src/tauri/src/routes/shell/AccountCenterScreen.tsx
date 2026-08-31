@@ -18,7 +18,7 @@ import "../../components/dataList.css";
  *
  *  "Recent re-authentication" (the operator's "short session window"
  *  decision) is tracked purely as in-memory component state
- *  (lastReauthAt) — never persisted, gone the moment this screen
+ *  (lastReauthAt), never persisted, gone the moment this screen
  *  unmounts or the app restarts, same spirit as the plan's own "short-
  *  lived" language for verification state. Reveal/copy/rotate all gate
  *  on it; disabling tracking and deleting don't, since neither exposes
@@ -46,7 +46,7 @@ function familyLabel(family: string): string {
   return family.charAt(0).toUpperCase() + family.slice(1);
 }
 
-// "import-device" carries no accountId — that action operates on the
+// "import-device" carries no accountId: that action operates on the
 // form's local-keychain lookup, not an existing account row, so there's
 // nothing to key it by yet.
 type PendingAction = { kind: "reveal" | "rotate" | "sync"; accountId: string } | { kind: "import-device" };
@@ -66,7 +66,7 @@ export function AccountCenterScreen() {
   const [workdayError, setWorkdayError] = useState<string | undefined>(undefined);
 
   // A Google-only account (no "email" identity ever added) has no password
-  // to re-enter — Supabase's identities array is the source of truth for
+  // to re-enter: Supabase's identities array is the source of truth for
   // which providers a user actually authenticated with, not app_metadata
   // (which only names the *first* provider used at signup). Re-authing one
   // of these accounts has to go back through Google instead of a password
@@ -83,7 +83,7 @@ export function AccountCenterScreen() {
   // Set right after signInWithGoogle() opens the system browser; the actual
   // sign-in completes out-of-band (AuthContext's onOpenUrl deep-link
   // handler exchanges the PKCE code and pushes a fresh `session` through
-  // onAuthStateChange) — the effect below watches for that and finishes
+  // onAuthStateChange); the effect below watches for that and finishes
   // the pending reveal/rotate once it lands, the Google-flow counterpart to
   // confirmReauth's synchronous signInWithPassword success path.
   const [googleReauthPending, setGoogleReauthPending] = useState(false);
@@ -111,7 +111,7 @@ export function AccountCenterScreen() {
     const client = await getSupabaseClient();
     // pushWorkdayCredentialToVault both writes the Vault (create-or-reuse
     // + rotate, so an explicit save always updates the stored value) and
-    // refreshes this device's own OS-keychain cache — the same shared
+    // refreshes this device's own OS-keychain cache, the same shared
     // path autoSyncWorkdayCredentialAfterRun uses right after a Workday
     // continuation run, so "save it here" and "aplyx saved it for you"
     // both land in the same place instead of two divergent write paths.
@@ -218,7 +218,7 @@ export function AccountCenterScreen() {
     }
   }
 
-  /** Google-only accounts have no password to re-enter — this reopens the
+  /** Google-only accounts have no password to re-enter: this reopens the
    *  system-browser Google sign-in instead (same signInWithGoogle() the
    *  entry screen uses) and leaves googleReauthPending set; the effect
    *  below finishes the pending action once AuthContext's deep-link
@@ -241,7 +241,7 @@ export function AccountCenterScreen() {
 
   // Fires once AuthContext's onOpenUrl handler exchanges the Google
   // callback's PKCE code and onAuthStateChange pushes the resulting
-  // session through — the async counterpart to confirmReauth's synchronous
+  // session through, the async counterpart to confirmReauth's synchronous
   // signInWithPassword success branch above.
   useEffect(() => {
     if (!googleReauthPending || !pendingAction || !session) return;
@@ -365,7 +365,7 @@ export function AccountCenterScreen() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-6)" }}>
       <p className="field-help">
-        aplyx stores these accounts for you — using your email or a managed alias — so an
+        aplyx stores these accounts for you, using your email or a managed alias, so an
         application-required ATS account can be reused for document uploads and status checks.
         Credentials are masked by default. Revealing, copying, rotating, or syncing one needs you
         to confirm it's you again ({hasPasswordIdentity ? "your password" : "Google sign-in"}) if you haven't recently.
@@ -478,7 +478,7 @@ export function AccountCenterScreen() {
                 <span className={statusBadgeClass(account.status)}>{account.status.replace(/_/g, " ")}</span>
                 <div style={{ flex: 1, minWidth: "12rem" }}>
                   <div className="check-label">
-                    {account.company_name} — {familyLabel(account.ats_family)}
+                    {account.company_name}, {familyLabel(account.ats_family)}
                   </div>
                   <div className="check-detail">
                     {revealed ? (
@@ -593,7 +593,7 @@ export function AccountCenterScreen() {
 
       <Modal open={rotateAccountId !== undefined} onClose={() => setRotateAccountId(undefined)} title="Rotate stored credential">
         <p className="field-help">
-          Use this after resetting the password directly on the ATS site — aplyx only stores what you give it here, it
+          Use this after resetting the password directly on the ATS site. aplyx only stores what you give it here, it
           doesn't reset anything on the employer's end.
         </p>
         <div className="field">

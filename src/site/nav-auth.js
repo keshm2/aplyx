@@ -1,12 +1,12 @@
-/* aplyx.app — site-wide "signed in" nav state. Runs on every page (not
+/* aplyx.app: site-wide "signed in" nav state. Runs on every page (not
  * just account.html) so a signed-in visitor never sees a "Sign in" link
  * pointing at a page that would just show them their own dashboard
- * anyway. Same auth project as account.js/AuthContext.tsx — checking a
+ * anyway. Same auth project as account.js/AuthContext.tsx: checking a
  * session here doesn't create one; it only reads whatever's already
  * there (a page load with no session is the normal, cheap case for
  * every anonymous visitor to the marketing site).
  *
- * Deliberately its own module, not folded into site.js — site.js is a
+ * Deliberately its own module, not folded into site.js: site.js is a
  * plain non-module script included on every page; this needs `import`
  * for the Supabase client, so it stays isolated the same way
  * account.js already is. */
@@ -44,7 +44,7 @@ function buildAvatarIcon() {
 function showSignedInNav(email) {
   document.querySelectorAll(".nav-link-account").forEach((link) => {
     link.classList.add("nav-avatar-link");
-    link.setAttribute("aria-label", email ? `Account — signed in as ${email}` : "Account");
+    link.setAttribute("aria-label", email ? `Account: signed in as ${email}` : "Account");
     link.title = email ?? "";
     link.replaceChildren();
     const avatar = document.createElement("span");
@@ -64,7 +64,7 @@ function showSignedOutNav() {
 }
 
 // Exported so account.js can reuse this exact instance instead of
-// creating a second GoTrueClient against the same storage key — two
+// creating a second GoTrueClient against the same storage key: two
 // independent clients for one session produces exactly the "Multiple
 // GoTrueClient instances" warning Supabase logs (confirmed live on
 // account.html, where both scripts run), and real risk of the two
@@ -79,12 +79,12 @@ supabase.auth.getSession().then(({ data }) => {
 });
 
 supabase.auth.onAuthStateChange((_event, session) => {
-  // Fires on every page, including account.html — account.js listens to
+  // Fires on every page, including account.html; account.js listens to
   // the same shared client and handles its own auth-panel/dashboard-panel
   // swap independently, but never touches .nav-link-account itself, so
   // this is the only thing that reverts the nav avatar there too. (An
   // earlier version skipped account.html here on the assumption account.js
-  // already covered it — it didn't, which left the avatar showing after
+  // already covered it; it didn't, which left the avatar showing after
   // sign-out until something else re-triggered a check.)
   if (session) {
     showSignedInNav(session.user.email);

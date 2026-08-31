@@ -1,7 +1,7 @@
 import "./Skeleton.css";
 
 /** One shimmering stand-in for a `.data-row` (Jobs/Review/Status/Resumes/
- *  Documents' list rows) — same box, so nothing jumps when the real row
+ *  Documents' list rows), same box, so nothing jumps when the real row
  *  swaps in. Width varies slightly per index so a run of rows doesn't
  *  read as a mechanically repeated tile. */
 function SkeletonRow({ index }: { index: number }) {
@@ -16,7 +16,7 @@ function SkeletonRow({ index }: { index: number }) {
   );
 }
 
-/** A full `.data-list` of skeleton rows — drop-in replacement for a plain
+/** A full `.data-list` of skeleton rows: drop-in replacement for a plain
  *  "Loading…" string wherever a screen is waiting on its first data. The
  *  sr-only status lives outside the aria-hidden visual block so a screen
  *  reader hears one clear "Loading" instead of reading through empty bars. */

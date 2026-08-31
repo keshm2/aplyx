@@ -1,9 +1,9 @@
-"""_jd_text.py — shared HTML-to-readable-text conversion for job descriptions.
+"""_jd_text.py: shared HTML-to-readable-text conversion for job descriptions.
 
 Every fetch_*_listings.py script in this directory used to define its own
 copy-pasted `strip_html()` (naive `re.sub(r"<[^>]+>", " ", markup)`) that
-flattened an entire posting — headings, bullet lists, paragraph breaks,
-everything — into one run-on line, and only ran `html.unescape()` once,
+flattened an entire posting (headings, bullet lists, paragraph breaks,
+everything) into one run-on line, and only ran `html.unescape()` once,
 which leaves a double-encoded source (entities like "&amp;lt;" instead of
 "&lt;") showing literal "&lt;p&gt;"-style text instead of real tags to
 strip at all. Confirmed live as an actual bug, not a hypothetical: a real
@@ -13,10 +13,10 @@ Mirrors src/core/src/jobs.ts's htmlToText()/markHeadings() (the TypeScript
 fetchers' equivalent fix) so both language runtimes produce the same
 shape of output: real paragraph breaks, "• " bullets instead of flattened
 <li> text, and "### Heading" marker lines for detected section headings
-that a UI can split on and render distinctly — the JobsScreen "why is
+that a UI can split on and render distinctly: the JobsScreen "why is
 this all one wall of text" complaint this whole fix responds to.
 
-Importable directly by any fetch_*_listings.py in this same directory —
+Importable directly by any fetch_*_listings.py in this same directory:
 Python puts a script's own directory at sys.path[0] automatically, so no
 package/install step is needed for the sibling import to work.
 """
@@ -39,7 +39,7 @@ _INLINE_WS_RE = re.compile(r"[ \t]+")
 
 
 def _decode_entities(text: str) -> str:
-    """Repeated html.unescape() up to a fixed point (capped at 3 passes —
+    """Repeated html.unescape() up to a fixed point (capped at 3 passes;
     real content never nests this deep; this is just a backstop against
     pathological input). A single unescape() call only reverses one layer
     of encoding, so a genuinely double-encoded source ("&amp;lt;p&amp;gt;")
@@ -58,7 +58,7 @@ def _mark_headings(markup: str) -> str:
     distinctly. Two patterns cover what postings actually use in practice:
     real <h1-6> tags, and a <p>/bare <strong> run whose entire short text
     IS the heading (e.g. Greenhouse's "<p><strong>Responsibilities</strong>
-    </p>") — postings built with a plain rich-text editor rarely use real
+    </p>"): postings built with a plain rich-text editor rarely use real
     heading tags for this."""
     marked = _HEADING_TAG_RE.sub(lambda m: f"\n\n### {m.group(1)}\n", markup)
     marked = _BOLD_PARAGRAPH_RE.sub(lambda m: f"\n\n### {m.group(1)}\n", marked)
@@ -95,11 +95,11 @@ def join_sections(sections: list[tuple[str | None, str]]) -> str:
     description/basic_qualifications/preferred_qualifications, each its
     own API field with no heading markup of its own) into one jd_text,
     labeling each with a real "### Heading" marker line built from the
-    field's own known purpose — more reliable than heuristically
+    field's own known purpose, more reliable than heuristically
     detecting a heading that was never there to begin with, since the API
     itself already told us what each part is. `sections` is a list of
     (label_or_None, raw_html_or_text) pairs; a None label means the part
-    has no natural heading of its own (used sparingly — most callers of
+    has no natural heading of its own (used sparingly; most callers of
     this function have real labels for every part, that's the point)."""
     parts: list[str] = []
     for label, raw in sections:
@@ -112,51 +112,51 @@ def join_sections(sections: list[tuple[str | None, str]]) -> str:
 
 # --- Pay extraction ----------------------------------------------------
 #
-# Only Ashby ships structured compensation data (min/max/currency/interval
-# — see fetch handling in jobs.ts, which uses that directly rather than
+# Only Ashby ships structured compensation data (min/max/currency/interval;
+# see fetch handling in jobs.ts, which uses that directly rather than
 # this regex path). Every other source only ever states pay as free text
 # somewhere in the description ("$117,300.00 - $160,000.00 USD annually",
 # "$45.00 - $65.00 USD hourly"), so this is a best-effort text-mining
 # extractor, same honesty posture as the "N people applied" social-proof
-# counter — a signal to show, not a guaranteed-accurate structured field.
+# counter: a signal to show, not a guaranteed-accurate structured field.
 
 _NUM = r"\d{1,3}(?:,\d{3})*(?:\.\d+)?K?"
 _CURRENCY_CODE = r"USD|CAD|GBP|EUR|AUD"
 # Two range shapes, tried in order: "$X - $Y" (dollar sign leads), and
-# "X - Y USD" (bare numbers, currency code trails instead) — confirmed
+# "X - Y USD" (bare numbers, currency code trails instead); confirmed
 # live as a real, common shape (Amazon's own postings: "117,300.00 -
 # 160,000.00 USD annually", no $ anywhere). The trailing-currency-code
 # requirement on the second shape is deliberate: bare numbers with a dash
 # between them are everywhere in a job posting (dates, distances, version
 # ranges) and would be far too risky to treat as pay without it.
-# Global variants of the same two range shapes — extract_pay scans for
+# Global variants of the same two range shapes: extract_pay scans for
 # EVERY match in the document, not just the first, since real multi-
 # location postings (pay-transparency compliance boilerplate, confirmed
 # live on Okta/Brex postings) state a genuinely different range per
 # location, e.g. Okta: "...for candidates located in Canada is between:
-# $116,000 — $159,500 CAD", stated as a second, separate range after the
+# $116,000 - $159,500 CAD", stated as a second, separate range after the
 # US one earlier in the same posting.
 # A per-number interval tag ("/hr", "/yr", etc.) attached directly to
-# EITHER side of the range — confirmed live as a real, common shape
+# EITHER side of the range; confirmed live as a real, common shape
 # (Twilio: "$30.09/hr - $37.61/hr", the tag repeated on both numbers,
 # not stated once after the range the way "$45 - $65 USD hourly" does).
-# Captured (not just consumed) so it can decide the interval directly —
+# Captured (not just consumed) so it can decide the interval directly:
 # more reliable than the forward/magnitude fallbacks below, and the only
 # way to detect it at all here, since once consumed inside the match it's
 # no longer sitting in the text *after* match.end() for _detect_interval
 # to find.
 _INLINE_INTERVAL_TAG = r"(?:/\s*(hr|hour|hourly|yr|year|annum))?"
 _PAY_RANGE_DOLLAR_RE = re.compile(
-    rf"\$\s?({_NUM}){_INLINE_INTERVAL_TAG}\s*(?:-|–|—|to)\s*\$?\s?({_NUM}){_INLINE_INTERVAL_TAG}", re.IGNORECASE
+    rf"\$\s?({_NUM}){_INLINE_INTERVAL_TAG}\s*(?:-|–|\u2014|to)\s*\$?\s?({_NUM}){_INLINE_INTERVAL_TAG}", re.IGNORECASE
 )
-_PAY_RANGE_CODE_RE = re.compile(rf"({_NUM})\s*(?:-|–|—|to)\s*({_NUM})\s*(?:{_CURRENCY_CODE})\b", re.IGNORECASE)
+_PAY_RANGE_CODE_RE = re.compile(rf"({_NUM})\s*(?:-|–|\u2014|to)\s*({_NUM})\s*(?:{_CURRENCY_CODE})\b", re.IGNORECASE)
 _HOURLY_WORD_RE = re.compile(r"\b(hourly|hour|hr)\b|/\s*hr\b|per\s+hour", re.IGNORECASE)
 _YEARLY_WORD_RE = re.compile(r"\b(yearly|annual(?:ly)?|year|yr)\b|/\s*yr\b|per\s+year", re.IGNORECASE)
 _CONTEXT_WINDOW = 40
 # Looks BACKWARD from a matched range for the location phrase real
-# pay-transparency boilerplate states right before the number — "for
+# pay-transparency boilerplate states right before the number: "for
 # candidates located in Canada is between:", "and for SLC it is"
-# (Okta/Brex), "Based in Colorado... :" (Twilio, confirmed live — hence
+# (Okta/Brex), "Based in Colorado... :" (Twilio, confirmed live; hence
 # re.IGNORECASE here: a bullet-list item capitalizes "Based" at its own
 # start, not just mid-sentence "based in"). Captures up to the first
 # natural stop (comma, parenthesis, "is"/"are"/"it") so a long qualifier
@@ -187,7 +187,7 @@ def _format_amount(value: float) -> str:
 
 def _detect_interval(text: str, end_pos: int) -> str | None:
     """Looks for an explicit 'hourly'/'annually'-type word shortly after
-    the matched amount — the actual interval marker in real postings sits
+    the matched amount: the actual interval marker in real postings sits
     right next to the number ("... USD annually"), never far from it."""
     window = text[end_pos : end_pos + _CONTEXT_WINDOW]
     if _HOURLY_WORD_RE.search(window):
@@ -198,12 +198,12 @@ def _detect_interval(text: str, end_pos: int) -> str | None:
 
 
 def _location_label(text: str, start_pos: int) -> str | None:
-    """Best-effort location tag for one matched range — see
+    """Best-effort location tag for one matched range: see
     _LOCATION_LABEL_RE's own comment. Only meaningful once a posting has
     already been confirmed to state more than one distinct range; a
     single-range posting never needs a label at all."""
     window = text[max(0, start_pos - _LOCATION_LABEL_WINDOW) : start_pos]
-    # Scoped to the CURRENT bullet only, if inside one — confirmed live
+    # Scoped to the CURRENT bullet only, if inside one; confirmed live
     # as a real bug otherwise: a later bullet whose own location phrase
     # didn't match (e.g. multi-word names the regex still misses) fell
     # back to an EARLIER bullet's stale match still sitting in the window
@@ -224,11 +224,11 @@ def _tag_to_interval(tag: str | None) -> str | None:
 
 def _find_all_ranges(text: str) -> list[tuple[int, int, float, float, str | None]]:
     """Every non-overlapping range match in the document, dollar-prefixed
-    or currency-code-suffixed, as (start, end, low, high, inline_interval)
-    — start/end of the OUTER match span, used both for interval detection
+    or currency-code-suffixed, as (start, end, low, high, inline_interval):
+    start/end of the OUTER match span, used both for interval detection
     (forward) and location-label detection (backward). inline_interval
     comes from a "/hr"-style tag attached directly to either number (see
-    _INLINE_INTERVAL_TAG) when present — only _PAY_RANGE_DOLLAR_RE has
+    _INLINE_INTERVAL_TAG) when present; only _PAY_RANGE_DOLLAR_RE has
     this capability; _PAY_RANGE_CODE_RE's groups are just (low, high)."""
     spans: list[tuple[int, int, float, float, str | None]] = []
     for m in _PAY_RANGE_DOLLAR_RE.finditer(text):
@@ -243,24 +243,24 @@ def _find_all_ranges(text: str) -> list[tuple[int, int, float, float, str | None
 def extract_pay(text: str) -> str | None:
     """Best-effort "$X–$Y/yr" or "$X–$Y/hr" pay line(s) mined from a
     posting's free text. Only ever matches a RANGE (two numbers with a
-    dash) — deliberately never a single dollar amount. A lone number
+    dash): deliberately never a single dollar amount. A lone number
     turned out live, twice, to latch onto real but unrelated dollar
     mentions with an interval word coincidentally nearby ("revenue
     targets >$1M per year" as a job requirement; "a $1,500 USD
-    learning stipend... per year" as a benefit) — a plausibility floor on
+    learning stipend... per year" as a benefit); a plausibility floor on
     the number wasn't enough, since both looked like perfectly reasonable
     amounts on their own. Pay-transparency laws (CA/CO/NY/WA and others)
     have also made stating an actual range the norm for real compensation
     disclosure, while stipends/bonuses/targets are almost always single
-    numbers — so restricting to ranges trades a modest amount of recall
+    numbers, so restricting to ranges trades a modest amount of recall
     (postings that state one flat number) for meaningfully higher
     precision (never confidently mislabeling a stipend as a salary).
 
     Scans the WHOLE document for every distinct range, not just the
-    first — confirmed live that real multi-location postings state a
+    first; confirmed live that real multi-location postings state a
     genuinely different range per location (Okta: separate US/Canada pay-
     range blocks; Brex: "...is $185,320 - $231,650 and for SLC it is
-    $164,000 - $205,000" inline) — returning only the first would
+    $164,000 - $205,000" inline); returning only the first would
     silently show one location's number as if it applied everywhere.
     When 2+ distinct ranges are found, each gets its own best-effort
     location label (see _location_label) and they're joined with " · ";

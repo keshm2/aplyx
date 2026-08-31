@@ -1,7 +1,7 @@
 # Setup
 
 The live configs (`src/config/targets.json`, `src/config/discord_config.json`) are
-gitignored — they hold personal data and secrets. Start from the shipped
+gitignored: they hold personal data and secrets. Start from the shipped
 examples before running the agent.
 
 > **Build:** this document ships with release `1.0.1b`. Full release
@@ -10,10 +10,10 @@ examples before running the agent.
 ## 0. Universal install (recommended)
 
 One command from a fresh GitHub download detects your coding agent,
-builds the terminal UI + browser extension, and — the recommended way
-to use aplyx day to day — offers to install the native **desktop
-app** too (§0.1). Your profile, job targets, and resumes are filled
-in by a guided wizard the first time you open the app — see section 1.
+builds the terminal UI + browser extension, and offers to install the
+native **desktop app** too, the recommended way to use aplyx day to
+day (§0.1). Your profile, job targets, and resumes are filled
+in by a guided wizard the first time you open the app; see section 1.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/keshm2/aplyx/main/src/scripts/install/install.sh | bash
@@ -22,7 +22,7 @@ curl -fsSL https://raw.githubusercontent.com/keshm2/aplyx/main/src/scripts/insta
 bash src/scripts/install/install.sh
 
 # Or via npm (installs the `aplyx` TUI command; on first run with no
-# core checkout found it installs one automatically — opt out with
+# core checkout found it installs one automatically; opt out with
 # --no-core or APLYX_SKIP_CORE=1):
 npm install -g @keshm/aplyx
 ```
@@ -39,7 +39,7 @@ GitHub `main`'s `VERSION` file and self-updates on a newer build
 (fail-open); `src/config/`/`data/`/`logs/` are never touched. Run one
 manually with `aplyx update`, or opt out with `APLYX_AUTO_UPDATE=0`.
 The installer also creates a `data/resumes/` folder for your base
-resumes — everything you enter (wizard, Settings, or by hand) stays in
+resumes; everything you enter (wizard, Settings, or by hand) stays in
 gitignored local files and never leaves your machine.
 
 **Release archive:**
@@ -52,8 +52,8 @@ curl -L -o aplyx-1.0.1b.zip https://github.com/keshm2/aplyx/archive/refs/tags/v1
 ### 0.1 Desktop app (recommended)
 
 Near the end of the install, the installer offers to also install a
-native desktop app (macOS/Linux/Windows) alongside the terminal UI —
-the recommended way to run aplyx day to day, with Jobs, Review,
+native desktop app (macOS/Linux/Windows) alongside the terminal UI
+(the recommended way to run aplyx day to day), with Jobs, Review,
 Status, Documents/Resumes, and Settings screens. It defaults to yes
 when the installer can prompt you (a non-interactive `curl | bash`
 install skips it, to avoid silently turning a few-second install into
@@ -66,16 +66,16 @@ powershell -ExecutionPolicy Bypass -File src\scripts\install\install_desktop.ps1
 ```
 
 It first checks this checkout's matching GitHub release for a prebuilt
-bundle (built once on CI — `.github/workflows/desktop-release.yml`) and
+bundle (built once on CI: `.github/workflows/desktop-release.yml`) and
 just downloads + installs that: no Rust, no Xcode Command Line Tools, no
-Visual C++ Build Tools, nothing beyond curl — the same as installing any
+Visual C++ Build Tools, nothing beyond curl, the same as installing any
 other compiled app. Only falls back to compiling from source (which
 *does* need those, and a first build can take several minutes) if no
 matching prebuilt bundle exists yet, e.g. running from an unreleased
 checkout. Installs to `/Applications` (macOS, falling back to
 `~/Applications` if that's not writable), via `apt`/`dnf`/an AppImage +
 app-launcher entry (Linux), or a per-user installer with no admin prompt
-(Windows). A failure here never affects the TUI — retry any time with
+(Windows). A failure here never affects the TUI. Retry any time with
 the same command. `aplyx uninstall` removes it too, if present.
 
 **Uninstall.** `aplyx uninstall` (or `bash src/scripts/install/uninstall.sh`)
@@ -84,23 +84,23 @@ the install directory (`src/config/`, `data/`, resumes); `--keep-data` keeps it,
 `--yes` skips the prompt. npm installs also run
 `npm uninstall -g @keshm/aplyx`.
 
-aplyx runs under your choice of coding agent — **opencode**,
+aplyx runs under your choice of coding agent: **opencode**,
 **Claude Code** (full), **Codex CLI**, and **GitHub Copilot CLI**
-(degraded — see §2.8). The installer detects what you have and asks
+(degraded; see §2.8). The installer detects what you have and asks
 which you'd prefer if more than one is present, writing the choice to
 `src/config/harness.json` (change any time by editing that file or setting
 `APLYX_HARNESS=opencode|claude|codex|copilot`). Then set up your
 profile (section 1, or just run `aplyx`) and start a run with
 `bash src/scripts/runtime/run_job_agent.sh`. Per-harness specifics are in
 §2.8; every harness's agent definitions are generated from `src/agents/`
-(see `src/agents/README.md`) — edit sources there, never the generated
+(see `src/agents/README.md`); edit sources there, never the generated
 files.
 
 ## 1. Set up your profile, job targets, and resumes
 
 The easiest path: run `aplyx`. A fresh install auto-launches a guided
 wizard covering personal info, work eligibility, job targets (roles,
-locations, target companies), and resumes — each answer saves as you
+locations, target companies), and resumes; each answer saves as you
 go, so quitting partway through and relaunching resumes right where
 you left off, at the same completion percentage. Reopen it any time
 with `aplyx setup`. (The wizard creates `src/config/targets.json` from
@@ -118,13 +118,13 @@ hand-editing `src/config/targets.json` directly? `src/config/targets.example.jso
 carries an inert `_help` object with doc strings for the less obvious
 fields, right next to the fields themselves.
 
-**Resumes.** One generic resume, `data/resumes/resume.json` — not a set
-of category-named files. Manage it from the desktop app's **Resume**
+**Resumes.** One generic resume, `data/resumes/resume.json`, rather
+than a set of category-named files. Manage it from the desktop app's **Resume**
 screen: add/edit/delete jobs, projects, education, skills, and
 certifications directly, or use **"Import from an existing resume"** to
 pull in content from an older `base_resume_*.md` file if you have one
 from before this model existed. `@resume-tailor` reads this one file and
-composes a tailored copy — reordering, rewriting, and selecting bullets —
+composes a tailored copy (reordering, rewriting, and selecting bullets)
 per application; there's no category to pick or rename anymore.
 `@resume-tailor`'s tailored output is rendered straight into a one-page
 PDF (`src/scripts/state/render_resume_pdf.py`, Playwright-driven, a
@@ -134,21 +134,21 @@ and that's what gets attached to the application. The same screen has an
 your own use.
 
 The TUI's **Resumes** screen (`aplyx resumes`, or press `7`) is the same
-editor as the desktop app's, adapted for the terminal — drill into a
+editor as the desktop app's, adapted for the terminal: drill into a
 section (↑↓, enter), add/edit/delete/reorder entries and bullets (`a`/
 enter/`x`/`[`/`]`), same **Import from an existing resume** and
 **Export PDF** actions. Both surfaces read and write the exact same
 `data/resumes/resume.json`, so editing in one is immediately visible in
 the other. The one thing still resolved dynamically by name/description
 (`src/scripts/state/resolve_resume.py`) is the optional cover-letter
-voice/structure reference file (`base_cover_letter.md` by convention) —
+voice/structure reference file (`base_cover_letter.md` by convention);
 `cover-letter-tailor.md` reads whichever file matches, and simply writes
 without a reference if none exists.
 
 **Discord is optional.** The installer asks whether you want status
 updates; declining leaves every outcome local. Opting in, choose one
 webhook for everything or a separate one per outcome (success / needs
-review / failed / summary — each needs its own webhook link). Set it
+review / failed / summary; each needs its own webhook link). Set it
 up during install, or later from the Config tab's Discord section.
 
 ## 2. Validate
@@ -176,19 +176,19 @@ write, a second run does nothing); prints a visible `WARNING` so
 you're not surprised. Run directly with
 `python3 src/scripts/validate/seed_vetted_slugs.py`.
 
-**Provenance.** The vetted lists are trust-bearing and project-owned —
-every slug hand-verified against the public board APIs on the
+**Provenance.** The vetted lists are trust-bearing and project-owned:
+every slug is hand-verified against the public board APIs on the
 `verified_at` date in each file. Additions are code changes reviewed
 in a PR; nothing is pulled remotely at run time.
 
 ### 2.2 TUI overlay (optional)
 
 A terminal UI over the same configs and helpers, in `src/tui/`. Never
-writes state JSON directly — every mutation goes through the repo's
+writes state JSON directly; every mutation goes through the repo's
 helpers.
 
 ```bash
-npm install --workspace=src/core && npm run build:core   # from the repo root — src/tui imports @aplyx/core's built dist/, which doesn't exist yet on a fresh clone
+npm install --workspace=src/core && npm run build:core   # from the repo root; src/tui imports @aplyx/core's built dist/, which doesn't exist yet on a fresh clone
 cd src/tui
 npm install
 npm run build
@@ -210,10 +210,10 @@ automatic mode), `Esc` stops typing (never quits); quit with `q`
 **Modes.** Always launches in **manual mode**; `m` toggles to
 automatic (shown in the shell).
 
-- **Manual** — Search screen fetches live postings, filters by typed
+- **Manual**: Search screen fetches live postings, filters by typed
   query, opens a posting in the browser, runs the fit gate, saves to
   the review queue (the only state write).
-- **Automatic** — agent-driven: before a run starts you set this
+- **Automatic**, agent-driven: before a run starts you set this
   cycle's cap (1–25, `APLYX_SESSION_CAP`), which can only lower, never
   raise, the 25-per-session max (`run_job_agent.sh` clamps/falls back
   accordingly); tier-colored by cost, with an animated **MAX** warning
@@ -251,10 +251,10 @@ failed=<n> skipped_unfit=<n>` marker plus `skipped_overlap`/
 `stale_lock_reclaimed`/`FAILED`); `logs/session_<timestamp>.log` (full
 transcript, newest 30 kept).
 
-The 25-per-session cap is unchanged — the schedule changes how often
+The 25-per-session cap is unchanged; the schedule changes how often
 runs happen, never how much one run may apply.
 
-## 2.6 Browser extension — hybrid mode (optional)
+## 2.6 Browser extension: hybrid mode (optional)
 
 A Chrome (Manifest V3) extension for user-driven applications: you
 browse postings yourself; the extension autofills forms from your
@@ -283,14 +283,14 @@ First bridge start generates `src/config/extension_bridge.json`
 **Options** page, paste the token, and click **Test connection**.
 
 **Use it:** open a real application form on Greenhouse, Lever, Ashby,
-or Workday — not a listing or search page, an actual form — and aplyx
+or Workday (not a listing or search page, an actual form) and aplyx
 notices it and asks, top-center: **"Autofill this application with
 aplyx?"**. It stays invisible everywhere else, including listing pages
 on those same sites. Say yes (or "Not now," which still reveals the
 rest without autofilling) to get to: **Fit check** (verdict + score +
 duplicate warning), **Autofill** (fills mapped empty fields, amber for
 unanswerable ones, never overwrites), **Save for review**
-(`needs_review` entry), and **I submitted this — record it** (`applied`
+(`needs_review` entry), and **I submitted this: record it** (`applied`
 outcome, dedup-guarded, syncs the Sheet tracker). "Bridge unreachable"
 means the bridge isn't running. See `aplyx.app/extension.html` for what
 this looks like.
@@ -303,32 +303,32 @@ For two people on one machine, use **two separate clones** (e.g.
 `~/aplyx-alice`, `~/aplyx-bob`), pointing the TUI at the right one
 with `APLYX_ROOT`. Caveat: the launchd schedule (§2.5) uses the fixed
 label `com.aplyx.job-agent`, so only **one** clone per macOS user
-account can have it installed — run the second on demand or under
-another OS user account. Profile-based multi-user is deferred — see
+account can have it installed; run the second on demand or under
+another OS user account. Profile-based multi-user is deferred; see
 `AGENTS.md`'s "Single-user deployment" section.
 
 ## 2.8 Per-agent quickstarts
 
 Pick one of the four agents, install it, run
-`bash src/scripts/install/install.sh` — the installer detects it and
+`bash src/scripts/install/install.sh`; the installer detects it and
 writes `src/config/harness.json` (asking if more than one is present).
 Change any time via that file or
 `APLYX_HARNESS=opencode|claude|codex|copilot`. Business logic is
-identical under every agent — only the thin adapter in
+identical under every agent; only the thin adapter in
 `src/scripts/runtime/run_job_agent.sh` differs; see `AGENTS.md`'s "Harness
 capability matrix" for the degraded paths.
 
-- **opencode** (full) — install per opencode.ai. Agents in
+- **opencode** (full): install per opencode.ai. Agents in
   `.opencode/agents/`, models from `opencode.jsonc`. Runs `opencode run
   --agent job-scraper`.
-- **Claude Code** (full) — install per claude.com/claude-code. Agents
+- **Claude Code** (full): install per claude.com/claude-code. Agents
   in `.claude/agents/`, Playwright MCP from `.mcp.json`. Headless runs
   need pre-approved `.claude/settings.json` permissions (installer
   offers to create it, asks first). Runs `claude -p`.
-- **Codex CLI** / **GitHub Copilot CLI** (both degraded) — install per
+- **Codex CLI** / **GitHub Copilot CLI** (both degraded): install per
   developers.openai.com/codex/cli / docs.github.com/copilot. Both read
   `AGENTS.md` natively with no subagent registry (roles run inline
-  from `src/agents/bodies/`) and no browser automation by default —
+  from `src/agents/bodies/`) and no browser automation by default;
   API-fed boards only, browser-only applications route to review.
   Codex needs a `~/.codex/config.toml` sandbox policy (e.g.
   workspace-write) to run `src/scripts/` (runs `codex exec`); Copilot's
@@ -353,8 +353,8 @@ python3 src/scripts/validate/run_conformance.py --harness all   # + installed CL
 | Deterministic core (13 checks) | PASS 13/13 | 2026-07-13 |
 | Harness: opencode | PASS | 2026-07-13 |
 | Harness: Claude Code | PASS | 2026-07-13 |
-| Harness: Codex CLI | PENDING — CLI not installed on the verification machine | — |
-| Harness: Copilot CLI | PENDING — CLI not installed on the verification machine | — |
+| Harness: Codex CLI | PENDING: CLI not installed on the verification machine | N/A |
+| Harness: Copilot CLI | PENDING: CLI not installed on the verification machine | N/A |
 
 ## 2.9 Settings screen (TUI Config tab)
 

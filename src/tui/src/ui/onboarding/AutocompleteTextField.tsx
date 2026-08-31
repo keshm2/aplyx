@@ -7,7 +7,7 @@ import { InlineTextInput } from "../TextInput.js";
  * Single-select field with live suggestions (home location). Reuses the
  * focused-row list convention from WelcomeScreen.tsx/SearchScreen.tsx
  * (`>`/`[x]` marker, theme.accent on focus) for the suggestion list.
- * Freehand text with no match is still accepted on Enter — handled by
+ * Freehand text with no match is still accepted on Enter; handled by
  * the caller (OnboardingWizard.tsx), not this component.
  */
 export function AutocompleteTextField({

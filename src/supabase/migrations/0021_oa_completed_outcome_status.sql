@@ -1,10 +1,10 @@
 -- Adds "oa_completed" (assessment submitted/completed, distinct from
 -- "oa_sent" = assessment invitation received but not yet done) to the
--- outcome_status taxonomy — operator-requested (2026-08-21) so the
+-- outcome_status taxonomy, operator-requested (2026-08-21) so the
 -- classifier can distinguish "IBM assessment still waiting" (oa_sent)
 -- from "Roblox assessment I completed" (oa_completed), not just lump
--- both under one status. Non-terminal, same as oa_sent/interview_requested
--- — applied_jobs_guard_outcome_transition (0007) only locks
+-- both under one status. Non-terminal, same as oa_sent/interview_requested,
+-- since applied_jobs_guard_outcome_transition (0007) only locks
 -- rejected/offer/withdrawn, so this can still move forward from here.
 
 -- Finds and drops whatever Postgres actually named the existing check

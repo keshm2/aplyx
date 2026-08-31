@@ -3,26 +3,26 @@
   display: flex;
 }
 
-/* Only child now — the old persistent sidebar rail was replaced with
+/* Only child now: the old persistent sidebar rail was replaced with
  * TopBar's NavMenu dropdown, so every screen gets the window's full width
  * instead of a fixed reserved column. */
 .shell-main {
   flex: 1;
   min-width: 0;
   overflow-y: auto;
-  /* space-7 (3rem) top clearance still covers the macOS traffic lights —
+  /* space-7 (3rem) top clearance still covers the macOS traffic lights:
    * same reasoning the old sidebar's own top padding had (transparent
    * title bar, tauri.conf.json, reserves no space of its own). */
   padding: var(--space-7) var(--space-6);
 }
 
 /* Content itself still centers on a sensible reading/working width rather
- * than stretching edge-to-edge on a wide window — the space the sidebar
+ * than stretching edge-to-edge on a wide window: the space the sidebar
  * used to occupy is given back to whichever screen wants it (Jobs/Review/
  * Status/Documents' list+detail layouts have no max-width and use it),
  * not turned into empty margin either side of a narrow column on every
  * other screen (Home/Settings/Profile/Resumes center within this, each
- * with their own narrower max-width — see those files). */
+ * with their own narrower max-width, see those files). */
 .shell-route-frame {
   min-height: 60vh;
   max-width: 90rem;
@@ -58,7 +58,7 @@
 }
 
 /* The "in" phase uses --ease-glide (a longer deceleration tail than
- * --ease-out) — this is the moment that should read as arriving/settling
+ * --ease-out): this is the moment that should read as arriving/settling
  * into place, not just fading in; the "out" phase stays on the snappier
  * --ease-out since leaving should feel immediate. */
 .shell-route-in {
@@ -67,7 +67,7 @@
 
 /* Holds the main column's height while a lazy route chunk loads so the
  * layout doesn't collapse/flash blank before the screen fades in. Quiet
- * by design — no spinner, since per-route chunks are small (1.7–10KB)
+ * by design: no spinner, since per-route chunks are small (1.7–10KB)
  * and a spinner would itself flash. */
 .shell-route-fallback {
   min-height: 60vh;

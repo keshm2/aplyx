@@ -7,7 +7,7 @@
 --
 -- Deliberately plain text, not a parsed/structured deadline: extraction
 -- is regex-based (same deterministic, no-LLM approach as classify()
--- itself) against wildly inconsistent phrasing across companies —
+-- itself) against wildly inconsistent phrasing across companies;
 -- storing the matched phrase verbatim is honest about what this is
 -- (a best-effort match, same spirit as outcome_source), where computing
 -- and storing a real timestamp would imply a confidence the extraction

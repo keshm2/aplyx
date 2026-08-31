@@ -1,4 +1,4 @@
-/* Wraps every <section> on Profile/Settings — those screens used to be
+/* Wraps every <section> on Profile/Settings: those screens used to be
  * bare headings + fields floating directly on --ground with no container
  * at all, which is exactly the "plain" a settings-style screen shouldn't
  * be next to the rest of the app's card-based surfaces. */
@@ -46,7 +46,7 @@
   gap: var(--space-1);
 }
 
-/* A quiet label for a section below a page's main heading — smaller,
+/* A quiet label for a section below a page's main heading, smaller,
  * uppercase, letter-spaced, muted: reads as "here's a section" rather
  * than a second headline competing with the page title. Shared (not
  * scoped to one screen's own stylesheet) since it's used across Home and
@@ -225,7 +225,7 @@
 /* Settings row actions (Sign out, Connect inbox, Change folder, Reopen
  * setup, ...) used to borrow .wizard-back, a ghost/ transparent style built
  * for a de-emphasized "Back" sitting next to WizardShell's own filled
- * accent "Next" — reused alone here, with no accent button beside it for
+ * accent "Next"; reused alone here, with no accent button beside it for
  * contrast, it just read as plain text with no visible affordance. This is
  * each row's actual primary action, so it gets a real bordered button. */
 .settings-action-btn {
@@ -256,7 +256,7 @@
 }
 
 /* For actions that end/revoke something (Sign out, Disconnect) rather than
- * start or continue it — same shape, danger-tinted border/text so it reads
+ * start or continue it, same shape, danger-tinted border/text so it reads
  * as a different kind of action at a glance, without the heavier weight of
  * a fully filled danger button for something this reversible. */
 .settings-action-btn-danger {

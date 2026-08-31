@@ -1,5 +1,5 @@
 #!/bin/bash
-# scheduler.sh — schedule management (Unix shim).
+# scheduler.sh: schedule management (Unix shim).
 #
 # Logic now lives in src/scripts/runtime/scheduler.py (launchd on macOS, schtasks on
 # Windows, systemd note on Linux). This shim keeps `bash src/scripts/runtime/scheduler.sh

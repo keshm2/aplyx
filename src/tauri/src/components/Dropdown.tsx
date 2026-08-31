@@ -32,13 +32,13 @@ function CheckIcon() {
 /** A single-select listbox: button trigger + animated popover panel.
  *  Swaps in for a wrapping grid of toggle buttons once a picker has too
  *  many options to compare at a glance (6, in Settings' Theme family and
- *  Font pickers) — same mount-once/outside-click/Escape mechanics as
+ *  Font pickers), same mount-once/outside-click/Escape mechanics as
  *  NotificationBell.tsx's dropdown, so "a button opens a floating panel"
  *  reads as one visual language across the app rather than two. */
 export function Dropdown<T extends string>({ value, options, onChange, label }: DropdownProps<T>) {
   const [open, setOpen] = useState(false);
   // Never rendered until the first open, same reasoning as
-  // NotificationBell's `everOpened` — a session that never opens this
+  // NotificationBell's `everOpened`, a session that never opens this
   // picker pays nothing, and once opened, closing gets a real exit
   // transition instead of an instant unmount.
   const [everOpened, setEverOpened] = useState(false);

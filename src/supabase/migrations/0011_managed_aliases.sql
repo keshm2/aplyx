@@ -1,4 +1,4 @@
--- managed_aliases — mail.aplyx.app aliases for account-required apply flows.
+-- managed_aliases: mail.aplyx.app aliases for account-required apply flows.
 --
 -- Each row is one alias at mail.aplyx.app that a hosted user can use
 -- as the contact email when applying to an account-required ATS
@@ -6,7 +6,7 @@
 -- src/core/src/atsRegistry.ts requiresAccount()). Employer replies to
 -- that alias land in inbound_emails (migration 0013), so outcome
 -- tracking works without the user forwarding mail from their personal
--- inbox — the hosted-only IMAP path (0007-0009) reads the user's real
+-- inbox; the hosted-only IMAP path (0007-0009) reads the user's real
 -- inbox; this is the managed-alias counterpart for applications the
 -- user submitted through aplyx using an alias, not their real address.
 --
@@ -19,12 +19,12 @@
 -- privacy / per-application filtering of replies).
 --
 -- `alias` is the local part (before @mail.aplyx.app). Globally unique
--- across all users — the MX record on mail.aplyx.app catches mail to
+-- across all users: the MX record on mail.aplyx.app catches mail to
 -- any address at that subdomain, so the only real work is this shared
 -- registry making aliases globally unique regardless of which user
 -- claims one. Uniqueness is enforced by the primary key itself (a
 -- duplicate insert comes back as a real 23505 conflict), not an
--- application-side check-then-insert that could race — same pattern
+-- application-side check-then-insert that could race, same pattern
 -- the dropped mail_usernames used.
 --
 -- `family` is the ATS family this alias exists for (greenhouse/lever/
@@ -32,7 +32,7 @@
 -- still grouped by family so an account-required flow can re-use an
 -- existing alias instead of minting a new one every time.
 --
--- `forwarding_to` is the user's real email — never connected to
+-- `forwarding_to` is the user's real email, never connected to
 -- directly by aplyx (the hosted IMAP worker reads the user's own
 -- inbox separately via 0007's email_tracking_config). Stored purely so
 -- the UI can show which personal inbox an alias was associated with,
@@ -40,7 +40,7 @@
 -- without re-prompting.
 --
 -- `status` is 'active' (in use, accepting replies) or 'disabled'
--- (retired — replies still land in inbound_emails but the alias won't
+-- (retired: replies still land in inbound_emails but the alias won't
 -- be handed out for new applications). Never deleted, so historical
 -- apply_runs.alias_id (0011) stays resolvable.
 

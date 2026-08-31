@@ -1,8 +1,8 @@
 // Local-mode IPC: the frontend calls these narrow, typed commands via
 // invoke() rather than being granted a general shell-execute permission.
 // Each command shells out (Rust-side only) to the shared @aplyx/core
-// bridge CLI (src/core/src/bridge.ts) over stdio — a spawned
-// subprocess, not a localhost server — reusing the exact same profile/state
+// bridge CLI (src/core/src/bridge.ts) over stdio (a spawned
+// subprocess, not a localhost server), reusing the exact same profile/state
 // logic the Ink TUI already uses. Hosted mode bypasses this entirely: the
 // frontend talks to Supabase directly via @supabase/supabase-js.
 use serde_json::Value;
@@ -24,7 +24,7 @@ const WORKDAY_KEYCHAIN_SERVICE: &str = "com.aplyx.workday";
 ///
 /// A prebuilt release (see .github/workflows/desktop-release.yml, which
 /// compiles on a GitHub-hosted CI runner and installers download the
-/// result) bakes `env!("CARGO_MANIFEST_DIR")` in at *compile* time — on
+/// result) bakes `env!("CARGO_MANIFEST_DIR")` in at *compile* time: on
 /// the CI runner that's something like
 /// `/Users/runner/work/aplyx/aplyx/src/tauri/src-tauri`, a path that only
 /// ever exists on the machine that ran `cargo build`. Every end user
@@ -39,7 +39,7 @@ const WORKDAY_KEYCHAIN_SERVICE: &str = "com.aplyx.workday";
 fn bridge_script_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     // The path never changes within a process lifetime, but every bridge
     // command re-probed the filesystem (two exists() checks, and under
-    // tauri dev a resource-dir resolution) on every call — once per
+    // tauri dev a resource-dir resolution) on every call, once per
     // search, fit, save, profile read, etc. Cache it after the first hit.
     static CACHE: OnceLock<PathBuf> = OnceLock::new();
     if let Some(p) = CACHE.get() {
@@ -51,16 +51,16 @@ fn bridge_script_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 }
 
 /// `PathBuf::canonicalize()` on Windows always returns an extended-length
-/// "verbatim" path prefixed `\\?\` (from `GetFinalPathNameByHandleW` — this
+/// "verbatim" path prefixed `\\?\` (from `GetFinalPathNameByHandleW`; this
 /// is documented Windows/Rust behavior, not a bug). That prefix opts OUT of
 /// normal Win32 path processing, and several Windows APIs explicitly don't
-/// support it — `SetCurrentDirectory`/`CreateProcess`'s working-directory
+/// support it: `SetCurrentDirectory`/`CreateProcess`'s working-directory
 /// argument being one (Microsoft's own "Maximum Path Length Limitation"
 /// docs call this out by name). Using an un-stripped canonical path as a
 /// spawned process's `current_dir()` risks exactly the kind of spawn-time
 /// failure this file already exists to avoid. Canonicalizing still buys
 /// the thing we actually want (a fully resolved, unambiguous, real path
-/// with no relative components or symlink indirection) — just strip the
+/// with no relative components or symlink indirection), just strip the
 /// prefix back off before the path leaves this function, so nothing
 /// downstream has to know or care that it was ever there. No-op on
 /// non-Windows, where canonicalize() never adds this prefix.
@@ -88,7 +88,7 @@ fn bridge_script_path_uncached(app: &tauri::AppHandle) -> Result<PathBuf, String
             // with no root, etc. depending on how resource_dir() derived
             // it from current_exe()). Node's own startup does
             // fs.realpathSync() on argv[1] before any of our code runs
-            // (resolveMainPath -> toRealPath in node:internal/modules) —
+            // (resolveMainPath -> toRealPath in node:internal/modules),
             // handing it something already-canonical avoids feeding that
             // codepath anything ambiguous. A path that exists but fails to
             // canonicalize is treated as not found rather than risking a
@@ -111,21 +111,21 @@ fn bridge_script_path_uncached(app: &tauri::AppHandle) -> Result<PathBuf, String
     }
 
     Err(format!(
-        "core bridge not found in the app's bundled resources or at {} — run `npm run build:core` from the repo root",
+        "core bridge not found in the app's bundled resources or at {}; run `npm run build:core` from the repo root",
         dev_path.display()
     ))
 }
 
 /// A Finder-launched .app inherits launchd's minimal PATH
 /// (/usr/bin:/bin:/usr/sbin:/sbin), which does not include Homebrew, nvm,
-/// or Volta install locations — so `Command::new("node")` works under
+/// or Volta install locations, so `Command::new("node")` works under
 /// `tauri dev` (terminal PATH) but fails in the installed bundle. That
 /// spawn failure surfaced as the auth screen hanging on "Checking sign-in
 /// availability…" forever. Probe the common install locations before
 /// falling back to PATH lookup.
 ///
 /// Windows GUI processes (Start Menu/taskbar-launched) DO inherit the
-/// registry-derived user/machine PATH at logon, unlike launchd — but that
+/// registry-derived user/machine PATH at logon, unlike launchd, but that
 /// PATH is stale for any node install that happened after the current
 /// login session started (a very normal sequence: install Node, don't
 /// reboot, launch aplyx from the Start Menu the same session), and
@@ -135,7 +135,7 @@ fn bridge_script_path_uncached(app: &tauri::AppHandle) -> Result<PathBuf, String
 /// on inherited PATH.
 fn node_binary() -> PathBuf {
     // Probing Homebrew/Volta/nvm install paths (several exists() checks
-    // and a read_dir) on every bridge command is wasteful — the node
+    // and a read_dir) on every bridge command is wasteful: the node
     // binary doesn't move during a process lifetime. Cache the first hit.
     static CACHE: OnceLock<PathBuf> = OnceLock::new();
     if let Some(p) = CACHE.get() {
@@ -210,13 +210,13 @@ fn run_bridge(app: &tauri::AppHandle, command: &str, args: Option<Value>) -> Res
     let mut cmd = Command::new(node_binary());
     // On Windows, spawning a console subprocess (node.exe) from a GUI app
     // with no console of its own makes Windows allocate a brand-new
-    // console window for it by default — visible as a black cmd-style
+    // console window for it by default, visible as a black cmd-style
     // window flashing open and closed. std::process::Command does not
     // suppress this on its own; CREATE_NO_WINDOW is the documented way to
     // opt out. Reported live: "a bunch of command prompts that open and
     // close in the background in quick sub-second intervals" whenever a
     // screen fires several bridge calls in a row (e.g. one per profile
-    // field before the batching fix below) — window allocation isn't free
+    // field before the batching fix below), and window allocation isn't free
     // either, so this was also part of the reported per-page slowness, not
     // just the visual flashing. No-op on macOS/Linux, where a spawned
     // process never gets its own terminal window regardless.
@@ -234,8 +234,8 @@ fn run_bridge(app: &tauri::AppHandle, command: &str, args: Option<Value>) -> Res
     // path.resolve(cwd, main) before any of our code runs, so an
     // unpredictable inherited cwd is a hazard even when `script` itself is
     // a fully-qualified, canonical path. Anchoring to the script's own
-    // parent directory — guaranteed to exist, since bridge_script_path()
-    // just verified the script file itself — removes the dependency on
+    // parent directory (guaranteed to exist, since bridge_script_path()
+    // just verified the script file itself) removes the dependency on
     // ambient process state entirely.
     if let Some(parent) = script.parent() {
         cmd.current_dir(parent);
@@ -264,14 +264,14 @@ fn run_bridge(app: &tauri::AppHandle, command: &str, args: Option<Value>) -> Res
     }
 }
 
-/// A persistent `bridge.js --serve` process (see that file's header) —
+/// A persistent `bridge.js --serve` process (see that file's header),
 /// spawned lazily on the first search, kept alive for the rest of the
 /// app session instead of the normal spawn-per-command model every
 /// other bridge command still uses. Its whole reason to exist is
 /// jobCache.ts's in-memory browse-all snapshot: that state only survives
 /// between searches if the process itself does. `child` is kept so the
 /// reader thread can reap it (avoiding a zombie on Unix) once it exits,
-/// and so it can be killed explicitly on app quit — a spawned child is
+/// and so it can be killed explicitly on app quit: a spawned child is
 /// NOT killed automatically when this process exits (Rust's `Child`
 /// drop does not do that), so without this the daemon would keep
 /// running as an orphan after the app window closes.
@@ -285,8 +285,8 @@ struct SearchDaemon {
 type SearchDaemonState = Mutex<Option<Arc<SearchDaemon>>>;
 
 /// Generous relative to jobs.ts's own internal deadlines (2.2s per live
-/// source, 1.2s Postgres, 0.9s Redis — a normal worst-case search lands
-/// comfortably under 3s) — this is a last-resort ceiling for something
+/// source, 1.2s Postgres, 0.9s Redis: a normal worst-case search lands
+/// comfortably under 3s), this is a last-resort ceiling for something
 /// actually wrong (a hung/dead daemon), not a budget real searches are
 /// expected to approach. Timing out here just means falling back to the
 /// existing one-shot path, so erring generous costs nothing but a slower
@@ -326,7 +326,7 @@ fn spawn_search_daemon(app: &tauri::AppHandle) -> Result<Arc<SearchDaemon>, Stri
 
     // Reader thread: one line in, look up the pending sender for that
     // request id, hand it the result. Requests are never processed in
-    // arrival order on the write side either (see bridge.ts's serve()) —
+    // arrival order on the write side either (see bridge.ts's serve()):
     // a slow search never blocks a faster concurrent one from returning
     // first, which matters here specifically because the desktop app's
     // two-phase search fires both searchJobs() calls at once.
@@ -357,7 +357,7 @@ fn spawn_search_daemon(app: &tauri::AppHandle) -> Result<Arc<SearchDaemon>, Stri
                     let _ = sender.send(result);
                 }
             }
-            // stdout closed — the daemon process exited (crashed, or was
+            // stdout closed: the daemon process exited (crashed, or was
             // killed on app quit). Reap it so it doesn't linger as a
             // zombie, and clear out any still-pending requests so their
             // callers hit the timeout path promptly instead of waiting
@@ -370,7 +370,7 @@ fn spawn_search_daemon(app: &tauri::AppHandle) -> Result<Arc<SearchDaemon>, Stri
 
     // Drain stderr so a chatty child (e.g. the in-memory refresh loop's
     // own error logging) never blocks on a full pipe buffer. Forwarded
-    // to this process's stderr, prefixed, purely for local debugging —
+    // to this process's stderr, prefixed, purely for local debugging;
     // never parsed or acted on.
     if let Some(stderr) = stderr {
         std::thread::spawn(move || {
@@ -390,7 +390,7 @@ fn get_or_spawn_daemon(app: &tauri::AppHandle) -> Result<Arc<SearchDaemon>, Stri
     if let Some(daemon) = guard.as_ref() {
         // A previously-spawned daemon whose process has since died (see
         // the reader thread's cleanup above) still lives in this Option
-        // until replaced — detect that and respawn rather than handing
+        // until replaced; detect that and respawn rather than handing
         // back a daemon nothing will ever respond through.
         if daemon.child.lock().unwrap().try_wait().ok().flatten().is_none() {
             return Ok(Arc::clone(daemon));
@@ -402,7 +402,7 @@ fn get_or_spawn_daemon(app: &tauri::AppHandle) -> Result<Arc<SearchDaemon>, Stri
 }
 
 /// Sends one request to the persistent search daemon and waits for its
-/// response, falling back to nothing on any failure — the caller (see
+/// response, falling back to nothing on any failure: the caller (see
 /// search_jobs below) is responsible for retrying via the existing
 /// one-shot run_bridge path when this returns Err, so a daemon bug can
 /// only ever make a search as slow as it already was before this
@@ -431,7 +431,7 @@ fn send_daemon_request(app: &tauri::AppHandle, command: &str, args: Value) -> Re
     }
 }
 
-/// Best-effort — called on app exit so the daemon doesn't keep running
+/// Best-effort: called on app exit so the daemon doesn't keep running
 /// as an orphaned background process after the window closes.
 fn kill_search_daemon(app: &tauri::AppHandle) {
     if let Some(state) = app.try_state::<SearchDaemonState>() {
@@ -454,20 +454,20 @@ fn kill_search_daemon(app: &tauri::AppHandle) {
 //
 // None of this needs to be bug-free for concurrency to stay safe.
 // run_job_agent.py has its own single-flight lock (a lock directory + pid
-// file under logs/) that every surface shares — TUI, scheduler, this one
+// file under logs/) that every surface shares: TUI, scheduler, this one
 // too. See that file's acquire_lock(). Worst case if the bookkeeping here
 // is wrong: a wasted spawn that exits immediately with "skipped_overlap"
 // and does nothing. Never a real double-run.
 
 /// Pid of a run this Rust process itself started, if any. Lets start_run
 /// refuse a second concurrent launch from this window and get_run_status
-/// report it — a UX nicety, not the safety mechanism (see above).
+/// report it, a UX nicety, not the safety mechanism (see above).
 type RunProcessState = Mutex<Option<u32>>;
 
 /// Which interpreter and log directory to use for a run, resolved once per
 /// start_run via the existing Node bridge. Reuses pythonCmd()'s
 /// Playwright-aware candidate probing and logDir()'s APLYX_LOG_DIR
-/// override instead of guessing either in Rust — see bridge.ts's
+/// override instead of guessing either in Rust; see bridge.ts's
 /// "resolvePython"/"resolveLogDir" cases.
 struct RunLaunchInfo {
     py_cmd: String,
@@ -520,7 +520,7 @@ fn latest_session_log(dir: &Path) -> Option<PathBuf> {
 }
 
 /// Emits any bytes appended to `path` since `*offset`, advancing it.
-/// UTF-8-lossy on purpose — a chunk boundary can legitimately land
+/// UTF-8-lossy on purpose: a chunk boundary can legitimately land
 /// mid-character while the agent is still writing, and this is a live
 /// cosmetic tail, not something downstream parses byte-exactly.
 fn drain_tail(app: &tauri::AppHandle, path: &Path, offset: &mut u64) {
@@ -545,7 +545,7 @@ fn drain_tail(app: &tauri::AppHandle, path: &Path, offset: &mut u64) {
 
 /// Background loop for one run. Advances the log tail and watches for the
 /// child to exit, on a plain poll interval (same 500ms-class cadence the
-/// TUI's own run.ts uses) instead of blocking on child.wait() — that way
+/// TUI's own run.ts uses) instead of blocking on child.wait(), so that way
 /// both jobs share one thread and nothing else needs cross-thread access
 /// to the Child.
 fn spawn_run_watcher(
@@ -599,7 +599,7 @@ fn spawn_run_watcher(
 
 /// Sends the same "ask nicely first" signal the TUI's own stop path uses
 /// (see src/core/src/platform.ts's stopPid/stopProcessTree). POSIX gets a
-/// single SIGTERM, no escalation to SIGKILL — run_job_agent.py's own
+/// single SIGTERM, no escalation to SIGKILL: run_job_agent.py's own
 /// handler does the graceful teardown itself (kills the harness subprocess
 /// group, flushes state, releases the lock). Windows gets `taskkill /T
 /// /F`, matching stopProcessTree exactly since Windows has no softer
@@ -622,7 +622,7 @@ fn terminate_pid(pid: u32) {
 }
 
 /// Best-effort, called on app exit. Without this a live run would keep
-/// going silently after the window closes — same orphan risk as the
+/// going silently after the window closes, the same orphan risk as the
 /// search daemon, except this one is doing real work (applying to jobs),
 /// not just serving a cache. Sends the same graceful terminate_pid() an
 /// explicit Stop click would, and doesn't block app shutdown waiting for
@@ -679,7 +679,7 @@ fn start_run(app: tauri::AppHandle, root: String, session_cap: Option<String>, e
         // Never parsed, just kept around so a crash surfaces something
         // better than a bare exit code. Same reasoning as the search
         // daemon's stderr forwarding above, but retained instead of
-        // printed — this is the one piece of failure context the
+        // printed: this is the one piece of failure context the
         // frontend can actually show the user.
         let tail = Arc::clone(&stderr_tail);
         std::thread::spawn(move || {
@@ -720,7 +720,7 @@ fn get_run_status(app: tauri::AppHandle) -> Result<Value, String> {
 /// the run lock right now. Lets the desktop app show "already running
 /// elsewhere" and offer Stop instead of a Run button that would just spawn
 /// a process doomed to exit immediately via skipped_overlap. Read-only
-/// lookup through the existing bridge (see state.ts's activeRunPid) —
+/// lookup through the existing bridge (see state.ts's activeRunPid),
 /// deliberately not cached here either, matching that function's own doc
 /// comment.
 #[tauri::command]
@@ -761,12 +761,12 @@ fn write_profile_field(app: tauri::AppHandle, root: String, id: String, value: V
     )
 }
 
-/// Batched siblings of read/write_profile_field — one bridge spawn (one
+/// Batched siblings of read/write_profile_field: one bridge spawn (one
 /// node process) for a whole page of fields instead of one per field. See
 /// src/core/src/bridge.ts's matching comment for why: each of these
 /// commands is a separate `node <script>` process (run_bridge above has no
 /// long-lived bridge process to reuse), so N fields meant N concurrent
-/// cold-started processes — reported live as flashing console windows and
+/// cold-started processes, reported live as flashing console windows and
 /// multi-second page transitions on Windows, worst on the onboarding
 /// Profile step and Settings' Profile screen (which read every field up
 /// front).
@@ -901,6 +901,20 @@ fn import_resume_bytes(app: tauri::AppHandle, root: String, stem: String, base64
 }
 
 #[tauri::command]
+fn import_document_file(app: tauri::AppHandle, root: String, source_path: String, kind: String) -> Result<Value, String> {
+    run_bridge(
+        &app,
+        "importDocumentFile",
+        Some(serde_json::json!({ "root": root, "sourcePath": source_path, "kind": kind })),
+    )
+}
+
+#[tauri::command]
+fn get_document_status(app: tauri::AppHandle, root: String, kind: String) -> Result<Value, String> {
+    run_bridge(&app, "getDocumentStatus", Some(serde_json::json!({ "root": root, "kind": kind })))
+}
+
+#[tauri::command]
 fn open_extension_folder(app: tauri::AppHandle, root: String) -> Result<Value, String> {
     run_bridge(&app, "openExtensionFolder", Some(serde_json::json!({ "root": root })))
 }
@@ -936,7 +950,7 @@ fn import_master_resume_from_markdown(app: tauri::AppHandle, root: String, markd
 
 // async: this calls preview_resume.py, which makes a real Anthropic API
 // request (tailoring + humanizing a full resume can legitimately take
-// 10-60s) — same reasoning as export_resume_pdf/search_jobs above, a
+// 10-60s), same reasoning as export_resume_pdf/search_jobs above: a
 // plain fn would freeze the whole window for the call's duration.
 #[tauri::command]
 async fn preview_tailored_resume(
@@ -956,7 +970,7 @@ async fn preview_tailored_resume(
 }
 
 // async: the render loop (headless Chrome launch + up to a couple dozen
-// print-and-recount iterations in the worst case) is real blocking work —
+// print-and-recount iterations in the worst case) is real blocking work:
 // see the search_jobs comment above on why a plain fn would freeze the
 // whole window for its duration.
 #[tauri::command]
@@ -969,7 +983,7 @@ async fn export_resume_pdf(app: tauri::AppHandle, root: String, resume: Value) -
 }
 
 // `async fn` here is load-bearing, not stylistic. A plain (non-async)
-// #[tauri::command] runs ON TAURI'S MAIN THREAD — see
+// #[tauri::command] runs ON TAURI'S MAIN THREAD: see
 // https://v2.tauri.app/develop/calling-rust/: "Commands without the async
 // keyword are executed on the main thread unless defined with
 // #[tauri::command(async)]." Every command in this file used to be a
@@ -977,14 +991,14 @@ async fn export_resume_pdf(app: tauri::AppHandle, root: String, resume: Value) -
 // search_jobs's own blocking work (send_daemon_request's mpsc
 // recv_timeout, up to DAEMON_REQUEST_TIMEOUT=8s, or run_bridge's
 // synchronous subprocess `.output()` wait in the fallback path) froze
-// the entire native window — no repaint, no input, nothing — for the
+// the entire native window (no repaint, no input, nothing) for the
 // full duration of every manual job search, regardless of how fast
 // Redis/Postgres caching made the underlying fetch (jobs.ts's own
 // deadlines bound the DATA fetch; nothing bounded the IPC dispatch
 // itself running synchronously on the main thread). This also silently
 // broke JobsScreen.tsx's two-phase search: its comment assumes
 // phase1Promise/phase2Promise (two concurrent invoke("search_jobs")
-// calls) run concurrently and cap total wait at max(phase1, phase2) —
+// calls) run concurrently and cap total wait at max(phase1, phase2),
 // but two plain-fn commands can't actually run concurrently on the same
 // main thread, so they serialized instead, closer to phase1 + phase2
 // back to back. Moving the actual blocking body onto a dedicated
@@ -995,8 +1009,8 @@ async fn export_resume_pdf(app: tauri::AppHandle, root: String, resume: Value) -
 async fn search_jobs(app: tauri::AppHandle, root: String, query: String, sources: Value) -> Result<Value, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let args = serde_json::json!({ "root": root, "query": query, "sources": sources });
-        // Daemon first — its whole point is an in-memory cache that only a
-        // long-lived process can hold — falling back to the always-correct
+        // Daemon first: its whole point is an in-memory cache that only a
+        // long-lived process can hold, falling back to the always-correct
         // one-shot path on any failure (spawn error, dead process, timeout,
         // malformed response) so a daemon bug degrades to exactly today's
         // behavior rather than breaking search.
@@ -1074,17 +1088,17 @@ fn dismiss_queue_entry(app: tauri::AppHandle, root: String, entry: Value) -> Res
 // saved fill record (src/scripts/runtime/replay_fill.py) instead of a bare URL.
 // The bridge call itself returns within a few seconds (it only waits for
 // replay_fill.py to report a fast failure, then treats a still-running
-// process as launched) — the actual browser review can take as long as the
+// process as launched); the actual browser review can take as long as the
 // human needs, running detached from both the bridge subprocess and this
 // one, so run_bridge's synchronous wait here is bounded, not open-ended.
 //
-// async: bounded is not instant — this still blocks on run_bridge's
+// async: bounded is not instant; this still blocks on run_bridge's
 // synchronous subprocess `.output()` wait for however long that grace
 // window is (several seconds), and a plain (non-async) #[tauri::command]
 // runs on Tauri's main thread (see search_jobs's own comment above for the
 // full story: no repaint, no input, nothing, for the entire wait). This
 // command and trigger_single_job_apply below were missed when that fix
-// went in elsewhere — reported live as "Apply with aplyx hangs the app
+// went in elsewhere, reported live as "Apply with aplyx hangs the app
 // when clicked", which is exactly this: every click froze the window for
 // the length of the launch-grace window, even though the actual apply run
 // itself was already correctly detached and backgrounded on the Node/
@@ -1103,16 +1117,16 @@ async fn reopen_application_filled(app: tauri::AppHandle, root: String, job_id: 
     .unwrap_or_else(|e| Err(format!("reopen task panicked: {e}")))
 }
 
-// "Apply with aplyx" from the Jobs screen's manual-search results — runs
+// "Apply with aplyx" from the Jobs screen's manual-search results: runs
 // the exact same job-application agent a scheduled run does (harness,
 // job-scraper.md prompt, every AGENTS.md safety rule) for one already-
 // known job instead of the agent's own board search. Same bounded-wait
 // shape as reopen_application_filled above: the bridge call returns once
 // triggerSingleJobApply's own launch-grace window elapses (it only waits
-// to catch a fast startup failure), not once the run itself finishes —
+// to catch a fast startup failure), not once the run itself finishes;
 // a real fit-gate+tailor+apply run keeps going detached, independent of
 // this process, for as long as it takes. async for the same reason as
-// reopen_application_filled just above — see that comment.
+// reopen_application_filled just above; see that comment.
 #[tauri::command]
 async fn trigger_single_job_apply(app: tauri::AppHandle, root: String, job: Value) -> Result<Value, String> {
     tauri::async_runtime::spawn_blocking(move || {
@@ -1125,7 +1139,7 @@ async fn trigger_single_job_apply(app: tauri::AppHandle, root: String, job: Valu
 // Confirm-before-submit "Approve" (docs/hosted-auto-apply-plan.md Stage 1):
 // the agent paused with a filled-but-not-submitted form; this tells it to
 // complete the submission. Same bounded-wait + spawn_blocking shape as
-// trigger_single_job_apply above — the bridge call returns once its launch-
+// trigger_single_job_apply above: the bridge call returns once its launch-
 // grace window elapses, not once the actual submit finishes. See that
 // command's comment for the full async reasoning.
 #[tauri::command]
@@ -1174,7 +1188,7 @@ async fn approve_submit(app: tauri::AppHandle, root: String, entry: Value, workd
     .unwrap_or_else(|e| Err(format!("approve task panicked: {e}")))
 }
 
-// Reads a confirm-before-submit screenshot as a base64 data URL — the
+// Reads a confirm-before-submit screenshot as a base64 data URL; the
 // webview can't read local files directly. Same sync shape as
 // read_fill_record: a small file read that returns well within a main-
 // thread tick, no spawn_blocking needed.
@@ -1402,11 +1416,11 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        // Auth callback deep link (aplyx://auth-callback — see
+        // Auth callback deep link (aplyx://auth-callback, see
         // src/tauri/src/lib/AuthContext.tsx). Works out of the box on macOS
         // once the app is bundled+installed. On Windows/Linux, a deep-link
         // click spawns a NEW app instance with the URL as a CLI arg rather
-        // than routing into this one — combine with tauri-plugin-single-
+        // than routing into this one; combine with tauri-plugin-single-
         // instance before shipping cross-platform; not added yet since
         // this pass only needed macOS to work.
         .plugin(tauri_plugin_deep_link::init())
@@ -1440,6 +1454,8 @@ pub fn run() {
             set_resume_description,
             import_resume_file,
             import_resume_bytes,
+            import_document_file,
+            get_document_status,
             open_extension_folder,
             search_jobs,
             check_job_fit,
@@ -1478,7 +1494,7 @@ pub fn run() {
         .expect("error while building tauri application")
         .run(|app_handle, event| {
             // The search daemon (see spawn_search_daemon) is a
-            // persistent child process — nothing kills it automatically
+            // persistent child process; nothing kills it automatically
             // when this process exits, so without this it would keep
             // running as an orphan after the window closes.
             if let tauri::RunEvent::ExitRequested { .. } = event {

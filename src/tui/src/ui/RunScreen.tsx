@@ -18,7 +18,7 @@ import {
 
 // Keep a deep buffer; how many lines actually render is derived from the
 // live terminal height so the log fills the content region. This bound is
-// for *display* only — progress parsing must never read from it, see
+// for *display* only: progress parsing must never read from it, see
 // markersIn/applyProgress below.
 const TAIL_BUFFER = 200;
 const GAUGE_WIDTH = 14;
@@ -37,12 +37,12 @@ export { parsePhaseChecklist, markersIn, parseCurrentApplication };
  * Two typed inputs, both opt-in (never captured on mount): `e` sets the
  * per-cycle application cap (1–25, tier-colored, MAX warns loudly), and
  * `p` sets an optional extra instruction the orchestrator receives via
- * APLYX_EXTRA_PROMPT — leave it empty to run the standard workflow.
+ * APLYX_EXTRA_PROMPT; leave it empty to run the standard workflow.
  *
  * While a run is live, `x` opens a two-step stop confirmation (`x` again
  * stops; `c` instead opens the same prompt editor to type a correction,
  * which stops the run cleanly and immediately relaunches it with the
- * correction folded into the extra prompt — an opaque CLI harness has no
+ * correction folded into the extra prompt: an opaque CLI harness has no
  * checkpoint format, so "correct and continue" is really "stop, then
  * start a fresh run with the same cap"). `l` toggles the raw session-log
  * tail as a fallback/debug view; the default running view is a phase
@@ -59,7 +59,7 @@ export function RunScreen({
   active: boolean;
   onInputActiveChange: (active: boolean) => void;
   onRunningChange: (running: boolean) => void;
-  /** Rows the shell hands this screen — the log tail fills them. */
+  /** Rows the shell hands this screen: the log tail fills them. */
   contentRows?: number;
 }) {
   const [phase, setPhase] = useState<Phase>("idle");
@@ -67,7 +67,7 @@ export function RunScreen({
   const [countCursor, setCountCursor] = useState(0);
   const [sessionCap, setSessionCap] = useState<number | null>(null);
   // Browse mode first: entering automatic mode must never steal the
-  // keyboard — typing starts only when the user presses e or p.
+  // keyboard: typing starts only when the user presses e or p.
   const [editingCount, setEditingCount] = useState(false);
   const [promptInput, setPromptInput] = useState("");
   const [promptCursor, setPromptCursor] = useState(0);
@@ -85,20 +85,20 @@ export function RunScreen({
   const [showLog, setShowLog] = useState(false);
   const [pendingRestart, setPendingRestart] = useState<{ cap: number; prompt: string } | null>(null);
   // Progress is accumulated across the whole run rather than re-derived per
-  // render from `lines` — see applyProgress for why that distinction is
+  // render from `lines`; see applyProgress for why that distinction is
   // load-bearing.
   const [progress, setProgress] = useState<PhaseInfo | null>(null);
   const [applyTarget, setApplyTarget] = useState<{ title: string; company: string } | null>(null);
   const markerLines = useRef<string[]>([]);
   // A run in flight that this screen did not spawn: a scheduler tick, or a
   // run left alive after the user quit the TUI with `q`. Adopted so `x` can
-  // stop it too — otherwise the only way to end one is to hunt the PID.
+  // stop it too, otherwise the only way to end one is to hunt the PID.
   const [foreignPid, setForeignPid] = useState<number | undefined>(undefined);
   const child = useRef<ChildProcess | null>(null);
   const logBefore = useRef<string | undefined>(undefined);
   // Set right before we kill the child ourselves, so its `close` handler
   // can tell a user-requested stop apart from the harness exiting on its
-  // own — a stop is neither success nor failure and gets its own phase.
+  // own: a stop is neither success nor failure and gets its own phase.
   const stoppedByUser = useRef(false);
 
   // Adopt any run this screen didn't spawn by reading the runner's own lock
@@ -106,7 +106,7 @@ export function RunScreen({
   // user quit the TUI with `q` mid-run (which deliberately leaves the run
   // going). Without this the screen shows "No run in progress" while one is
   // very much in progress, and the only way to stop it is to find the PID by
-  // hand. Skipped while our own run is live — `phase` already tracks that,
+  // hand. Skipped while our own run is live: `phase` already tracks that,
   // and the lock would just report our own runner back to us.
   useEffect(() => {
     if (phase === "running" || phase === "stopping") {
@@ -119,7 +119,7 @@ export function RunScreen({
     return () => clearInterval(timer);
   }, [phase, root]);
 
-  // Elapsed-run clock — ticks only while a run is live.
+  // Elapsed-run clock: ticks only while a run is live.
   useEffect(() => {
     if ((phase !== "running" && phase !== "stopping") || startedAt === null) return;
     const timer = setInterval(() => setElapsed(Math.floor((Date.now() - startedAt) / 1000)), 1000);
@@ -127,7 +127,7 @@ export function RunScreen({
   }, [phase, startedAt]);
 
   useEffect(() => {
-    // Whenever the user is actually typing (cap or prompt — including the
+    // Whenever the user is actually typing (cap or prompt, including the
     // in-run correction editor, which reuses editingPrompt) the parent
     // must stop stealing keystrokes, regardless of run phase.
     const capturesInput = active && (editingCount || editingPrompt);
@@ -136,7 +136,7 @@ export function RunScreen({
   }, [active, editingCount, editingPrompt, onInputActiveChange]);
 
   useEffect(() => {
-    // "stopping" still has a live child we're waiting on — keep
+    // "stopping" still has a live child we're waiting on: keep
     // navigation locked (and the confirm-quit warning active) until it
     // actually exits.
     onRunningChange(phase === "running" || phase === "stopping");
@@ -150,11 +150,11 @@ export function RunScreen({
    * This deliberately does NOT read `lines`. That array is capped at
    * TAIL_BUFFER for display, and on a real run an early phase's marker
    * scrolls out of it long before the run ends (a recent 794-line session
-   * log emitted `[✓] Scraping job boards` at line 428 — 166 lines past the
+   * log emitted `[✓] Scraping job boards` at line 428, 166 lines past the
    * cutoff by the time the run finished). Re-deriving the whole checklist
    * from that window silently reverted completed slots to "pending", and
    * once the live `[•]` marker scrolled out too, currentIndex fell back to
-   * the first pending slot — so the screen reported "Scraping job boards
+   * the first pending slot, so the screen reported "Scraping job boards
    * (phase 1 of 5)" while the agent was actually applying, and the
    * apply-target line (gated on currentKey === "apply") disappeared at the
    * same moment. Progress state must be sticky; only the log view truncates.
@@ -177,15 +177,15 @@ export function RunScreen({
     setEditingCount(false);
     setInputMessage(
       cap === 25
-        ? "MAX cap set — press s to start anyway, or e to lower it."
-        : `Ready — press s to start with a ${cap}-application cap.`,
+        ? "MAX cap set: press s to start anyway, or e to lower it."
+        : `Ready: press s to start with a ${cap}-application cap.`,
     );
     return cap;
   };
 
   // POSIX: the concurrent Python-side change gives run_job_agent.py a
   // SIGTERM handler that kills its harness subprocess group and cleans up
-  // state gracefully — Node's job there is just to send the plain signal.
+  // state gracefully; Node's job there is just to send the plain signal.
   // Windows: graceful signal handling from a Node parent isn't reliably
   // achievable, so force-kill the whole tree via stopProcessTree/taskkill.
   const stopChild = () => {
@@ -258,13 +258,13 @@ export function RunScreen({
           applyProgress(markersIn(content));
           setLines(content.slice(-TAIL_BUFFER));
         } catch {
-          /* transient read race — the poll below already stopped mattering */
+          /* transient read race; the poll below already stopped mattering */
         }
       }
       if (stoppedByUser.current) {
         stoppedByUser.current = false;
         setPhase("stopped");
-        setInputMessage("Run stopped — press s to start again (same cap), or e/p to change it first.");
+        setInputMessage("Run stopped: press s to start again (same cap), or e/p to change it first.");
       } else {
         setPhase("done");
       }
@@ -273,7 +273,7 @@ export function RunScreen({
 
   // Restart-after-correction: once the stopped process has fully exited,
   // relaunch with the same cap and the correction folded in as the extra
-  // prompt — the only "resume" a checkpoint-less CLI harness allows. Only
+  // prompt: the only "resume" a checkpoint-less CLI harness allows. Only
   // fires when a correction actually queued a restart; a plain stop
   // leaves pendingRestart null and "stopped" stays a terminal state.
   useEffect(() => {
@@ -302,7 +302,7 @@ export function RunScreen({
           applyProgress(markersIn(content));
           setLines(content.slice(-TAIL_BUFFER));
         } catch {
-          /* transient read race — next tick */
+          /* transient read race; next tick */
         }
       }
     }, 1000);
@@ -314,14 +314,14 @@ export function RunScreen({
       if (editingCount && phase !== "running") {
         if (key.return) commitCount();
         else if (input === "s") {
-          // s while typing commits the typed count and starts immediately —
+          // s while typing commits the typed count and starts immediately;
           // otherwise s is a silently dead key until enter is pressed.
           const cap = commitCount();
           if (cap !== null) start(cap);
         } else if (key.escape) {
           setEditingCount(false);
           if (sessionCap === null) {
-            setInputMessage("Cap not set — press e to type a count (1–25).");
+            setInputMessage("Cap not set: press e to type a count (1–25).");
           }
         } else if (key.leftArrow) {
           const next = moveCursorLeft({ value: countInput, cursor: countCursor });
@@ -361,12 +361,12 @@ export function RunScreen({
           setEditingPrompt(false);
           setPendingRestart({ cap: sessionCap, prompt: correction });
           stoppedByUser.current = true;
-          setInputMessage("Stopping — restarting with your correction…");
+          setInputMessage("Stopping: restarting with your correction…");
           setPhase("stopping");
           stopChild();
         } else if (key.escape) {
           setEditingPrompt(false);
-          setInputMessage("Correction cancelled — run continues.");
+          setInputMessage("Correction cancelled: run continues.");
         } else if (key.leftArrow) {
           const next = moveCursorLeft({ value: promptInput, cursor: promptCursor });
           setPromptCursor(next.cursor);
@@ -393,8 +393,8 @@ export function RunScreen({
           setEditingPrompt(false);
           setInputMessage(
             promptInput.trim()
-              ? "Extra prompt set — it is passed to the agent with the run."
-              : "No extra prompt — the agent runs the standard workflow.",
+              ? "Extra prompt set: it is passed to the agent with the run."
+              : "No extra prompt: the agent runs the standard workflow.",
           );
         } else if (key.leftArrow) {
           const next = moveCursorLeft({ value: promptInput, cursor: promptCursor });
@@ -449,7 +449,7 @@ export function RunScreen({
         return;
       }
       if (phase === "stopping") return;
-      // A run we didn't spawn is still stoppable from here — same two-step
+      // A run we didn't spawn is still stoppable from here: same two-step
       // x/x confirmation as our own, just signalled by PID instead of
       // through a ChildProcess handle.
       if (foreignPid !== undefined) {
@@ -473,7 +473,7 @@ export function RunScreen({
         if (input === "s") {
           // The runner is single-flight: starting now would just log
           // skipped_overlap and exit 0, which reads as a silent no-op.
-          setInputMessage(`A run is already in progress (pid ${foreignPid}) — press x to stop it first.`);
+          setInputMessage(`A run is already in progress (pid ${foreignPid}): press x to stop it first.`);
           return;
         }
       }
@@ -490,7 +490,7 @@ export function RunScreen({
       }
       if (input === "s") {
         if (sessionCap === null) {
-          setInputMessage("Set the cycle cap first — press e, type a count (1–25), then enter.");
+          setInputMessage("Set the cycle cap first: press e, type a count (1–25), then enter.");
         } else {
           start();
         }
@@ -506,7 +506,7 @@ export function RunScreen({
     : sessionCap;
   const tier = displayCap !== null && Number.isFinite(displayCap) ? capTier(displayCap) : null;
 
-  // Cockpit gauge + outcome counters — idle/done/stopped only (see
+  // Cockpit gauge + outcome counters: idle/done/stopped only (see
   // showCockpit below); the live running view replaces all of this with
   // the phase checklist.
   const gaugeFill =
@@ -516,7 +516,7 @@ export function RunScreen({
   const gauge = "█".repeat(gaugeFill) + "░".repeat(GAUGE_WIDTH - gaugeFill);
   const heartbeat = readHeartbeat(root);
   const runClock = `${String(Math.floor(elapsed / 60)).padStart(2, "0")}:${String(elapsed % 60).padStart(2, "0")}`;
-  // Which coding agent this run actually invokes doesn't change mid-run —
+  // Which coding agent this run actually invokes doesn't change mid-run;
   // resolving it fresh each render is a cheap couple of small file reads,
   // not worth caching in state for a value that only affects a color.
   const runGradient = harnessGradient(resolveHarnessId(root));
@@ -535,7 +535,7 @@ export function RunScreen({
       ? 1
       : Math.min(1, (doneCount + 0.5) / phaseInfo.slots.length)
     : 0;
-  // Only meaningful while the apply phase is actually current — once the
+  // Only meaningful while the apply phase is actually current: once the
   // run moves on to Report, the last apply-marker is stale and showing it
   // would misleadingly suggest that job is still in progress.
   const currentApplication = isLive && phaseInfo?.currentKey === "apply" ? applyTarget : null;
@@ -562,7 +562,7 @@ export function RunScreen({
             <Text color={theme.good}>{statusGlyph.applied} complete in {runClock}</Text>
           ) : (
             <Text color={theme.danger}>
-              {statusGlyph.failed} exited {exitCode} — see session log below
+              {statusGlyph.failed} exited {exitCode}: see session log below
             </Text>
           )
         ) : (
@@ -597,7 +597,7 @@ export function RunScreen({
           {displayCap === 25 ? (
             <Box>
               <Text>{"             "}</Text>
-              <RainbowText>⚠ MAX — 25 applications will eat through your token budget</RainbowText>
+              <RainbowText>⚠ MAX: 25 applications will eat through your token budget</RainbowText>
             </Box>
           ) : null}
 
@@ -607,12 +607,12 @@ export function RunScreen({
               value={promptInput}
               cursor={promptCursor}
               active={editingPrompt}
-              placeholder="(none — standard workflow)"
+              placeholder="(none: standard workflow)"
               wrap="truncate-end"
             />
           </Box>
 
-          {/* Outcome counters — heartbeat counts from the last completed
+          {/* Outcome counters: heartbeat counts from the last completed
               run. Only shown idle/done/stopped; while a run is live these
               are stale (previous run's numbers) so the phase checklist
               replaces them entirely. */}
@@ -643,7 +643,7 @@ export function RunScreen({
         {phase === "idle" && foreignPid !== undefined ? (
           <Box flexDirection="column">
             <Text color={theme.warn}>
-              <SpinnerGlyph color={theme.warn} /> A run is in progress (pid {foreignPid}) — started by the
+              <SpinnerGlyph color={theme.warn} /> A run is in progress (pid {foreignPid}), started by the
               scheduler, or left running when the TUI was last quit.
             </Text>
             <Text dimColor>Its progress isn't streamed here, but you can stop it.</Text>
@@ -778,7 +778,7 @@ export function RunScreen({
 }
 
 export const RUN_HINTS = "e cap · p prompt · s start";
-// While a run is live e/p/s are all dead keys — the hint bar must advertise
+// While a run is live e/p/s are all dead keys: the hint bar must advertise
 // what actually works, or `x` stays undiscoverable and `q` (which leaves the
 // run going) looks like the only way out.
 export const RUN_LIVE_HINTS = "x stop this run · c stop & correct · l log";

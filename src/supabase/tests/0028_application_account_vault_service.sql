@@ -1,10 +1,10 @@
 -- Functional + cross-user tests for migration 0028's seven RPCs.
--- A migration applying cleanly only proves the SQL parsed — it does NOT
+-- A migration applying cleanly only proves the SQL parsed; it does NOT
 -- prove these functions work at call time (the pgcrypto/`extensions`
 -- schema issue this file's sibling migration had to fix is exactly the
 -- kind of bug that only surfaces when a function actually runs). This
 -- script calls every RPC for real, as real (throwaway) impersonated
--- users, and ROLLBACKs at the very end regardless of outcome — nothing
+-- users, and ROLLBACKs at the very end regardless of outcome; nothing
 -- persists, pass or fail.
 --
 -- Role-switching a JWT claim can't happen from inside a single PL/pgSQL
@@ -19,7 +19,7 @@
 begin;
 
 create temporary table _t (k text primary key, v text);
--- Created under the connecting role — authenticated/service_role need
+-- Created under the connecting role: authenticated/service_role need
 -- explicit access to it once this script starts impersonating them via
 -- SET LOCAL ROLE below, or every read/write against it fails on a
 -- plain permission error before any real assertion even runs.
@@ -52,7 +52,7 @@ begin
   v_account_1 := public.create_application_account(
     'greenhouse', 'vault-test-tenant', 'Vault Test Co', 'vault-test-user@example.invalid', 'S3cret!Pass1'
   );
-  -- Same identity, same tenant scope, same call again — must reuse, not
+  -- Same identity, same tenant scope, same call again; must reuse, not
   -- mint a second Vault secret (plan's idempotent-retry requirement).
   v_account_2 := public.create_application_account(
     'greenhouse', 'vault-test-tenant', 'Vault Test Co', 'vault-test-user@example.invalid', 'S3cret!Pass1'
@@ -189,7 +189,7 @@ begin
   raise notice 'issue_account_credential_use_token OK: token issued, expires %', v_expires;
 end $$;
 
--- resolve_application_account_credential_token is service_role-only —
+-- resolve_application_account_credential_token is service_role-only:
 -- authenticated has no execute grant on it at all, so this must be
 -- called as service_role, independent of whose JWT claims are set.
 set local role service_role;

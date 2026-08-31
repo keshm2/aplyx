@@ -1,5 +1,5 @@
 #!/bin/bash
-# append_state_entry.sh — deterministic JSON-array state writer.
+# append_state_entry.sh: deterministic JSON-array state writer.
 #
 # Ensures a JSON-array state file exists and is valid, and appends one JSON
 # object to it atomically. Used for data/applied_jobs.json and
@@ -68,7 +68,7 @@ append_entry() {
     local jid
     jid="$(printf '%s' "$entry" | jq -r '.job_id')"
     if jq -e --arg jid "$jid" 'any(.[]?; .job_id == $jid)' "$file" >/dev/null 2>&1; then
-      echo "append_state_entry: duplicate job_id '$jid' already present in $file — append refused" >&2
+      echo "append_state_entry: duplicate job_id '$jid' already present in $file, append refused" >&2
       exit 2
     fi
   fi

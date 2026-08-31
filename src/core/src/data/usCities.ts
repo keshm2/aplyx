@@ -3,13 +3,13 @@
  * autocomplete (home location + preferred job locations). Weighted
  * toward tech hubs since that's the actual applicant pool this app
  * serves, with broad enough state coverage that a freehand entry is
- * the exception rather than the rule. Plain `.ts` module (not JSON) —
+ * the exception rather than the rule. Plain `.ts` module (not JSON),
  * matches the rest of src/tui/src's no-data-JSON-import convention.
  *
  * "New York, NY" and "New York City, NY" are both listed deliberately:
  * people search either form, and autocomplete should surface whichever
  * one they start typing rather than silently collapsing to one.
- * Freehand text with no match is always accepted on Enter — this list
+ * Freehand text with no match is always accepted on Enter; this list
  * only drives suggestions, it's never a validated enum.
  *
  * The raw list is deduped at export because hand-curation by region has
@@ -202,8 +202,8 @@ const RAW_US_CITIES: string[] = [
   "Athens, GA",
   "Gainesville, FL",
 
-  // Metro suburbs and mid-size cities. People live in — and set their home
-  // location to — the suburb, not the metro's headline city: this list had
+  // Metro suburbs and mid-size cities. People live in (and set their home
+  // location to) the suburb, not the metro's headline city: this list had
   // exactly 7 Washington entries and none of Marysville, Lynnwood, Everett
   // or Maple Valley, so ordinary Puget Sound addresses had no suggestion at
   // all. Freehand still covers whatever is missing (see below), but a list

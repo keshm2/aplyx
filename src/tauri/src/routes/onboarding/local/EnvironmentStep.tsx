@@ -45,7 +45,7 @@ export function EnvironmentStep({ root }: { root: string }) {
       </div>
       {state === "fail" && (
         <p className="field-help" style={{ marginTop: "0.75rem" }}>
-          You can continue anyway — the remaining steps fill in most of what the validator checks.
+          You can continue anyway. The remaining steps fill in most of what the validator checks.
         </p>
       )}
     </div>

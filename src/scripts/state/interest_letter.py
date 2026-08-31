@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-"""Interest-letter store — the deterministic owner of data/interest_letters.json.
+"""Interest-letter store: the deterministic owner of data/interest_letters.json.
 
 Some applications ask a free-text motivation question ("Why do you want to
 work at X?"). The agent must never invent that answer, and a run is a
 headless subprocess that cannot stop and ask: the scheduler fires every 30
 minutes and a wedged run is killed at APLYX_LOCK_MAX_AGE_MIN. So the
-interaction is asynchronous — the run *parks* the job here and moves on, the
+interaction is asynchronous: the run *parks* the job here and moves on, the
 user answers later in the TUI, and the next run applies with the approved
 text.
 
 Why parking is not `needs_review`: `job_state.py can-apply` blocks on
-needs_review, so a job routed there can never be retried — but retrying is
+needs_review, so a job routed there can never be retried, but retrying is
 the whole point once the user supplies text. Parking therefore records no
 registry event and no applied_jobs.json row; the job simply stays eligible.
 job-scraper.md reads `pending` before tailoring so a parked job isn't
@@ -126,7 +126,7 @@ def cmd_request(args) -> int:
 
 
 def cmd_pending(args) -> int:
-    """One JSON object per line — the TUI's list and the agent's skip-set."""
+    """One JSON object per line: the TUI's list and the agent's skip-set."""
     for rec in _read(args.store):
         if rec.get("status") == PENDING:
             print(json.dumps(rec))
@@ -158,7 +158,7 @@ def _set_text(args, status: str) -> int:
         text = sys.stdin.read()
     text = text.strip()
     if status == APPROVED and not text:
-        # Approving empty text would submit a blank essay — refuse.
+        # Approving empty text would submit a blank essay; refuse.
         print(json.dumps({"ok": False, "error": "refusing to approve empty letter"}))
         return 2
     rec["letter"] = text
@@ -172,7 +172,7 @@ def _set_text(args, status: str) -> int:
 
 
 def cmd_save_draft(args) -> int:
-    """Store text without approving — a draft the user can still edit."""
+    """Store text without approving: a draft the user can still edit."""
     return _set_text(args, PENDING)
 
 

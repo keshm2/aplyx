@@ -21,7 +21,7 @@
 /** Max sane age; also the floor for a plausible birth year. */
 const MIN_YEAR = 1900;
 
-/** Days per month, index 1-12. February is the leap-year maximum (29) —
+/** Days per month, index 1-12. February is the leap-year maximum (29);
  *  `dobError` narrows it to 28 for non-leap years once the year is known. */
 const DAYS_IN_MONTH = [0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
@@ -39,7 +39,7 @@ function digitAllowed(pos: number, digit: number, prior: string): boolean {
     // which expands it to 0X (typing "5" means May, not an error).
     case 0:
       return digit === 0 || digit === 1;
-    // Month ones: 01-09 or 10-12 — never 00, never 13+.
+    // Month ones: 01-09 or 10-12; never 00, never 13+.
     case 1:
       return prior[0] === "0" ? digit >= 1 : digit <= 2;
     // Day tens: 0-3.
@@ -54,7 +54,7 @@ function digitAllowed(pos: number, digit: number, prior: string): boolean {
       const max = month >= 1 && month <= 12 ? DAYS_IN_MONTH[month]! : 31;
       return day <= max;
     }
-    // Year thousands: only 1 or 2 — no one filling this form was born in
+    // Year thousands: only 1 or 2: no one filling this form was born in
     // the year 800 or 3000.
     case 4:
       return digit === 1 || digit === 2;
@@ -69,7 +69,7 @@ function digitAllowed(pos: number, digit: number, prior: string): boolean {
 /**
  * Fold one typed character into the raw digit string. Returns the digits
  * unchanged when the keystroke is not an acceptable digit, which the
- * caller surfaces as "nothing happened" — the keystroke is swallowed.
+ * caller surfaces as "nothing happened": the keystroke is swallowed.
  */
 export function acceptDobDigit(rawDigits: string, char: string): string {
   const digits = rawDigits;
@@ -79,7 +79,7 @@ export function acceptDobDigit(rawDigits: string, char: string): string {
   // only mean January, where a bare "1" might still become 10-12. The
   // field inserts separators itself, but people type them from habit, and
   // honoring them is the only way to distinguish "1/15" (Jan 15) from
-  // "115" (Nov 5) — identical digit streams otherwise.
+  // "115" (Nov 5): identical digit streams otherwise.
   if (char === "/" || char === "-" || char === ".") {
     if (pos === 1 && digits !== "0") return `0${digits}`;
     if (pos === 3 && digits[2] !== "0") return `${digits.slice(0, 2)}0${digits[2]}`;
@@ -96,7 +96,7 @@ export function acceptDobDigit(rawDigits: string, char: string): string {
 
   // A leading "1" is still ambiguous (Jan, or Oct-Dec). 0/1/2 complete it;
   // anything larger can't finish a month, so the user meant January and
-  // this digit begins the day — settle the month and re-handle the digit
+  // this digit begins the day; settle the month and re-handle the digit
   // in the day slot. Without this, typing "15" for Jan 5 swallowed the 5
   // and forced the user to type "0105".
   if (pos === 1 && digits === "1" && digit >= 3) return acceptDobDigit("01", char);
@@ -110,7 +110,7 @@ export function acceptDobDigit(rawDigits: string, char: string): string {
 
 /** Render raw MMDDYYYY digits as MM/DD/YYYY, adding each `/` as soon as
  *  the field before it is full (so `12` displays as `12/`, ready for the
- *  day) — that trailing separator is the visible cue the user asked for. */
+ *  day); that trailing separator is the visible cue the user asked for. */
 export function formatDob(rawDigits: string): string {
   const d = rawDigits.slice(0, 8);
   if (d.length <= 2) return d.length === 2 ? `${d}/` : d;
@@ -135,11 +135,11 @@ export function deleteDobDigit(rawDigits: string): string {
 /**
  * Whole-value validation, for the checks a single keystroke can't make.
  * Returns an error string, or undefined when the value is acceptable.
- * A blank value is acceptable — date of birth is optional.
+ * A blank value is acceptable; date of birth is optional.
  */
 export function dobError(rawDigits: string): string | undefined {
   if (rawDigits.length === 0) return undefined;
-  if (rawDigits.length < 8) return "Date of birth needs all 8 digits — MM/DD/YYYY.";
+  if (rawDigits.length < 8) return "Date of birth needs all 8 digits: MM/DD/YYYY.";
   const month = Number.parseInt(rawDigits.slice(0, 2), 10);
   const day = Number.parseInt(rawDigits.slice(2, 4), 10);
   const year = Number.parseInt(rawDigits.slice(4, 8), 10);

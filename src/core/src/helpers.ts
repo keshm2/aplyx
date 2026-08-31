@@ -5,7 +5,7 @@ import { py } from "./platform.js";
 import type { AppliedJob } from "./state.js";
 
 /**
- * Every state write goes through the repo's deterministic helpers — the
+ * Every state write goes through the repo's deterministic helpers; the
  * TUI never hand-writes JSON state files. This module is the only place
  * that invokes them.
  */
@@ -49,7 +49,7 @@ export interface TrackerSyncResult {
 }
 
 /**
- * Best-effort Google Sheets internship-tracker sync — mirrors the agent
+ * Best-effort Google Sheets internship-tracker sync; it mirrors the agent
  * path's post-application step. Sends only the user-facing tracker fields
  * (company, title, date_applied, optional internship_term/notes); internal
  * fields never reach the sheet. Never throws: a disabled/unconfigured or
@@ -76,7 +76,7 @@ export function syncInternshipTracker(
   try {
     parsed = stdout ? JSON.parse(stdout) : {};
   } catch {
-    // non-JSON stdout — fall through to the generic failure path
+    // non-JSON stdout; fall through to the generic failure path
   }
   if (res.status === 0) {
     if (parsed.synced) return { synced: true, skipped: false, message: "synced to internship tracker" };
@@ -144,19 +144,19 @@ export interface ReopenApplicationResult {
  *  failure (bad job_id, no fill record, playwright not installed, the
  *  user's Chrome already running against the profile) before treating the
  *  launch as successful. The script itself then waits indefinitely for the
- *  human to close the browser — this must stay well short of that, or
+ *  human to close the browser; this must stay well short of that, or
  *  every "Open" would hang the caller for however long the review takes. */
 const REPLAY_FILL_LAUNCH_GRACE_MS = 5_000;
 
 /**
  * Reopen a needs_review application pre-filled from its saved fill record
- * (src/scripts/runtime/replay_fill.py — see AGENTS.md "Fill records") instead
+ * (src/scripts/runtime/replay_fill.py, see AGENTS.md "Fill records") instead
  * of a bare URL. The script drives a real, visible Chrome and blocks until
  * the human closes it, so this never awaits that: it spawns the process
  * detached (own process group, survives this process exiting) and gives it
  * a short grace window to report a fast failure. If it's still running
  * after that window, it's treated as launched successfully and left to run
- * independently — never killed, never awaited further.
+ * independently, never killed, never awaited further.
  */
 export function reopenApplicationFilled(root: string, jobId: string): Promise<ReopenApplicationResult> {
   const { cmd, args } = py(["src/scripts/runtime/replay_fill.py", jobId]);
@@ -181,7 +181,7 @@ export function reopenApplicationFilled(root: string, jobId: string): Promise<Re
     child.stderr?.on("data", (d) => (stderr += d.toString()));
     child.on("error", (err) => settle({ ok: false, message: err.message }));
     child.on("exit", (code) => {
-      // A fast exit before the grace timer is always a failure path here —
+      // A fast exit before the grace timer is always a failure path here;
       // the success path never exits on its own within this window (it's
       // still waiting on the human), so exit-before-timer only happens via
       // one of replay_fill.py's die() calls.
@@ -194,7 +194,7 @@ export function reopenApplicationFilled(root: string, jobId: string): Promise<Re
     });
 
     const timer = setTimeout(() => {
-      settle({ ok: true, message: "Opened in your browser, pre-filled — review it, then submit yourself." });
+      settle({ ok: true, message: "Opened in your browser, pre-filled. Review it, then submit yourself." });
       child.unref();
     }, REPLAY_FILL_LAUNCH_GRACE_MS);
   });
@@ -240,12 +240,12 @@ export interface ApproveSubmitResult {
 }
 
 export interface WorkdayApprovalContext {
-  /** Managed mail.aplyx.app alias — the legacy compatibility path. */
+  /** Managed mail.aplyx.app alias, the legacy compatibility path. */
   aliasEmail?: string;
   aliasId?: string;
   /** Personal candidate email from a connected/verified Gmail profile or
    *  verification session (docs/workday-personal-inbox-plan.md). Preferred
-   *  over aliasEmail when both are present. Never a silent fallback — the
+   *  over aliasEmail when both are present. Never a silent fallback; the
    *  caller only passes this when the email came from an authenticated
    *  source. Exactly one of accountEmail/aliasEmail must be set. */
   accountEmail?: string;
@@ -268,22 +268,22 @@ const SINGLE_JOB_APPLY_LAUNCH_GRACE_MS = 15_000;
 
 /**
  * Runs the exact same job-application agent a scheduled run does (same
- * harness, same job-scraper.md prompt, same AGENTS.md safety rules — fit
+ * harness, same job-scraper.md prompt, same AGENTS.md safety rules: fit
  * gate, exact-match dropdowns, pre-submit verification, doubt signals) for
  * one already-known job (picked from a manual search) instead of the
  * agent's own board search, via the existing APLYX_EXTRA_PROMPT operator-
- * instruction hook (run_job_agent.py already supports this — nothing new
+ * instruction hook (run_job_agent.py already supports this; nothing new
  * on the agent side). APLYX_SESSION_CAP=1 is a code-enforced backstop
  * independent of whether the agent actually honors the "just this one job"
- * instruction — it physically cannot tailor+apply to more than one this
+ * instruction; it physically cannot tailor+apply to more than one this
  * run either way.
  *
  * Spawned detached and never awaited to completion, same reasoning as
  * reopenApplicationFilled above: a real run can take minutes. The eventual
- * outcome shows up the normal way — data/applied_jobs.json or
+ * outcome shows up the normal way: data/applied_jobs.json or
  * review_queue.json (useAplyxState's 60s poll already picks either up) and
  * a Discord notification if configured. If the fit gate rejects the job,
- * that's a skipped_unfit outcome — local-only by design (AGENTS.md), so it
+ * that's a skipped_unfit outcome, local-only by design (AGENTS.md), so it
  * produces no visible record anywhere, same as it already doesn't for a
  * scheduled run; the caller's UI copy sets that expectation up front so a
  * silent non-appearance doesn't read as a bug.
@@ -292,7 +292,7 @@ export function triggerSingleJobApply(
   root: string,
   job: { company: string; title: string; url: string; source: string },
 ): Promise<SingleJobApplyResult> {
-  const detail = `${job.company} — ${job.title} (${job.url}) [source=${job.source}]`;
+  const detail = `${job.company} - ${job.title} (${job.url}) [source=${job.source}]`;
   const extraPrompt =
     `Process ONLY this job, skip your own board search entirely: ${detail}. ` +
     "Still run the fit gate, tailoring, and apply phases with every normal " +
@@ -327,7 +327,7 @@ export function triggerSingleJobApply(
     child.stderr?.on("data", (d) => (stderr += d.toString()));
     child.on("error", (err) => settle({ ok: false, message: err.message }));
     child.on("exit", (code) => {
-      // A fast exit before the grace timer is always a failure path here —
+      // A fast exit before the grace timer is always a failure path here;
       // the success path never exits this quickly (fit-gate + tailor +
       // apply always takes longer), so exit-before-timer only happens via
       // a startup error (bad config, missing interpreter, etc.).
@@ -343,7 +343,7 @@ export function triggerSingleJobApply(
       settle({
         ok: true,
         message:
-          "Started — aplyx is tailoring and applying to this job now. Check Status or the review queue for the outcome in a bit. If the fit gate ends up rejecting it, that's a local-only skip and nothing will show up — same as any other unfit job.",
+          "Started: aplyx is tailoring and applying to this job now. Check Status or the review queue for the outcome in a bit. If the fit gate ends up rejecting it, that's a local-only skip and nothing will show up, same as any other unfit job.",
       });
       child.unref();
     }, SINGLE_JOB_APPLY_LAUNCH_GRACE_MS);
@@ -354,7 +354,7 @@ export function triggerSingleJobApply(
  *  Replays the saved fill record into a real visible Chrome, attempts the
  *  final submit, and returns a structured success/failure result. Unlike
  *  triggerSingleJobApply, this never re-runs the LLM-driven fit/tailor/apply
- *  pipeline — it is a narrow submit of an already-reviewed, already-filled
+ *  pipeline; it is a narrow submit of an already-reviewed, already-filled
  *  form. Greenhouse, Lever, and Ashby are implemented in v1; other families
  *  surface a clear message so the caller never mistakes a missing executor
  *  for success. */
@@ -481,7 +481,7 @@ export interface ConvertResumeResult {
 }
 
 /** Convert a resume/cover-letter PDF already in data/resumes/ to markdown
- *  via src/scripts/state/convert_resume.py (pypdf text extraction — Python
+ *  via src/scripts/state/convert_resume.py (pypdf text extraction; Python
  *  owns this, not a TS PDF-parsing dependency). Never throws; failures
  *  come back as { ok: false, error }. */
 export function convertResumePdf(root: string, stem: string, description = "", force = false): ConvertResumeResult {
@@ -495,7 +495,7 @@ export function convertResumePdf(root: string, stem: string, description = "", f
   try {
     parsed = stdout ? JSON.parse(stdout) : {};
   } catch {
-    // non-JSON stdout — fall through to the generic failure path
+    // non-JSON stdout; fall through to the generic failure path
   }
   if (res.status === 0 && parsed.ok) {
     return { ok: true, stem, mdPath: parsed.md_path, chars: parsed.chars };
@@ -515,12 +515,12 @@ export interface SetResumeDescriptionResult {
 }
 
 /** Set/update a resume's .resume_meta.json description without converting
- *  anything — for a resume that already has its .md (so convertResumePdf's
+ *  anything, for a resume that already has its .md (so convertResumePdf's
  *  conversion flow never runs) but still needs a description, either so
  *  resolve_resume.py's dynamic matching can find a non-conventionally-named
  *  cover-letter reference file, or just for a readable label in the
  *  Resumes screen's "import from an existing resume" picker. Requires the
- *  stem to already have a .md or .pdf in data/resumes/ — never throws;
+ *  stem to already have a .md or .pdf in data/resumes/, never throws;
  *  failures come back as { ok: false, error }. */
 export function setResumeDescription(root: string, stem: string, description: string): SetResumeDescriptionResult {
   const args = ["src/scripts/state/convert_resume.py", stem, "--describe-only", "--description", description];
@@ -531,7 +531,7 @@ export function setResumeDescription(root: string, stem: string, description: st
   try {
     parsed = stdout ? JSON.parse(stdout) : {};
   } catch {
-    // non-JSON stdout — fall through to the generic failure path
+    // non-JSON stdout; fall through to the generic failure path
   }
   if (res.status === 0 && parsed.ok) {
     return { ok: true, stem, description: parsed.description };

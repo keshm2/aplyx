@@ -2,7 +2,7 @@
 //
 // Selector discipline (same as the phase 7 rule): prefer stable,
 // reusable CSS / ARIA / data-automation hooks over markup positions.
-// ATS markup drifts — keep every per-ATS fixup in this one module so
+// ATS markup drifts, so keep every per-ATS fixup in this one module so
 // selector maintenance stays a reviewable, single-file change.
 import { AtsName, ExtractedJob } from "./shared.js";
 
@@ -103,10 +103,10 @@ export type FieldKey =
   | "currently_enrolled"
   | "full_name";
 
-/** Ordered — the first matching pattern wins, so put the most specific
+/** Ordered: the first matching pattern wins, so put the most specific
  *  patterns (e.g. workday data-automation ids) before generic words.
  *  preferred_name/address_line2 are deliberately positioned before their
- *  broader first_name/address_line1 siblings — "preferred name" contains
+ *  broader first_name/address_line1 siblings, since "preferred name" contains
  *  "name" and "address line 2" contains "address line", so the more
  *  specific pattern has to be checked first or it would never win. */
 const FIELD_PATTERNS: Array<[FieldKey, RegExp]> = [
@@ -130,7 +130,7 @@ const FIELD_PATTERNS: Array<[FieldKey, RegExp]> = [
   ["currently_enrolled", /currently\s+enrolled|enrolled\s+(at|in)/i],
 ];
 
-/** Everything we can use to identify what a control is asking for —
+/** Everything we can use to identify what a control is asking for:
  *  one descriptor part per source (label, aria, placeholder, name, …). */
 export function fieldDescriptor(el: HTMLElement, doc: Document): string[] {
   const parts: string[] = [];

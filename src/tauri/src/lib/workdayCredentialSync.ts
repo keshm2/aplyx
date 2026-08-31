@@ -43,32 +43,32 @@ export async function pushWorkdayCredentialToVault(
     password,
   });
   await adapter.rotateApplicationAccountSecret(accountId, trimmedUsername, password);
-  // The Vault write above is the durable, important one — a failure to
+  // The Vault write above is the durable, important one; a failure to
   // also refresh this device's local keychain cache shouldn't be able to
   // make an otherwise-successful save look like it failed.
   try {
     await saveWorkdayCredential(tenantKey, trimmedUsername, password);
   } catch {
-    // best-effort — see comment above
+    // best-effort, see comment above
   }
 }
 
 /**
  * Best-effort auto-sync run right after a local Workday continuation
  * attempt: if the runtime just generated a brand-new account password
- * (only true the first time an account is created — see
+ * (only true the first time an account is created; see
  * approve_submit_workday.py's _save_local_password), pull it out of its
  * local sidecar/keychain cache and push it into the online vault
  * automatically, so a freshly-created Workday account shows up in ATS
  * Accounts without the user having to separately open Settings and
  * re-type what aplyx already generated.
  *
- * Deliberately silent on the common case (nothing new to sync — the
+ * Deliberately silent on the common case (nothing new to sync; the
  * account already existed, or account creation never got that far):
  * importWorkdayCredential throws "no existing local Workday credential
  * was found" whenever there's no fresh sidecar, which is the normal
  * outcome for the vast majority of continuation attempts. Any other
- * failure is swallowed too — this is a convenience on top of the
+ * failure is swallowed too; this is a convenience on top of the
  * already-working manual sync in AccountCenterScreen, never a step
  * that should be able to fail a Workday continuation the user is
  * actively watching.
@@ -87,15 +87,15 @@ export async function autoSyncWorkdayCredentialAfterRun(
   try {
     tenantKey = normalizedWorkdayTenant(rawHost);
   } catch {
-    return; // not a recognizable Workday URL — nothing to sync
+    return; // not a recognizable Workday URL, nothing to sync
   }
   try {
-    // Sidecar lookup is keyed by hash(email + host) — see
+    // Sidecar lookup is keyed by hash(email + host); see
     // approve_submit_workday.py's _account_key. Throws "no existing
     // local Workday credential was found" whenever there's nothing
     // fresh, which is the normal outcome for the vast majority of
     // continuation attempts (an already-existing account, or one that
-    // never reached account creation this run) — that case is expected,
+    // never reached account creation this run), that case is expected,
     // not an error worth surfacing.
     await importWorkdayCredential(root, tenantKey, email);
   } catch {
@@ -106,7 +106,7 @@ export async function autoSyncWorkdayCredentialAfterRun(
     await pushWorkdayCredentialToVault(client, userId, tenantKey, companyName, email, password);
   } catch {
     // The credential made it into this device's OS keychain either way
-    // (importWorkdayCredential already succeeded above) — a vault push
+    // (importWorkdayCredential already succeeded above); a vault push
     // failure here just means the next visit to Settings' "Sync to this
     // device"/manual save still has real local data to work from; it
     // never strands the credential nowhere.

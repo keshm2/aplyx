@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""fetch_smartrecruiters_listings.py — SmartRecruiters ingestion (Phase 16B).
+"""fetch_smartrecruiters_listings.py: SmartRecruiters ingestion (Phase 16B).
 
 Fetches job postings from configured SmartRecruiters companies via the
 public, auth-free Postings API (no scraping, no Playwright needed) and
@@ -14,9 +14,9 @@ https://jobs.smartrecruiters.com/<CompanyIdentifier>/...):
 
 Skip behavior mirrors the other optional boards: a missing, empty, or
 placeholder-only ("REPLACE_ME") smartrecruiters_company_slugs array means
-the board is skipped — a warning goes to stderr, nothing on stdout, exit 0.
+the board is skipped: a warning goes to stderr, nothing on stdout, exit 0.
 
-The list feed carries NO JD body (confirmed against the live API — the
+The list feed carries NO JD body (confirmed against the live API: the
 list endpoint returns title/location/date only). After role filtering and
 before the fit gate, the orchestrator fetches the JD per surviving
 candidate, same rule as SimplifyJobs/Workday:
@@ -27,9 +27,9 @@ which prints one JSON object with jd_text (HTML stripped), title,
 location, and url.
 
 Output contract:
-  stdout — raw-job JSONL (list mode) or a single JD JSON (--jd-url),
+  stdout: raw-job JSONL (list mode) or a single JD JSON (--jd-url),
            list mode sorted by (company, title, external_job_id).
-  stderr — warnings and a machine-parseable summary line:
+  stderr: warnings and a machine-parseable summary line:
            fetch_smartrecruiters_listings: complete companies=<n> jobs=<n> failed=<n>
 
 Exit codes:
@@ -82,7 +82,7 @@ def load_configured_companies(targets_path: str) -> list:
         die(f"could not read targets config {targets_path}: {exc}")
     raw = targets.get("smartrecruiters_company_slugs")
     if raw is None:
-        warn("smartrecruiters_company_slugs is not configured — SmartRecruiters board skipped this run")
+        warn("smartrecruiters_company_slugs is not configured: SmartRecruiters board skipped this run")
         return []
     if not isinstance(raw, list):
         die("targets config field 'smartrecruiters_company_slugs' must be an array")
@@ -93,7 +93,7 @@ def load_configured_companies(targets_path: str) -> list:
             continue
         companies.append(text)
     if not companies:
-        warn("smartrecruiters_company_slugs is empty or placeholder-only — SmartRecruiters board skipped this run")
+        warn("smartrecruiters_company_slugs is empty or placeholder-only: SmartRecruiters board skipped this run")
     return companies
 
 
@@ -108,7 +108,7 @@ _CAMEL_BOUNDARY_RE = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
 
 def _section_label(key: str) -> str:
     """SmartRecruiters' jobAd.sections keys are camelCase ("jobDescription",
-    "qualifications", "companyDescription") — there's no separate
+    "qualifications", "companyDescription"); there's no separate
     human-readable title field per section, so the key itself, split on
     camelCase boundaries and title-cased, is the best heading available."""
     words = _CAMEL_BOUNDARY_RE.sub(" ", key).split()
@@ -129,7 +129,7 @@ def to_raw_job(posting: dict, company: str) -> dict:
         "url": f"https://jobs.smartrecruiters.com/{company}/{posting_id}",
         "external_job_id": posting_id,
         "location": str(location.get("fullLocation", "")).strip(),
-        # jd_text intentionally absent — fetch per candidate with
+        # jd_text intentionally absent: fetch per candidate with
         # --jd-url after role filtering and BEFORE the fit gate (same
         # rule as the SimplifyJobs/Workday feeds).
     }
@@ -199,7 +199,7 @@ def main(argv=None) -> int:
         )
         return 0
 
-    # Server-side keyword filtering (confirmed live) — without this, a
+    # Server-side keyword filtering (confirmed live): without this, a
     # large board (some SmartRecruiters companies list 10,000+ postings)
     # means paginating all the way to --limit on every single run instead
     # of the handful of pages a narrowed search actually needs.
@@ -209,7 +209,7 @@ def main(argv=None) -> int:
     failed = 0
     jobs = []
 
-    # Cache check — browse-all only (args.search is always "" in the
+    # Cache check: browse-all only (args.search is always "" in the
     # automatic job-scraper's actual invocation, per src/agents/bodies/
     # job-scraper.md's SmartRecruiters step; a manually-run --search
     # skips this and goes straight to a live fetch, since the job_cache
@@ -217,7 +217,7 @@ def main(argv=None) -> int:
     # server-side `q=` keyword param). Deliberately narrower than
     # jobs.ts's maybeCached(): only intersects the operator's own
     # configured companies with the shared cache list, never adds
-    # companies the operator didn't configure — this script feeds an
+    # companies the operator didn't configure; this script feeds an
     # auto-apply agent, not a read-only search UI, so silently
     # expanding which companies get evaluated (and possibly applied to)
     # beyond what the operator explicitly targeted would be a real
@@ -237,7 +237,7 @@ def main(argv=None) -> int:
                         if job.get("company") in wanted and job.get("title") and job.get("external_job_id"):
                             jobs.append(job)
                             cache_covered.add(job["company"])
-        except Exception as exc:  # cache is always optional — never let a cache bug break a live-capable run
+        except Exception as exc:  # cache is always optional - never let a cache bug break a live-capable run
             warn(f"job cache check failed, continuing live: {exc}")
         if cache_covered:
             fetched += len(cache_covered)
@@ -269,7 +269,7 @@ def main(argv=None) -> int:
                     break
             fetched += 1
         except (urllib.error.URLError, ValueError, json.JSONDecodeError, OSError) as exc:
-            warn(f"company '{company}' failed to fetch: {exc} — skipped")
+            warn(f"company '{company}' failed to fetch: {exc}, skipped")
             failed += 1
 
     jobs.sort(key=lambda j: (j["company"], j["title"].lower(), j["external_job_id"]))

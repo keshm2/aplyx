@@ -13,7 +13,7 @@ export type FieldValue = string | string[];
  * via the vetted-directory mapping, everything else via plain safe_fields.
  * Single source of truth for this routing so a new surface (the desktop
  * wizard) never re-derives it. fs-backed (via settings.ts/profileLinks.ts/
- * companyTargets.ts) — LocalAdapter-only; never import this module from
+ * companyTargets.ts): LocalAdapter-only; never import this module from
  * hosted-mode/frontend code (see onboarding/hostedFields.ts for the
  * pure field-id lists SupabaseAdapter needs instead).
  */

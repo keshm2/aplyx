@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""build_discovered_companies.py — derive a large company+ATS+slug/tenant
+"""build_discovered_companies.py: derive a large company+ATS+slug/tenant
 directory from public, community-maintained job-listing feeds.
 
 The hand-vetted lists (src/config/{ashby,lever,greenhouse,smartrecruiters}_
-vetted_slugs.json) are deliberately small — every entry there was
+vetted_slugs.json) are deliberately small: every entry there was
 individually verified against its ATS's public API by a human, in a PR.
 This script covers the opposite end of the tradeoff: it mines much larger,
 community-maintained feeds for (company, vendor, slug) tuples (for
@@ -12,59 +12,59 @@ Recruitee/Breezy) and (company, vendor, tenant) tuples (for host+site-based
 systems: Workday/Oracle Recruiting Cloud/Eightfold), and writes everything
 it can parse to config/discovered_companies.json.
 
-Sources (all fetched fresh on every run — nothing here is a static
+Sources (all fetched fresh on every run: nothing here is a static
 snapshot committed once and forgotten):
 
 1. Four community listing-tracker feeds (the same feeds
-   scripts/jobs/fetch_simplify_listings.py already fetches at runtime) —
+   scripts/jobs/fetch_simplify_listings.py already fetches at runtime):
    SimplifyJobs' Summer-Internships + New-Grad-Positions, and vanshb03's
    independently-scraped siblings sharing the same listings.json schema.
    Job-posting URLs are regex-matched for a vendor+slug. Only resolves
    Ashby/Lever/Greenhouse/SmartRecruiters this way (the other vendors'
    URLs don't carry a clean slug in the posting link itself).
-   No LICENSE file on any of these repos as of this writing — no explicit
+   No LICENSE file on any of these repos as of this writing: no explicit
    written grant to redistribute a derived dataset. This project already
    fetches the same raw JSON at runtime for job listings (an established,
    narrower use); caching a derived company/slug directory is a related
    but distinct downstream use worth revisiting if this project's
    distribution ever broadens.
 2. zshah101/Automated-List-Of-Summer-2027-and-Fall-2026-Tech-Internships
-   (MIT-licensed, github.com/zshah101) — an independently-maintained,
+   (MIT-licensed, github.com/zshah101): an independently-maintained,
    continuously-updated (automated GitHub Actions discovery/audit/retry
    workflows; observed pushing within the same hour this script was
    written) directory of ~4,300 companies with ATS type ALREADY resolved,
    including full tenant components for Workday (`wd` + `site`) and
-   Oracle Recruiting Cloud (`host` + `site`) — the two systems this
+   Oracle Recruiting Cloud (`host` + `site`): the two systems this
    script previously had no way to discover at all, since their public
    endpoints need a full tenant string, not a slug pulled from a job URL.
    This is the primary source for `discovered_tenants` below.
 
 Slug-based entries land in the `companies` key (unchanged shape from
-before this script had multiple sources — src/core/src/data/
+before this script had multiple sources; src/core/src/data/
 companyDirectory.ts reads this key directly for the onboarding/Settings
 company-autocomplete picker, tier "discovered", ranked below "vetted").
 Vendors with no current aplyx fetch adapter (Workable, Rippling,
 Recruitee, Breezy) are still captured under `companies` for forward
-reference — companyDirectory.ts's KNOWN_VENDORS allowlist already
+reference: companyDirectory.ts's KNOWN_VENDORS allowlist already
 filters unknown vendors safely, so this is inert until an adapter for
 one of them ships, not a live behavior change.
 
 Host+site tenant entries (Workday/Oracle/Eightfold) land in a separate
-`discovered_tenants` key — NOT wired into companyDirectory.ts (that
+`discovered_tenants` key: NOT wired into companyDirectory.ts (that
 picker is deliberately slug-only; see its own top-of-file comment) and
 NOT auto-applied into any targets.json. These are candidates for a
 human to hand-copy into `workday_tenants` / `oracle_tenants` /
-`eightfold_tenants` after a quick spot-check — some companies carry
+`eightfold_tenants` after a quick spot-check: some companies carry
 more than one tenant/site (e.g. a lateral-hire site vs a campus/early-
 careers site, or a regional variant), and picking the wrong one just
 means that tenant returns zero postings at runtime (every fetch helper
-already degrades a bad/empty tenant to a warning, never a crash — see
+already degrades a bad/empty tenant to a warning, never a crash: see
 AGENTS.md), not a wrong-company mix-up.
 
-This is NOT hand-verified the way the vetted lists are — it's best-
+This is NOT hand-verified the way the vetted lists are: it's best-
 effort extraction over third-party data, reviewed here only in
 aggregate. This is a manual/periodic refresh, not part of any automated
-run or schedule — re-run it by hand when you want a bigger/fresher
+run or schedule; re-run it by hand when you want a bigger/fresher
 company pool, review the diff, and commit it like any other vetted-list
 change.
 
@@ -89,11 +89,11 @@ from datetime import datetime, timezone
 DEFAULT_OUT = "src/config/discovered_companies.json"
 USER_AGENT = "aplyx-job-agent/phase16b (+https://github.com/keshm2/aplyx)"
 
-# Same four feeds fetch_simplify_listings.py already pulls at runtime —
+# Same four feeds fetch_simplify_listings.py already pulls at runtime:
 # kept as a separate copy here (not imported) since this is a one-off
 # maintenance script, not part of the request-time fetch path. Repo names
 # in this ecosystem get renamed every hiring cycle (...2026... -> ...2027...);
-# these are the current canonical names as of 2026-08-09 — see
+# these are the current canonical names as of 2026-08-09; see
 # fetch_simplify_listings.py's FEEDS comment for the rename history.
 SIMPLIFY_FEED_URLS = [
     "https://raw.githubusercontent.com/SimplifyJobs/Summer2027-Internships/dev/.github/scripts/listings.json",
@@ -111,7 +111,7 @@ ZSHAH101_COMPANIES_URL = (
 # (vendor, slug) from a SimplifyJobs job-posting URL. Ashby/Lever job URLs
 # always carry the slug as the first path segment; Greenhouse uses either
 # hostname interchangeably (both boards.* and job-boards.* are seen in the
-# wild) and is occasionally slug-less (an opaque embed token) — that shape
+# wild) and is occasionally slug-less (an opaque embed token); that shape
 # just won't match and is silently skipped. SmartRecruiters job URLs carry
 # the company identifier the same way.
 SIMPLIFY_URL_PATTERNS = [
@@ -122,7 +122,7 @@ SIMPLIFY_URL_PATTERNS = [
 ]
 
 # Vendors zshah101's feed already resolves that map straight to aplyx's
-# `companies` (slug-based) shape — no host/site tenant needed.
+# `companies` (slug-based) shape: no host/site tenant needed.
 ZSHAH101_SLUG_VENDORS = {
     "ashby", "lever", "greenhouse", "smartrecruiters", "workable", "rippling",
     "recruitee", "breezy",
@@ -130,7 +130,7 @@ ZSHAH101_SLUG_VENDORS = {
 # Vendors that need a full tenant string (host+site) instead of a slug.
 ZSHAH101_TENANT_VENDORS = {"workday", "oracle", "eightfold"}
 # "amazon" (single-company plain board, not multi-tenant) is intentionally
-# excluded from both — it's already handled as a plain "amazon" boards.json
+# excluded from both; it's already handled as a plain "amazon" boards.json
 # toggle (fetch_amazon_listings.py), not a slug or tenant lookup.
 
 
@@ -266,7 +266,7 @@ def collect_from_zshah101(timeout: int) -> tuple[dict[str, dict[str, set]], list
                 "tenant": f"{host}/{domain}",
                 "source": "zshah101",
             })
-        # "amazon" and any future/unknown ats values: skip — no
+        # "amazon" and any future/unknown ats values: skip; no
         # slug/tenant shape this script knows how to emit for them yet.
 
     return slug_companies, tenant_entries, len(records)
@@ -314,7 +314,7 @@ def main(argv=None) -> int:
         merge_companies(companies, zshah_companies)
 
     if simplify_failed == len(SIMPLIFY_FEED_URLS) and zshah101_scanned == 0:
-        die("every source failed to fetch — nothing to write")
+        die("every source failed to fetch: nothing to write")
 
     entries = []
     for name in sorted(companies):
@@ -334,13 +334,13 @@ def main(argv=None) -> int:
     output = {
         "_provenance": (
             "Auto-generated by src/scripts/validate/build_discovered_companies.py "
-            "from (1) four community listing-tracker feeds — SimplifyJobs' "
+            "from (1) four community listing-tracker feeds: SimplifyJobs' "
             "Summer-Internships + New-Grad-Positions and vanshb03's independently-"
-            "scraped siblings (github.com/SimplifyJobs, github.com/vanshb03 — no "
-            "LICENSE file on either, see this script's own docstring) — and "
+            "scraped siblings (github.com/SimplifyJobs, github.com/vanshb03; no "
+            "LICENSE file on either, see this script's own docstring), and "
             "(2) zshah101's MIT-licensed, continuously-updated company/ATS directory "
             "(github.com/zshah101/Automated-List-Of-Summer-2027-and-Fall-2026-"
-            "Tech-Internships) — NOT individually hand-verified the way "
+            "Tech-Internships), NOT individually hand-verified the way "
             "src/config/*_vetted_slugs.json entries are. Re-run the script to "
             "refresh; review the diff before committing."
         ),
@@ -351,14 +351,14 @@ def main(argv=None) -> int:
         "companies": entries,
         "discovered_tenants": tenant_entries,
         "_discovered_tenants_help": (
-            "Workday/Oracle Recruiting Cloud/Eightfold candidates — full host+site "
+            "Workday/Oracle Recruiting Cloud/Eightfold candidates: full host+site "
             "tenant strings, not slugs. NOT wired into the onboarding/Settings "
             "company picker (that picker is deliberately slug-only; see "
             "src/core/src/data/companyDirectory.ts's top-of-file comment) and NOT "
             "auto-applied into any targets.json. Hand-copy a tenant string into "
             "'workday_tenants' / 'oracle_tenants' / 'eightfold_tenants' after a "
             "quick spot-check. Some companies carry more than one tenant/site here "
-            "(e.g. a lateral-hire site vs. a campus/early-careers site) — a wrong "
+            "(e.g. a lateral-hire site vs. a campus/early-careers site); a wrong "
             "pick just returns zero postings at runtime, every fetch helper already "
             "degrades a bad tenant to a warning, never a crash."
         ),

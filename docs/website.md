@@ -600,12 +600,15 @@ visible `.feature-badge` "Planned" pill next to the heading, same
 honesty convention as the pricing page's "illustrative, not final" note
 and the privacy page's "no server exists today" line. The full design
 (data model, email matching/classification, the terminal-state guard,
-privacy/security constraints, TUI + desktop UI plan, phased rollout) is
-in the new `docs/application-status-tracking-plan.md` — grounded in the
-actual existing code (the real `STATUS_BADGE`/`statusGlyph` conventions
-already in `HomeScreen.tsx`/`HistoryScreen.tsx`/`theme.ts`, the real
-`AppliedJob` schema, the real Discord opt-in pattern), not invented from
-scratch.
+privacy/security constraints, TUI + desktop UI plan, phased rollout) was
+grounded in the actual existing code (the real `STATUS_BADGE`/
+`statusGlyph` conventions already in `HomeScreen.tsx`/`HistoryScreen.tsx`/
+`theme.ts`, the real `AppliedJob` schema, the real Discord opt-in
+pattern), not invented from scratch. **Update: this feature has since
+shipped (hosted-only, 2026-08-19 → 2026-08-21)** — see `AGENTS.md`'s
+"Inbox status detection" section for the current design. This site copy's
+"Planned" framing is stale and worth reconciling with the marketing pages
+directly, not just this doc.
 
 Two new semantic color roles (`--info` blue, `--special` violet) were
 added to this site's own `:root`/dark/light blocks in `styles.css` —
@@ -761,9 +764,11 @@ setup" callout (so hosted doesn't read as a downgrade on those fronts),
 "profile & resumes stored securely in our Supabase-backed database," and
 an "automatic job status tracking from your account email" line — tagged
 with the same `.feature-badge` "Planned" pill `/features` already uses for
-this exact capability (it's the same not-yet-built feature described in
-`docs/application-status-tracking-plan.md`, so it gets the same honesty
-treatment here, not a second undisclosed claim of being live).
+this exact capability (at the time this was written, it was the same
+not-yet-built feature described in the now-removed
+`docs/application-status-tracking-plan.md`; it has since shipped — see
+`AGENTS.md`'s "Inbox status detection" section — so both "Planned" pills
+are stale and should be reconciled with the live marketing copy).
 
 ### Three things worth the operator's attention, not resolved silently
 

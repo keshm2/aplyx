@@ -1,5 +1,5 @@
 /**
- * Ordered page registry for the onboarding wizard — FIELD_IDS.length
+ * Ordered page registry for the onboarding wizard, FIELD_IDS.length
  * fields (see that constant below) grouped into 8 pages of 1-6 related
  * fields each, so the user answers several related questions per screen
  * instead of one question at a time (see "Pages" in the onboarding
@@ -32,7 +32,7 @@ export interface FieldDef {
   kind: FieldKind;
   /**
    * Grey hint text shown in an empty field. NEVER put real personal data
-   * here — this file is committed to git and compiled into the published
+   * here: this file is committed to git and compiled into the published
    * npm package, so anything written here is public. A real home address
    * shipped this way once (see the git history for this file); every
    * example below must be obviously synthetic. Reserved-for-fiction values
@@ -42,16 +42,16 @@ export interface FieldDef {
   placeholder?: string;
   /** Optional per-field help shown under the label. */
   help?: string;
-  /** kind: "select3" only — exactly three fixed choices, rendered as a
+  /** kind: "select3" only: exactly three fixed choices, rendered as a
    *  toggle group (Tauri) / number-key picker (TUI). Used for EEO
    *  self-identification fields, which by law must always offer a decline
-   *  option alongside the two substantive answers — never a free-text
+   *  option alongside the two substantive answers; never a free-text
    *  field a user could leave ambiguous or an agent could misinterpret. */
   options?: [SelectOption, SelectOption, SelectOption];
   /** Page progression can't advance past a page with an unanswered
    *  required field. For select3 EEO fields this only enforces picking
-   *  ONE of the three offered options — including "decline to answer",
-   *  which is always one of them — never that the user disclose their
+   *  ONE of the three offered options (including "decline to answer",
+   *  which is always one of them), never that the user disclose their
    *  actual status. Not a general validation system: only select3 fields
    *  use this today. */
   required?: boolean;
@@ -63,7 +63,7 @@ export interface PageDef {
 }
 
 /** The persistent reassurance line QuestionFrame renders on every field
- *  page — see theme.ts's note on theme.warn always pairing a glyph with
+ *  page: see theme.ts's note on theme.warn always pairing a glyph with
  *  a non-error, attention-worthy line. */
 export const PRIVACY_LINE = "This info is used for job applications and can be changed later in Settings.";
 
@@ -84,7 +84,7 @@ export const PAGES: PageDef[] = [
         label: "Email applications are sent from",
         kind: "text",
         placeholder: "you@example.com",
-        help: "Employers reply here — use an address you actually check.",
+        help: "Employers reply here. Use an address you actually check.",
       },
       { id: "phone", label: "Phone number", kind: "text", placeholder: "555-0142" },
       { id: "address_line1", label: "Address line 1", kind: "text", placeholder: "123 Example St" },
@@ -99,10 +99,10 @@ export const PAGES: PageDef[] = [
         id: "location",
         label: "Home location (city, state)",
         kind: "location",
-        // A well-known metro, deliberately NOT anyone's actual home city —
+        // A well-known metro, deliberately NOT anyone's actual home city:
         // see the FieldDef.placeholder warning above.
         placeholder: "type any city, e.g. Seattle, WA",
-        help: "Suggestions are a shortcut, not a list of allowed answers — if your city isn't offered, type it out and press enter.",
+        help: "Suggestions are a shortcut, not a list of allowed answers; if your city isn't offered, type it out and press enter.",
       },
     ],
   },
@@ -123,7 +123,7 @@ export const PAGES: PageDef[] = [
         label: "Citizenship status (optional)",
         kind: "text",
         placeholder: "e.g. U.S. Citizen, Permanent Resident, F-1 visa",
-        help: "Some postings (government contractors, defense-adjacent roles) require a specific status — leave blank if none of yours ask for it.",
+        help: "Some postings (government contractors, defense-adjacent roles) require a specific status; leave blank if none of yours ask for it.",
       },
     ],
   },
@@ -135,7 +135,7 @@ export const PAGES: PageDef[] = [
         label: "Graduation date",
         kind: "text",
         placeholder: "June 2027",
-        help: "Optional in general, but required to apply to internships — most intern postings ask for it.",
+        help: "Optional in general, but required to apply to internships; most intern postings ask for it.",
       },
       { id: "gpa", label: "GPA (optional)", kind: "text", placeholder: "3.8" },
       { id: "currently_enrolled", label: "Currently enrolled in school? (y/n)", kind: "yesno" },
@@ -149,7 +149,7 @@ export const PAGES: PageDef[] = [
         label: "Gender (optional)",
         kind: "text",
         placeholder: "e.g. Woman / Man / Non-binary / Decline",
-        help: "Asked by many EEO forms. Leave blank to decline — aplyx never invents an answer.",
+        help: "Asked by many EEO forms. Leave blank to decline; aplyx never invents an answer.",
       },
       { id: "ethnicity", label: "Ethnicity (optional)", kind: "text", placeholder: "e.g. Asian / Decline" },
       { id: "hispanic_or_latino", label: "Hispanic or Latino? (y/n)", kind: "yesno" },
@@ -159,7 +159,7 @@ export const PAGES: PageDef[] = [
         label: "Veteran status",
         kind: "select3",
         required: true,
-        help: "Asked by many EEO forms. \"Prefer not to answer\" is always a complete, valid choice — aplyx never invents an answer for a field you didn't set.",
+        help: "Asked by many EEO forms. \"Prefer not to answer\" is always a complete, valid choice; aplyx never invents an answer for a field you didn't set.",
         options: [
           { value: "not_veteran", label: "Not a veteran" },
           { value: "veteran", label: "Veteran" },
@@ -171,7 +171,7 @@ export const PAGES: PageDef[] = [
         label: "Disability status",
         kind: "select3",
         required: true,
-        help: "Asked by many EEO forms. \"Prefer not to answer\" is always a complete, valid choice — aplyx never invents an answer for a field you didn't set.",
+        help: "Asked by many EEO forms. \"Prefer not to answer\" is always a complete, valid choice; aplyx never invents an answer for a field you didn't set.",
         options: [
           { value: "no", label: "No" },
           { value: "yes", label: "Yes" },
@@ -198,7 +198,7 @@ export const PAGES: PageDef[] = [
         id: "preferred_locations",
         label: "Preferred job locations (optional)",
         kind: "multi-location",
-        placeholder: "type any city — enter adds it, blank enter moves on",
+        placeholder: "type any city, enter adds it, blank enter moves on",
         help: "A priority list, not a filter: aplyx searches the whole US either way, these just sort matching jobs to the top. Any city works, listed or not.",
       },
       { id: "target_companies", label: "Target companies", kind: "multi-company", placeholder: "type to search" },
@@ -206,7 +206,7 @@ export const PAGES: PageDef[] = [
   },
 ];
 
-/** All field ids in page order — TOTAL_FIELDS below is the fixed
+/** All field ids in page order: TOTAL_FIELDS below is the fixed
  *  denominator OnboardingWizard.tsx's committed_fields.length /
  *  TOTAL_FIELDS percentage uses. */
 export const FIELD_IDS: string[] = PAGES.flatMap((page) => page.fields.map((f) => f.id));

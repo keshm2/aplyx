@@ -1,4 +1,4 @@
-/** Small shared icon set — same inline-SVG, stroke-based, currentColor
+/** Small shared icon set: same inline-SVG, stroke-based, currentColor
  *  convention already used by Dropdown/NotificationBell (24x24 viewBox,
  *  ~2px stroke), so every icon in the app reads as one family rather than
  *  each screen inventing its own weight/style. */
@@ -13,7 +13,7 @@ export function ExternalLinkIcon() {
   );
 }
 
-/* Nav rail icon set — same 24x24, ~2px stroke, currentColor convention as
+/* Nav rail icon set: same 24x24, ~2px stroke, currentColor convention as
  * ExternalLinkIcon above, one per NAV entry in AppShell.tsx. Plain line
  * icons (not filled/colored per-item) so they inherit --text-muted at
  * rest and --accent-strong on the active item exactly like the label text

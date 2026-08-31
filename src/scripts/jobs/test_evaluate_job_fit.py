@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Deterministic regression tests for evaluate_job_fit.py's hard-reject
-gates. No network, no LLM — same spirit as
+gates. No network, no LLM, same spirit as
 src/scripts/runtime/test_approve_submit_workday.py (the only other test
 file in this repo): direct import, unittest, run by hand.
 
@@ -90,7 +90,7 @@ class ForeignLocationRegressionTests(unittest.TestCase):
 class SponsorshipGateTests(unittest.TestCase):
     """New gate added alongside this suite: a JD that won't sponsor a
     visa, or that requires citizenship/permanent residency, is only a
-    hard reject for a candidate who actually needs sponsorship — never
+    hard reject for a candidate who actually needs sponsorship, never
     unconditionally, since most configured candidates don't."""
 
     def test_no_sponsorship_language_rejects_when_candidate_needs_it(self):
@@ -113,7 +113,7 @@ class SponsorshipGateTests(unittest.TestCase):
         self.assertNotEqual(result["fit_status"], "skipped_unfit")
 
     def test_no_sponsorship_field_at_all_defaults_to_not_needed(self):
-        # No require_sponsorship key set anywhere — must not silently
+        # No require_sponsorship key set anywhere: must not silently
         # start rejecting every "no sponsorship" posting for a candidate
         # who never said they needed one.
         job = clean_job(jd_text=clean_job()["jd_text"] + " Sponsorship is not available for this position.")

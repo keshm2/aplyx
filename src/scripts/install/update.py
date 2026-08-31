@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""update.py — cross-platform self-updater.
+"""update.py: cross-platform self-updater.
 
 Ported from update.sh so updates work natively on Windows as well as
 macOS/Linux, with no curl/tar binary dependency (stdlib urllib + tarfile).
@@ -60,7 +60,7 @@ TARBALL_URL = os.environ.get(
 # (CI workflow definitions, per-harness agent files
 # generate_agent_definitions.py regenerates fresh from src/agents/ on every
 # install/update anyway, hosted-backend Supabase migrations, internal
-# design/process docs) — applied here too so a clean install doesn't
+# design/process docs), applied here too so a clean install doesn't
 # reaccumulate it on the next `aplyx update`'s tarball overlay.
 _EXCLUDED_DIRS = (".github", ".claude", ".opencode", ".codex", "src/supabase", "docs/assets")
 _EXCLUDED_FILES = (
@@ -126,7 +126,7 @@ def main(argv) -> int:
         # runs. A tarball checkout: the stale old file is untouched by the
         # overlay (nothing deletes it), so the child launches "successfully"
         # but runs the OLD, migration-unaware _post_update, again never
-        # applying it — silently, with VERSION now reporting the new
+        # applying it (silently), with VERSION now reporting the new
         # build, so no future auto-update ever retries either. Re-running
         # the installer is the one recovery path immune to this: it is a
         # brand-new process every single time, with no cached pre-update
@@ -143,7 +143,7 @@ def main(argv) -> int:
     if post_only:
         # Invoked as a fresh child process from the git-pull/tarball-overlay
         # branch below, specifically so this runs whatever _post_update
-        # logic was JUST pulled to disk — see the comment down there for
+        # logic was JUST pulled to disk. See the comment down there for
         # why calling it directly in the parent process instead would run
         # stale, already-loaded logic.
         _post_update(say)
@@ -197,7 +197,7 @@ def main(argv) -> int:
                 r = subprocess.run(["git", "pull", "--ff-only", "origin", "main"],
                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 if r.returncode != 0:
-                    fail_open("update: failed git pull --ff-only (dirty or diverged checkout — resolve manually)")
+                    fail_open("update: failed git pull --ff-only (dirty or diverged checkout, resolve manually)")
             else:
                 _overlay_tarball(fail_open)
 
@@ -210,19 +210,19 @@ def main(argv) -> int:
 
             # Run the post-update rebuild steps in a FRESH child process
             # rather than calling _post_update() directly here: this
-            # process's own update.py module — including _post_update
-            # itself — was already imported and compiled into memory
+            # process's own update.py module (including _post_update
+            # itself) was already imported and compiled into memory
             # BEFORE the git-pull/tarball-overlay above just overwrote
             # update.py's own source file on disk. Python doesn't
             # hot-reload, so calling _post_update() directly in this same
             # process would silently run whichever rebuild logic was
-            # current when THIS invocation *started* — ignoring anything
+            # current when THIS invocation *started*, ignoring anything
             # the update itself just changed about how the rebuild works.
             # That's exactly how a single `aplyx update` run from an
             # install old enough to predate a _post_update fix kept
             # running the old, broken rebuild order even though the
             # correct new update.py was already sitting on disk by the
-            # time _post_update ran — reported live: "says it updated ...
+            # time _post_update ran; reported live: "says it updated ...
             # but none of the changes appeared," reproduced by tracing
             # through exactly this sequence. A fresh child process
             # re-imports this module from disk, so it always runs the
@@ -234,17 +234,17 @@ def main(argv) -> int:
             # os.path.abspath(__file__) was resolved when THIS process
             # started, before the pull/overlay above ran. If that update
             # RELOCATED this very file (as the 2026-07-29 src/ restructure
-            # did for every pre-existing install — scripts/install/
+            # did for every pre-existing install: scripts/install/
             # update.py -> src/scripts/install/update.py), that cached
             # path can point at a file a git pull just deleted. Probe for
             # the file actually existing before trusting it, falling back
-            # to the current, post-restructure canonical location — this
+            # to the current, post-restructure canonical location. This
             # is pure defense-in-depth for any FUTURE relocation; it
             # cannot help an install already running a pre-restructure
             # copy of THIS exact check, since that check doesn't exist in
             # code already on disk. For those installs, re-running the
             # installer (a fresh process every time, never affected by a
-            # stale cached path) is the reliable repair path — see
+            # stale cached path) is the reliable repair path: see
             # install.sh/install.ps1's own post-update-only call.
             child_script = os.path.abspath(__file__)
             if not os.path.isfile(child_script):
@@ -258,7 +258,7 @@ def main(argv) -> int:
             if r2.returncode != 0:
                 say(
                     "WARNING: post-update steps failed (rebuild/migration steps may be "
-                    "incomplete) — re-run the one-line installer from docs/SETUP.md "
+                    "incomplete). Re-run the one-line installer from docs/SETUP.md "
                     "section 0 to repair it (safe to re-run any time; never overwrites "
                     "your config/data)."
                 )
@@ -303,7 +303,7 @@ def _overlay_tarball(fail_open) -> None:
                     members.append(m)
                 _safe_extractall(tar, ROOT, members)
                 # An install from before this exclusion list existed may
-                # still have this cruft on disk — the overlay above only
+                # still have this cruft on disk: the overlay above only
                 # adds/overwrites files present in the (now-filtered)
                 # tarball, it never deletes anything, so those installs
                 # would otherwise never converge. Remove it here so
@@ -337,10 +337,10 @@ def _refresh_schedule_if_installed(say) -> None:
     """A launchd/schtasks entry bakes in an absolute path to the runner
     script at install time. If a future release ever relocates that
     script again (as the 0.8.4a scripts/ reorg did), an already-installed
-    schedule would keep invoking the stale path forever — the tarball
+    schedule would keep invoking the stale path forever: the tarball
     overlay never deletes old files, so nothing errors, it just silently
     stops receiving updates while VERSION reports current. Re-running
-    scheduler.py install (fully idempotent — identical content when
+    scheduler.py install (fully idempotent: identical content when
     nothing changed) after every update keeps an existing schedule
     pointed at wherever the runner actually lives now. Only touches a
     schedule the user already opted into; never installs a new one."""
@@ -359,7 +359,7 @@ def _refresh_schedule_if_installed(say) -> None:
     r = subprocess.run([sys.executable, scheduler, "install"],
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     if r.returncode != 0:
-        say("WARNING: could not refresh the existing schedule — run src/scripts/runtime/scheduler.py install")
+        say("WARNING: could not refresh the existing schedule: run src/scripts/runtime/scheduler.py install")
 
 
 _MIGRATION_BACKUP_SUFFIX = ".pre-src-migration.bak"
@@ -381,15 +381,15 @@ _MOVED_DIRS = (
 
 
 def _migrate_live_config(root, say) -> None:
-    """config/ (templates + live gitignored secrets) moved to src/config/ —
+    """config/ (templates + live gitignored secrets) moved to src/config/,
     but only the committed templates were ever in a git checkout/tarball,
     so an update's git-pull/tarball-overlay delivers src/config/*.example.json
     fresh while a user's real live secrets (targets.json, discord_config.json,
     the various API keys) are gitignored and simply absent from what was
-    just pulled, still sitting at the OLD config/ path. Copy — never
+    just pulled, still sitting at the OLD config/ path. Copy: never
     move-then-delete, and never overwrite something already at the
     destination (a freshly-delivered committed file must never be clobbered
-    by a stale old copy) — so this is safe to run unconditionally on every
+    by a stale old copy), so this is safe to run unconditionally on every
     update, including ones where it's already a no-op."""
     old_dir = os.path.join(root, "config")
     new_dir = os.path.join(root, "src", "config")
@@ -403,13 +403,13 @@ def _migrate_live_config(root, say) -> None:
             continue
         try:
             shutil.copy2(old_path, new_path)
-            # copy2 preserves the OLD file's mode bits — these are live
+            # copy2 preserves the OLD file's mode bits: these are live
             # secrets (targets.json, discord_config.json, API keys), so
             # don't carry forward a pre-hardening install's permissive mode.
             os.chmod(new_path, 0o600)
             say(f"migrated src/config/{name} from the old config/ location")
         except OSError as exc:
-            say(f"WARNING: could not migrate config/{name} to src/config/ — {exc}. Copy it there by hand.")
+            say(f"WARNING: could not migrate config/{name} to src/config/: {exc}. Copy it there by hand.")
 
 
 def _migrate_to_src_layout(root, say) -> None:
@@ -417,14 +417,14 @@ def _migrate_to_src_layout(root, say) -> None:
     -> src/tauri, packages/core -> src/core, scripts -> src/scripts, agents
     -> src/agents, extension -> src/extension, site -> src/site, supabase ->
     src/supabase, config -> src/config). A git-pull/tarball-overlay update
-    only ever adds/overwrites files present in the new tree — it never
-    deletes what it doesn't recognize — so without this, an existing
+    only ever adds/overwrites files present in the new tree; it never
+    deletes what it doesn't recognize, so without this, an existing
     install would end up with BOTH the old top-level directories AND the
     new src/ ones after updating: orphaned cruft, not a clean migration.
     Idempotent: every check below is "does the old thing still exist,"
     so this is a fast no-op on every update after the first. Renames
     (never deletes) each stale directory to a `.pre-src-migration.bak`
-    sibling instead of removing it outright — reversible by hand if
+    sibling instead of removing it outright, reversible by hand if
     something downstream turns out wrong, cheap to delete later once the
     migration's proven stable."""
     _migrate_live_config(root, say)
@@ -433,33 +433,33 @@ def _migrate_to_src_layout(root, say) -> None:
         if not os.path.isdir(old_path) or os.path.islink(old_path):
             continue
         if not os.path.exists(os.path.join(root, new_signature)):
-            # The new-layout file isn't there yet — don't strand the old
+            # The new-layout file isn't there yet: don't strand the old
             # directory on the assumption a restructure completed when it
             # may not have (e.g. a partial/interrupted tarball overlay).
             continue
         backup_path = old_path + _MIGRATION_BACKUP_SUFFIX
         if os.path.exists(backup_path):
-            say(f"WARNING: {old_name}{_MIGRATION_BACKUP_SUFFIX} already exists — leaving {old_name}/ in place; remove one of them by hand.")
+            say(f"WARNING: {old_name}{_MIGRATION_BACKUP_SUFFIX} already exists, leaving {old_name}/ in place; remove one of them by hand.")
             continue
         try:
             os.rename(old_path, backup_path)
-            say(f"moved old {old_name}/ out of the way (renamed to {old_name}{_MIGRATION_BACKUP_SUFFIX}/ — safe to delete once you've confirmed everything still works)")
+            say(f"moved old {old_name}/ out of the way (renamed to {old_name}{_MIGRATION_BACKUP_SUFFIX}/, safe to delete once you've confirmed everything still works)")
         except OSError as exc:
-            say(f"WARNING: could not move aside old {old_name}/ — {exc}. Remove or rename it by hand once you've confirmed src/{old_name if old_name != 'packages' else 'core'}/ works.")
+            say(f"WARNING: could not move aside old {old_name}/: {exc}. Remove or rename it by hand once you've confirmed src/{old_name if old_name != 'packages' else 'core'}/ works.")
 
 
 def _refresh_wrapper_shim(root, say) -> None:
     """The `aplyx` command on PATH is a tiny wrapper written ONCE at install
-    time (install.sh/.ps1's own final step) — it is NOT part of the repo,
+    time (install.sh/.ps1's own final step), it is NOT part of the repo,
     so no git-pull/tarball-overlay update ever touches it. It hardcodes a
     path to the TUI's compiled entry point relative to the install root;
     the src/ restructure moved that from app/dist/cli.js to
     src/tui/dist/cli.js, so an already-installed wrapper would keep looking
-    for the old, now-nonexistent path forever until repaired here — this is
+    for the old, now-nonexistent path forever until repaired here: this is
     the single biggest concrete breakage risk in the whole restructure.
     Mirrors install.sh/.ps1's own wrapper content exactly (one template,
     not two copies to keep in sync by hand). Only rewrites a wrapper that
-    already exists and is confirmed to be aplyx's own — same restraint as
+    already exists and is confirmed to be aplyx's own, same restraint as
     _refresh_schedule_if_installed: never installs a new one for a user who
     never had the command."""
     if os.name == "nt":
@@ -471,9 +471,9 @@ def _refresh_wrapper_shim(root, say) -> None:
             with open(cmd_shim, "r", encoding="utf-8", errors="ignore") as fh:
                 content = fh.read()
         except OSError:
-            return  # no wrapper installed — nothing to refresh
+            return  # no wrapper installed: nothing to refresh
         if "aplyx wrapper" not in content:
-            return  # a foreign aplyx.cmd — leave it alone
+            return  # a foreign aplyx.cmd: leave it alone
         if "src\\tui\\dist\\cli.js" in content:
             return  # already current
         cmd_body = (
@@ -524,7 +524,7 @@ def _refresh_wrapper_shim(root, say) -> None:
                 fh.write(ps1_body)
             say(f"refreshed the aplyx command wrapper for the src/ restructure ({cmd_shim}).")
         except OSError as exc:
-            say(f"WARNING: could not refresh the aplyx command wrapper — {exc}. Re-run install.ps1 to repair it.")
+            say(f"WARNING: could not refresh the aplyx command wrapper: {exc}. Re-run install.ps1 to repair it.")
         return
 
     bin_dir = os.environ.get("APLYX_BIN") or os.environ.get("FLUX_BIN") or os.path.join(os.path.expanduser("~"), ".local", "bin")
@@ -533,9 +533,9 @@ def _refresh_wrapper_shim(root, say) -> None:
         with open(wrapper, "r", encoding="utf-8", errors="ignore") as fh:
             content = fh.read()
     except OSError:
-        return  # no wrapper installed — nothing to refresh
+        return  # no wrapper installed: nothing to refresh
     if "aplyx wrapper" not in content:
-        return  # a foreign `aplyx` — leave it alone
+        return  # a foreign `aplyx`: leave it alone
     if "src/tui/dist/cli.js" in content:
         return  # already current
     body = (
@@ -561,21 +561,21 @@ def _refresh_wrapper_shim(root, say) -> None:
         os.chmod(wrapper, 0o755)
         say(f"refreshed the aplyx command wrapper for the src/ restructure ({wrapper}).")
     except OSError as exc:
-        say(f"WARNING: could not refresh the aplyx command wrapper — {exc}. Re-run install.sh to repair it.")
+        say(f"WARNING: could not refresh the aplyx command wrapper: {exc}. Re-run install.sh to repair it.")
 
 
 def _refresh_desktop_app_if_stale(say) -> None:
     """The desktop app's own binary and its bundled core/bridge.js resource
     are baked in at *build* time (src/tauri/src-tauri/tauri.conf.json) and
-    never change after install — nothing this whole update process does
+    never change after install: nothing this whole update process does
     (git pull / tarball overlay, the rebuilds below) can reach them. A
     prior fix added a version-staleness check for this, but only inside
-    src/tui/src/cli.tsx's installUpdate() — the TypeScript wrapper the TUI's
+    src/tui/src/cli.tsx's installUpdate(), the TypeScript wrapper the TUI's
     `aplyx update` calls this script through. Every OTHER path that runs
     update.py directly (the launchd/schtasks scheduler, run_job_agent.py's
     own pre-run auto-update) went through _post_update() below and never
     touched cli.tsx at all, so a desktop app that only ever updates via a
-    scheduled run stayed permanently stale — reported live as "still not
+    scheduled run stayed permanently stale: reported live as "still not
     updating everything properly." Doing the check here instead, in the one
     place every invocation path already funnels through, covers all of
     them uniformly; the cli.tsx-side check was removed as the now-redundant
@@ -586,7 +586,7 @@ def _refresh_desktop_app_if_stale(say) -> None:
         with open(marker, "r", encoding="utf-8") as fh:
             desktop_version = fh.read().strip()
     except OSError:
-        return  # desktop app not installed — nothing to refresh
+        return  # desktop app not installed: nothing to refresh
     if not desktop_version:
         return
     try:
@@ -604,10 +604,10 @@ def _refresh_desktop_app_if_stale(say) -> None:
         cmd = ["bash", script]
     if not os.path.isfile(script):
         return
-    say(f"desktop app is on build {desktop_version}, core just updated to {current_version} — it doesn't update itself, so refreshing it too...")
+    say(f"desktop app is on build {desktop_version}, core just updated to {current_version}; it doesn't update itself, so refreshing it too...")
     r = subprocess.run(cmd, cwd=ROOT)
     if r.returncode != 0:
-        say(f"WARNING: desktop app refresh failed — see the output above, or re-run {script}")
+        say(f"WARNING: desktop app refresh failed: see the output above, or re-run {script}")
 
 
 def _post_update(say) -> None:
@@ -619,28 +619,28 @@ def _post_update(say) -> None:
     # Each step warn-only so a hiccup never bricks an already-updated install.
     if subprocess.run([sys.executable, "src/scripts/validate/generate_agent_definitions.py"],
                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode != 0:
-        say("WARNING: agent-definition regeneration failed — run src/scripts/validate/generate_agent_definitions.py")
+        say("WARNING: agent-definition regeneration failed: run src/scripts/validate/generate_agent_definitions.py")
     if subprocess.run([sys.executable, "src/scripts/validate/validate_local_config.py"],
                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode != 0:
-        say("WARNING: config validation reported issues — run src/scripts/validate/validate_local_config.py")
+        say("WARNING: config validation reported issues: run src/scripts/validate/validate_local_config.py")
     _refresh_schedule_if_installed(say)
     _refresh_desktop_app_if_stale(say)
     _refresh_wrapper_shim(ROOT, say)
     npm = shutil.which("npm")
     if npm:
         # src/core has no install/prepare hook that builds it
-        # automatically — src/tui/'s and extension's own `tsc` builds both
+        # automatically: src/tui/'s and extension's own `tsc` builds both
         # resolve `@aplyx/core/*` imports against its dist/*.d.ts, which
         # this step used to leave stale. If an update changed core's
         # source (a new export, a bug fix) without this rebuild running
         # first, app/'s own `tsc` would fail type-checking against the
-        # stale dist (a new export's .d.ts simply not there yet) — and
+        # stale dist (a new export's .d.ts simply not there yet), and
         # since the build script is `tsc && npm run bundle`, that failure
         # silently aborted before the bundle step ever ran, leaving
         # dist/cli.js completely untouched. The result: source pulled
         # down fine, VERSION bumped fine, but the compiled binary the
-        # user actually runs never picked up ANY of the update — not just
-        # the core-dependent parts — because the build never got that
+        # user actually runs never picked up ANY of the update (not just
+        # the core-dependent parts) because the build never got that
         # far. Reproduced directly (removing a core .d.ts and running
         # app's own `npm run build` in isolation fails exactly this way)
         # before landing this fix.
@@ -654,7 +654,7 @@ def _post_update(say) -> None:
                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
             )
             if not core_ok:
-                say("WARNING: shared core rebuild failed — the TUI/extension rebuilds below will likely fail too. Run: cd src/core && npm install && npm run build")
+                say("WARNING: shared core rebuild failed: the TUI/extension rebuilds below will likely fail too. Run: cd src/core && npm install && npm run build")
         for rel, label in (("src/tui", "TUI"), ("src/extension", "browser extension")):
             pkg = os.path.join(ROOT, rel, "package.json")
             if not os.path.isfile(pkg):
@@ -666,9 +666,9 @@ def _post_update(say) -> None:
                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
             )
             if not ok:
-                say(f"WARNING: {label} rebuild failed — run: cd {rel} && npm install && npm run build")
+                say(f"WARNING: {label} rebuild failed; run: cd {rel} && npm install && npm run build")
     else:
-        say("node/npm not found — skipped the shared core/TUI/browser-extension rebuilds")
+        say("node/npm not found: skipped the shared core/TUI/browser-extension rebuilds")
 
 
 if __name__ == "__main__":

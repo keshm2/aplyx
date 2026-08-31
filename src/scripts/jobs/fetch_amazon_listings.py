@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""fetch_amazon_listings.py — Amazon company-specific careers board (Phase 16B).
+"""fetch_amazon_listings.py: Amazon company-specific careers board (Phase 16B).
 
 Amazon exposes a public, auth-free JSON search API used by its own
 careers site (no API key, no Playwright needed):
@@ -7,19 +7,19 @@ careers site (no API key, no Playwright needed):
   GET https://www.amazon.jobs/en/search.json?base_query=<query>&result_limit=<n>&offset=<n>
 
 Unlike the ATS-vendor sources (Ashby/Lever/Greenhouse/SmartRecruiters),
-Amazon is a single company, not a multi-tenant product — there is no
+Amazon is a single company, not a multi-tenant product; there is no
 per-company slug to configure. Enable it by adding "amazon" to
 config/targets.json "boards", same as linkedin/indeed/wellfound/handshake
 (this helper has no config file of its own to be placeholder/unconfigured;
 the orchestrator decides whether to call it based on "boards").
 
 The list response carries FULL JD text (description + basic_qualifications
-+ preferred_qualifications, confirmed live) — no separate per-posting
++ preferred_qualifications, confirmed live); no separate per-posting
 detail fetch needed, unlike Workday/SmartRecruiters.
 
 Output contract:
-  stdout — raw-job JSONL, sorted by (title, external_job_id).
-  stderr — a machine-parseable summary line:
+  stdout: raw-job JSONL, sorted by (title, external_job_id).
+  stderr: a machine-parseable summary line:
            fetch_amazon_listings: complete jobs=<n> failed=<true|false>
 
 Exit codes:

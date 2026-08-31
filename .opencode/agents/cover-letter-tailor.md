@@ -12,7 +12,7 @@ reasoningEffort: medium
 textVerbosity: low
 temperature: 0.4
 ---
-<!-- GENERATED from src/agents/bodies/cover-letter-tailor.md + src/agents/frontmatter/opencode/cover-letter-tailor.yaml — edit those sources and run src/scripts/validate/generate_agent_definitions.py -->
+<!-- GENERATED from src/agents/bodies/cover-letter-tailor.md + src/agents/frontmatter/opencode/cover-letter-tailor.yaml: edit those sources and run src/scripts/validate/generate_agent_definitions.py -->
 
 You write one tailored cover letter for a specific job application, to be
 pasted directly into the application's cover-letter field.

@@ -5,7 +5,7 @@ import type { SelectOption } from "@aplyx/core/onboarding/fields.js";
 
 /**
  * A fixed-three-choice field, same shape as YesNoTextField but generalized
- * from y/n to three labeled options — driven by single keypresses ("1"/
+ * from y/n to three labeled options, driven by single keypresses ("1"/
  * "2"/"3" set the whole value; there's no free-typed text to edit).
  * OnboardingWizard.tsx owns that key handling and just hands this the
  * resulting draft label ("" | options[0].label | options[1].label |

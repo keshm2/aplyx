@@ -20,7 +20,7 @@ document.getElementById("save")!.addEventListener("click", async () => {
   try {
     const parsed = new URL(bridgeUrl);
     if (parsed.hostname !== "127.0.0.1" && parsed.hostname !== "localhost") {
-      show("The bridge must be local (127.0.0.1) — refusing to save a remote URL.", false);
+      show("The bridge must be local (127.0.0.1); refusing to save a remote URL.", false);
       return;
     }
   } catch {
@@ -35,7 +35,7 @@ document.getElementById("test")!.addEventListener("click", async () => {
   show("Testing…", true);
   const result = (await chrome.runtime.sendMessage({ type: "health" })) as HealthResponse;
   if (result.ok) {
-    show(`Connected — ${result.service} (${result.version}).`, true);
+    show(`Connected: ${result.service} (${result.version}).`, true);
   } else {
     show(result.error ?? "Bridge did not respond.", false);
   }

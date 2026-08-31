@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""fetch_workday_listings.py — Workday public listing ingestion (Phase 7).
+"""fetch_workday_listings.py: Workday public listing ingestion (Phase 7).
 
 Fetches job postings from configured Workday tenants via the public,
 auth-free CXS JSON endpoints (no scraping, no Playwright needed for the
@@ -7,13 +7,13 @@ common case) and emits one raw-job JSON object per line on stdout,
 shaped for `src/scripts/state/job_state.py canonicalize`.
 
 Tenants are configured in src/config/targets.json as
-"<host>/<site>" strings — the tenant is the unit of configuration:
+"<host>/<site>" strings: the tenant is the unit of configuration:
 
   "workday_tenants": ["nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite"]
 
 Skip behavior mirrors the other optional boards: a missing, empty, or
 placeholder-only ("REPLACE_ME") workday_tenants array means the board
-is skipped — a warning goes to stderr, nothing on stdout, exit 0.
+is skipped: a warning goes to stderr, nothing on stdout, exit 0.
 
 The list feed carries NO JD body. After role filtering and before the
 fit gate, the orchestrator fetches the JD per surviving candidate:
@@ -26,9 +26,9 @@ which prints one JSON object with jd_text (HTML stripped), title,
   verification, form filling, and submission.
 
 Output contract:
-  stdout — raw-job JSONL (list mode) or a single JD JSON (--jd-url),
+  stdout: raw-job JSONL (list mode) or a single JD JSON (--jd-url),
            list mode sorted by (company, title, external_job_id).
-  stderr — warnings and a machine-parseable summary line:
+  stderr: warnings and a machine-parseable summary line:
            fetch_workday_listings: complete tenants=<n> jobs=<n> failed=<n>
 
 Exit codes:
@@ -92,7 +92,7 @@ def load_configured_tenants(targets_path: str) -> list:
         die(f"could not read targets config {targets_path}: {exc}")
     raw = targets.get("workday_tenants")
     if raw is None:
-        warn("workday_tenants is not configured — Workday board skipped this run")
+        warn("workday_tenants is not configured: Workday board skipped this run")
         return []
     if not isinstance(raw, list):
         die("targets config field 'workday_tenants' must be an array")
@@ -103,17 +103,17 @@ def load_configured_tenants(targets_path: str) -> list:
             continue
         parsed = parse_tenant(text)
         if parsed is None:
-            warn(f"malformed workday tenant '{text}' (expected <host>/<site>) — skipped")
+            warn(f"malformed workday tenant '{text}' (expected <host>/<site>), skipped")
             continue
         tenants.append(parsed)
     if not tenants:
-        warn("workday_tenants is empty or placeholder-only — Workday board skipped this run")
+        warn("workday_tenants is empty or placeholder-only: Workday board skipped this run")
     return tenants
 
 
 def load_tenant_company_names(discovered_path: str) -> dict:
     """'<host>/<site>' (lowercased) -> human company name, from
-    discovered_companies.json's discovered_tenants — see the identical
+    discovered_companies.json's discovered_tenants: see the identical
     helper (and its full doc comment) in fetch_oracle_listings.py."""
     try:
         with open(discovered_path, "r", encoding="utf-8") as f:
@@ -174,7 +174,7 @@ def to_raw_job(posting: dict, host: str, tenant: str, site: str, company_name: s
         "url": f"https://{host}/{site}{path}",
         "external_job_id": external_id,
         "location": str(posting.get("locationsText", "")).strip(),
-        # jd_text intentionally absent — fetch per candidate with --jd-url
+        # jd_text intentionally absent: fetch per candidate with --jd-url
         # after role filtering and BEFORE the fit gate (same rule as the
         # SimplifyJobs feeds).
     }
@@ -292,7 +292,7 @@ def main(argv=None) -> int:
     fetched = 0
     failed = 0
     jobs = []
-    # Tenants fetched concurrently, not one after another — see the
+    # Tenants fetched concurrently, not one after another: see the
     # matching comment in fetch_oracle_listings.py's main(). Same
     # reasoning applies here: N sequential tenants each costing over a
     # second means N tenants configured is N times more likely to blow
@@ -309,7 +309,7 @@ def main(argv=None) -> int:
             tenant = future_to_tenant[future]
             tenant_jobs, error = future.result()
             if error is not None:
-                warn(f"tenant '{tenant}' failed to fetch: {error} — skipped")
+                warn(f"tenant '{tenant}' failed to fetch: {error}, skipped")
                 failed += 1
             else:
                 fetched += 1

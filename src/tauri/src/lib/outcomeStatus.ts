@@ -1,4 +1,4 @@
-/** Shared between StatusScreen and HomeScreen's tracking widgets — one
+/** Shared between StatusScreen and HomeScreen's tracking widgets: one
  *  place for these two maps so a new outcome_status value (see migration
  *  0021/0007) only needs updating once, not once per screen. */
 export const OUTCOME_BADGE: Record<string, string> = {
@@ -22,7 +22,7 @@ export const OUTCOME_LABEL: Record<string, string> = {
 };
 
 /** dataList.css's .status-dot-* variants mirror .status-badge-* 1:1 by
- *  name — a list row (dense, many at once) wants the dot register, not
+ *  name: a list row (dense, many at once) wants the dot register, not
  *  the filled-pill one a single emphasized status (a detail sheet header)
  *  still uses. Converts an OUTCOME_BADGE lookup instead of keeping a
  *  second map that could drift out of sync with it. */

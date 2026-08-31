@@ -1,7 +1,7 @@
 import type { MasterResumeBullet } from "@aplyx/core/masterResume.js";
 import "./BulletListEditor.css";
 
-/** Shared add/edit/delete/reorder UI for a bullet list — Experience and
+/** Shared add/edit/delete/reorder UI for a bullet list: Experience and
  *  Project entries on the Resumes screen both need identical bullet
  *  editing, so this is factored once rather than duplicated per section.
  *  Fully controlled: the parent holds the bullets array and gets a new
@@ -10,7 +10,7 @@ import "./BulletListEditor.css";
 export function BulletListEditor({
   bullets,
   onChange,
-  placeholder = "Describe an accomplishment — start with an action verb, include a metric if you can",
+  placeholder = "Describe an accomplishment: start with an action verb, include a metric if you can",
 }: {
   bullets: MasterResumeBullet[];
   onChange: (bullets: MasterResumeBullet[]) => void;

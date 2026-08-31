@@ -8,7 +8,7 @@ interface StatusSegment {
   colorVar: string;
 }
 
-/** How the deterministic fit gate is triaging everything it's scraped —
+/** How the deterministic fit gate is triaging everything it's scraped:
  *  latest_status is the only per-registry-record signal actually persisted
  *  (job_state.py's ALLOWED_STATUSES); there's no stored "candidate" status
  *  on its own since a candidate immediately becomes applied/failed once

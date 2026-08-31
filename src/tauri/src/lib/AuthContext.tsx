@@ -11,7 +11,7 @@ type AuthStatus = "checking" | "error" | "signed-out" | "signed-in";
  * Custom URL scheme this app registers (src/tauri/src-tauri/tauri.conf.json
  * "plugins.deep-link.desktop.schemes"). Both the email-confirmation link
  * and the Google OAuth redirect point here instead of Supabase's default
- * `http://localhost:3000` — a desktop app isn't a website sitting at that
+ * `http://localhost:3000`: a desktop app isn't a website sitting at that
  * URL to receive the click, so without this every confirmation link was a
  * dead end (2026-07-16, caught in manual testing). The OS routes a click
  * on an `aplyx://...` link to this running app; onOpenUrl below catches
@@ -19,7 +19,7 @@ type AuthStatus = "checking" | "error" | "signed-out" | "signed-in";
  *
  * Caveat: macOS only recognizes a custom URL scheme once the app has been
  * built as a real .app bundle and launched at least once from
- * /Applications — `tauri-plugin-deep-link` cannot register the scheme at
+ * /Applications; `tauri-plugin-deep-link` cannot register the scheme at
  * runtime for a bare `cargo run`/`tauri dev` binary on macOS. Test this
  * with `npm run tauri build` (or `-- --debug`), not `tauri dev`.
  *
@@ -31,11 +31,11 @@ const AUTH_CALLBACK_URL = "aplyx://auth-callback";
 
 interface AuthContextValue {
   status: AuthStatus;
-  /** Set when status is "error" — what actually went wrong during setup. */
+  /** Set when status is "error": what actually went wrong during setup. */
   statusError: string | undefined;
   session: Session | undefined;
   /** Whether the signed-in user has finished the hosted onboarding wizard
-   *  before — undefined while unknown (still resolving, or not signed in).
+   *  before; undefined while unknown (still resolving, or not signed in).
    *  EntryScreen/AuthScreen wait for this before deciding whether a
    *  sign-in lands on the dashboard or the wizard. */
   onboardingCompleted: boolean | undefined;
@@ -79,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStatusError(undefined);
 
     // Applies a Supabase session (or its absence) to status/session/
-    // onboardingCompleted together — called both for the initial
+    // onboardingCompleted together; called both for the initial
     // getSession() resolve and every subsequent onAuthStateChange event
     // (interactive sign-in, sign-out, the deep-link PKCE exchange), so
     // there is one place that decides "is this user done with the hosted
@@ -101,12 +101,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // stuck at undefined forever: AuthScreen/EntryScreen's own
         // "navigate once it resolves" effects never fire, status stays
         // "signed-in", and the sign-in form just... sits there with no
-        // feedback at all — indistinguishable from "did nothing," which is
+        // feedback at all, indistinguishable from "did nothing," which is
         // exactly what got reported ("sign in just takes me back to the
         // entry screen": the form never advances, so the only way forward
         // looks like clicking back). Surfacing it as a real error means a
         // stuck sign-in is now visible and retryable instead of a silent
-        // dead end, and — critically — the actual cause (RLS, network, a
+        // dead end, and, critically, the actual cause (RLS, network, a
         // schema mismatch) shows up in statusError instead of vanishing.
         if (!cancelled) {
           setStatusError(errorMessage(err));
@@ -115,7 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // Every await here must resolve to a status — a rejection that leaves
+    // Every await here must resolve to a status; a rejection that leaves
     // status at "checking" strands the auth screen on its loading state
     // forever (the original symptom: bridge spawn failed in the installed
     // .app and the rejection was silently dropped).
@@ -144,8 +144,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [attempt]);
 
   // Catches the OS routing an aplyx://auth-callback click back to this
-  // app — from either the email-confirmation link or the system-browser
-  // Google OAuth redirect — and completes the session via the PKCE code
+  // app (from either the email-confirmation link or the system-browser
+  // Google OAuth redirect) and completes the session via the PKCE code
   // in the URL. Registered once client exists; harmless if it never fires.
   useEffect(() => {
     if (!client) return;
@@ -154,7 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const url = urls.find((u) => u.startsWith(AUTH_CALLBACK_URL));
       if (!url) return;
       // exchangeCodeForSession wants the bare PKCE auth code, not the full
-      // callback URL — it's sent as-is to Supabase's token endpoint, so
+      // callback URL: it's sent as-is to Supabase's token endpoint, so
       // passing the whole "aplyx://auth-callback?code=..." string here
       // silently fails the exchange (invalid code) with no visible error,
       // leaving status stuck on "signed-out" after a real, successful
@@ -204,7 +204,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           });
           if (error) return { error: error.message };
           // Supabase obfuscates "this email already has an account" as a
-          // fake success with an empty identities array — and does NOT
+          // fake success with an empty identities array, and does NOT
           // resend the confirmation email. Without surfacing this, every
           // retry after a lost first email looks like it worked while
           // nothing ever arrives.
@@ -232,7 +232,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async signInWithGoogle() {
         try {
           const c = await getSupabaseClient();
-          // skipBrowserRedirect: the webview must not navigate itself — Google
+          // skipBrowserRedirect: the webview must not navigate itself; Google
           // blocks OAuth from embedded webviews. Open the auth URL in the
           // user's real system browser instead; it redirects back to
           // AUTH_CALLBACK_URL on completion, which the OS routes to onOpenUrl

@@ -28,7 +28,7 @@ const CODE_STYLE = {
 /** Account tab: who you're signed in as, the hosted inbox connection,
  *  resume-on-file, and which local install this window is pointed at.
  *  ATS accounts (the credentials aplyx creates on ATS sites) used to be a
- *  button right here next to the signed-in email — it's its own tab now,
+ *  button right here next to the signed-in email; it's its own tab now,
  *  see SettingsShell.tsx. */
 export function SettingsAccountTab() {
   const { status, session, signOut } = useAuth();
@@ -45,12 +45,12 @@ export function SettingsAccountTab() {
   const [resumeUploading, setResumeUploading] = useState(false);
   const [resumeUploadError, setResumeUploadError] = useState<string | undefined>(undefined);
   // Hosted-to-local profile pull (docs/web-onboarding-hosted-sync-plan.md
-  // Part B) — offered right here because this is the one place a local
+  // Part B): offered right here because this is the one place a local
   // install and a freshly-signed-in session are ever both true at once
   // (AuthScreen's default post-sign-in routing assumes no local install
   // exists; the "Sign in" button below opts out of that via `returnTo`
   // and lands back here instead). checked/dismissed/done all reset to
-  // their defaults on their own the next time this component mounts —
+  // their defaults on their own the next time this component mounts,
   // deliberately not persisted, so a page revisit re-offers it rather
   // than remembering a "not now" forever.
   const [hostedPullChecked, setHostedPullChecked] = useState(false);
@@ -80,7 +80,7 @@ export function SettingsAccountTab() {
           setLocalProfileHasData(Boolean(localFields.first_name || localFields.last_name));
         }
       } catch {
-        // Fail open — no offer shown; the user can still fill in or edit
+        // Fail open: no offer shown; the user can still fill in or edit
         // their profile normally, same as before this existed.
       } finally {
         if (!cancelled) setHostedPullChecked(true);
@@ -102,7 +102,7 @@ export function SettingsAccountTab() {
           const client = await getSupabaseClient();
           await pullHostedResume(client, session.user.id, root, hostedPullSnapshot.resumeFileName);
         } catch {
-          // Profile fields already landed — a resume-pull failure
+          // Profile fields already landed, so a resume-pull failure
           // shouldn't block finishing; Settings' own resume upload above
           // still lets them add one manually.
         }
@@ -116,7 +116,7 @@ export function SettingsAccountTab() {
   }
 
   // Same upload call the onboarding wizard's ResumeUploadStep.tsx uses
-  // (upsert: true replaces the existing file in place) — this is the
+  // (upsert: true replaces the existing file in place): this is the
   // permanent action that step's own copy already promised existed
   // ("add a resume later from Settings") but that, until now, nothing
   // actually built.
@@ -166,13 +166,13 @@ export function SettingsAccountTab() {
   }, [status, session]);
 
   // Same aplyx://mail-callback deep link EmailTrackingStep listens for
-  // during onboarding — Settings needs its own listener so reconnecting or
+  // during onboarding; Settings needs its own listener so reconnecting or
   // switching to a different inbox email works without re-running the
   // whole hosted wizard. mail-oauth-callback's redirect carries the
   // connected email/provider, which supersedeMailConnections uses to
   // revoke any other still-"connected" row for that provider (reconnecting
   // under a new email inserts a second row rather than replacing the
-  // first — see supabase.ts).
+  // first, see supabase.ts).
   useEffect(() => {
     if (status !== "signed-in" || !session) return;
     const unlisten = onOpenUrl(async (urls) => {
@@ -277,15 +277,15 @@ export function SettingsAccountTab() {
             <div style={{ flex: 1 }}>
               <div className="check-label" style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
                 {session?.user.email}
-                {/* Every hosted account is on the single free tier today —
+                {/* Every hosted account is on the single free tier today:
                  * docs/hosted-paid-tier-plan.md's paid tiers are "planned,
                  * not started," no plan/tier column exists yet. This is an
                  * honest label for the one real tier, not a live plan
-                 * switcher — swap it for the real value once paid tiers
+                 * switcher; swap it for the real value once paid tiers
                  * actually ship. */}
                 <span className="status-badge status-badge-muted">Free</span>
               </div>
-              <div className="check-detail">Signed in — your profile syncs across devices.</div>
+              <div className="check-detail">Signed in. Your profile syncs across devices.</div>
             </div>
             <button type="button" className="settings-action-btn" onClick={() => signOut().then(() => navigate("/"))}>
               Sign out
@@ -437,7 +437,7 @@ export function SettingsAccountTab() {
               <div className="check-label">{hostedReadiness.resumeUploaded ? "Resume on file" : "No resume uploaded"}</div>
               <div className="check-detail">
                 {hostedReadiness.resumeUploaded
-                  ? "Uploading a new PDF replaces this one — aplyx always tailors from whatever is currently on file."
+                  ? "Uploading a new PDF replaces this one; aplyx always tailors from whatever is currently on file."
                   : "Upload a PDF so a signed-in session anywhere has something to tailor from."}
               </div>
             </div>
@@ -477,7 +477,7 @@ export function SettingsAccountTab() {
             <div style={{ flex: 1 }}>
               <div className="check-label">No local installation found</div>
               <div className="check-detail">
-                Job search and applying run through a local install — point the app at your aplyx
+                Job search and applying run through a local install: point the app at your aplyx
                 checkout folder.
               </div>
             </div>

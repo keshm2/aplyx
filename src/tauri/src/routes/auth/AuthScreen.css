@@ -61,7 +61,7 @@
 
 .auth-tab-active {
   /* Background contrast against .auth-tabs' --ground is the whole
-   * indicator — no shadow needed (a hardcoded black shadow here used to
+   * indicator: no shadow needed (a hardcoded black shadow here used to
    * vanish on dark backgrounds; --surface vs --ground already reads in
    * both themes without one). */
   background: var(--surface);

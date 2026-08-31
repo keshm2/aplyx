@@ -1,5 +1,5 @@
 #!/bin/bash
-# update.sh — self-updater (Unix shim).
+# update.sh: self-updater (Unix shim).
 #
 # The updater logic now lives in src/scripts/install/update.py so it runs natively on
 # Windows as well as macOS/Linux with no curl/tar dependency. This shim keeps

@@ -1,12 +1,12 @@
 # Links this directory to aplyx's hosted auth/profiles Supabase project
-# (public URL in src/config/supabase.json — deliberately separate from
+# (public URL in src/config/supabase.json, deliberately separate from
 # the job_cache project; see src/job_cache_supabase/config.toml for why).
 #
 # Minimal on purpose: this exists so the GitHub integration
 # (Project Settings -> Integrations -> GitHub, "Working directory": src)
 # recognizes src/supabase/migrations/ as this project's migration
 # history. It is not set up for local `supabase start` (no [api]/[db]/
-# [studio] ports configured) — every migration here has so far been run
+# [studio] ports configured); every migration here has so far been run
 # by hand via `supabase db push` or the SQL editor, per each file's own
 # header comment.
 project_id = "aedejjesqcbndphkldfs"
