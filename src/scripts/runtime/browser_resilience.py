@@ -31,6 +31,7 @@ section:
 
 from __future__ import annotations
 
+import os
 import random
 import time
 from dataclasses import dataclass
@@ -38,6 +39,9 @@ from typing import Callable, Iterable, Optional, TypeVar
 from urllib.parse import urlsplit, urlunsplit
 
 T = TypeVar("T")
+
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+_SCREENSHOTS_DIR = os.path.join(_REPO_ROOT, "data", "screenshots")
 
 # The plan's own numbers: 3 retries after the first attempt, delays of
 # ~500ms/1.5s/4s. Jitter is +/-20% so concurrent runs against the same
@@ -205,6 +209,23 @@ def dismiss_consent_banner(page) -> bool:
         except Exception:
             continue
     return False
+
+
+def capture_debug_screenshot(page, name: str) -> Optional[str]:
+    """Save a full-page screenshot to data/screenshots/<name>.png and
+    return its repo-relative path (or None on failure). Called on a
+    submit-runtime failure so the reason is inspectable after the browser
+    has closed, without leaving an orphan Chrome window holding the
+    profile lock the next run needs. Mirrors the Workday runtime's
+    checkpoint screenshot."""
+    try:
+        os.makedirs(_SCREENSHOTS_DIR, exist_ok=True)
+        safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in name) or "screenshot"
+        path = os.path.join(_SCREENSHOTS_DIR, f"{safe}.png")
+        page.screenshot(path=path, full_page=True)
+        return os.path.relpath(path, _REPO_ROOT)
+    except Exception:
+        return None
 
 
 # --- generic gate detection ------------------------------------------------

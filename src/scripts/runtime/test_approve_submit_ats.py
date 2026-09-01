@@ -101,6 +101,12 @@ class FakePage:
     def get_by_text(self, *a, **k) -> FakeLocator:
         return FakeLocator([])
 
+    def screenshot(self, path: str, full_page: bool = False) -> None:
+        if getattr(self, "_screenshot_raises", False):
+            raise RuntimeError("target page/frame has been closed")
+        with open(path, "wb") as fh:
+            fh.write(b"\x89PNG\r\n")
+
 
 # --------------------------------------------------------------------------
 # _looks_like_<family>
@@ -195,6 +201,12 @@ class FindSubmitTests(unittest.TestCase):
         page = FakePage().with_selector("button[type=submit]", [FakeElement("Go")])
         self.assertIsNotNone(ashby._find_submit(page))
 
+    def test_ashby_does_not_match_bare_apply_cta(self):
+        # "Apply" on some Ashby pages is the pre-form CTA, not the final
+        # submit. Only "submit"-shaped names / selectors should match.
+        page = FakePage().with_role_button("apply", [FakeElement("Apply")])
+        self.assertIsNone(ashby._find_submit(page))
+
     def test_lever_none_when_absent(self):
         self.assertIsNone(lever._find_submit(FakePage()))
 
@@ -240,6 +252,44 @@ class FormReadyTests(unittest.TestCase):
 
     def test_dismiss_consent_noop_when_absent(self):
         self.assertFalse(br.dismiss_consent_banner(FakePage()))
+
+
+# --------------------------------------------------------------------------
+# failure screenshots
+# --------------------------------------------------------------------------
+class DebugScreenshotTests(unittest.TestCase):
+    def test_capture_returns_repo_relative_path(self):
+        path = br.capture_debug_screenshot(FakePage(), "greenhouse_test-job")
+        self.assertIsNotNone(path)
+        self.assertTrue(path.startswith("data/screenshots/"))
+        self.assertTrue(os.path.isfile(os.path.join(br._REPO_ROOT, path)))
+        os.remove(os.path.join(br._REPO_ROOT, path))
+
+    def test_capture_sanitizes_name(self):
+        path = br.capture_debug_screenshot(FakePage(), "lever_../../etc/passwd")
+        self.assertIsNotNone(path)
+        self.assertNotIn("..", path)
+        os.remove(os.path.join(br._REPO_ROOT, path))
+
+    def test_capture_returns_none_when_screenshot_fails(self):
+        page = FakePage()
+        page._screenshot_raises = True
+        self.assertIsNone(br.capture_debug_screenshot(page, "ashby_x"))
+
+    def test_fail_helper_emits_failure_with_screenshot(self):
+        import io
+        import contextlib
+        import json as _json
+
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            code = gh._fail(FakePage(), "boom", 6, "job-1")
+        self.assertEqual(code, 6)
+        payload = _json.loads(buf.getvalue())
+        self.assertFalse(payload["ok"])
+        self.assertEqual(payload["message"], "boom")
+        self.assertIn("screenshot", payload)
+        os.remove(os.path.join(br._REPO_ROOT, payload["screenshot"]))
 
 
 if __name__ == "__main__":

@@ -23,18 +23,17 @@ import time
 from urllib.parse import urlparse
 
 from browser_resilience import (
+    capture_debug_screenshot,
     detect_challenge,
     dismiss_consent_banner,
     goto_ready,
     wait_for_form_ready,
 )
 from replay_fill import (
-    PROJECT_ROOT,
     DEFAULT_REVIEW_QUEUE,
     DEFAULT_FILL_RECORDS_DIR,
     attach_resume,
     default_chrome_user_data_dir,
-    die,
     fill_field,
     find_queue_entry,
     is_profile_lock_error,
@@ -143,13 +142,30 @@ def _looks_successful(page) -> tuple[bool, str]:
     )
 
 
+def _fail(page, message: str, code: int, job_id: str) -> int:
+    """Print a structured failure, attaching a screenshot saved before the
+    browser closes so the reason stays inspectable (the window itself is
+    always closed on the way out, so it can't hold the profile lock the
+    next run needs)."""
+    out = {"ok": False, "message": message}
+    shot = capture_debug_screenshot(page, f"greenhouse_{job_id}") if page is not None else None
+    if shot:
+        out["screenshot"] = shot
+    print(json.dumps(out))
+    return code
+
+
 def run(job_id: str, review_queue_path: str, fill_records_dir: str) -> int:
     entry = find_queue_entry(job_id, review_queue_path)
     apply_url = entry.get("apply_url") or entry.get("url")
     if not apply_url:
         print(json.dumps({"ok": False, "message": f"job_id={job_id!r} has no apply_url or url"}))
         return 1
-    if not _looks_like_greenhouse(str(apply_url)):
+    # Trust an explicit source label even when the apply URL is a Greenhouse
+    # form embedded on the company's own domain (careers.acme.com), where
+    # the host check alone would wrongly bounce it.
+    source = (entry.get("source") or "").lower()
+    if source != "greenhouse" and not _looks_like_greenhouse(str(apply_url)):
         print(json.dumps({"ok": False, "message": "approve-submit is only implemented for Greenhouse entries right now"}))
         return 1
 
@@ -183,19 +199,17 @@ def run(job_id: str, review_queue_path: str, fill_records_dir: str) -> int:
             dismiss_consent_banner(page)
 
             if _has_captcha(page):
-                print(json.dumps({"ok": False, "message": "Greenhouse form contains CAPTCHA; review manually instead of auto-submitting"}))
-                return 4
+                return _fail(page, "Greenhouse form contains CAPTCHA; review manually instead of auto-submitting", 4, job_id)
 
             if not wait_for_form_ready(page):
-                print(json.dumps({"ok": False, "message": "the Greenhouse application form did not finish loading, or the posting is no longer accepting applications; nothing was submitted"}))
-                return 9
+                return _fail(page, "the Greenhouse application form did not finish loading, or the posting is no longer accepting applications; nothing was submitted", 9, job_id)
 
             unmatched = []
             for field in fields:
                 name = field.get("field_name", "")
                 value = field.get("filled_value", "")
-                source = field.get("source", "")
-                if source == "resume_upload":
+                field_source = field.get("source", "")
+                if field_source == "resume_upload":
                     resume_path = resolve_resume_path(value)
                     if not resume_path:
                         unmatched.append((name, f"resume file not found: {value}"))
@@ -210,36 +224,36 @@ def run(job_id: str, review_queue_path: str, fill_records_dir: str) -> int:
 
             if unmatched:
                 detail = "; ".join(f"{name}: {note}" for name, note in unmatched[:5])
-                print(json.dumps({"ok": False, "message": f"could not safely re-fill every field: {detail}"}))
-                return 5
+                return _fail(page, f"could not safely re-fill every field: {detail}", 5, job_id)
 
             if _has_captcha(page):
-                print(json.dumps({"ok": False, "message": "Greenhouse form surfaced CAPTCHA after refill; review manually instead of auto-submitting"}))
-                return 4
+                return _fail(page, "Greenhouse form surfaced CAPTCHA after refill; review manually instead of auto-submitting", 4, job_id)
 
             submit = _find_submit(page)
             if submit is None:
-                print(json.dumps({"ok": False, "message": "could not find a Greenhouse submit button"}))
-                return 6
+                return _fail(page, "could not find a Greenhouse submit button", 6, job_id)
 
-            submit.click(timeout=2000)
+            try:
+                submit.scroll_into_view_if_needed(timeout=2000)
+            except Exception:
+                pass
+            submit.click(timeout=5000)
             _pause(1400, 280)
 
             errors = _validation_errors(page)
             if errors:
-                print(json.dumps({"ok": False, "message": f"submit surfaced validation issues: {'; '.join(errors[:3])}"}))
-                return 7
+                return _fail(page, f"submit surfaced validation issues: {'; '.join(errors[:3])}", 7, job_id)
 
             deadline = time.monotonic() + 10.0
+            last_reason = "submit did not reach an obvious Greenhouse confirmation state"
             while time.monotonic() < deadline:
-                ok, reason = _looks_successful(page)
+                ok, last_reason = _looks_successful(page)
                 if ok:
-                    print(json.dumps({"ok": True, "message": reason, "confirmation_url": page.url}))
+                    print(json.dumps({"ok": True, "message": last_reason, "confirmation_url": page.url}))
                     return 0
                 _pause(400, 100)
 
-            print(json.dumps({"ok": False, "message": "submit did not reach an obvious Greenhouse confirmation state"}))
-            return 8
+            return _fail(page, last_reason, 8, job_id)
         finally:
             try:
                 context.close()
