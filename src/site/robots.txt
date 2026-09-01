@@ -1,3 +1,6 @@
+# Full-text summaries for LLMs: https://aplyx.app/llms.txt
+# Single-request full site text:  https://aplyx.app/llms-full.txt
+
 User-agent: *
 Allow: /
 Disallow: /account.html

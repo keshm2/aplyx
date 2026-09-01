@@ -1,43 +1,74 @@
 # aplyx
 
-> aplyx is a local-first job-application agent. It searches job boards, deduplicates against
-> your local history, checks each posting against your preferences with deterministic logic
-> (not a model's guess), tailors a resume and cover letter, and applies through a browser or
-> public APIs, with every application reviewable before it goes out.
+> aplyx is a local-first job-application agent. It searches job boards in one pass,
+> deduplicates against your local history, checks each posting against your
+> preferences with deterministic rule-based logic (not a model's guess), tailors a
+> resume and cover letter grounded in your real resume, and applies through a
+> browser or public APIs. Every application is reviewable before it goes out, and
+> the browser extension never clicks submit for you.
 
-## What it is
+This file follows the llms.txt convention (https://llmstxt.org/). For the full
+text of every page in a single request, fetch **https://aplyx.app/llms-full.txt**.
 
-- A terminal app (TUI) and a native desktop app (built with Tauri), both driven by the same
-  local-first core. Runs on macOS, Linux, and Windows.
-- A browser extension (Manifest V3) that detects a real application form on Greenhouse, Lever,
-  Ashby, or Workday, offers to autofill it from your profile, and never submits without you.
-- Searches Ashby, Lever, Greenhouse, Workday, SmartRecruiters, and other job boards in one pass.
-- Free and open source (MIT license) for local use: no account, no waitlist, no cost.
-- Requires a coding agent to drive it locally: full capability, including browser-automated
-  applies, with opencode or Claude Code; a smaller, API-fed-boards-only path with Codex CLI or
-  GitHub Copilot CLI.
-- A hosted account tier is planned (search, tailoring, and auto-apply from aplyx's own servers,
-  no local install or coding agent required) but is not live yet; pricing shown on the site is
-  illustrative and not final.
+## Key facts
+
+- **What it is:** a terminal app (TUI) and a native desktop app (Tauri), both on
+  the same local-first core, for macOS, Linux, and Windows; plus a Manifest V3
+  browser extension for autofilling application forms.
+- **Boards searched:** Ashby, Lever, Greenhouse, Workday, SmartRecruiters, and
+  more, in one deduplicated pass.
+- **Extension coverage:** Greenhouse, Lever, Ashby, and Workday. It detects a real
+  application form, asks before acting, fills only fields it can answer honestly,
+  and never submits — you click submit.
+- **Pipeline:** search -> deterministic fit-gate -> resume & cover-letter tailoring
+  -> review queue -> you approve every send. Post-apply status tracking (rejection,
+  assessment, interview, offer) is read-only, opt-in, and off by default.
+- **License & cost:** free and open source (MIT) for local use. No account, no
+  waitlist, no card.
+- **Requirements (local):** a coding agent drives it. Full capability (including
+  browser-automated applies) with opencode or Claude Code; a reduced
+  API-fed-boards-only path with Codex CLI or GitHub Copilot CLI.
+- **Hosted tier:** planned, not live. Search, tailoring, and auto-apply from
+  aplyx's own servers with no local install or coding agent. Pricing shown on the
+  site ($5 Basic / $9 Intern / $13 Pro, monthly) is illustrative and not final.
+- **Install:** `curl -fsSL https://raw.githubusercontent.com/keshm2/aplyx/main/src/scripts/install/install.sh | bash`
+  (macOS/Linux), a PowerShell one-liner on Windows, or `npm install -g @keshm/aplyx`.
+  Installs to `~/aplyx` (override with `APLYX_HOME`).
 
 ## Privacy
 
-- Running locally, your profile, resumes, and application history stay on your own machine and
-  are never uploaded by aplyx itself.
-- A hosted account additionally stores your profile and resume file(s) in a cloud database
-  (Supabase-backed), scoped to your account.
-- Resume tailoring and cover-letter drafting send the relevant job description and resume text
-  to whichever coding agent's model provider you're using, the same as using that agent directly.
-- Discord status updates and a Google Sheets tracking sync are both opt-in and off by default.
+- Running locally, your profile, resumes, and application history stay on your
+  machine and are never uploaded by aplyx itself.
+- A hosted account stores your profile and resume file(s) in a Supabase-backed
+  cloud database, scoped to your account by row-level access rules. ATS account
+  credentials are stored in Supabase Vault, encrypted at rest.
+- Resume tailoring and cover-letter drafting send the relevant job description and
+  resume text to whichever coding agent's model provider you use, the same as
+  using that agent directly.
+- Gender, ethnicity, and date of birth are always optional.
+- Discord status updates and Google Sheets tracking sync are opt-in and off by
+  default.
 - Full detail: https://aplyx.app/privacy.html
 
-## Links
+## Docs
 
-- Homepage: https://aplyx.app/
-- Features: https://aplyx.app/features.html
-- Pricing: https://aplyx.app/pricing.html
-- Install: https://aplyx.app/install.html
-- Browser extension: https://aplyx.app/extension.html
-- Changelog: https://aplyx.app/changelog.html
-- Privacy: https://aplyx.app/privacy.html
-- Source code: https://github.com/keshm2/aplyx
+- [Homepage](https://aplyx.app/): what aplyx is and how the four-step pipeline works.
+- [Features](https://aplyx.app/features.html): multi-board search, the deterministic
+  fit gate, resume and cover-letter tailoring, the review queue, inbox status
+  tracking, TUI and desktop parity, optional Discord updates.
+- [Pricing](https://aplyx.app/pricing.html): the free local tier in full, plus
+  previews of the planned hosted plans.
+- [Install](https://aplyx.app/install.html): install commands per OS, the coding-agent
+  requirement, what the installer writes, useful env vars, and loading the
+  extension unpacked.
+- [Browser extension](https://aplyx.app/extension.html): detect / ask / fill /
+  you-review-and-submit, and the four supported boards.
+- [Changelog](https://aplyx.app/changelog.html): release history.
+- [Privacy](https://aplyx.app/privacy.html): local vs. hosted, what is stored where,
+  and what goes to your model provider.
+
+## Optional
+
+- [Source code](https://github.com/keshm2/aplyx): the full repository (MIT).
+- [Full site text](https://aplyx.app/llms-full.txt): every page above, inlined as
+  markdown, for one-request review.

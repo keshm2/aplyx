@@ -1,0 +1,242 @@
+# aplyx — full site text
+
+> aplyx is a local-first job-application agent. It searches job boards in one pass,
+> deduplicates against your local history, checks each posting against your
+> preferences with deterministic rule-based logic (not a model's guess), tailors a
+> resume and cover letter grounded in your real resume, and applies through a
+> browser or public APIs. Every application is reviewable before it goes out.
+
+This file inlines the text of every page on https://aplyx.app/ so a crawler can
+review the whole site in one request. Canonical HTML pages are linked per section.
+Short index at https://aplyx.app/llms.txt. Last generated 2026-08-31.
+
+Site map: `/` `/features.html` `/pricing.html` `/install.html` `/extension.html`
+`/changelog.html` `/privacy.html`. Disallowed for crawlers: `/account.html`.
+
+---
+
+## Homepage — https://aplyx.app/
+
+**Your job search, applied to.** aplyx searches job boards, tailors your resume,
+and applies on your behalf. Every decision stays reviewable before it goes out.
+
+By the numbers:
+
+- 6+ boards searched in one pass, not one at a time.
+- 0 times you copy-paste your resume into another form.
+- 100% of applications stay reviewable before they're sent.
+- 1 profile that tailors itself to every posting.
+
+Core capabilities:
+
+- **Multi-board search** — Ashby, Lever, Greenhouse, Workday, and more, searched
+  in one pass and deduplicated automatically.
+- **Resume tailoring** — bullets and cover letters rewritten per job description,
+  grounded in your actual resume.
+- **Review before it goes out** — every application is reviewable; nothing goes
+  out without a decision you control.
+- **TUI + desktop** — a terminal app and a native desktop app, both driven by the
+  same local-first core.
+
+How it works — four steps, the same every time:
+
+1. **Search** — every configured board is scanned in one pass, deduplicated
+   automatically against what you've already seen.
+2. **Fit-check** — each posting is checked against your role, level, and location
+   preferences with plain deterministic logic, not a model's guess.
+3. **Tailor** — bullets are rewritten and a cover letter drafted for that specific
+   posting, grounded strictly in your real resume.
+4. **Review & apply** — anything ready lands in your review queue; you decide
+   before anything is submitted on your behalf.
+
+After an application goes out, status keeps updating automatically from the first
+response to the offer.
+
+---
+
+## Features — https://aplyx.app/features.html
+
+One local-first pipeline, from finding postings to a reviewable, ready-to-send
+application.
+
+- **Multi-board search** — Ashby, Lever, Greenhouse, Workday, SmartRecruiters, and
+  more, searched in one pass and deduplicated automatically, so the same posting
+  never shows up twice just because it's listed on two boards. Every result is
+  fit-checked against your preferences in the same view.
+- **A deterministic fit gate** — every posting is checked against your role, level,
+  and location preferences with plain rule-based logic before anything reaches a
+  resume-tailoring step. Not a model guessing whether a job is a fit.
+- **Resume & cover letter tailoring** — keep one resume in aplyx (jobs, projects,
+  skills, education, entered once). Bullets are rewritten and reordered per job
+  description, and a short cover letter is drafted grounded strictly in your actual
+  resume and the posting, never invented experience.
+- **Review before it goes out** — anything uncertain lands in a review queue. Each
+  entry shows its ATS score, the resume picked for it, and the fit-gate reasoning.
+  Nothing is applied to on your behalf without a decision you control.
+- **Status tracking, straight from your inbox** (work in progress) — once an
+  application goes out, aplyx watches the inbox on your profile for what happens
+  next (rejection, assessment, interview request, offer) and updates that job's
+  status automatically. Read-only, opt-in, off by default. States: Applied, OA
+  sent, Interview requested, Offer, Rejected.
+- **TUI and desktop, same core** — a terminal app for a fast keyboard-first
+  workflow, and a native desktop app for the same thing visually, both driven by
+  the same local-first pipeline.
+- **Discord updates, optional** — get pinged as applications go out, need review,
+  or fail. Entirely opt-in and off by default.
+
+---
+
+## Pricing — https://aplyx.app/pricing.html
+
+**Free forever, running locally.** Everything runs on your machine at no cost.
+Hosted plans exist for when you'd rather not install anything, or run out of your
+own coding agent's usage room.
+
+### Free — $0
+
+No account, no waitlist, no card. Just your own coding agent and your own machine.
+
+- Every core feature: multi-board search, fit-gate, tailoring, and the review queue.
+- Quick, guided setup.
+- Preferred locations & companies.
+- A real TUI for the terminal-first, and a polished desktop app as your search hub.
+- Unlimited auto-applications, bounded only by your own coding agent's usage limits.
+- Resume review, backed by a deterministic fit-gate score.
+- Manual search across Ashby, Lever, Greenhouse, Workday, SmartRecruiters, and more.
+- Your personal information never leaves your machine.
+- One resume profile. Discord updates optional.
+
+### Planned hosted plans (previews — not live, pricing not final)
+
+Hosted plans run your search and applications from aplyx's servers instead, so
+there's no dependency on your agent's limits and no need to keep your own device
+on and online for auto-apply.
+
+- **Basic — $5/month** — full TUI & desktop app; guided setup with no local install
+  or coding agent; up to 5 auto-applications/day; internship postings; hosted
+  resume & cover-letter tailoring with review; one resume profile stored in a
+  Supabase-backed database; community support.
+- **Intern — $9/month** — as Basic, plus up to 10 auto-applications/day; email
+  support; SMS & iMessage status tracking (planned); Discord communication
+  (planned).
+- **Pro — $13/month ("Most Valued")** — everything in Intern, plus internship &
+  new-grad postings and a higher daily auto-application cap.
+
+---
+
+## Install — https://aplyx.app/install.html
+
+One command. aplyx drives whichever coding agent you already have — full
+capability with opencode or Claude Code.
+
+The desktop app installs itself and walks you through setup (profile, resumes, the
+rest). Command-line install:
+
+- **macOS / Linux:** `curl -fsSL https://raw.githubusercontent.com/keshm2/aplyx/main/src/scripts/install/install.sh | bash`
+  — installs to `~/aplyx` (override with `APLYX_HOME`).
+- **Windows (PowerShell):** `irm https://raw.githubusercontent.com/keshm2/aplyx/main/src/scripts/install/install.ps1 | iex`
+  — installs to `%USERPROFILE%\aplyx`.
+- **npm:** `npm install -g @keshm/aplyx && aplyx` — same installer underneath.
+
+**Coding agent (local use only):** running aplyx yourself needs a coding agent to
+drive it. Full capability, browser-automated applies included, with opencode or
+Claude Code. Codex CLI and GitHub Copilot CLI work on a smaller path: API-fed
+boards only, with browser-only applications routed to your review queue. Planned
+hosted plans skip this requirement entirely.
+
+**What the installer installs:**
+
+- The aplyx checkout, into `~/aplyx` (override with `APLYX_HOME`).
+- The `aplyx` command, into `~/.local/bin` (override with `APLYX_BIN`).
+- A `data/resumes/` folder for your base resumes.
+- Your profile and job-target config, kept local-only and never uploaded.
+
+**Env vars worth knowing:** `APLYX_HARNESS` forces a specific coding agent instead
+of auto-detecting; `APLYX_SESSION_CAP` caps applications per run (1–25);
+`APLYX_AUTO_UPDATE=0` turns off the update-on-launch check.
+
+**Browser extension:** submitted to the Chrome Web Store. Until approved, load it
+unpacked: clone the repo, `cd src/extension && npm install && npm run build`, open
+`chrome://extensions`, enable Developer mode, Load unpacked, select
+`src/extension/dist`. Then start the bridge:
+`python3 src/scripts/runtime/extension_bridge.py`, and
+`python3 src/scripts/runtime/extension_bridge.py --show-token` to get the token to
+paste into the extension.
+
+---
+
+## Browser extension — https://aplyx.app/extension.html
+
+**It notices the form before you do.** The extension watches for a real
+application form on Greenhouse, Lever, Ashby, or Workday (not every page you
+visit) and asks before it does anything. Say yes, and it fills the form from your
+profile. You still review every field and click submit yourself.
+
+Four steps, every time:
+
+1. **Detects** — watches for a real, fillable application form on a supported
+   board; stays invisible everywhere else, including job listings and search pages.
+2. **Asks** — a prompt drops down asking "Autofill this application with aplyx?", a
+   real yes/no.
+3. **Fills** — maps visible fields to your profile and fills only what it can
+   answer honestly. Anything it can't is highlighted for you, never invented.
+4. **You review & apply** — you check every field and click submit yourself. aplyx
+   never clicks it for you, on any application, ever.
+
+Supported boards: Greenhouse, Lever, Ashby, Workday. Manifest V3.
+
+---
+
+## Changelog — https://aplyx.app/changelog.html
+
+Every release, read live off the GitHub repository — a push to `main` updates this
+page with no redeploy. With JavaScript disabled, read it directly at
+https://github.com/keshm2/aplyx (see `docs/CHANGELOG.md`).
+
+---
+
+## Privacy — https://aplyx.app/privacy.html
+
+Plainly, not legally: what's collected, why, where it's stored, and what you can do
+about it. Last updated August 26, 2026.
+
+**Two ways to run aplyx:**
+
+- **Local** (TUI or desktop app, no account) — your profile, resumes, and
+  application history stay entirely on your machine, in files under your install
+  directory. Nothing is uploaded by aplyx itself. Deleting the install directory
+  is a complete deletion.
+- **Hosted account** — stores your profile (name, contact info, setup fields) and
+  resume file(s) in a cloud database so they're not stuck on one machine. ATS
+  account credentials are stored separately in Supabase Vault, encrypted at rest
+  and scoped to your account; ordinary queries return only masked details.
+
+Other points:
+
+- Gender, ethnicity, and date of birth are always optional (some employers ask on
+  voluntary self-identification forms).
+- Hosted data is scoped to your account by access rules — only requests
+  authenticated as you can read or write it; no cross-account browsing.
+- **Hosted does not yet run your job search, tailoring, or application steps** —
+  those still happen on your own machine via your own coding agent, exactly like
+  local mode. A fully server-run version is planned and would get its own explicit
+  consent step first.
+- **Model provider** — resume tailoring and cover-letter drafting send the
+  relevant job description and your resume content to your coding agent's model
+  provider API, the same as using that agent directly.
+- A separate non-personal cache of public job postings speeds up search for all
+  users, refreshes on the order of hours, and is never linked to your identity.
+- Data in transit is encrypted (HTTPS/TLS). Hosted data at rest has per-account
+  access controls plus disk-level encryption.
+- Retention: hosted profile and application-history records are removed when you
+  delete your account; uploaded resume files currently need a manual step by
+  request until self-serve deletion is built.
+- Not directed to children under 16.
+- Contact / data requests: open an issue or discussion on
+  https://github.com/keshm2/aplyx.
+
+---
+
+## Source
+
+Full source (MIT): https://github.com/keshm2/aplyx
