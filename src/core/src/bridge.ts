@@ -274,7 +274,7 @@ async function dispatch(command: string, args: Args): Promise<unknown> {
 
     case "importDocumentFile": {
       // A generic single-file-per-kind store for documents that are
-      // never parsed or tailored by aplyx — unlike resumes.ts's
+      // never parsed or tailored by aplyx: unlike resumes.ts's
       // multi-file, stem-keyed model, a "kind" (e.g. "transcript") has
       // exactly one current file, overwritten on re-upload, extension
       // preserved from the source pick.
@@ -289,7 +289,7 @@ async function dispatch(command: string, args: Args): Promise<unknown> {
       fs.mkdirSync(dir, { recursive: true });
       const dest = path.join(dir, `${kind}${ext}`);
       fs.copyFileSync(sourcePath, dest);
-      // A transcript can carry PII (DOB, student ID) — same file-
+      // A transcript can carry PII (DOB, student ID): same file-
       // permission discipline as resumes.
       fs.chmodSync(dest, 0o600);
       return { ok: true, path: dest };
@@ -411,7 +411,7 @@ async function dispatch(command: string, args: Args): Promise<unknown> {
       if (!result.ok) return result;
       // Workday's local runtime is resumable: most continuation runs pause
       // mid-flow (account created awaiting verification, page filled, etc.)
-      // and must NOT be recorded as applied — only an explicit
+      // and must NOT be recorded as applied: only an explicit
       // outcome="submitted" from the script is a real application. Every
       // other Workday result (checkpoint, failed, or the verification/
       // account-creation branches with no outcome field) stays in the
@@ -431,7 +431,7 @@ async function dispatch(command: string, args: Args): Promise<unknown> {
         // A confirmed Workday submit: record the applied outcome the same
         // way Greenhouse/Lever/Ashby do. Wrapped so a missing-field
         // failure on the (needs_review-shaped) entry can't lose the real
-        // success message the script already returned — the application
+        // success message the script already returned: the application
         // WAS submitted; the state write is the recoverable part.
         try {
           const recorded = markQueueEntryApplied(root, entry);
@@ -446,7 +446,7 @@ async function dispatch(command: string, args: Args): Promise<unknown> {
 
     // Reads a confirm-before-submit screenshot (the filled-form snapshot the
     // agent captures before pausing) as a base64 data URL for the webview to
-    // render — the webview can't read local files directly. Same path-shape
+    // render: the webview can't read local files directly. Same path-shape
     // validation posture as readFillRecord: screenshots live under
     // data/screenshots/ or logs/tmp/ (AGENTS.md's "PREFER logs/tmp/" rule),
     // never an arbitrary caller-supplied path.
@@ -501,7 +501,7 @@ async function dispatch(command: string, args: Args): Promise<unknown> {
     }
 
     case "readFillRecord": {
-      // AppliedJob.fill_record_path (stateDerive.ts) — always exactly
+      // AppliedJob.fill_record_path (stateDerive.ts): always exactly
       // "data/fill_records/<job_id>.json", written once by
       // record_fill.py and never elsewhere. Validated against that exact
       // shape (not just "resolves under root") before reading, same
@@ -538,7 +538,7 @@ async function dispatch(command: string, args: Args): Promise<unknown> {
     // Writes a one-time verification secret (link and/or OTP) consumed from
     // a hosted verification session to logs/tmp/session_secret_<jobId>.json
     // so the Workday runtime can read it via --session-secret-file instead
-    // of argv — the raw value never appears in a process argument list, shell
+    // of argv: the raw value never appears in a process argument list, shell
     // history, or log snapshot. The file is a transient handoff channel; the
     // runtime reads and uses the value, and the secret is already redacted
     // server-side by the consume RPC, so the file's contents are stale after
@@ -556,7 +556,7 @@ async function dispatch(command: string, args: Args): Promise<unknown> {
       const dir = path.join(root, "logs", "tmp");
       fs.mkdirSync(dir, { recursive: true });
       const filePath = path.join(dir, `session_secret_${jobId}.json`);
-      // 0600 — the file holds a one-time verification credential, even
+      // 0600: the file holds a one-time verification credential, even
       // though it's stale after one use; same posture as the password
       // sidecar.
       fs.writeFileSync(filePath, JSON.stringify({ link: secret.link ?? null, otp: secret.otp ?? null }), { encoding: "utf8", mode: 0o600 });
@@ -683,7 +683,7 @@ async function dispatch(command: string, args: Args): Promise<unknown> {
 
 /**
  * The 4 sources readJobCache() can serve from a shared, curated
- * company list (see jobCache.ts's header) — the same set searchJobs()
+ * company list (see jobCache.ts's header): the same set searchJobs()
  * already treats as cache-eligible via maybeCached()'s union logic.
  * Kept here rather than imported from jobs.ts to avoid a cross-module
  * "list of sources" duplicating what maybeCached's own call sites
@@ -693,27 +693,27 @@ async function dispatch(command: string, args: Args): Promise<unknown> {
 const IN_MEMORY_CACHE_SOURCES: JobSource[] = ["ashbyhq", "lever", "greenhouse", "smartrecruiters"];
 
 /**
- * Persistent daemon mode (`aplyx-core-bridge --serve`) — the process
+ * Persistent daemon mode (`aplyx-core-bridge --serve`): the process
  * this file's default `main()` normally is (spawn, run one command,
  * exit) stays completely unchanged and is still what every command
  * OTHER than search uses. This mode exists for exactly one reason:
  * jobCache.ts's in-memory browse-all snapshot only means anything
- * inside a process that stays alive across searches — a one-shot
+ * inside a process that stays alive across searches; a one-shot
  * spawn-per-command process throws that state away on exit before a
  * second search could ever benefit from it. src/tauri/src-tauri/src/
  * lib.rs spawns this once (lazily, on first search) and keeps its
  * stdin/stdout piped open for the rest of the app session instead of
  * spawning fresh each time, falling back to the normal one-shot path
- * on any failure — this mode is purely additive, never load-bearing
+ * on any failure; this mode is purely additive, never load-bearing
  * for correctness.
  *
  * Protocol: one JSON object per line in both directions,
  * `{ id, command, args }` in, `{ id, ok, result }` or
  * `{ id, ok: false, error }` out. Requests are NOT processed one at a
- * time — dispatch() is invoked as soon as a line arrives and its
+ * time: dispatch() is invoked as soon as a line arrives and its
  * response is written whenever it resolves, independent of arrival
  * order, so concurrent callers (e.g. the desktop app's two-phase
- * search firing both searchJobs() calls at once — see JobsScreen.tsx)
+ * search firing both searchJobs() calls at once, see JobsScreen.tsx)
  * are never serialized behind each other the way they would be if
  * this read one line, awaited fully, then read the next.
  */
@@ -726,7 +726,7 @@ async function serve(): Promise<void> {
     void handleServeLine(line);
   });
   // Nothing left to read from stdin (the Rust parent dropped its
-  // handle, e.g. on app quit) — exit cleanly rather than idle forever
+  // handle, e.g. on app quit): exit cleanly rather than idle forever
   // as an orphaned process.
   rl.on("close", () => process.exit(0));
 }
@@ -758,7 +758,7 @@ async function main(): Promise<void> {
     // Exit right after the write flushes rather than letting Node idle
     // until every promise/timer settles naturally. Commands like
     // searchJobs race each source against a hard deadline (see jobs.ts's
-    // withDeadline) so one slow/hung board can't block the whole search —
+    // withDeadline) so one slow/hung board can't block the whole search:
     // but a still-pending fetch() or spawned Python process left running
     // in the background would otherwise keep this process (and the Rust
     // caller's blocking wait on it) alive for as long as that straggler
@@ -766,7 +766,7 @@ async function main(): Promise<void> {
     //
     // The write callback is the flush signal for a pipe (Rust captures
     // stdout via Command::output), but if it never fires (broken pipe,
-    // unusual OS condition) the Rust caller would hang forever — so a
+    // unusual OS condition) the Rust caller would hang forever, so a
     // short unref'd fallback timer caps the wait. The timer is moot in
     // the normal path since process.exit() fires first.
     exitWith(`${JSON.stringify({ ok: true, result })}\n`, 0);

@@ -16,10 +16,10 @@
 --    raw value; consume_verification_secret (post-use) redacts + deletes
 --    the Vault secret; a second reveal returns nothing.
 -- 6. An ambiguous match (null kind/secret) marks the session manual_required
---    and stores no secret — reveal then returns nothing.
+--    and stores no secret; reveal then returns nothing.
 -- 7. create_verification_session rejects a mail_connection_id that belongs
 --    to another user (cross-user ownership check).
--- 8. service_record_verification_message is idempotent — re-recording the
+-- 8. service_record_verification_message is idempotent: re-recording the
 --    same (session_id, provider_message_id) does not create a duplicate
 --    Vault secret or a duplicate message row.
 -- 9. A genuinely new later code (different provider_message_id) IS recorded
@@ -213,13 +213,13 @@ begin
     raise exception 'FAIL: reveal did not return the raw OTP (got %/%)', v_kind, v_value;
   end if;
 
-  -- A second reveal still returns the secret (not consumed yet — retry safe).
+  -- A second reveal still returns the secret (not consumed yet, retry safe).
   select secret_value into v_value from public.reveal_verification_secret(v_session);
   if v_value is null then
     raise exception 'FAIL: second reveal returned no secret (should still be available pre-consume)';
   end if;
 
-  -- Consume (post-use confirmation) — redacts + deletes Vault secret.
+  -- Consume (post-use confirmation): redacts + deletes Vault secret.
   perform public.consume_verification_secret(v_session);
 
   -- After consume, reveal returns no secret.
@@ -325,7 +325,7 @@ begin
   end if;
 
   -- 10. Server-side attempt ceiling: backdate attempt_count to the max
-  -- and poll — the session should transition to failed.
+  -- and poll: the session should transition to failed.
   v_session := public.create_verification_session(
     p_job_id := 'workday-JR3',
     p_candidate_email := 'candidate@example.invalid',
@@ -426,7 +426,7 @@ begin
     p_extracted_kind := 'otp',
     p_secret_value := '777777'
   );
-   -- Now query the active list — the secret_ready session must appear.
+   -- Now query the active list: the secret_ready session must appear.
   select count(*) into v_count from public.service_list_active_workday_sessions() s
     where s.session_id = v_session;
    if v_count <> 1 then

@@ -1,4 +1,4 @@
--- Workday personal-inbox verification — provider-neutral session APIs
+-- Workday personal-inbox verification: provider-neutral session APIs
 -- (docs/workday-personal-inbox-plan.md).
 --
 -- Migrations 0016 (verification_sessions) and 0017 (verification_messages)
@@ -37,7 +37,7 @@
 -- 0016's status check already covers the full vocabulary this plan uses
 -- (created/watching/message_found/secret_ready/consumed/resumed/
 -- manual_required/expired/failed/canceled) and challenge_type
--- (otp/link/either/unknown) — no schema change needed there. Add a
+-- (otp/link/either/unknown), no schema change needed there. Add a
 -- convenience index for the worker's "active sessions for this user"
 -- lookup so a poll doesn't table-scan.
 create index if not exists verification_sessions_active_idx
@@ -51,7 +51,7 @@ create index if not exists verification_sessions_active_idx
 -- null provider_message_id doesn't block legitimate inserts. A genuinely
 -- new later code arrives in a different Gmail message (different
 -- provider_message_id), so it is still recorded after a failed/expired
--- attempt — only exact re-processing is deduplicated.
+-- attempt; only exact re-processing is deduplicated.
 create unique index if not exists verification_messages_session_msg_uniq
   on public.verification_messages (verification_session_id, provider_message_id)
   where provider_message_id is not null;
@@ -61,7 +61,7 @@ create unique index if not exists verification_messages_session_msg_uniq
 -- stamps leased_at so the UI knows a secret has been handed to the
 -- runtime; consume_verification_secret (called only after the runtime
 -- reports used_verification_link/otp) does the actual redaction + Vault
--- deletion. A lease is a soft signal, not a hard lock — if the runtime
+-- deletion. A lease is a soft signal, not a hard lock: if the runtime
 -- fails, the lease lapses and the secret remains available for retry.
 alter table public.verification_messages
   add column if not exists leased_at timestamptz;
@@ -308,7 +308,7 @@ begin
   end if;
 
   -- Server-side attempt ceiling: a session polled more than v_max_attempts
-  -- times transitions to failed. This is a safety net on top of expiry —
+  -- times transitions to failed. This is a safety net on top of expiry:
   -- a misbehaving client that polls in a tight loop can't keep a session
   -- alive indefinitely.
   if v_attempt >= v_max_attempts
@@ -345,7 +345,7 @@ grant execute on function public.poll_own_verification_session(uuid) to authenti
 
 -- REVEAL (pre-runtime): returns the raw OTP/link for the session's latest
 -- unconsumed, unexpired message so the caller can write it to a 0600 temp
--- file for the runtime — WITHOUT consuming or redacting it. The secret
+-- file for the runtime, WITHOUT consuming or redacting it. The secret
 -- remains available for retry if the runtime fails to use it. Stamps
 -- leased_at as a soft signal; the lease is not a hard lock. Ownership is
 -- verified server-side; the service role never calls this.
@@ -412,7 +412,7 @@ grant execute on function public.reveal_verification_secret(uuid) to authenticat
 -- reports used_verification_link/used_verification_otp. Locks the message
 -- row (FOR UPDATE) for concurrency safety, marks consumed_at, nulls the
 -- secret_id reference, AND deletes the underlying Vault secret so it can
--- never be read again. Does NOT return the secret value — the value was
+-- never be read again. Does NOT return the secret value; the value was
 -- already revealed via reveal_verification_secret and handed to the
 -- runtime through a 0600 file. A second call is a no-op (no unconsumed
 -- message found). An expired session refuses. Ownership is verified
@@ -468,7 +468,7 @@ begin
     set consumed_at = now(), secret_id = null, leased_at = null
     where id = v_msg_id;
 
-  -- Delete the Vault secret itself — the one-time property is enforced
+  -- Delete the Vault secret itself: the one-time property is enforced
   -- by consumed_at + null secret_id above, but the raw value must not
   -- linger in Vault forever (finding: secret retention).
   delete from vault.secrets where id = v_secret_id;
@@ -535,7 +535,7 @@ grant execute on function public.service_list_active_workday_sessions() to servi
 
 -- Records a matched Gmail message: creates a Vault secret holding the
 -- extracted OTP/link, inserts the verification_messages row, and advances
--- the session to secret_ready (or manual_required when p_kind is null —
+-- the session to secret_ready (or manual_required when p_kind is null,
 -- an ambiguous match the worker refused to guess). Service-role only.
 create or replace function public.service_record_verification_message(
   p_session_id uuid,
@@ -567,7 +567,7 @@ begin
   -- message and colliding on the Vault secret name. A genuinely new later
   -- code arrives in a different Gmail message (different provider_message_id)
   -- and is still recorded. If the existing message was consumed (secret_id
-  -- null, consumed_at set), we also skip — the secret was already used.
+  -- null, consumed_at set), we also skip: the secret was already used.
   if p_provider_message_id is not null then
     select extracted_kind, secret_id, consumed_at into v_existing_kind, v_existing_secret_id, v_existing_consumed
       from public.verification_messages
@@ -666,7 +666,7 @@ grant execute on function public.service_update_verification_session_status(uuid
 -- Vault secret deleted by consume_verification_secret at consume time;
 -- this handles the expired-but-never-consumed case (the worker recorded
 -- a secret, the user never consumed it, and retention has elapsed).
--- Service-role only — the worker or a dedicated cron job calls this.
+-- Service-role only: the worker or a dedicated cron job calls this.
 create or replace function public.service_cleanup_expired_verification_secrets()
 returns void
 language plpgsql
@@ -696,7 +696,7 @@ grant execute on function public.service_cleanup_expired_verification_secrets() 
 
 -- Persists a rotated refresh token if Google returns one during an access
 -- token refresh. Google does not always return a new refresh_token, but
--- when it does, the old one may be invalidated — failing to persist the
+-- when it does, the old one may be invalidated: failing to persist the
 -- new one loses the connection permanently. Service-role only.
 create or replace function public.service_update_mail_connection_refresh_token(
   p_connection_id uuid,

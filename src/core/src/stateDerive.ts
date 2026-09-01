@@ -1,5 +1,5 @@
 /**
- * Pure, fs-free state shapes and derivations — split out of state.ts so the
+ * Pure, fs-free state shapes and derivations: split out of state.ts so the
  * desktop app's webview (which can't import node:fs) can use them directly
  * against a AplyxState it already loaded via the bridge, without pulling in
  * the fs-based readers too (same reason hostedFields.ts was split from
@@ -16,7 +16,7 @@ export interface AppliedJob {
   status: "applied" | "failed" | "needs_review";
   role_type?: string;
   source?: string;
-  /** Free text — @resume-tailor's own short label for this application's
+  /** Free text: @resume-tailor's own short label for this application's
    *  tailoring emphasis (e.g. "backend + infra focus"), not a fixed
    *  category. "n/a" for a pre-tailoring needs_review where
    *  @resume-tailor never ran. "hosted" in hosted mode. */
@@ -26,30 +26,30 @@ export interface AppliedJob {
   cover_letter_used?: boolean;
   reasoning?: string;
   /** The actual tailored resume bullets resume-tailor produced for this
-   *  posting — previously computed and handed to the live form-fill, then
+   *  posting: previously computed and handed to the live form-fill, then
    *  discarded; now persisted so it can be reviewed/reused. */
   tailored_bullets?: string[];
   /** The actual tailored cover letter body, same persistence rationale as
-   *  tailored_bullets — was pasted straight into the ATS form and never
+   *  tailored_bullets: was pasted straight into the ATS form and never
    *  written to disk before. */
   cover_letter?: string;
   /** ATS keywords resume-tailor flagged as missing from the tailored
-   *  resume — review context, not a blocker. */
+   *  resume: review context, not a blocker. */
   missing_keywords?: string[];
   /** Canonical doubt-signal vocabulary (see AGENTS.md "Doubt signals") that
-   *  triggered a needs_review outcome — e.g. "ambiguous_dropdown",
+   *  triggered a needs_review outcome, e.g. "ambiguous_dropdown",
    *  "verification_mismatch". Normally empty/absent for applied/failed. */
   doubt_signals?: string[];
   /** Path to the data/fill_records/<job_id>.json record written by
-   *  src/scripts/state/record_fill.py — the durable, field-by-field snapshot of
+   *  src/scripts/state/record_fill.py: the durable, field-by-field snapshot of
    *  what was actually typed/attached. Absent when no field was ever filled
    *  for this job (e.g. Workday, or a pre-tailoring reject). Local-mode
-   *  only — a hosted row can't point at a path on someone's laptop, see
+   *  only: a hosted row can't point at a path on someone's laptop, see
    *  fill_record below. */
   fill_record_path?: string;
   /** Hosted-mode counterpart to fill_record_path: the fill record's actual
    *  CONTENT (same shape record_fill.py writes to
-   *  data/fill_records/<job_id>.json — {job_id, recorded_at, fields}),
+   *  data/fill_records/<job_id>.json: {job_id, recorded_at, fields}),
    *  not a filesystem path. Populated by SupabaseAdapter, never by
    *  LocalAdapter (which keeps using fill_record_path). */
   fill_record?: FillRecord;
@@ -61,36 +61,36 @@ export interface AppliedJob {
   /** Optional link back to the hosted apply_runs row that produced this
    *  queue/applied entry. */
   apply_run_id?: string;
-  /** Application outcome tracking (docs/application-status-tracking-plan.md)
-   *  — a genuinely different axis from `status` above: `status` means
+  /** Application outcome tracking (docs/application-status-tracking-plan.md),
+   *  a genuinely different axis from `status` above: `status` means
    *  whether *aplyx* successfully submitted the application; `outcome_status`
    *  means what the *employer* has said since. Defaults to "applied" the
    *  moment `status` first becomes "applied" (before any reply, that's the
-   *  accurate state) — undefined here for a job whose `status` is
+   *  accurate state); undefined here for a job whose `status` is
    *  `failed`/`needs_review`, since those were never submitted and have
-   *  no outcome to track. Hosted-only (2026-08-19 — matches
+   *  no outcome to track. Hosted-only (2026-08-19, matches
    *  docs/website.md's pricing page): written directly onto the hosted
    *  `applied_jobs` row by the email-tracking-worker Edge Function
    *  (src/supabase/functions/email-tracking-worker/), guarded by a DB
    *  trigger enforcing the terminal-state guard (once `rejected`/`offer`/
-   *  `withdrawn` is reached, no later update can silently move it again
-   *  — see migration 0007_hosted_email_tracking.sql). Always undefined
+   *  `withdrawn` is reached, no later update can silently move it again;
+   *  see migration 0007_hosted_email_tracking.sql). Always undefined
    *  for a local install, which has no equivalent feature. A best-effort
-   *  SIGNAL, not a verified fact — `outcome_source` carries where it came
+   *  SIGNAL, not a verified fact: `outcome_source` carries where it came
    *  from ("email:<subject snippet>") so the UI can show provenance
    *  rather than present it as ground truth. */
   outcome_status?: "applied" | "oa_sent" | "oa_completed" | "interview_requested" | "offer" | "rejected" | "withdrawn";
   outcome_updated_at?: string;
   outcome_source?: string;
-  /** Only ever set alongside outcome_status === "oa_sent" — a link and a
+  /** Only ever set alongside outcome_status === "oa_sent": a link and a
    *  verbatim-matched duration phrase (e.g. "7 days", "August 30") pulled
    *  from the assessment email itself by email-tracking-worker. Not a
-   *  parsed/structured deadline, same best-effort spirit as outcome_source
-   *  — company phrasing is too inconsistent to compute a real one from. */
+   *  parsed/structured deadline, same best-effort spirit as outcome_source:
+   *  company phrasing is too inconsistent to compute a real one from. */
   outcome_assessment_url?: string;
   outcome_assessment_note?: string;
   /** Apply-run metadata (apply-foundation). Present when an apply run
-   *  was started for this job — the UI/adapter reads it to show the
+   *  was started for this job: the UI/adapter reads it to show the
    *  run's state (confirm_before_submit, submitting, submitted, …)
    *  and to find runs awaiting human approval (Stage 1). Absent for a
    *  pre-tailoring needs_review or a manual triage outcome where no
@@ -203,7 +203,7 @@ export interface Heartbeat {
 // or applied list can show "where is this application" (initialized,
 // confirm_before_submit, submitted, …) and the confirm-before-submit UI
 // (docs/hosted-auto-apply-plan.md Stage 1) can find runs awaiting
-// approval. Optional on both local and hosted rows — absent when no
+// approval. Optional on both local and hosted rows; absent when no
 // apply run was ever started for this job (e.g. a pre-tailoring
 // needs_review, or a manual triage outcome).
 
@@ -233,7 +233,7 @@ export interface ApplyRunSummary {
    *  linked to, when the family requires an ATS account and one has
    *  been created or reused. Absent for guest flows and for
    *  account-required flows before the account is created. Never a
-   *  credential — only the account's id. */
+   *  credential, only the account's id. */
   accountId?: string;
   /** Whether a tailored resume artifact was attached. */
   tailoredResumeAttached?: boolean;

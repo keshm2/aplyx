@@ -5,12 +5,12 @@
 -- working exploit was found (verification_sessions/verification_messages
 -- RLS and every downstream RPC are still scoped by their own user_id, so
 -- a mismatched apply_run_id can't actually leak another user's secret
--- through this path) — closed anyway for the same reason 0037 closed the
+-- through this path), closed anyway for the same reason 0037 closed the
 -- equivalent gap on application_accounts/managed_aliases: consistency
 -- with an already-established ownership-check convention, not a
 -- reaction to a demonstrated leak.
 --
--- create or replace, same signature — this is a body-only change, no
+-- create or replace, same signature: this is a body-only change, no
 -- migration to the table shape.
 
 create or replace function public.create_verification_session(
@@ -58,7 +58,7 @@ begin
       raise exception 'create_verification_session: p_mail_connection_id does not belong to the caller';
     end if;
   end if;
-  -- Same check for apply_run_id — added 2026-08-30, see this migration's
+  -- Same check for apply_run_id, added 2026-08-30, see this migration's
   -- own header for why (consistency with 0037, not a demonstrated leak).
   if p_apply_run_id is not null then
     if not exists (

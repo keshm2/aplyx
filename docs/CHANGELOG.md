@@ -53,11 +53,11 @@ today, and the website picked up a full technical/SEO pass.
   also clearing em-dashes from code comments and user-facing copy
   across the codebase and website.
 
-## [1.0.2b] — 2026-08-26
+## [1.0.2b] - 2026-08-26
 
 Fourth beta. Two threads: a free hosted-account tier (sign-in, live
 desktop↔web sync, a real dashboard) went in alongside a full redesign
-of the browser extension — rebranded, rebuilt as a detect-then-ask
+of the browser extension: rebranded, rebuilt as a detect-then-ask
 overlay instead of an always-visible panel, and given its own
 marketing page. Also fixes a real bug: Windows desktop builds had been
 silently failing for the last three releases. Full write-up in
@@ -80,14 +80,14 @@ silently failing for the last three releases. Full write-up in
   docs, `install.sh`/`install.ps1`, and the desktop Settings screen all
   now point to it.
 - **Direct-download buttons on the install page**, fetched live from
-  the GitHub Releases API and matched to the visitor's OS/arch — no
+  the GitHub Releases API and matched to the visitor's OS/arch: no
   more manually maintained download links.
 - Homepage bento-grid feature cards replaced with alternating
   full-width showcase rows using real screenshots; the review-queue
   demo is now a two-panel terminal-log view showing both review-queue
   and post-application tracking statuses.
 - `docs/hosted-paid-tier-plan.md` / `docs/hosted-no-agent-tiers-plan.md`:
-  planning only, nothing shipped — a three-way account model
+  planning only, nothing shipped: a three-way account model
   (local/free-hosted/paid-hosted) and a Cloud-Run-hosted extension
   backend design for a future paid tier.
 
@@ -96,7 +96,7 @@ silently failing for the last three releases. Full write-up in
 - **Windows desktop builds had no release assets for the last three
   tags** (`v1.0.0b`, `v1.0.0b1`, `v1.0.1b`). Root cause: WiX/MSI
   requires a numeric-only pre-release version identifier, incompatible
-  with this project's `-beta.N` scheme — the `.exe` itself built fine,
+  with this project's `-beta.N` scheme: the `.exe` itself built fine,
   but the MSI-bundling step failed and took down the whole `tauri
   build` command with it. Fixed by scoping Windows to NSIS-only via a
   new `tauri.windows.conf.json`, leaving macOS/Linux (never broken)
@@ -108,10 +108,10 @@ silently failing for the last three releases. Full write-up in
 - Nav avatar not reverting to "Sign in" after sign-out on
   `account.html`.
 
-## [1.0.1b] — 2026-08-24
+## [1.0.1b] - 2026-08-24
 
-Hotfix. The desktop app crashed starting a run —
-`FileNotFoundError: ... 'opencode'` — because a Finder/Dock-launched
+Hotfix. The desktop app crashed starting a run:
+`FileNotFoundError: ... 'opencode'`, because a Finder/Dock-launched
 `.app` inherits `launchd`'s minimal PATH, not the shell PATH an
 opencode/claude/codex/copilot install actually lives on. Fixed with the
 same well-known-install-directory fallback `harness.ts` already used for
@@ -120,17 +120,17 @@ one (`harness_adapter.resolve_harness_exe()`). Python-only fix; no
 rebuild needed for anyone who only pulls source changes. Full write-up
 in [`RELEASE.md`](./RELEASE.md).
 
-## [1.0.0b1] — 2026-08-24
+## [1.0.0b1] - 2026-08-24
 
 Hotfix. `1.0.0b`/`1.0.0-beta.0` shipped a desktop app that couldn't
 production-build: a new import in `ResumesScreen.tsx` pulled a
 Node-only dependency into the browser bundle, and Vite failed outright.
 Moved the offending code (`reflowExtractedResumeText`) into its own
-dependency-free module. `1.0.0-beta.0` stays published on npm — a
+dependency-free module. `1.0.0-beta.0` stays published on npm: a
 version can't be reused once unpublished, so this is a new version, not
 a swap-in-place. Full write-up in [`RELEASE.md`](./RELEASE.md).
 
-## [1.0.0b] — 2026-08-24
+## [1.0.0b] - 2026-08-24
 
 First beta. Everything below is new since `0.9.950a`; full write-up in
 [`RELEASE.md`](./RELEASE.md).
@@ -143,7 +143,7 @@ First beta. Everything below is new since `0.9.950a`; full write-up in
   A new Account Center screen in the desktop app lists your stored
   accounts (masked) and lets you reveal, rotate, or delete one, gated
   behind a 10-minute re-auth window. Hosted verification-mail reads
-  also moved behind ownership-checked RPCs — the inbox table has no
+  also moved behind ownership-checked RPCs. The inbox table has no
   RLS policies by design, and the UI was querying it directly, so every
   hosted user's inbox looked empty regardless of what had actually
   arrived.
@@ -153,13 +153,13 @@ First beta. Everything below is new since `0.9.950a`; full write-up in
   show a status on every listing as soon as it loads instead of waiting
   for a manual click each time.
 - **Resumes can be replaced any time, not just once during onboarding**,
-  in both local and hosted mode. Hosted was previously edit-only — no
+  in both local and hosted mode. Hosted was previously edit-only: no
   upload path existed after the onboarding wizard closed, even though
   the wizard's own upload code was never wired up anywhere it could be
   reached again. Re-uploading a name that already exists now warns
   before it overwrites instead of silently failing to convert.
 - Raw PDF-extracted resume text goes through a new reflow pass before
-  import — section names, bullet markers, and the run-together
+  import: section names, bullet markers, and the run-together
   title/date lines pypdf leaves behind ("...Intern" immediately
   followed by "June 2025") get normalized before the markdown parser
   ever sees them. Previously only a name and contact line ever made it
@@ -177,7 +177,7 @@ First beta. Everything below is new since `0.9.950a`; full write-up in
   covered too.
 - Workday's step-loop detection relied on the page title changing
   between steps, which never happens on at least one real tenant
-  (NVIDIA's) — it now reads the wizard's own progress-bar element
+  (NVIDIA's): it now reads the wizard's own progress-bar element
   first. A "Save and Continue" click that fails client-side validation
   used to go unnoticed until the final submit; it's checked right
   after every step now.
@@ -187,8 +187,8 @@ First beta. Everything below is new since `0.9.950a`; full write-up in
   that require sponsorship the candidate's own profile says they don't
   have. First dedicated regression suite for this file (18 tests); the
   conformance fixtures' pinned decision version moved to `phase4-v5`.
-- `npm install --workspace=src/core` could — on a genuinely empty npm
-  cache, which is exactly what a fresh install has — extract an
+- `npm install --workspace=src/core` could, on a genuinely empty npm
+  cache, which is exactly what a fresh install has, extract an
   incomplete copy of a dependency shared with another workspace,
   missing its build output entirely even though the real published
   package has it. `install.sh`/`install.ps1` now detect this and retry
@@ -198,21 +198,21 @@ First beta. Everything below is new since `0.9.950a`; full write-up in
   switched both to `file:../core`, the same pattern `src/worker`
   already used, so a version bump can't break this again.
 - `src/extension` had its own `package.json` but was never listed in
-  the root `package.json`'s `workspaces` array — its build step in
+  the root `package.json`'s `workspaces` array: its build step in
   `install.sh`/`install.ps1` has been silently failing on every fresh
   install since it was added.
 
 ### Docs
 
 - A planning doc for real-time field clarification over Discord
-  (`docs/discord-field-clarification-plan.md`) — design only, nothing
+  (`docs/discord-field-clarification-plan.md`): design only, nothing
   implemented yet. The interim workaround already shipped: an unknown
   field routes the posting to the review queue instead of guessing.
 
-## [0.9.950a] — 2026-08-11
+## [0.9.950a] - 2026-08-11
 
 npm package: `@keshm/aplyx` version `0.9.950-alpha.0`. `docs/RELEASE.md`
-was not updated for this build — still describes `0.9.945a`.
+was not updated for this build: still describes `0.9.945a`.
 
 ### Added
 
@@ -222,18 +222,18 @@ was not updated for this build — still describes `0.9.945a`.
   wiring in `job_state.py`, vetted-slug config files, validator
   coverage, and job-scraper agent steps. Workable also got a direct
   TypeScript fetch path (`fetchWorkable` in `jobs.ts`) so it's available
-  from the manual Search screen, not just the automated agent — full
+  from the manual Search screen, not just the automated agent: full
   JD text ships in Workable's list response, no per-job detail fetch
   needed. JazzHR is HTML-parsed (no public API) and deliberately left
   out of manual search, matching how Apple's source is already handled.
   BambooHR and iCIMS were investigated and deferred for cause (ToS
-  conflicts / no accessible data, not a research gap) — see `docs/ATS.md`.
+  conflicts / no accessible data, not a research gap); see `docs/ATS.md`.
 - **Hosted Supabase read+write sync, wired into the desktop app.**
   `SupabaseAdapter.loadState()` went from a stub to a real read path;
   `markQueueEntryApplied()`/`dismissQueueEntry()` are hosted mirrors of
   the local review-queue actions. A new `useAplyxState` hook
   (`src/tauri/src/lib/`) resolves "local install wins, hosted session
-  is the fallback" once instead of four screens re-deriving it —
+  is the fallback" once instead of four screens re-deriving it:
   `HomeScreen`, `ReviewScreen`, `StatusScreen`, and `DocumentsScreen`
   all use it now, so a hosted-only session gets a real dashboard,
   review queue, and status views instead of a placeholder.
@@ -242,8 +242,8 @@ was not updated for this build — still describes `0.9.945a`.
   resume bullets, cover letter text, missing keywords, doubt signals,
   fill records existed locally but were never on the hosted tables).
 - **Phase 17 (hosted `review_only` service), first working increment.**
-  A real, scheduled, server-side pipeline — fetch → canonicalize →
-  fit-gate → tailor → land in a hosted review queue — for signed-in
+  A real, scheduled, server-side pipeline (fetch → canonicalize →
+  fit-gate → tailor → land in a hosted review queue) for signed-in
   users with no local install, built on a new `hosted_runs` work queue
   (migration `0004`) and a new `src/worker/` npm workspace
   (`node src/worker/dist/run.js`, mirroring `refresh-job-cache.yml`'s
@@ -251,7 +251,7 @@ was not updated for this build — still describes `0.9.945a`.
   (`tailor_resume_hosted.py`, `tailor_cover_letter_hosted.py`) call
   Anthropic directly with forced tool-use, same reliability pattern as
   `generate_interest_letter.py`. `.github/workflows/hosted-worker.yml`
-  exists but is **not yet wired into the live schedule** — verified by
+  exists but is **not yet wired into the live schedule**: verified by
   running the worker locally against the real project first. Verified
   live against a real test hosted account (profile + an uploaded
   résumé): a real run fetched over 16,000 live postings and wrote
@@ -259,19 +259,19 @@ was not updated for this build — still describes `0.9.945a`.
   read back through the exact adapter call the desktop app's Review
   screen uses. Successfully tailored content (the Anthropic call path
   itself) was exercised against a real, intentionally credit-less test
-  key — confirmed the request is built correctly, not yet confirmed
+  key: confirmed the request is built correctly, not yet confirmed
   against a funded key. Two real bugs were found and fixed via this
   live verification, not just typechecked: a nonzero-exit Python
   script's own `{"ok": false, "error": ...}` output was being silently
   discarded instead of read (so a handled failure looked identical to
   a hard crash and was dropped instead of degrading gracefully), and
-  `SupabaseAdapter.loadState()` — pre-existing, shipped code — never
+  `SupabaseAdapter.loadState()` (pre-existing, shipped code) never
   paginated past PostgREST's 1,000-row default, silently truncating
   any table past that size; the second one had already produced one
   real duplicate `review_queue` row before being caught and fixed.
   Full detail: `docs/PLAN.md` §3.18.
 - **Skeleton loading rows and a shared `Dropdown` component** in the
-  desktop app — replaces plain "Loading…" text on Jobs/Review/Status/
+  desktop app: replaces plain "Loading…" text on Jobs/Review/Status/
   Resumes/Documents with shimmering placeholder rows, and a reusable
   accessible dropdown used across onboarding/settings.
 - **Copy-to-clipboard buttons on the install page's shell commands**
@@ -280,7 +280,7 @@ was not updated for this build — still describes `0.9.945a`.
 ### Fixed
 
 - **Fresh-clone installs could fail the core build outright** (`sh:
-  tsc: command not found`) — `install.sh`'s `npm run build:core` step
+  tsc: command not found`): `install.sh`'s `npm run build:core` step
   assumed `src/core/node_modules` already existed, true on a machine
   that had built before but never true on a genuinely fresh checkout.
   Now runs a scoped `npm install --workspace=src/core` first, same
@@ -290,10 +290,10 @@ was not updated for this build — still describes `0.9.945a`.
   sources (Amazon, Oracle, Workday, The Muse) that inherently take
   longer. Split into a separate, longer `PYTHON_SOURCE_DEADLINE_MS`.
 
-## [0.9.949a] — 2026-07-31
+## [0.9.949a] - 2026-07-31
 
 npm package: `@keshm/aplyx` version `0.9.949-alpha.0`. `docs/RELEASE.md`
-was not updated for this build — still describes `0.9.945a`.
+was not updated for this build: still describes `0.9.945a`.
 
 ### Added
 
@@ -301,7 +301,7 @@ was not updated for this build — still describes `0.9.945a`.
   bundled into `resume-tailor`'s output as one thin paragraph with no
   grounding rules; now a dedicated agent
   (`src/agents/bodies/cover-letter-tailor.md`) with the same
-  anti-fabrication discipline as `interest-letter` — every claim tied
+  anti-fabrication discipline as `interest-letter`: every claim tied
   to the tailored resume and job description, demographic fields
   excluded, a length target enforced. Invoked by job-scraper's Phase 2
   right after `@resume-tailor`, so the letter stays consistent with
@@ -319,7 +319,7 @@ was not updated for this build — still describes `0.9.945a`.
   descriptions and application questions are third-party text an
   employer or job poster controls, not instructions. `interest-letter`
   (and the other agents reading scraped text) now explicitly call out
-  `jd_excerpt`/`question`/`jd_text` as untrusted data — a job posting
+  `jd_excerpt`/`question`/`jd_text` as untrusted data: a job posting
   that embeds "ignore your instructions" or a fake system tag doesn't
   get followed.
 - **`react-router-dom` bumped `^6.26.0` → `^7.18.0`** in the desktop
@@ -328,7 +328,7 @@ was not updated for this build — still describes `0.9.945a`.
   production-built clean before this release.
 - **Marketing site copy pass.** Trimmed em-dash-heavy sentences across
   all six pages (`index`, `features`, `install`, `pricing`, `privacy`,
-  `changelog`) into plainer commas, periods, and colons — same
+  `changelog`) into plainer commas, periods, and colons: same
   information, easier to read aloud. The status-tracking demo's
   mouse-trailing glow switched from an entrance-style ease to
   `--ease-standard` for its continuous trailing motion, matching how
@@ -349,13 +349,13 @@ was not updated for this build — still describes `0.9.945a`.
   config (`targets.json`, `discord_config.json`, `env.json`),
   registry/event state files, and the onboarding wizard's writes are
   now `chmod 600` explicitly rather than relying on however permissive
-  the umask happened to be at install time — `update.py`'s config
+  the umask happened to be at install time: `update.py`'s config
   migration does the same when copying an old install's files forward.
 
-## [0.9.948a] — 2026-07-29
+## [0.9.948a] - 2026-07-29
 
 npm package: `@keshm/aplyx` version `0.9.948-alpha.0`. `docs/RELEASE.md`
-was not updated for this build — still describes `0.9.945a`.
+was not updated for this build: still describes `0.9.945a`.
 
 ### Changed
 
@@ -365,7 +365,7 @@ was not updated for this build — still describes `0.9.945a`.
   `src/core`, `src/scripts`, `src/agents`, `src/extension`,
   `src/config`, `src/site`, `src/supabase`. The repo root now holds
   only README/LICENSE/the canonical behavioral docs and the harness
-  dot-directories (`.claude/`, `.opencode/`, `.github/`, `.codex/`) —
+  dot-directories (`.claude/`, `.opencode/`, `.github/`, `.codex/`):
   hardcoded lookup paths for their respective coding agents, so they
   can't move. `data/`, `logs/`, and `docs/` stay at the root. Every
   path reference across the install/update/scheduler scripts, agent
@@ -383,7 +383,7 @@ was not updated for this build — still describes `0.9.945a`.
 - **Google Careers adapter.** Google has no public API; its careers
   search page server-renders results as an unlabeled positional array,
   with the full job description embedded directly in the list
-  response — no separate detail fetch needed, unlike almost every
+  response, no separate detail fetch needed, unlike almost every
   other adapter here. The most fragile adapter in the codebase (no
   field names, only array indices), so every run validates the
   response shape before trusting it, including a heuristic that
@@ -402,8 +402,8 @@ was not updated for this build — still describes `0.9.945a`.
   pull` moved that very file, so it failed outright. Tarball/npm
   installs: the update overlay never deletes the old `scripts/` tree,
   so the stale relaunch silently ran restructure-unaware update logic
-  — with `VERSION` already reporting the new build, no future check
-  would ever retry. Fixed by having the relaunch verify its cached
+  (with `VERSION` already reporting the new build, no future check
+  would ever retry). Fixed by having the relaunch verify its cached
   path still exists (falling back to the new canonical one), and by
   adding a `--repair-layout-only` step that the installers now run on
   every invocation, so re-running the installer reliably repairs a
@@ -418,11 +418,11 @@ was not updated for this build — still describes `0.9.945a`.
 - **Onboarding wizard could get stuck on Continue or Skip setup** with
   multiple coding agents detected. An unguarded `await` on a bridge
   write meant any transient IPC hiccup silently stopped the wizard
-  with no error and no way forward. Fixed by failing open — a
+  with no error and no way forward. Fixed by failing open: a
   background write failure no longer blocks navigation, and now shows
   a small error banner instead of vanishing silently.
 
-## [0.9.947a] — 2026-07-25
+## [0.9.947a] - 2026-07-25
 
 npm package: `@keshm/aplyx` version `0.9.947-alpha.0`.
 
@@ -434,10 +434,10 @@ get a clean number for the `0.9.946a` build rather than reusing
 under `0.9.948a` above, since that's the release that closed out this
 stretch.
 
-## [0.9.946a] — 2026-07-25
+## [0.9.946a] - 2026-07-25
 
 npm package: `@keshm/aplyx` version `0.9.946-alpha.0`. `docs/RELEASE.md`
-was not updated for this build — still describes `0.9.945a`.
+was not updated for this build: still describes `0.9.945a`.
 
 ### Added
 
@@ -464,7 +464,7 @@ was not updated for this build — still describes `0.9.945a`.
 - **Multi-tenant Eightfold support**, generalized from the
   Microsoft-only adapter after discovering Eightfold (Microsoft's
   white-labeled ATS) also powers other employers under custom domains
-  — confirmed live: Netflix. Config-driven; tries both of the
+  (confirmed live: Netflix). Config-driven; tries both of the
   platform's two search endpoints per tenant, since which one is
   enabled varies. Also corrected an earlier finding: Microsoft does
   have a working JD-detail endpoint after all, no Playwright required.
@@ -478,13 +478,13 @@ was not updated for this build — still describes `0.9.945a`.
   bootstrap, which shells out to the same one-liner) silently died
   right after printing "downloading aplyx."** `codeload.github.com`'s
   tarball response has no `Content-Length` header, so the progress
-  bar's `grep` for it always found zero matches and exited 1 — with
+  bar's `grep` for it always found zero matches and exited 1; with
   `pipefail` set, that silently killed the whole installer before the
   real download started. Fixed by folding the header match into a
   single `awk` program instead of `grep|awk`.
 - **Desktop: sign-in could get stuck on the entry screen with no
   feedback** whenever the onboarding-completed check failed (RLS,
-  network, schema mismatch) — errors were silently swallowed. Now
+  network, schema mismatch); errors were silently swallowed. Now
   surfaces as a real, retryable error.
 - **Desktop: a scheduled-run-only install never self-updated.** The
   staleness check only ran through the TUI's own `aplyx update` path;
@@ -492,7 +492,7 @@ was not updated for this build — still describes `0.9.945a`.
   and never touched it. Moved the check into `update.py`'s own
   post-update step, the one place every path funnels through.
 
-## [0.9.945a] — 2026-07-25
+## [0.9.945a] - 2026-07-25
 
 npm package: `@keshm/aplyx` version `0.9.945-alpha.0`. Full notes:
 [`RELEASE.md`](./RELEASE.md).
@@ -501,7 +501,7 @@ npm package: `@keshm/aplyx` version `0.9.945-alpha.0`. Full notes:
 
 - **Critical: "update available" didn't actually update the desktop
   app.** `aplyx update` (TUI/core) only ever touches the checkout it
-  runs from — the desktop app's own binary and its bundled
+  runs from: the desktop app's own binary and its bundled
   `core/bridge.js` are baked in at build time and never change after
   install, no matter how many times the core updates. Reported live: a
   crash fix shipped in a prior release "did nothing" until the desktop
@@ -510,16 +510,16 @@ npm package: `@keshm/aplyx` version `0.9.945-alpha.0`. Full notes:
   recorded install version to the just-updated core) and automatically
   refreshes it via the existing `install_desktop.sh`/`.ps1` path; the
   desktop app's own Settings screen also now checks the public VERSION
-  file directly and surfaces a real "Update available — Get the update"
+  file directly and surfaces a real "Update available: Get the update"
   action, for anyone who updates from inside the desktop app instead of
   the TUI.
 - **Windows: flashing console windows and multi-second page
   transitions, worst on the Profile pages.** Two compounding causes.
   (1) `std::process::Command` on Windows allocates a visible console
   window per spawned `node.exe` by default (no console of its own to
-  inherit) — fixed with the `CREATE_NO_WINDOW` process creation flag.
+  inherit); fixed with the `CREATE_NO_WINDOW` process creation flag.
   (2) The onboarding Profile step and Settings' Profile screen fired one
-  separate bridge call — one separate cold-started node process — per
+  separate bridge call, one separate cold-started node process, per
   field, concurrently; Settings' version was worst, reading every field
   across all 8 pages at once on load. A page with 5 fields meant ~10
   process spawns per click. Added batched `readProfileFields`/
@@ -528,12 +528,12 @@ npm package: `@keshm/aplyx` version `0.9.945-alpha.0`. Full notes:
 - **Online sign-in was broken for every user except the maintainer.**
   `config/supabase.json` is gitignored and excluded from every
   distribution channel (git tarball, npm package, desktop bundle), so
-  no end user could ever have it — "Sign in" always landed on "Hosted
+  no end user could ever have it: "Sign in" always landed on "Hosted
   sign-in isn't set up yet." Fixed by baking in aplyx's own Supabase
-  project as the default (anon keys are meant to be public — standard
+  project as the default (anon keys are meant to be public, standard
   practice, not a leak); a local `config/supabase.json` still overrides
   it for self-hosters. Also decoupled hosted sign-in from needing a
-  local checkout to exist at all — it no longer calls `findRoot()` as a
+  local checkout to exist at all: it no longer calls `findRoot()` as a
   hard prerequisite just to read the (now-optional) config.
 
 ### Added
@@ -542,7 +542,7 @@ npm package: `@keshm/aplyx` version `0.9.945-alpha.0`. Full notes:
   warm burnt orange-red on soft cream in light mode, glowing amber on
   deep charcoal-ash in dark mode.
 
-## [0.9.94a] — 2026-07-25
+## [0.9.94a] - 2026-07-25
 
 npm package: `@keshm/aplyx` version `0.9.94-alpha.0`. Full notes:
 [`RELEASE.md`](./RELEASE.md).
@@ -551,7 +551,7 @@ npm package: `@keshm/aplyx` version `0.9.94-alpha.0`. Full notes:
 
 - **The Windows desktop-app fix in `0.9.93-alpha.1` never actually
   shipped.** That release fixed the `EISDIR: lstat 'C:'` sign-in crash
-  in source but only pushed to `main` — no git tag — and
+  in source but only pushed to `main` (no git tag), and
   `desktop-release.yml` (which builds and attaches the desktop app
   installers) only triggers on a `v*` tag push. The `v0.9.93a` GitHub
   Release's Windows installer predated the fix and was never rebuilt,
@@ -562,32 +562,32 @@ npm package: `@keshm/aplyx` version `0.9.94-alpha.0`. Full notes:
   fix.** `PathBuf::canonicalize()` on Windows returns a `\\?\`-prefixed
   extended-length path, which Windows APIs including
   `SetCurrentDirectory`/`CreateProcess`'s working-directory argument
-  don't support (documented Microsoft behavior) — and the alpha.1 fix
+  don't support (documented Microsoft behavior), and the alpha.1 fix
   used exactly that verbatim path's parent as the spawned Node
   process's `current_dir()`. Fixed by stripping the prefix back off
   after canonicalizing.
-- **TUI flicker — the real cause, not the resize-burst theory from
+- **TUI flicker: the real cause, not the resize-burst theory from
   alpha.1.** Ink does a full terminal erase + full rewrite on every
-  render (no partial diffing — verified by reading
+  render (no partial diffing, verified by reading
   `node_modules/ink/build/log-update.js` directly). The header's
   `TopStatusBar`, mounted for the entire session on every tab, renders
   the greeting name through `RainbowText`, which animated every 90ms
-  *forever* — roughly 11 full-screen repaints per second, continuously,
+  *forever*: roughly 11 full-screen repaints per second, continuously,
   worse at fullscreen size (more rows to erase/redraw each cycle).
   Verified empirically: rendered the real compiled component through
   Ink with a write-counting mock stdout (`FORCE_COLOR=3`, since the
   default color-support detection in a mocked environment produces
-  misleadingly flat results) — unfixed, a steady ~11 writes/sec
+  misleadingly flat results): unfixed, a steady ~11 writes/sec
   indefinitely; fixed (a new `stopAfterMs` prop, applied only to the
   header's instance), identical ~11/s for a 4-second flourish, then
   zero further writes. Also realigned the header's separate 1 Hz clock
-  tick to the next minute boundary — it only displays hour:minute, so
+  tick to the next minute boundary: it only displays hour:minute, so
   59 of every 60 prior ticks were redundant re-renders.
 
-## [0.9.93a] — 2026-07-24
+## [0.9.93a] - 2026-07-24
 
 npm package: `@keshm/aplyx` version `0.9.93-alpha.1` (republished from
-`alpha.0` same day — see "Republished as alpha.1" below; the build
+  `alpha.0` same day; see "Republished as alpha.1" below; the build
 marker/git tag stay `0.9.93a`). Full notes: [`RELEASE.md`](./RELEASE.md).
 
 ### Fixed
@@ -596,8 +596,8 @@ marker/git tag stay `0.9.93a`). Full notes: [`RELEASE.md`](./RELEASE.md).
   nothing at all.** Reported live: an update from `0.87a` straight to
   `0.92a` printed "updated 0.87a -> 0.92a," but none of the actual
   changes showed up. Root cause: `update.py`'s `main()` calls
-  `_post_update()` — the rebuild step, including the 0.9.90a fix for
-  rebuilding `packages/core` before `app` — in the *same already-running
+  `_post_update()` (the rebuild step, including the 0.9.90a fix for
+  rebuilding `packages/core` before `app`) in the *same already-running
   Python process* that pulled the new source. Python doesn't hot-reload:
   `_post_update` had already been imported into memory before the
   `git pull`/tarball-overlay overwrote `update.py`'s own file on disk,
@@ -605,25 +605,25 @@ marker/git tag stay `0.9.93a`). Full notes: [`RELEASE.md`](./RELEASE.md).
   process *started*, never whatever the update itself had just changed.
   Any install old enough to predate a `_post_update` fix would run that
   fix's own source non-functionally, forever, on a single `aplyx
-  update` — exactly what happened going from `.87a` (before the
+  update` (exactly what happened going from `.87a` (before the
   0.9.90a core-rebuild-ordering fix existed at all) to `.92a` in one
-  hop. Fixed by running the post-update rebuild in a **fresh child
-  process** instead of the same one — mirrors the identical self-re-exec
+  hop). Fixed by running the post-update rebuild in a **fresh child
+  process** instead of the same one: mirrors the identical self-re-exec
   pattern `run_job_agent.py`'s own pre-run auto-update already uses for
   the same reason. Verified directly: broke `packages/core/dist` by
   hand, ran the new child-process path, confirmed it rebuilt core
-  before app and restored the missing file — not just reasoned about.
+  before app and restored the missing file, not just reasoned about.
 
 ### Added
 
 - **New `aplyx version` command.** Prints the installed VERSION, with
-  `" (latest)"` appended when it matches upstream `main` — e.g.
+  `" (latest)"` appended when it matches upstream `main`, e.g.
   `0.9.93a (latest)`. Shares its remote-VERSION fetch with the
   launch-time update probe, but (unlike that probe) always checks
   regardless of `APLYX_AUTO_UPDATE` or TTY-ness, since an explicit
   `aplyx version` should always get a real answer.
 
-### Republished as alpha.1 — Windows desktop app + install fixes
+### Republished as alpha.1: Windows desktop app + install fixes
 
 - **Critical: the desktop app's sign-in screens (both local and hosted)
   crashed with `bridge produced non-JSON output: ... EISDIR: illegal
@@ -635,7 +635,7 @@ marker/git tag stay `0.9.93a`). Full notes: [`RELEASE.md`](./RELEASE.md).
   working directory explicitly in `desktop/src-tauri/src/lib.rs`,
   instead of trusting the ambient path/cwd a GUI-launched `.exe`
   happens to inherit. This was also why a fresh Windows install
-  couldn't auto-find its own checkout — the crash hit before `findRoot()`
+  couldn't auto-find its own checkout: the crash hit before `findRoot()`
   ever got to read the installer-written `~/.aplyx/root` pin file.
 - Hardened Windows `node.exe` discovery (`Program Files\nodejs`, Volta)
   to match the existing macOS Homebrew/Volta/nvm handling.
@@ -659,10 +659,10 @@ marker/git tag stay `0.9.93a`). Full notes: [`RELEASE.md`](./RELEASE.md).
   dirs, `supabase/` migrations, internal design notes). Trimmed to only
   what install/build/run/update actually touch, in both the
   `install.sh`/`install.ps1` bootstrap and `update.py`'s tarball
-  overlay — the latter also retroactively cleans up installs that
+  overlay: the latter also retroactively cleans up installs that
   predate this change.
 
-## [0.9.92a] — 2026-07-24
+## [0.9.92a] - 2026-07-24
 
 npm package: `@keshm/aplyx` version `0.9.92-alpha.0`. Full notes:
 [`RELEASE.md`](./RELEASE.md).
@@ -671,7 +671,7 @@ npm package: `@keshm/aplyx` version `0.9.92-alpha.0`. Full notes:
 
 - **TUI: the persisted theme could show up wrong on relaunch.** Theme/
   reduced-motion were applied in a `useEffect`, which runs *after* the
-  first paint — and mutating the shared `theme` object doesn't itself
+  first paint, and mutating the shared `theme` object doesn't itself
   trigger a re-render, so the very first frame always used module-load
   defaults (Aplyx Default) regardless of what was actually saved, and
   nothing reliably re-rendered to correct it afterward (only
@@ -679,34 +679,34 @@ npm package: `@keshm/aplyx` version `0.9.92-alpha.0`. Full notes:
   already matched). Reproduced deterministically: 5/5 fresh launches
   with Mint Frost saved showed Aplyx Default's violet banner at 400ms,
   every time. Fixed by applying the persisted theme via a lazy
-  `useState` initializer instead — runs synchronously as part of the
+  `useState` initializer instead: runs synchronously as part of the
   first render itself, before anything paints. Re-verified the same
   way: 5/5 launches now show the correct saved theme immediately.
 
 ### Changed
 
 - **TUI: Settings' "Environment" section renamed to "Preferences."**
-  No functional change — same fields, just a name that describes what
+  No functional change: same fields, just a name that describes what
   it actually is.
 - **TUI: new "Debug logging" toggle** (Preferences, defaults to **No**).
-  Writes a separate, opt-in `logs/debug.log` with internal run details
-  — resolved env vars, harness selection, the exact command argv,
-  session-cap resolution, duration — for troubleshooting a specific
+  Writes a separate, opt-in `logs/debug.log` with internal run details:
+  resolved env vars, harness selection, the exact command argv,
+  session-cap resolution, duration, for troubleshooting a specific
   run. Explicitly does **not** touch the always-on `session_*.log`
   (RunScreen's live tail and Status' "last run" both depend on it) or
-  `run_job_agent.log` (scheduler health) — both stay on regardless of
+  `run_job_agent.log` (scheduler health); both stay on regardless of
   this setting, by design; only a genuinely new, additive debug log is
   gated by it.
 
-## [0.9.91a] — 2026-07-24
+## [0.9.91a] - 2026-07-24
 
 npm package: `@keshm/aplyx` version `0.9.91-alpha.0`. Full notes:
 [`RELEASE.md`](./RELEASE.md).
 
 ### Changed
 
-- **TUI: replaced the Dark/Light binary with four named themes** —
-  **Aplyx Default** (violet, dark-terminal-tuned — the original
+- **TUI: replaced the Dark/Light binary with four named themes**:
+  **Aplyx Default** (violet, dark-terminal-tuned, the original
   palette, unchanged), **Cloud Surf** (blue → white, light-terminal-
   tuned), **Ember Dusk** (amber → deep ember, dark-terminal-tuned, new),
   and **Mint Frost** (teal → white, light-terminal-tuned, new). "Dark"/
@@ -719,13 +719,13 @@ npm package: `@keshm/aplyx` version `0.9.91-alpha.0`. Full notes:
   Every consumer already reading the shared `theme` object live (sidebar
   border, tab/option selection, titles, banner) picks up all four with
   no call-site changes; `good`/`warn`/`danger` stay outcome colors
-  regardless of theme — meaning-bearing, not brand.
+  regardless of theme, meaning-bearing, not brand.
 - **The update-prompt box's traveling border highlight ("glow") is now
   theme-aware too**, not hardcoded to blend toward white. Each palette
   gained a `glow` color: white for the two dark-terminal themes (a
   bright pop, as before), but a deep near-black shade of the theme's own
   hue for the two light-terminal themes (`#1E3A8A` navy for Cloud Surf,
-  `#134E4A` teal for Mint Frost) — blending toward white on an
+  `#134E4A` teal for Mint Frost): blending toward white on an
   already-white terminal would have faded the highlight to
   unreadable. The same fix was applied to `sparkleGradient()` (the
   AUTO-badge sparkle and default-gradient progress bars), which had the
@@ -734,7 +734,7 @@ npm package: `@keshm/aplyx` version `0.9.91-alpha.0`. Full notes:
   for the banner's wordmark variant: `Banner` memoizes on props, so its
   gradient has to be threaded through as an explicit `gradient` prop
   (like `accent` already is) rather than read from a theme.js function
-  inside the component — otherwise switching themes would leave the art
+  inside the component: otherwise switching themes would leave the art
   variant frozen at whichever gradient was live at the banner's last
   resize.
 - Verified live in tmux across all four themes: banner (all 6 rows per
@@ -743,7 +743,7 @@ npm package: `@keshm/aplyx` version `0.9.91-alpha.0`. Full notes:
   update box's glow blend all confirmed switching to the exact expected
   hex values.
 
-## [0.9.90a] — 2026-07-24
+## [0.9.90a] - 2026-07-24
 
 npm package: `@keshm/aplyx` version `0.9.90-alpha.0`. Full notes:
 [`RELEASE.md`](./RELEASE.md).
@@ -751,41 +751,41 @@ npm package: `@keshm/aplyx` version `0.9.90-alpha.0`. Full notes:
 ### Fixed
 
 - **Critical: `aplyx update` silently failed to actually rebuild the TUI
-  whenever a shared-core change was involved** — which was most recent
+  whenever a shared-core change was involved**, which was most recent
   releases. `update.py`'s post-update rebuild ran `app`'s (and the
   extension's) own `npm run build` directly, but never rebuilt
   `packages/core` first. `app`'s build is `tsc && npm run bundle`; `tsc`
   type-checks against `@aplyx/core/*`'s `dist/*.d.ts`, and if core's
   source had changed (a new export, a fix) without its dist/ being
-  fresh, that type-check failed — silently aborting before the bundle
+  fresh, that type-check failed, silently aborting before the bundle
   step ever ran. Net effect: source pulled down fine, `VERSION` bumped
   fine, but the compiled `dist/cli.js` a user actually runs was left
-  **completely untouched**, not just missing the core-dependent parts —
+  **completely untouched**, not just missing the core-dependent parts:
   the whole build never got that far. Reproduced directly (removing a
   core `.d.ts` and running `app`'s own `npm run build` in isolation)
   before landing the fix: rebuild `packages/core` first, matching the
   ordering `install.sh`/`install.ps1` already use. Anyone who's been
   running `aplyx update` on a shared-core-touching release may need to
-  run it twice (Python doesn't hot-reload — the *first* run picks up
+  run it twice (Python doesn't hot-reload: the *first* run picks up
   this fix's own source but still executes with the old, already-loaded
   broken rebuild order; the second run does it right) or just re-run
   the full installer directly once.
 - **TUI Settings: "Theme → Light" explain text implied it would change
-  the terminal's own background color.** It doesn't and never has —
+  the terminal's own background color.** It doesn't and never has:
   Light mode only recolors aplyx's own accent/status text to stay
   readable if the terminal already has a light background set via the
   terminal app's own profile. Reworded to say so explicitly.
 - **Desktop onboarding: the profile step's 8 internal sub-pages had no
-  transition effect at all** — a flat instant swap, unlike every other
+  transition effect at all**: a flat instant swap, unlike every other
   step in the wizard. Since "Your profile" is a large fraction of the
   post-"let's get to know more about you" flow by page count, this
   likely read as "nothing after that splash has any effects." Added the
-  same fade-in used elsewhere (`wizard-step-in`, keyed per page) — a
+  same fade-in used elsewhere (`wizard-step-in`, keyed per page), a
   single-phase fade rather than the outer wizard's full freeze/out/in
   choreography, to avoid entangling with this component's own
   independent loading-state handling.
 
-## [0.9.89a] — 2026-07-24
+## [0.9.89a] - 2026-07-24
 
 npm package: `@keshm/aplyx` version `0.9.89-alpha.0`. Full notes:
 [`RELEASE.md`](./RELEASE.md).
@@ -794,12 +794,12 @@ npm package: `@keshm/aplyx` version `0.9.89-alpha.0`. Full notes:
 
 - **TUI: "Install desktop app" in Settings.** A new Desktop app section
   lets anyone who skipped it during setup install it later without
-  re-running the whole installer — leaves the TUI, hands off to
+  re-running the whole installer: leaves the TUI, hands off to
   `install_desktop.sh`/`.ps1` on the normal screen (its own interactive
   prompts, progress bars), then returns to a fresh `aplyx` launch when
   done. Already installed? The row shows dimmed with a green
   "✓ app is already installed (vX.Y)" note beneath it and Enter is a
-  no-op — detected via a small marker file
+  no-op: detected via a small marker file
   (`~/.aplyx/desktop_installed`) both installer scripts now write on
   success, read fresh on every render (no caching, no restart needed to
   pick up a manual install).
@@ -808,22 +808,22 @@ npm package: `@keshm/aplyx` version `0.9.89-alpha.0`. Full notes:
 
 - **Windows: the desktop-app install offer (and the TUI-from-source
   build step) could be silently skipped**, going straight to "done"
-  with no visible prompt or error — reported live: `npm install -g
+  with no visible prompt or error. Reported live: `npm install -g
   @keshm/aplyx` worked fine, but `install.ps1`'s own `Get-Command npm`
   check (gating both steps) came back empty when the script ran as a
   spawned subprocess (via the npm-installed `aplyx` command's own
   bootstrap, or the `irm | iex` one-liner), even though `npm` clearly
   resolved in the interactive shell. Root cause: a spawned subprocess's
   `$env:PATH` is a snapshot from its parent's process start, which can
-  lag behind the registry — compounded by `-NoProfile`, which also skips
+  lag behind the registry, compounded by `-NoProfile`, which also skips
   any PATH customization a profile script would normally add. Fixed by
   refreshing `$env:PATH` from the registry (Machine + User) right after
   each script sets its working directory, in both `install.ps1` and
-  `install_desktop.ps1` — the same fix already applied elsewhere in this
+  `install_desktop.ps1`, the same fix already applied elsewhere in this
   file for a freshly-winget-installed Python, just never extended to
   Node/npm detection.
 
-## [0.9.88a] — 2026-07-24
+## [0.9.88a] - 2026-07-24
 
 npm package: `@keshm/aplyx` version `0.9.88-alpha.0`. Full notes:
 [`RELEASE.md`](./RELEASE.md).
@@ -833,24 +833,24 @@ npm package: `@keshm/aplyx` version `0.9.88-alpha.0`. Full notes:
 - **Windows install completely hung** at the agent-definitions step
   (right after the resumes-folder message), every time, via both the
   `irm | iex` one-liner and the npm-installed `aplyx` bootstrap (both
-  ultimately run `install.ps1`) — reported stuck with no way past it.
+  ultimately run `install.ps1`); reported stuck with no way past it.
   Root cause: a helper function named `Py` called the real Python
   launcher via `& $py[0] ...`, and when `Find-Python` picked the `py`
-  launcher (`$py[0]` -eq `"py"` — the standard outcome for anyone who
+  launcher (`$py[0]` -eq `"py"`, the standard outcome for anyone who
   installed Python from python.org or via winget, i.e. most Windows
   users), PowerShell's case-insensitive command resolution preferred
   the function over the external `py.exe`, so `Py` called itself
-  instead of Python — recursing until the interpreter's call-depth
+  instead of Python, recursing until the interpreter's call-depth
   limit tripped (`CallDepthOverflow`). Renamed to `Invoke-Python`, a
   verb-noun name that can't collide with a real Windows command.
 - `install.sh`/`install_desktop.sh` and their PowerShell equivalents'
   npm-install/build steps (which have no byte total to track) now show
-  an indeterminate sliding bar — `[..===..........]`, bouncing back and
-  forth — instead of a bare rotating `|/-\` spinner character, so every
+  an indeterminate sliding bar (`[..===..........]`, bouncing back and
+  forth) instead of a bare rotating `|/-\` spinner character, so every
   long-running installer step reads as one consistent bar-based system
   rather than two different progress idioms.
 
-## [0.9.87a] — 2026-07-24
+## [0.9.87a] - 2026-07-24
 
 npm package: `@keshm/aplyx` version `0.9.87-alpha.0`. Full notes:
 [`RELEASE.md`](./RELEASE.md).
@@ -868,7 +868,7 @@ npm package: `@keshm/aplyx` version `0.9.87-alpha.0`. Full notes:
   Settings' own controls) applies live and carries through the rest of
   onboarding and the app.
 - **TUI: Theme (dark/light), 24-hour clock, and Reduced motion**
-  Settings fields (Environment section), applied in-session — no
+  Settings fields (Environment section), applied in-session, no
   restart needed. Light mode uses hand-tuned darker accent/status
   hexes rather than the dark palette's named ANSI colors, which are
   close to unreadable on a light background.
@@ -878,7 +878,7 @@ npm package: `@keshm/aplyx` version `0.9.87-alpha.0`. Full notes:
   ...` when the installed CLI supports it, falling back to the
   existing inlined-prompt path otherwise.
 - **Codex CLI subagent scaffolding** (`.codex/agents/*.toml`),
-  generated for forward-compat. Not yet wired into actual invocation —
+  generated for forward-compat. Not yet wired into actual invocation:
   `codex exec` (non-interactive mode) has no way to spawn a named
   subagent from a registry file (tracked upstream as
   openai/codex#15250); see `AGENTS.md`'s harness capability matrix for
@@ -911,7 +911,7 @@ npm package: `@keshm/aplyx` version `0.9.87-alpha.0`. Full notes:
   (`docs/product-positioning-and-rebrand-plan.md`) proposing name
   candidates that were never adopted.
 
-## [0.9.85a] — 2026-07-24
+## [0.9.85a] - 2026-07-24
 
 npm package: `@keshm/aplyx` version `0.9.85-alpha.0`. Full notes:
 [`RELEASE.md`](./RELEASE.md).
@@ -920,7 +920,7 @@ npm package: `@keshm/aplyx` version `0.9.85-alpha.0`. Full notes:
 
 - **Logo rebrand.** Replaced the old tile-grid lowercase "a" mark with a
   new gradient badge holding a white "AX" monogram, based on an
-  operator-supplied reference image — used verbatim (isolated from its
+  operator-supplied reference image, used verbatim (isolated from its
   background programmatically, not hand-traced) for both the in-app
   mark and the full macOS/Windows/Linux app icon set, with proper
   icon-canvas margin matching real macOS app icons instead of filling
@@ -932,12 +932,12 @@ npm package: `@keshm/aplyx` version `0.9.85-alpha.0`. Full notes:
 
 ### Fixed
 
-- **Google sign-in (and email-confirmation links) silently failed** —
+- **Google sign-in (and email-confirmation links) silently failed**:
   the deep-link handler passed the whole callback URL to Supabase's
   code-exchange call instead of just the auth code, so a successful
   Google auth just bounced back to the sign-in screen with no visible
   error.
-- **Desktop window dragging worked only intermittently** — root cause
+- **Desktop window dragging worked only intermittently**: root cause
   was Tauri's permission system silently denying the drag command;
   fixed by granting `core:window:allow-start-dragging` explicitly.
 - Desktop: the app shell's sidebar divider ran straight through the new
@@ -945,7 +945,7 @@ npm package: `@keshm/aplyx` version `0.9.85-alpha.0`. Full notes:
 - Desktop: Home dashboard's "Welcome back" / sign-in status line is now
   centered and fades in with the rest of the dashboard.
 
-## [0.9.8a] — 2026-07-23
+## [0.9.8a] - 2026-07-23
 
 npm package: `@keshm/aplyx` version `0.9.8-alpha.0`. Full notes:
 [`RELEASE.md`](./RELEASE.md).
@@ -955,31 +955,31 @@ npm package: `@keshm/aplyx` version `0.9.8-alpha.0`. Full notes:
 - **Shared job-postings cache.** A Supabase `job_cache` table (~47
   curated companies, public read) refreshed hourly via a new GitHub
   Actions workflow backs job search for both UIs instead of hitting
-  every ATS live on each query — per-company-capped Postgres RPC so
+  every ATS live on each query: per-company-capped Postgres RPC so
   one company can't starve a query's result budget. Auth/account
   storage lives on a separate Supabase project from the cache.
 - **Pagination (both UIs).** Jobs search results default to 25 per
-  page, user-configurable — dropdown on desktop (persisted), `[`/`]`
+  page, user-configurable: dropdown on desktop (persisted), `[`/`]`
   keys plus a new `APLYX_RESULTS_PER_PAGE` Settings field on the TUI.
-- **Desktop: Home "Recent activity" feed** — applied jobs and pending
+- **Desktop: Home "Recent activity" feed**: applied jobs and pending
   review items merged into one reverse-chronological list on the
   dashboard.
 - **Desktop: Profile settings page.** Every onboarding field (all 8
   pages) is now editable from Settings → Profile without re-running
   setup.
-- **Desktop: top-level error boundary** — a render error anywhere no
+- **Desktop: top-level error boundary**: a render error anywhere no
   longer unmounts the whole app with no recovery.
 
 ### Fixed
 
-- **Amazon dominated search results**, other sources rarely appeared —
+- **Amazon dominated search results**, other sources rarely appeared:
   a shared per-source deadline let one slow source starve the others;
   deadlines are now decoupled per source.
 - **Results were silently truncated below the configured page size.**
 - **A cache pre-filter bug excluded valid prefix matches**, causing
   near-identical queries (e.g. "software engineering intern" vs.
   "software engineer intern") to return very different result counts.
-- **Search never covered the shared cache's full company list** — only
+- **Search never covered the shared cache's full company list**: only
   the user's personal targets were searched, silently missing every
   shared-cache-only company (e.g. SpaceX). This was the single biggest
   fix in this release.
@@ -997,21 +997,21 @@ npm package: `@keshm/aplyx` version `0.9.8-alpha.0`. Full notes:
 ### Changed
 
 - Desktop: the "preferred locations only" filter is temporarily
-  offline pending a redesign now that pagination has landed — search
+  offline pending a redesign now that pagination has landed; search
   still covers the whole US either way.
 
-## [0.9.75a] — 2026-07-22
+## [0.9.75a] - 2026-07-22
 
 npm package: `@keshm/aplyx` version `0.9.75-alpha.0`.
 
 ### Added
 
-- **Desktop app: Phase 14C, desktop UI refinement and theming — done.**
+- **Desktop app: Phase 14C, desktop UI refinement and theming. Done.**
   Home is now a real dashboard (stat cards + one derived "next action"
   card instead of a flat checklist). A 4-family theme system ships in
   Settings: **Calm Cobalt** (new default, cool blue-tinted neutrals),
   **Sage Slate**, **Graphite Cyan**, and the original palette preserved
-  verbatim as **Aplyx Classic** — mode (light/dark/system) and family are
+  verbatim as **Aplyx Classic**: mode (light/dark/system) and family are
   independent axes, every family carries the full token contract
   (`desktop/src/styles/tokens.css`, `desktop/src/lib/uiPrefs.ts`).
   Resumes moved from a flat inline-action list to the same list+detail
@@ -1022,27 +1022,27 @@ npm package: `@keshm/aplyx` version `0.9.75-alpha.0`.
   existing System/Geist choice, Settings now also offers **Inter**
   (dense/tabular product UI), **IBM Plex Sans** paired with **IBM Plex
   Mono** (enterprise/analytical tone), and **Atkinson Hyperlegible Next**
-  (accessibility/readability-first) — all OFL-licensed, self-hosted via
+  (accessibility/readability-first), all OFL-licensed, self-hosted via
   `@fontsource`/`@fontsource-variable` (no CDN fetch, works fully
   offline), same pattern as Geist. System stays the default.
 
 ### Fixed
 
 - **The desktop nav rail (and every other in-app link) rendered with the
-  browser-default underline** — no stylesheet anywhere reset
+  browser-default underline**: no stylesheet anywhere reset
   `text-decoration` on `<a>`. Fixed globally in
   `desktop/src/styles/base.css`.
 
-## [0.9.7a] — 2026-07-17
+## [0.9.7a] - 2026-07-17
 
 npm package: `@keshm/aplyx` version `0.9.7-alpha.0`.
 
 ### Added
 
-- **Desktop app (early preview) — Tauri + React, macOS/Linux/Windows.**
+- **Desktop app (early preview): Tauri + React, macOS/Linux/Windows.**
   A graphical alternative to the TUI, opt-in during install, still
   catching up on features (Jobs/Review/History/Resumes are
-  placeholders — Home and Settings are real). Local mode shells out to
+  placeholders; Home and Settings are real). Local mode shells out to
   the same Python helpers the TUI uses (no state written directly from
   TypeScript); hosted mode talks to a new Supabase backend directly.
   Landing chooser (Run locally / Sign in), a local setup wizard sharing
@@ -1051,7 +1051,7 @@ npm package: `@keshm/aplyx` version `0.9.7-alpha.0`.
   screen (account, local-install status, theme, font).
 - **Hosted accounts (optional, Supabase-backed).** Sign in to sync your
   profile across devices. `supabase/migrations/0001_init.sql` +
-  `0002_onboarding_completed.sql` — every table RLS-scoped to
+  `0002_onboarding_completed.sql`: every table RLS-scoped to
   `auth.uid()`, a status-transition guard mirroring the local engine's
   never-downgrade rule, a private per-user resume storage bucket.
   `aplyx://auth-callback` deep link handles both the email-confirmation
@@ -1060,21 +1060,21 @@ npm package: `@keshm/aplyx` version `0.9.7-alpha.0`.
 - **All three installers can now also install the desktop app**, opt-in
   alongside the TUI. New `scripts/install/install_desktop.{sh,ps1}`
   first check this checkout's matching GitHub release for a prebuilt
-  bundle — built once on CI (`.github/workflows/desktop-release.yml`,
-  `tauri-apps/tauri-action` across macOS/Linux/Windows runners) — and
+  bundle, built once on CI (`.github/workflows/desktop-release.yml`,
+  `tauri-apps/tauri-action` across macOS/Linux/Windows runners), and
   just download + install that: no Rust, no Xcode Command Line Tools,
   no Visual C++ Build Tools, nothing beyond curl, the same as
   installing any other compiled app. Only falls back to compiling from
   source (detects Rust + OS-native GUI build deps, asks before
   installing anything missing) when no matching prebuilt bundle exists
-  yet. Installs the platform-native way either way — `/Applications`
+  yet. Installs the platform-native way either way: `/Applications`
   on macOS (falling back to `~/Applications` rather than requiring
   sudo), `apt`/`dnf`/an AppImage + app-launcher entry on Linux, a
   no-admin-prompt NSIS installer on Windows. Never fails the main
-  install — the TUI stays the reliable baseline either way. `aplyx
+  install: the TUI stays the reliable baseline either way. `aplyx
   uninstall` removes the desktop app too, if present.
 - Settings (both TUI and the new desktop app) show a small, faded
-  `build <version>` marker — one shared constant
+  `build <version>` marker, one shared constant
   (`packages/core/src/version.ts`) so both surfaces always agree.
 - Company/location preference fields (both onboarding wizards) are now
   search-and-tag: fuzzy search over a suggestion pool, selections
@@ -1083,16 +1083,16 @@ npm package: `@keshm/aplyx` version `0.9.7-alpha.0`.
 ### Fixed
 
 - **The hosted and local onboarding wizards replayed on every sign-in
-  or launch**, even for a fully set-up returning user — local mode
+  or launch**, even for a fully set-up returning user: local mode
   already tracked a completion flag but nothing read it; hosted mode
   had no tracking at all. Both now skip straight to the dashboard for
   a returning user, and a persisted hosted session resumes into the
   app on relaunch instead of re-showing the landing chooser.
 - **Coding-agent detection was flaky (~50% miss rate)** for a
-  Finder/Dock-launched desktop app — it only searched `$PATH`, which is
+  Finder/Dock-launched desktop app: it only searched `$PATH`, which is
   minimal for a GUI-launched process (no Homebrew/nvm/volta entries).
   Now also probes the common install locations directly.
-- **`packages/core` had no build hook** — the TUI's own installer build
+- **`packages/core` had no build hook**: the TUI's own installer build
   step silently depended on it already being built from a prior run,
   which is never true on a fresh clone. Both installers now build it
   explicitly first.
@@ -1111,7 +1111,7 @@ npm package: `@keshm/aplyx` version `0.9.7-alpha.0`.
   moved to `packages/core/src/autocomplete.ts` so the desktop app's tag
   search uses the identical matcher, not a second implementation.
 
-## [0.9.1a] — 2026-07-16
+## [0.9.1a] - 2026-07-16
 
 npm package: `@keshm/aplyx` version `0.9.1-alpha.0`.
 
@@ -1121,7 +1121,7 @@ npm package: `@keshm/aplyx` version `0.9.1-alpha.0`.
   `app/src/ui/onboarding/pages.ts` and reached both GitHub and npm
   (0.9.0-alpha.0/.1/.2). Purged from source and from git history
   (`main` rewritten, tag `v0.9.0a` moved). **The affected npm tarballs are
-  still published** — unpublish them and use 0.9.1a. Placeholders must never
+  still published**: unpublish them and use 0.9.1a. Placeholders must never
   contain real data: this file is committed and compiled into the package.
 
 ### Added
@@ -1130,7 +1130,7 @@ npm package: `@keshm/aplyx` version `0.9.1-alpha.0`.
   want to work here?", aplyx no longer invents an answer: it parks the job
   and carries on. Write your own answer, or press `g` to have the new
   `@interest-letter` agent draft one grounded strictly in your resume and
-  the JD — you edit and approve before anything is submitted. Approving is
+  the JD; you edit and approve before anything is submitted. Approving is
   what lets the next run apply. New `scripts/state/interest_letter.py` store
   and `scripts/runtime/generate_interest_letter.py`.
 - `gender` in setup/Settings, an `email` field, a graduation-date step, and
@@ -1139,7 +1139,7 @@ npm package: `@keshm/aplyx` version `0.9.1-alpha.0`.
 
 ### Fixed
 
-- **Setup discarded what you typed** unless you pressed Enter — tabbing away
+- **Setup discarded what you typed** unless you pressed Enter: tabbing away
   from target roles/companies silently lost them.
 - Fresh installs no longer prefill template junk (`your.email@example.com`,
   `City, ST`) into the wizard, and no longer preload preferred locations.
@@ -1151,7 +1151,7 @@ npm package: `@keshm/aplyx` version `0.9.1-alpha.0`.
 - **The live-run screen misreported the phase** (and could claim "Scraping"
   during an apply); `x` now also stops runs the TUI didn't start.
 - Dropdowns are selected by exact match only, with a mandatory pre-submit
-  form check — typing "Seattle" could previously commit "Settle".
+  form check: typing "Seattle" could previously commit "Settle".
 
 ### Changed
 
@@ -1160,14 +1160,14 @@ npm package: `@keshm/aplyx` version `0.9.1-alpha.0`.
   interest-letter generator use it, so all four coding agents stay in sync.
 - `MIN_COLUMNS` 54 → 76 (the 7-tab row must not wrap).
 
-## [0.9.0a] — 2026-07-15
+## [0.9.0a] - 2026-07-15
 
 npm package: `@keshm/aplyx` version `0.9.0-alpha.0`. Full notes:
 [`RELEASE.md`](./RELEASE.md).
 
 ### Added
 
-- Guided first-run onboarding wizard (`app/src/ui/onboarding/`) —
+- Guided first-run onboarding wizard (`app/src/ui/onboarding/`):
   multi-page form, live autocomplete, per-field write-through with
   resume-in-place, replaces the old readline `wizard.ts` prompts.
 - Settings gained a "Company targets" section (roles/levels/seasons/
@@ -1210,23 +1210,23 @@ npm package: `@keshm/aplyx` version `0.9.0-alpha.0`. Full notes:
   unnoticed; `Escape` now also skips, and the hints/step text spell
   out both "open folder" and "skip for now" explicitly.
 - Installers (`install.sh`/`install.ps1`) no longer hard-fail the
-  instant `jq`/`python3`/`pypdf` is missing — they now offer to install
+  instant `jq`/`python3`/`pypdf` is missing: they now offer to install
   everything missing (or exit cleanly if declined).
 - Windows installer: the new `pypdf` detection check could itself crash
   the installer with an unhandled exception on newer PowerShell
   versions (missing `try`/`catch` around a native command expected to
   fail exactly when `pypdf` is absent).
 
-## [0.8.43a] — 2026-07-14
+## [0.8.43a] - 2026-07-14
 
 npm package: `@keshm/aplyx` version `0.8.43-alpha.0`.
 
 ### Added
 
-- **Dedicated live-run screen** — a phase checklist (Scrape → Fit-gate →
+- **Dedicated live-run screen**: a phase checklist (Scrape → Fit-gate →
   Tailor → Apply → Report) with an animated progress bar, driven by new
   progress markers the job-scraper agent prints at each phase boundary
-  and per application attempt (`[apply] <title> @ <company>` — see
+  and per application attempt (`[apply] <title> @ <company>`, see
   `agents/bodies/job-scraper.md`). The screen now shows which company
   and role is currently being applied to, live.
 - **Stop / correct-and-continue for a run in progress.** `x` arms a
@@ -1236,7 +1236,7 @@ npm package: `@keshm/aplyx` version `0.8.43-alpha.0`.
   real SIGTERM/SIGINT handler in `run_job_agent.py` that kills the
   whole harness process group on POSIX; Windows uses `taskkill /T /F`
   from the TUI side instead.
-- **"AUTO" sparkle effect** — animates through a purple → white blend
+- **"AUTO" sparkle effect**: animates through a purple → white blend
   (matching the update-prompt box's traveling ring) everywhere "AUTO"
   appears in the TUI.
 - **Cycling activity glyph** (`.` → `·` → `•` → `*`) on the
@@ -1244,7 +1244,7 @@ npm package: `@keshm/aplyx` version `0.8.43-alpha.0`.
 
 ### Changed
 
-- **`needs_review` fit-score floor raised from 45 to 70** —
+- **`needs_review` fit-score floor raised from 45 to 70**:
   `evaluate_job_fit.py`'s `decision_version` moved `phase4-v2` →
   `phase4-v3`.
 - **Discord notifications and the review queue / history screens now
@@ -1260,13 +1260,13 @@ npm package: `@keshm/aplyx` version `0.8.43-alpha.0`.
 - **The progress bar could render blank** until phase-detection matched
   something in the log; it's now always visible during a run, with a
   minimum-fill floor.
-- **Sparkle animation color artifacts** — a circular gradient wrap
+- **Sparkle animation color artifacts**: a circular gradient wrap
   could interpolate directly between non-adjacent palette colors
   (maroon → violet), showing a stray green/blue tint. Switched to a
   ping-pong reflection, which only ever interpolates between adjacent
   colors.
 
-## [0.8.42a] — 2026-07-14
+## [0.8.42a] - 2026-07-14
 
 npm package: `@keshm/aplyx` version `0.8.42-alpha.0`.
 
@@ -1288,7 +1288,7 @@ npm package: `@keshm/aplyx` version `0.8.42-alpha.0`.
   update to ever relocate the runner script itself; the tarball-overlay
   updater never deletes old files, so a launchd/schtasks entry written
   before the reorg kept invoking the old flat `scripts/run_job_agent.sh`
-  forever — `VERSION` correctly reported current, but the *scheduled*
+  forever: `VERSION` correctly reported current, but the *scheduled*
   pipeline silently never modernized (the interactive TUI was
   unaffected; it rebuilds fresh from source on every update).
   `update.py` now re-runs `scheduler.py install` (fully idempotent)
@@ -1296,13 +1296,13 @@ npm package: `@keshm/aplyx` version `0.8.42-alpha.0`.
   class of bug can't recur for anyone past this release.
   **If you already have a schedule installed from before 0.8.4a**,
   one-time fix: run `aplyx` once and accept the update prompt, or
-  just re-run the installer — either refreshes the schedule. Simplest
+  just re-run the installer: either refreshes the schedule. Simplest
   option: `aplyx uninstall` then reinstall.
 
-## [0.8.041a] — 2026-07-14
+## [0.8.041a] - 2026-07-14
 
 npm package: `@keshm/aplyx` version `0.8.41-alpha.0` (the human
-marker `0.8.041a` maps to `0.8.41-alpha.0` in strict semver — a
+marker `0.8.041a` maps to `0.8.41-alpha.0` in strict semver: a
 leading zero in a numeric identifier, e.g. `041`, isn't valid semver
 and npm strips it silently on publish, so it's set explicitly here
 instead).
@@ -1313,20 +1313,20 @@ instead).
   renamed or moved.** `scripts/install/install.sh` and `install.ps1`
   generate a tiny launcher (`~/.local/bin/aplyx` on Unix,
   `aplyx.cmd`/`aplyx.ps1` on Windows) that baked in the absolute
-  install path as plain text at install time — moving or renaming
+  install path as plain text at install time: moving or renaming
   that directory afterward (as just happened during the `0.8.4a`
   restructure: `~/ares` → `~/aplyx`) left the wrapper pointing at a
   path that no longer existed, surfacing as a raw Node
   `MODULE_NOT_FOUND` stack trace with no actionable guidance. Both
-  wrappers now fall back through a short list of candidates —
+  wrappers now fall back through a short list of candidates:
   `$APPLYR_ROOT`, the originally recorded path, `$APPLYR_HOME`,
   `~/aplyx`, and `~/ares` (covering exactly this kind of rename in
-  either direction) — before failing with a clear message pointing at
+  either direction), before failing with a clear message pointing at
   `APPLYR_ROOT` or re-running the installer, instead of a cryptic
   crash. Verified with real (not just static) tests: normal launch,
   both rename-fallback directions, and the total-failure error path.
 
-## [0.8.4a] — 2026-07-14
+## [0.8.4a] - 2026-07-14
 
 npm package: `@keshm/aplyx` version `0.8.4-alpha.0`.
 
@@ -1368,11 +1368,11 @@ npm package: `@keshm/aplyx` version `0.8.4-alpha.0`.
   artifacts (all gitignored, no tracked-file impact). Moved
   `system_architecture.md` into `docs/`.
 - Published `0.8.3-alpha.0` to npm (tagged on GitHub since the
-  0.8.3a release but never published — `0.8.2-alpha.0` has the same
+  0.8.3a release but never published; `0.8.2-alpha.0` has the same
   gap and remains unpublished) and created the missing GitHub Release
   page for `0.8.3a`.
 
-## [0.8.3a] — 2026-07-14
+## [0.8.3a] - 2026-07-14
 
 npm package: `@keshm/aplyx` version `0.8.3-alpha.0`.
 
@@ -1382,7 +1382,7 @@ npm package: `@keshm/aplyx` version `0.8.3-alpha.0`.
   `install.ps1` had no BOM and used em-dashes in strings/comments;
   Windows PowerShell 5.1 (`powershell.exe`, not PS7's `pwsh.exe`) reads
   BOM-less `.ps1` files under the legacy ANSI codepage instead of
-  UTF-8, which corrupted the em-dash bytes and broke the tokenizer —
+  UTF-8, which corrupted the em-dash bytes and broke the tokenizer;
   reproduced by round-tripping the file through cp1252 and reparsing
   with PowerShell's own AST parser. Replaced every em-dash with a
   plain ASCII hyphen.
@@ -1396,9 +1396,9 @@ npm package: `@keshm/aplyx` version `0.8.3-alpha.0`.
   gitignored local state (`config/*.json`, `data/`, `logs/`,
   `resumes/`, `docs/PLAN.md`) is never touched.
 
-## [0.8.0a] — 2026-07-13
+## [0.8.0a] - 2026-07-13
 
-## [0.8.2a] — 2026-07-14
+## [0.8.2a] - 2026-07-14
 
 npm package: `@keshm/aplyx` version `0.8.2-alpha.0`.
 
@@ -1427,18 +1427,18 @@ npm package: `@keshm/aplyx` version `0.8.2-alpha.0`.
 - **README shortened again.** Kept practical install/usage/safety info,
   pushed the rest into the docs.
 
-## [0.8.0a] — 2026-07-13
+## [0.8.0a] - 2026-07-13
 
 npm package: `@keshm/aplyx` version `0.8.0-alpha.0` (default `latest`
-dist-tag — `npm install -g @keshm/aplyx` gets it).
+dist-tag; `npm install -g @keshm/aplyx` gets it).
 
 ### Fixed
 
 - **Claude Code harness ran but did no work.** A scheduled/background
   `claude -p` run is non-interactive, so Claude Code could not prompt
-  for tool approval and declined *every* Bash call — the read-only
+  for tool approval and declined *every* Bash call: the read-only
   checks and the mandated `scripts/job_state.py` /
-  `append_state_entry.sh` state helpers alike — finishing "complete"
+  `append_state_entry.sh` state helpers alike, finishing "complete"
   with zero applications. The runner now passes
   `--permission-mode bypassPermissions` (the analog of the Copilot
   branch's `--allow-all-tools`; override with
@@ -1457,7 +1457,7 @@ dist-tag — `npm install -g @keshm/aplyx` gets it).
   explanation: Personal info (safe_fields plus the new
   **preferred name** the sidebar greets you by, falling back to
   first name), Discord webhooks (enabled toggle + per-route URLs),
-  and Environment — persisted `APPLYR_*` overrides in the new
+  and Environment: persisted `APPLYR_*` overrides in the new
   gitignored `config/env.json`, exported by every run (real env vars
   win; only `APPLYR_*`/`ARES_*` keys are honored). New
   `APPLYR_LOG_DIR` moves run/session logs and the heartbeat
@@ -1466,15 +1466,15 @@ dist-tag — `npm install -g @keshm/aplyx` gets it).
 - **README:** Codex CLI and GitHub Copilot CLI artwork added to the
   supported-agents row.
 
-## [0.7.9a] — 2026-07-13
+## [0.7.9a] - 2026-07-13
 
 npm package: `@keshm/aplyx` version `0.7.9-alpha.0` (alpha tag).
-This is the first build clients receive via **automatic update** —
+This is the first build clients receive via **automatic update**:
 pushing the `VERSION` bump to `main` rolls it out.
 
 ### Added
 
-- **Phase 16 — multi coding-agent support.** Codex CLI and GitHub
+- **Phase 16: multi coding-agent support.** Codex CLI and GitHub
   Copilot CLI adapters in `run_job_agent.sh`; 4-agent installer
   detection; harness capability matrix + mandatory degraded paths in
   `AGENTS.md`; conformance suite (`scripts/run_conformance.py`) with
@@ -1495,14 +1495,14 @@ pushing the `VERSION` bump to `main` rolls it out.
   and every interactive `aplyx` launch (2.5 s check budget). New
   `aplyx update` command; `APPLYR_AUTO_UPDATE=0` opts out. Updater
   is single-flight with a 30-min stale-lock reclaim.
-- **Phase 9 — migration-friendliness review.** Single-user
+- **Phase 9: migration-friendliness review.** Single-user
   assumption, per-user vs project-owned file table, and future
   multi-user seams documented in `AGENTS.md`; two-users-per-machine
   note in `docs/SETUP.md` §3.7.
 - **Dedicated uninstall.** `scripts/uninstall.sh` (also `aplyx
   uninstall`): removes the launchd schedule and the `aplyx` PATH
   wrapper (only aplyx's own, only if it points at this install),
-  then deletes the install directory after an explicit confirmation —
+  then deletes the install directory after an explicit confirmation:
   it holds config/data/resumes PII. `--keep-data` keeps the
   directory; `--yes` skips the prompt; non-interactive without
   `--yes` never deletes data. npm installs additionally run
@@ -1513,7 +1513,7 @@ pushing the `VERSION` bump to `main` rolls it out.
   writes `{"enabled": false}` and outcomes stay local (state files +
   TUI). Opting in offers one channel for all updates or separate
   channels per status, with a highlighted ⚠ warning that Discord
-  binds each webhook to one channel — each channel needs its own
+  binds each webhook to one channel: each channel needs its own
   webhook link. Validator treats a missing/disabled config as a
   warning, never an error (enabled configs still hard-fail on
   placeholders); the discord-reporter logs one skip line when
@@ -1528,7 +1528,7 @@ pushing the `VERSION` bump to `main` rolls it out.
   and the gitignored plan); what remains is install, updates,
   uninstall, usage, safety, and pointers.
 
-## [0.7.8a] — 2026-07-12
+## [0.7.8a] - 2026-07-12
 
 npm package: **`@keshm/aplyx` version `0.7.8-alpha.0`** (the
 unscoped npm name `aplyx` belongs to an unrelated package; `0.7.8a`
@@ -1543,7 +1543,7 @@ form).
   re-runs from inside it); prompts for the user profile
   (`safe_fields`, written atomically via `jq`) behind a bold-cyan
   notice that everything stays **locally only**; creates the
-  gitignored root `resumes/` drop-folder — drop all resumes there
+  gitignored root `resumes/` drop-folder; drop all resumes there
   as PDFs for scan/convert-to-markdown tailoring. `aplyx setup`
   shows the same privacy notice and resumes instruction. Three
   documented install paths: bash, cURL, npm.
@@ -1551,7 +1551,7 @@ form).
   primitives (`app/src/ui/Pane.tsx`); Jobs MANUAL, Review, and
   History get a full-height detail pane (fit verdicts, urls,
   reasoning, totals); Status gets a full-height recent-activity
-  column; AUTO mode is a cockpit — cap gauge, heartbeat outcome
+  column; AUTO mode is a cockpit: cap gauge, heartbeat outcome
   counters, elapsed run clock, and a log tail that fills the
   content region. Panes appear when the content band is ≥ 76
   columns and degrade to the stacked layouts below.
@@ -1567,14 +1567,14 @@ form).
   `aplyx` with no core checkout prints the one-line core
   installer instead of a stack trace.
 - **README.** aplyx banner artwork at the head; explicit
-  requirement callout — **Claude Code or opencode must be
-  installed** — with both agents' artwork.
+  requirement callout: **Claude Code or opencode must be
+  installed**, with both agents' artwork.
 
 ### Fixed
 
 - **Backspace deleted nothing on macOS.** The Backspace key sends
   DEL (0x7f), which Ink reports as `key.delete`; the editors
-  treated that as forward-delete — a no-op at the end of the line.
+  treated that as forward-delete, a no-op at the end of the line.
   Backspace and delete now both erase backward in all three text
   inputs.
 - **Resize breakage.** Welcome menu sheds intro / description /
@@ -1585,7 +1585,7 @@ form).
   columns; the content band has an explicit width so wide nested
   rows can no longer squeeze the sidebar.
 
-## [0.5.5a] — 2026-07-12 — first tagged build
+## [0.5.5a] - 2026-07-12 - first tagged build
 
 ### Added
 
@@ -1613,7 +1613,7 @@ form).
   `agents/bodies/` + `agents/frontmatter/{opencode,claude}/`
   by `scripts/generate_agent_definitions.py`. Runner runs a
   drift check (`--check`) at the start of every run.
-- **Universal installer.** `scripts/install.sh` — one command
+- **Universal installer.** `scripts/install.sh`: one command
   from a fresh GitHub download to a validated, harness-configured
   setup. Non-destructive.
 - **Fetch-efficiency rules (AGENTS.md).** Fetches redirect to
@@ -1661,7 +1661,7 @@ form).
 
 ### Security
 
-- The extension still **never submits a form** — the user
+- The extension still **never submits a form**: the user
   reviews and clicks submit themselves. Autofill comes only
   from `config/targets.json "safe_fields"`. The bridge serves
   only the keys a page's form mapped, never the whole map.
@@ -1680,28 +1680,28 @@ form).
 - Phase 15: live parity run between opencode and Claude Code
   is **pending**.
 - Phase 16 (Codex, GitHub Copilot) is **planned**.
-- Workday is review-only by design — there is no auto-apply
+- Workday is review-only by design: there is no auto-apply
   path.
-- The TUI's side panel shows a `Test User` rainbow wordmark —
+- The TUI's side panel shows a `Test User` rainbow wordmark,
   a UI placeholder. No backend account store.
 - `docs/PLAN.md` is gitignored by design; the public roadmap
   signal is the table in `README.md`.
 
 ## Pre-tag history (untagged, summarized)
 
-- **TUI as a one-shot CLI** — the previous TUI commit
+- **TUI as a one-shot CLI**: the previous TUI commit
   (`28b1d4c`) shipped `aplyx` (then `ares-apply`) as a
   one-shot CLI with `status`, `review`, `history`, `run`,
   `setup` subcommands. 0.5.5a re-scopes that to a persistent
   full-screen app; the subcommands are preserved.
-- **Phase 10** (`28b1d4c`, `0c843b9`, `afd87e3`) — extension
+- **Phase 10** (`28b1d4c`, `0c843b9`, `afd87e3`): extension
   + bridge.
 - **Phases 0–8** (`cfebcd4`, `dac5376`, `75e1699`, `9b827cc`,
-  `992aaca`, `5e0843f`, `d4568a6`) — state hardening,
+  `992aaca`, `5e0843f`, `d4568a6`): state hardening,
   Sheets sync, fit gate, SimplifyJobs, vetted slugs, Workday,
   scheduler.
 - **Initial release** (`0c843b9`, `dac5376`, `cfebcd4`,
-  `75e1699`) — the README + agent scaffolding.
+  `75e1699`): the README + agent scaffolding.
 
 > Git history before `0.5.5a` is under the **Ares** name. The
 > rename is reflected in the in-repo files (banner, docs,

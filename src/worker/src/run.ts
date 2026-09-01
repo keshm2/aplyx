@@ -1,25 +1,25 @@
 /**
- * Hosted review_only worker — Phase 17 first increment.
+ * Hosted review_only worker: Phase 17 first increment.
  *
- * Claims queued `hosted_runs` rows (mode='review_only' only — auto_apply
+ * Claims queued `hosted_runs` rows (mode='review_only' only; auto_apply
  * rows are never selected, enforced in the claim query below, not just by
  * convention) and runs, per row: fetch -> canonicalize -> fit-gate ->
  * tailor -> land in review_queue, for one signed-in hosted user.
  *
  * Invocation mirrors refreshJobCache.js (see .github/workflows/
  * hosted-worker.yml): `node src/worker/dist/run.js`, run from the repo
- * root, holding SUPABASE_SECRET_KEY (service-role — bypasses RLS,
+ * root, holding SUPABASE_SECRET_KEY (service-role: bypasses RLS,
  * required to act on behalf of every user, not just one signed-in
  * session) and ANTHROPIC_API_KEY as env vars only, never a config file.
  *
  * Concurrency: this workflow's own GitHub Actions concurrency group (like
  * refresh-job-cache.yml's) guarantees only one worker process runs at a
  * time, so the claim query below only needs a conditional UPDATE ... WHERE
- * status='queued' to prevent a double-claim — not a Postgres FOR UPDATE
+ * status='queued' to prevent a double-claim, not a Postgres FOR UPDATE
  * SKIP LOCKED RPC function, which PostgREST can't express directly and
  * which single-worker concurrency doesn't need.
  *
- * Fetch sources this increment: Ashby, Lever, Greenhouse, Workable — the
+ * Fetch sources this increment: Ashby, Lever, Greenhouse, Workable, the
  * four sources whose list response already carries full jd_text with zero
  * extra per-job network calls (see jobs.ts's fetchAshby/fetchLever/
  * fetchGreenhouse/fetchWorkable). SmartRecruiters/Amazon/Oracle/Workday/
@@ -30,11 +30,11 @@
  * operator's own local dev config or require duplicating the repo
  * checkout into every scratch dir), and JazzHR has no exported TS fetch
  * function at all. All are reasonable, cheap follow-ups once this first
- * increment is proven — not silently dropped, just out of scope for now.
+ * increment is proven; not silently dropped, just out of scope for now.
  *
  * Company slugs come from the same committed, non-PII pool
  * refreshJobCache.ts already refreshes daily (src/config/
- * job_cache_targets.json + src/config/workable_vetted_slugs.json) — hosted
+ * job_cache_targets.json + src/config/workable_vetted_slugs.json); hosted
  * onboarding doesn't collect per-user company slugs today (see the
  * approved plan's "Explicitly out of scope"), so personalization happens
  * at the fit-gate/tailor stage (per-user role_keywords, resume, JD
@@ -57,12 +57,12 @@ import type { QueueEntry } from "@aplyx/core/stateDerive.js";
 const execFileAsync = promisify(execFile);
 
 // Bounds one run's wall-clock cost so a single stuck fetch/tailor call
-// can't hang the whole scheduled job — mirrors refresh-job-cache.yml's
+// can't hang the whole scheduled job: mirrors refresh-job-cache.yml's
 // own timeout-minutes safety cap. 20 minutes leaves real margin under the
 // 30-minute GitHub Actions job timeout this ships with.
 const RUN_BUDGET_MS = 20 * 60 * 1000;
 // Same session-cap spirit as CLAUDE.md's local "max 25 per session" rule
-// (there for applications submitted; here for jobs tailored/queued) — a
+// (there for applications submitted; here for jobs tailored/queued): a
 // deliberate, bounded amount of Anthropic spend and desktop-review-queue
 // growth per run, not a cost-tuned number yet.
 const MAX_TAILORED_PER_RUN = 25;
@@ -115,13 +115,13 @@ async function readJsonFile<T>(filePath: string): Promise<T> {
 /** Every script this worker shells out to prints one JSON object to
  *  stdout on BOTH its success and its own handled-failure paths (see
  *  tailor_resume_hosted.py/tailor_cover_letter_hosted.py's {"ok": false,
- *  "error": ...} contract, and evaluate_job_fit.py's `error()` helper) —
+ *  "error": ...} contract, and evaluate_job_fit.py's `error()` helper):
  *  only a genuinely unhandled crash (job_state.py's die(), a Python
  *  traceback, a timeout) has nothing usable on stdout. Node's execFile
  *  rejects on ANY nonzero exit code regardless of which of those actually
  *  happened, so a script that behaved exactly as documented (a clean,
  *  JSON-reported "tailoring failed") would otherwise look identical to a
- *  hard crash to this worker — and previously WAS silently swallowed:
+ *  hard crash to this worker, and previously WAS silently swallowed:
  *  caught by the per-job catch block, counted as an error, and never
  *  written to review_queue or marked seen, so the same job would be
  *  re-fetched and re-attempted forever. Preferring stdout whenever it
@@ -145,7 +145,7 @@ async function runPython(root: string, scriptRelPath: string, args: string[], ex
         JSON.parse(stdout);
         return stdout;
       } catch {
-        // stdout wasn't valid JSON either — fall through to rethrow below.
+        // stdout wasn't valid JSON either; fall through to rethrow below.
       }
     }
     throw err;
@@ -153,12 +153,12 @@ async function runPython(root: string, scriptRelPath: string, args: string[], ex
 }
 
 /** Same nonzero-exit-tolerant JSON handling as runPython, but feeds a
- *  potentially large payload over stdin ('-') instead of argv — required
+ *  potentially large payload over stdin ('-') instead of argv: required
  *  for the batch subcommands below: a real run's fetched-postings array
  *  (JD text included) is tens of megabytes, far past any OS's command-
  *  line argument length limit. Node's execFile has no `input` option on
  *  its async form, but util.promisify attaches the live ChildProcess to
- *  the returned promise as `.child` (documented Node behavior) — write
+ *  the returned promise as `.child` (documented Node behavior); write
  *  to its stdin directly instead of going through execFileAsync's own
  *  options object, which only `execFileSync` supports. */
 async function runPythonStdin(root: string, scriptRelPath: string, args: string[], stdinData: string): Promise<string> {
@@ -177,7 +177,7 @@ async function runPythonStdin(root: string, scriptRelPath: string, args: string[
     const stdout = (err as { stdout?: string })?.stdout;
     if (stdout) {
       try {
-        // Batch output is JSONL, not a single JSON value — validate line
+        // Batch output is JSONL, not a single JSON value: validate line
         // by line rather than JSON.parse-ing the whole blob.
         for (const line of stdout.split("\n")) {
           if (line.trim()) JSON.parse(line);
@@ -200,7 +200,7 @@ function chunk<T>(items: T[], size: number): T[][] {
 // 500 postings/chunk: keeps each subprocess call's stdin payload (full JD
 // text included) in the low single-digit megabytes and each call's own
 // runtime short, while still cutting a 16,593-job run from that many
-// process spawns down to ~34 — the actual fix for the wall-clock-budget
+// process spawns down to ~34: the actual fix for the wall-clock-budget
 // exhaustion confirmed live during this increment's first verification
 // run (per-spawn interpreter startup, not the deterministic logic itself,
 // was the dominant cost).
@@ -226,8 +226,8 @@ interface FitResult {
   matched_level_keyword: string;
 }
 
-/** evaluate_job_fit.py --batch, chunked the same way as canonicalizeBatch
- *  — same 1:1 input-order-preserved-output contract, confirmed by both
+/** evaluate_job_fit.py --batch, chunked the same way as canonicalizeBatch:
+ *  same 1:1 input-order-preserved-output contract, confirmed by both
  *  scripts' own batch loops (a plain for-loop over the input array,
  *  printing one result per line in order, never reordering/deduping). */
 async function evaluateFitBatch(root: string, canonicals: Record<string, unknown>[], targetsPath: string): Promise<FitResult[]> {
@@ -267,7 +267,7 @@ async function tailorCoverLetter(root: string, payload: { company: string; title
 }
 
 /** "internship" if the fit gate's matched level keyword reads as one,
- *  else "new_grad" — a deterministic stand-in for the judgment call
+ *  else "new_grad": a deterministic stand-in for the judgment call
  *  job-scraper.md's own roleType() heuristic (jobs.ts) makes locally,
  *  reused here nearly verbatim rather than inventing a new rule. */
 function roleTypeFromLevelKeyword(matched: string): "internship" | "new_grad" {
@@ -307,7 +307,7 @@ async function fetchCandidateJobs(root: string): Promise<SearchJob[]> {
 }
 
 /** Downloads the signed-in user's one uploaded resume PDF from Supabase
- *  Storage (bucket "resumes", path "<userId>/<filename>" — see
+ *  Storage (bucket "resumes", path "<userId>/<filename>", see
  *  ResumeUploadStep.tsx) and converts it to markdown via the unmodified
  *  convert_resume.py, in the run's own scratch dir so nothing here ever
  *  touches an operator's local data/resumes/. Picks the most-recently-
@@ -353,7 +353,7 @@ async function buildScratchTargets(root: string, preferences: Record<string, str
  *  a lost race on the conditional UPDATE (only possible if two worker
  *  processes somehow overlap despite the workflow's own concurrency
  *  group) falls through to the next-oldest row instead of returning
- *  nothing. mode='review_only' is a hard filter here, not a default —
+ *  nothing. mode='review_only' is a hard filter here, not a default;
  *  this is what actually keeps an auto_apply row untouched, independent
  *  of the migration's own check constraint. */
 async function claimNextReviewOnlyRun(adminClient: SupabaseClient): Promise<HostedRunRow | null> {
@@ -415,24 +415,24 @@ async function processRun(adminClient: SupabaseClient, root: string, run: Claime
     const fetched = await fetchCandidateJobs(root);
     counts.jobs_fetched = fetched.length;
 
-    // Batched, not one process per job — see canonicalizeBatch's own
+    // Batched, not one process per job: see canonicalizeBatch's own
     // comment for why (a 16,593-job live run spent its entire 20-minute
     // budget on per-job interpreter startup alone before this fix).
     const canonicals = await canonicalizeBatch(root, fetched);
     if (canonicals.length !== fetched.length) {
       // Every SearchJob this worker's fetchers produce already has
       // non-empty source/company/title (each fetch function filters out
-      // anything missing title/url before returning — see fetchAshby et
+      // anything missing title/url before returning; see fetchAshby et
       // al.), so canonicalize-batch's own per-item skip path should never
       // actually trigger here. If it somehow does, refuse to proceed
       // rather than silently pairing the wrong canonical record with the
       // wrong raw job further down.
-      throw new Error(`canonicalize-batch returned ${canonicals.length} result(s) for ${fetched.length} input(s) — refusing to proceed with a misaligned batch`);
+      throw new Error(`canonicalize-batch returned ${canonicals.length} result(s) for ${fetched.length} input(s): refusing to proceed with a misaligned batch`);
     }
 
     // Dedup against both the DB's existing registry AND duplicates within
     // this run's own fetch (two raw postings that canonicalize to the same
-    // job_key — e.g. the same real posting reachable two ways) — the
+    // job_key, e.g. the same real posting reachable two ways), the
     // per-job loop below used to do this check as it went; doing it once,
     // up front, is what lets fit-gating skip work it doesn't need to do.
     const seenJobKeys = new Set(knownJobKeys);
@@ -447,7 +447,7 @@ async function processRun(adminClient: SupabaseClient, root: string, run: Claime
 
     const fitResults = await evaluateFitBatch(root, newCanonicals, targetsPath);
     if (fitResults.length !== newCanonicals.length) {
-      throw new Error(`evaluate_job_fit.py --batch returned ${fitResults.length} result(s) for ${newCanonicals.length} input(s) — refusing to proceed with a misaligned batch`);
+      throw new Error(`evaluate_job_fit.py --batch returned ${fitResults.length} result(s) for ${newCanonicals.length} input(s): refusing to proceed with a misaligned batch`);
     }
 
     let tailoredThisRun = 0;
@@ -469,7 +469,7 @@ async function processRun(adminClient: SupabaseClient, root: string, run: Claime
 
         if (!["candidate", "needs_review", "skipped_unfit"].includes(fit.fit_status)) {
           // evaluate_job_fit.py's own error() path also prints JSON+exits
-          // nonzero (e.g. a malformed scratch targets.json) — runPython
+          // nonzero (e.g. a malformed scratch targets.json): runPython
           // already surfaces that JSON instead of throwing, but its shape
           // has no fit_status at all. Route to review rather than falling
           // through into the tailoring branch with an undefined status.
@@ -507,13 +507,13 @@ async function processRun(adminClient: SupabaseClient, root: string, run: Claime
           continue;
         }
 
-        // fit.fit_status === "candidate" — tailor.
+        // fit.fit_status === "candidate": tailor.
         if (!jdText) {
           // AGENTS.md: never fit-gate/tailor a job with empty jd_text. A
           // candidate-status job should always have one from these four
           // sources, but if it somehow doesn't, route to needs_review
           // rather than tailoring against nothing.
-          await adapter.saveJobForReview(registryRecord, baseEntry, "candidate fit but jd_text is empty — routed to review instead of tailoring blind");
+          await adapter.saveJobForReview(registryRecord, baseEntry, "candidate fit but jd_text is empty: routed to review instead of tailoring blind");
           counts.needs_review++;
           continue;
         }
@@ -536,9 +536,9 @@ async function processRun(adminClient: SupabaseClient, root: string, run: Claime
         };
 
         if (resumeResult.ats_score < ATS_SCORE_CUTOFF) {
-          // job-scraper.md Phase 2 step 3: below cutoff, no cover letter —
+          // job-scraper.md Phase 2 step 3: below cutoff, no cover letter,
           // still lands in review_queue with the tailored context.
-          await adapter.saveJobForReview(registryRecord, tailoredEntry, `Tailored but ats_score ${resumeResult.ats_score} is below the ${ATS_SCORE_CUTOFF} cutoff — reviewed, not a strong match.`);
+          await adapter.saveJobForReview(registryRecord, tailoredEntry, `Tailored but ats_score ${resumeResult.ats_score} is below the ${ATS_SCORE_CUTOFF} cutoff: reviewed, not a strong match.`);
           counts.tailored_low_score++;
           continue;
         }
@@ -554,7 +554,7 @@ async function processRun(adminClient: SupabaseClient, root: string, run: Claime
           cover_letter: coverLetterResult.ok ? coverLetterResult.cover_letter : undefined,
           cover_letter_used: coverLetterResult.ok,
         };
-        await adapter.saveJobForReview(registryRecord, finalEntry, `Tailored candidate, ats_score ${resumeResult.ats_score} — queued for review.`);
+        await adapter.saveJobForReview(registryRecord, finalEntry, `Tailored candidate, ats_score ${resumeResult.ats_score}, queued for review.`);
         counts.tailored_high_score++;
       } catch (err) {
         counts.errors++;
@@ -567,7 +567,7 @@ async function processRun(adminClient: SupabaseClient, root: string, run: Claime
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await finishRun(adminClient, run.id, "failed", counts, message);
-    console.error(`run ${run.id} (user ${run.user_id}): FAILED — ${message}`);
+    console.error(`run ${run.id} (user ${run.user_id}): FAILED: ${message}`);
   } finally {
     if (scratchDir) await fs.rm(scratchDir, { recursive: true, force: true });
   }
@@ -576,11 +576,11 @@ async function processRun(adminClient: SupabaseClient, root: string, run: Claime
 async function main(): Promise<void> {
   const secretKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!secretKey) {
-    console.error("SUPABASE_SECRET_KEY is not set — refusing to run. This must never live in a file.");
+    console.error("SUPABASE_SECRET_KEY is not set: refusing to run. This must never live in a file.");
     process.exit(1);
   }
   if (!process.env.ANTHROPIC_API_KEY) {
-    console.error("ANTHROPIC_API_KEY is not set — refusing to run.");
+    console.error("ANTHROPIC_API_KEY is not set: refusing to run.");
     process.exit(1);
   }
   const root = findProjectRoot();
@@ -591,7 +591,7 @@ async function main(): Promise<void> {
   let processed = 0;
   for (;;) {
     if (Date.now() > deadline) {
-      console.log("run budget exhausted — stopping claim loop");
+      console.log("run budget exhausted: stopping claim loop");
       break;
     }
     const run = await claimNextReviewOnlyRun(adminClient);

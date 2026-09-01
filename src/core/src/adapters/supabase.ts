@@ -99,7 +99,7 @@ export interface VerificationSessionDetail {
   updated_at?: string;
 }
 
-/** Bounded-poll result (poll_own_verification_session) — the redacted
+/** Bounded-poll result (poll_own_verification_session): the redacted
  *  state after bumping attempt_count/last_poll_at and auto-expiring. */
 export interface VerificationSessionPoll {
   status: VerificationSessionRow["status"];
@@ -110,7 +110,7 @@ export interface VerificationSessionPoll {
   failure_reason?: string;
 }
 
-/** get_application_account_metadata's shape (migration 0028) — masked
+/** get_application_account_metadata's shape (migration 0028): masked
  *  display fields only. `login_hint` is a masked value ("j***@company.com"),
  *  never the real login identifier; there is no username/password field
  *  here at all, by construction (see docs/ats-account-credentials-plan.md
@@ -143,7 +143,7 @@ export interface CreateApplyRunInput {
   family: AtsFamily;
   aliasId?: string;
   /** The application_accounts row (migration 0027/0028) this run is
-   *  tied to, for account-required families. Never a credential — the
+   *  tied to, for account-required families. Never a credential: the
    *  caller resolves this via createOrReuseApplicationAccount first. */
   accountId?: string;
   tailoredResumeAttached?: boolean;
@@ -168,7 +168,7 @@ export interface SaveReadyToSubmitOptions {
 
 export interface CreateOrReuseApplicationAccountInput {
   family: AtsFamily;
-  /** Normalized tenant identifier — use atsRegistry.ts's tenantKeyFor so
+  /** Normalized tenant identifier: use atsRegistry.ts's tenantKeyFor so
    *  every caller keys on the exact same value (required for the
    *  RPC's own dedup to actually dedupe). */
   tenantKey: string;
@@ -197,7 +197,7 @@ function obj(v: unknown): Record<string, unknown> | undefined {
 }
 
 /** jsonb columns come back already-parsed from PostgREST; a bare array/object
- *  check is enough defense against a null or unexpected shape — no JSON.parse
+ *  check is enough defense against a null or unexpected shape: no JSON.parse
  *  needed (unlike the local file readers, which parse raw JSON text). */
 function strArray(v: unknown): string[] | undefined {
   return Array.isArray(v) ? v.map((x) => String(x)) : undefined;
@@ -215,7 +215,7 @@ function rowToRegistryRecord(row: Row): RegistryRecord {
   };
 }
 
-/** Shared by rowToAppliedJob/rowToQueueEntry — every column the two tables
+/** Shared by rowToAppliedJob/rowToQueueEntry: every column the two tables
  *  have in common (see migrations 0001/0003; review_queue additionally omits
  *  applied_jobs' NOT NULL constraints, not any columns). */
 function rowToAppliedJobFields(row: Row): Omit<AppliedJob, "status"> {
@@ -237,7 +237,7 @@ function rowToAppliedJobFields(row: Row): Omit<AppliedJob, "status"> {
     cover_letter: str(row.cover_letter),
     missing_keywords: strArray(row.missing_keywords),
     doubt_signals: strArray(row.doubt_signals),
-    // fill_record_path intentionally omitted — hosted rows never have a
+    // fill_record_path intentionally omitted: hosted rows never have a
     // local filesystem path; fill_record (content) is the hosted analog.
     fill_record: (row.fill_record as AppliedJob["fill_record"]) ?? undefined,
     screenshot_path: str(row.screenshot_path),
@@ -245,8 +245,8 @@ function rowToAppliedJobFields(row: Row): Omit<AppliedJob, "status"> {
     apply_run_id: str(row.apply_run_id),
     // Written directly onto this row by email-tracking-worker
     // (src/supabase/functions/email-tracking-worker/), guarded by the
-    // applied_jobs_outcome_transition_guard DB trigger (migration 0007)
-    // — unlike local mode, there's no client-side derivation step here,
+    // applied_jobs_outcome_transition_guard DB trigger (migration 0007):
+    // unlike local mode, there's no client-side derivation step here,
     // the column already holds the authoritative current value.
     outcome_status: row.outcome_status as AppliedJob["outcome_status"],
     outcome_updated_at: str(row.outcome_updated_at),
@@ -257,7 +257,7 @@ function rowToAppliedJobFields(row: Row): Omit<AppliedJob, "status"> {
 }
 
 /** applied_jobs.status is DB-constrained to these three values (migration
- *  0001's check constraint) — anything else means schema drift, not a value
+ *  0001's check constraint): anything else means schema drift, not a value
  *  worth silently coercing (matches the "never silently guess" pattern
  *  elsewhere, e.g. checkJobFit's fit_status validation in jobs.ts). */
 function rowToAppliedJob(row: Row): AppliedJob {
@@ -326,14 +326,14 @@ function normalizeAliasLocalPart(raw: string): string {
 /**
  * Hosted-mode adapter: talks directly to Supabase (HTTPS to supabase.co,
  * no local server involved) via @supabase/supabase-js, scoped to the
- * signed-in user by `user_id` — enforced twice over, by this adapter's
+ * signed-in user by `user_id`: enforced twice over, by this adapter's
  * queries and by the `profiles` table's row-level security policy.
  *
  * Field routing: the safe_fields-shaped PII (HOSTED_PROFILE_FIELD_IDS) maps
  * one column per field on `profiles`, per the operator's explicit decision
  * to sync profile PII for signed-in users (2026-07-16, overriding phase
- * 11's original local-only-PII default — see onboarding/profile.ts).
- * Job-search preferences (HOSTED_PREFERENCE_FIELD_IDS — role_keywords,
+ * 11's original local-only-PII default; see onboarding/profile.ts).
+ * Job-search preferences (HOSTED_PREFERENCE_FIELD_IDS: role_keywords,
  * preferred_locations, target_companies) live in a single `preferences`
  * jsonb column instead: they aren't PII, and they only become meaningful
  * once synced into a local install's src/config/targets.json for the Python
@@ -390,7 +390,7 @@ export class SupabaseAdapter implements Adapter {
   }
 
   /** Whether this signed-in user has finished the hosted onboarding wizard
-   *  before — drives the desktop app's post-sign-in landing (dashboard vs
+   *  before: drives the desktop app's post-sign-in landing (dashboard vs
    *  wizard) so a returning sign-in doesn't repeat it every time. */
   async readOnboardingCompleted(): Promise<boolean> {
     const row = await this.readRow();
@@ -524,7 +524,7 @@ export class SupabaseAdapter implements Adapter {
     }
   }
 
-  /** Marks one mail_connections row revoked — the RLS "update own" policy
+  /** Marks one mail_connections row revoked: the RLS "update own" policy
    *  (0015_mail_connections.sql) lets the signed-in user do this directly,
    *  no service-role RPC needed. Leaves the Vault-stored tokens in place
    *  (only the service role can touch vault.secrets); getInboxConnection()
@@ -541,7 +541,7 @@ export class SupabaseAdapter implements Adapter {
 
   /** Revokes any other still-"connected" row for this provider once a new
    *  one just succeeded (mail-oauth-callback upserts by (user, provider,
-   *  email) — reconnecting under a *different* email inserts a second row
+   *  email); reconnecting under a *different* email inserts a second row
    *  rather than replacing the first, so without this a stale connection
    *  could keep counting as "connected" alongside the new one). Called
    *  right after a successful reconnect, keyed off the email that just
@@ -621,39 +621,39 @@ export class SupabaseAdapter implements Adapter {
    * Reads the three pipeline tables (jobs/applied_jobs/review_queue) for
    * this signed-in user, RLS-scoped the same way readRow() is. Ordered by
    * created_at ascending to match the local files' natural order (each is
-   * append-only on write, so array order there is already chronological —
+   * append-only on write, so array order there is already chronological;
    * see stateDerive.ts's isResolved/hasAppliedOrFailed comments, which
    * assume no particular order but this keeps behavior identical to local
    * mode for anything that does care, e.g. "most recent" derivations).
    *
-   * job_events (the append-only event log) is deliberately NOT read here —
+   * job_events (the append-only event log) is deliberately NOT read here:
    * nothing in AplyxState surfaces it (state.ts's local loadState() doesn't
    * read data/job_events.jsonl either), it exists purely as an audit trail
    * both locally and hosted.
    *
    * A signed-in user with zero rows yet (brand new account) gets a real
-   * (empty-array) AplyxState, not undefined — undefined is reserved for a
+   * (empty-array) AplyxState, not undefined; undefined is reserved for a
    * genuine fetch failure (which actually throws below, same as every
    * other method on this class; the `| undefined` in the return type
    * exists only to satisfy the shared Adapter interface, which LocalAdapter
-   * needs it for — a local install that was never found has nothing to
+   * needs it for: a local install that was never found has nothing to
    * return but isn't an error).
    */
   /**
    * Pages through every row of one table for this user via PostgREST's
    * Range header, not a single unbounded .select("*"). PostgREST caps an
    * unranged select at a server-side default (1,000 rows on this
-   * project) — a single .select() silently returning only the OLDEST
+   * project): a single .select() silently returning only the OLDEST
    * 1,000 rows (order is created_at ascending) is not a hypothetical:
    * confirmed live during Phase 17 worker verification (2026-08-10) once
    * a test account's `jobs` registry passed 1,000 rows, every run after
-   * that point re-detected everything past row 1,000 as "new" — a hosted
+   * that point re-detected everything past row 1,000 as "new": a hosted
    * worker checking loadState()'s registry for already-processed job_keys
    * would spend every future run re-fit-gating and re-writing thousands
    * of already-decided jobs, and (this table alone has no per-job unique
    * constraint) produced a real duplicate row in review_queue, visible in
    * the desktop app's Review screen, before this fix. 1,000 rows/page,
-   * looping until a page comes back short — safe for any registry size,
+   * looping until a page comes back short: safe for any registry size,
    * not just accounts small enough to fit under the old silent cap.
    */
   private async fetchAllRows(table: string): Promise<Row[]> {
@@ -717,14 +717,14 @@ export class SupabaseAdapter implements Adapter {
     };
   }
 
-  /** Inserts a job_events row and updates jobs.latest_status to match —
+  /** Inserts a job_events row and updates jobs.latest_status to match:
    *  the hosted equivalent of job_state.py's record-event, which does both
    *  in one call locally. Not transactional (two separate requests), same
-   *  as the local helper (two separate file writes) — this is a faithful
+   *  as the local helper (two separate file writes); this is a faithful
    *  mirror of existing behavior, not a regression. The UPDATE relies on
    *  migration 0001's jobs_guard_status_transition trigger to refuse
    *  silently downgrading a blocking status (applied/needs_review/failed/
-   *  skipped_unfit) back to new/seen — the same guard job_state.py's
+   *  skipped_unfit) back to new/seen, the same guard job_state.py's
    *  Python implements, enforced here at the DB layer instead. */
   private async recordJobEvent(
     jobKey: string,
@@ -747,12 +747,12 @@ export class SupabaseAdapter implements Adapter {
   }
 
   /**
-   * Hosted mirror of reviewActions.ts's markQueueEntryApplied — same
+   * Hosted mirror of reviewActions.ts's markQueueEntryApplied: same
    * validation (throws on missing registry linkage or required fields,
    * never fabricates values), same shape of applied_jobs record. Two
    * deliberate differences from the local version: no Sheets sync (that's
    * a Python helper reading local config; hosted mode has no sync target
-   * for it), and a duplicate insert (job_id already applied — PK violation,
+   * for it), and a duplicate insert (job_id already applied, PK violation,
    * Postgres code 23505) resolves to a friendly "already recorded" message
    * instead of throwing, mirroring how the local append-only helper's own
    * dedup guard degrades to a non-error outcome.
@@ -762,7 +762,7 @@ export class SupabaseAdapter implements Adapter {
     const reg = state && registryByJobId(state.registry, entry.job_id);
     if (!reg?.job_key) {
       throw new Error(
-        `Cannot mark applied: no registry record / job_key for "${entry.company} — ${entry.title}" (job_id=${entry.job_id}). Canonicalize the job first.`,
+        `Cannot mark applied: no registry record / job_key for "${entry.company} - ${entry.title}" (job_id=${entry.job_id}). Canonicalize the job first.`,
       );
     }
     const missing: string[] = [];
@@ -818,24 +818,24 @@ export class SupabaseAdapter implements Adapter {
       const { error: insertError } = await this.client.from("applied_jobs").insert(payload);
       if (insertError) {
         if (insertError.code === "23505") {
-          return { message: `Already recorded: ${entry.company} — ${entry.title}` };
+          return { message: `Already recorded: ${entry.company} - ${entry.title}` };
         }
         throw insertError;
       }
     }
     await this.recordJobEvent(reg.job_key, "applied", reasoning, entry.company, entry.title, entry.url);
-    return { message: `Recorded applied: ${entry.company} — ${entry.title}` };
+    return { message: `Recorded applied: ${entry.company} - ${entry.title}` };
   }
 
   /**
-   * Global, cross-user "how many people applied to this posting" counts —
+   * Global, cross-user "how many people applied to this posting" counts:
    * public.job_apply_counts (migration 0025), maintained entirely by a
    * DB trigger on applied_jobs; this is read-only, no client can write it.
    * Batched (one request for however many job_ids a screen has on
-   * screen) rather than one request per row — the same per-row-request
+   * screen) rather than one request per row; the same per-row-request
    * mistake the review_only worker made is easy to repeat here otherwise.
    * Missing job_ids (nobody's applied yet) simply aren't in the returned
-   * map — callers should treat an absent key as 0, not as an error.
+   * map; callers should treat an absent key as 0, not as an error.
    */
   async getApplyCounts(jobIds: string[]): Promise<Record<string, number>> {
     if (jobIds.length === 0) return {};
@@ -850,13 +850,13 @@ export class SupabaseAdapter implements Adapter {
   }
 
   /**
-   * Logs an application aplyx never saw — applied to directly on the
+   * Logs an application aplyx never saw: applied to directly on the
    * company's own site, not through the scrape/fit-gate/apply pipeline, so
    * there's no registry row or job_key to require the way
    * markQueueEntryApplied does above. job_id is generated (a "manual:"
    * prefix keeps it visually distinct from a real scraped job_id in the
    * data, and guarantees no collision with one) purely so it can serve as
-   * the row's identity for the (user_id, job_id) primary key — hosted-only
+   * the row's identity for the (user_id, job_id) primary key; hosted-only
    * by design (operator's call, 2026-08-21): this exists so
    * email-tracking-worker's per-company Gmail search has something to
    * match against for an application made outside aplyx, and that worker
@@ -882,10 +882,10 @@ export class SupabaseAdapter implements Adapter {
 
   /**
    * Upserts one registry row (the hosted mirror of job_state.py's
-   * upsert_job) — called by the hosted worker (src/worker/) before every
+   * upsert_job), called by the hosted worker (src/worker/) before every
    * fit-gate/tailor decision, exactly like the local pipeline canonicalizes
    * and registers a job before deciding its fate. Keyed on (user_id,
-   * job_key) — a re-run that sees the same posting again is a no-op merge,
+   * job_key): a re-run that sees the same posting again is a no-op merge,
    * not a duplicate row, matching upsert_job's own dedup semantics.
    */
   async registerJob(record: {
@@ -904,7 +904,7 @@ export class SupabaseAdapter implements Adapter {
 
   /**
    * Hosted mirror of the local skipped_unfit path (job-scraper.md Phase 1
-   * step 10) — registers the job and records the event so a future worker
+   * step 10): registers the job and records the event so a future worker
    * run doesn't re-fetch/re-fit-gate/re-spend an Anthropic call on it, but
    * deliberately never writes applied_jobs/review_queue: skipped_unfit is
    * local-only outcome vocabulary (CLAUDE.md "Conventions that trip people
@@ -922,15 +922,15 @@ export class SupabaseAdapter implements Adapter {
    * Hosted mirror of the local needs_review write (job-scraper.md Phase 1
    * step 10 / Phase 2 step 3): registers the job, records a needs_review
    * event, and writes the SAME entry payload into both applied_jobs (status
-   * needs_review — mirrors the local dual-write into data/applied_jobs.json)
+   * needs_review, mirrors the local dual-write into data/applied_jobs.json)
    * and review_queue, so it shows up in the desktop app's Review screen.
    * review_only mode never auto-applies, so every tailored candidate lands
-   * here for the user to act on manually — not just the ambiguous fit-gate
-   * outcome — `reasoning` is the caller's job to make specific to which of
+   * here for the user to act on manually, not just the ambiguous fit-gate
+   * outcome; `reasoning` is the caller's job to make specific to which of
    * those two cases this actually is.
    *
    * Duplicate-insert tolerance (Postgres 23505) mirrors
-   * markQueueEntryApplied's own dedup guard — defensive here since the
+   * markQueueEntryApplied's own dedup guard, defensive here since the
    * worker is expected to skip already-registered job_keys before ever
    * reaching this call, not the primary dedup mechanism.
    */
@@ -989,8 +989,8 @@ export class SupabaseAdapter implements Adapter {
    *  the inbound-email receiver's `pendingRun` lookup (it queries
    *  apply_runs by alias_id + non-terminal status) has something to
    *  tag a verification email's apply_run_id with. Without this, a
-   *  local-mode Workday continuation — which never otherwise touches
-   *  apply_runs at all — leaves every inbound_emails row for its alias
+   *  local-mode Workday continuation (which never otherwise touches
+   *  apply_runs at all) leaves every inbound_emails row for its alias
    *  with apply_run_id null forever, so nothing can correlate a
    *  verification email to "this specific job" versus any other job
    *  sharing the same per-family managed alias (docs/ats-account-
@@ -1057,7 +1057,7 @@ export class SupabaseAdapter implements Adapter {
 
   /** Reads inbound_emails through the ownership-checked
    *  list_own_inbound_emails RPC (migration 0031), not a direct table
-   *  query — inbound_emails has RLS enabled with zero policies by
+   *  query: inbound_emails has RLS enabled with zero policies by
    *  design (it carries real employer email content), so a direct
    *  `.from("inbound_emails").select()` as the signed-in user's own
    *  client silently returns nothing regardless of ownership. That was
@@ -1086,13 +1086,13 @@ export class SupabaseAdapter implements Adapter {
 
   /** Marks an inbound_emails row as consumed AND redacts the
    *  parsed_otp/parsed_link it carried (consume_inbound_email RPC,
-   *  migration 0031) — "store no OTP after successful use," not just
+   *  migration 0031): "store no OTP after successful use," not just
    *  "flag it as used while the plaintext lingers." Goes through the
    *  ownership-checked RPC for the same reason listInboundEmails does:
    *  inbound_emails has zero RLS policies, so a direct table update as
    *  the signed-in user's own client silently matches zero rows.
    *  Best-effort: a failure here is logged by the caller as a warning,
-   *  not an exception — the verification mail was already used in the
+   *  not an exception: the verification mail was already used in the
    *  browser; not marking it consumed only means the next run might
    *  see it again, which the script's own checkpoint state guards
    *  against independently. */
@@ -1205,7 +1205,7 @@ export class SupabaseAdapter implements Adapter {
 
   /** CONFIRM CONSUME (post-runtime): redacts the secret and deletes the
    *  underlying Vault secret. Call this ONLY after the local runtime
-   *  reports used_verification_link/used_verification_otp — never before.
+   *  reports used_verification_link/used_verification_otp, never before.
    *  Returns void; the secret value was already revealed via
    *  revealVerificationSecret. A second call is a no-op. */
   async consumeVerificationSecret(sessionId: string): Promise<void> {
@@ -1240,12 +1240,12 @@ export class SupabaseAdapter implements Adapter {
 
   /** Create-or-reuse the ATS account an account-required family's apply
    *  run needs (docs/ats-account-credentials-plan.md Package 3). Thin
-   *  wrapper over the create_application_account RPC (migration 0028) —
+   *  wrapper over the create_application_account RPC (migration 0028):
    *  all the actual idempotency (same user+family+tenant+login reuses
    *  the existing account rather than minting a second Vault secret)
    *  lives server-side in that RPC, not here. Returns only the account
    *  id; the username/password just submitted are never returned or
-   *  logged — they were only ever in memory to pass to Vault. */
+   *  logged; they were only ever in memory to pass to Vault. */
   async createOrReuseApplicationAccount(input: CreateOrReuseApplicationAccountInput): Promise<{ accountId: string }> {
     const { data, error } = await this.client.rpc("create_application_account", {
       p_ats_family: input.family,
@@ -1261,7 +1261,7 @@ export class SupabaseAdapter implements Adapter {
 
   /** Attach (or clear) an apply run's ATS account outside the status
    *  state machine. Account creation and final submission are separate
-   *  state transitions (Package 3 acceptance criterion) — linking an
+   *  state transitions (Package 3 acceptance criterion): linking an
    *  account to a run is metadata, not a lifecycle move, so this never
    *  calls applyStateMachine.ts's transition() the way
    *  updateApplyRunStatus does. Safe to call at any point in a run's
@@ -1281,7 +1281,7 @@ export class SupabaseAdapter implements Adapter {
 
   // --- Package 6: user account center (docs/ats-account-credentials-plan.md) ---
 
-  /** Masked metadata only — get_application_account_metadata (migration
+  /** Masked metadata only: get_application_account_metadata (migration
    *  0028) never returns credential_secret_id, and this row shape has
    *  no username/password field at all, so there is no way for this
    *  method to leak a credential even by accident. */
@@ -1303,10 +1303,10 @@ export class SupabaseAdapter implements Adapter {
   }
 
   /** Reveals the caller's own username/password for one account
-   *  (reveal_own_account_credential RPC — authenticated-only,
+   *  (reveal_own_account_credential RPC: authenticated-only,
    *  ownership-checked server-side, logs a login_succeeded/reveal
    *  event on every call). The caller is responsible for gating this
-   *  behind recent re-authentication before calling it — the plan's
+   *  behind recent re-authentication before calling it; the plan's
    *  own comment on the RPC notes that timing is enforced at the
    *  client/session layer, not inside the SQL function. */
   async revealApplicationAccountCredential(accountId: string): Promise<{ username: string; password: string }> {
@@ -1317,7 +1317,7 @@ export class SupabaseAdapter implements Adapter {
   }
 
   /** Overwrites the stored credential with a new username/password
-   *  (rotate_application_account_secret RPC) — e.g. after the user
+   *  (rotate_application_account_secret RPC): e.g. after the user
    *  resets their password directly on the ATS site. */
   async rotateApplicationAccountSecret(accountId: string, newUsername: string, newPassword: string): Promise<void> {
     const { error } = await this.client.rpc("rotate_application_account_secret", {
@@ -1329,7 +1329,7 @@ export class SupabaseAdapter implements Adapter {
   }
 
   /** status_tracking_enabled is a plain column with its own RLS
-   *  update-own policy (migration 0027) — no RPC needed for this one
+   *  update-own policy (migration 0027): no RPC needed for this one
    *  field, unlike the credential-touching operations above. */
   async setApplicationAccountStatusTracking(accountId: string, enabled: boolean): Promise<void> {
     const { error } = await this.client
@@ -1449,14 +1449,14 @@ export class SupabaseAdapter implements Adapter {
   async approveSubmit(entry: QueueEntry): Promise<{ ok: boolean; message: string }> {
     const current = await this.fetchLatestApplyRun(entry.job_id);
     if (!current) {
-      return { ok: false, message: `No apply run found for ${entry.company} — ${entry.title}.` };
+      return { ok: false, message: `No apply run found for ${entry.company} - ${entry.title}.` };
     }
     const status = String(current.status ?? "initialized") as ApplyRunStatus;
     if (status !== "confirm_before_submit" && status !== "ready_to_submit") {
       return { ok: false, message: `Cannot approve submit from apply-run status '${status}'.` };
     }
     const family = str((current as Row).family) ?? (entry.source ?? "");
-    // Hosted browser execution does not exist for ANY family yet — there
+    // Hosted browser execution does not exist for ANY family yet: there
     // is no hosted Playwright worker that can drive a real submit. The
     // message is family-specific so a Workday user (who needs account
     // creation + verification mail handling, which only the local runtime
@@ -1479,18 +1479,18 @@ export class SupabaseAdapter implements Adapter {
     };
   }
 
-  /** Hosted mirror of reviewActions.ts's dismissQueueEntry — same
+  /** Hosted mirror of reviewActions.ts's dismissQueueEntry: same
    *  never-throws contract (every failure mode comes back as a displayable
    *  message, not an exception), same guard order. */
   async dismissQueueEntry(entry: QueueEntry): Promise<QueueActionResult> {
     const state = await this.loadState();
     if (state && hasAppliedOrFailed(state, entry)) {
       return {
-        message: `Cannot dismiss: "${entry.company} — ${entry.title}" already has an applied/failed outcome; dismiss would overwrite it with skipped_unfit.`,
+        message: `Cannot dismiss: "${entry.company} - ${entry.title}" already has an applied/failed outcome; dismiss would overwrite it with skipped_unfit.`,
       };
     }
     if (state && isDismissed(state, entry)) {
-      return { message: `Already dismissed: "${entry.company} — ${entry.title}" is already marked skipped_unfit.` };
+      return { message: `Already dismissed: "${entry.company} - ${entry.title}" is already marked skipped_unfit.` };
     }
     const reg = state && registryByJobId(state.registry, entry.job_id);
     if (!reg?.job_key) {
@@ -1504,7 +1504,7 @@ export class SupabaseAdapter implements Adapter {
       entry.title,
       entry.url,
     );
-    return { message: `Dismissed: ${entry.company} — ${entry.title}` };
+    return { message: `Dismissed: ${entry.company} - ${entry.title}` };
   }
 }
 

@@ -167,7 +167,7 @@
     blocks.forEach(function (b) {
       if (b.type === "h2") {
         flush();
-        var parts = b.text.split(" — ");
+        var parts = b.text.split(" - ");
         var versionMatch = parts[0].match(/^\[([^\]]+)\]$/);
         current = versionMatch
           ? { version: versionMatch[1], heading: null, date: parts[1] || "", tag: parts[2] || "", body: [] }

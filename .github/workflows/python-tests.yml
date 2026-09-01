@@ -1,9 +1,9 @@
-# CI for this repo's deterministic Python unit test suites — none of
+# CI for this repo's deterministic Python unit test suites: none of
 # them were wired into CI before this (all four existed as "run by hand"
 # per their own docstrings; the two Workday suites plus
 # test_workday_inbox_regression.py landed alongside phase 7D with no CI
 # coverage at all). Every suite's own *logic* is stdlib-only, no network,
-# no LLM, no real Playwright browser launch — but
+# no LLM, no real Playwright browser launch, but
 # validate_local_config.py legitimately checks that pypdf/playwright are
 # importable (the same check it runs for a real local install), and its
 # test suite exercises that real check rather than mocking it, so those

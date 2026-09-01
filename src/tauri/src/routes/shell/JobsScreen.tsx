@@ -519,7 +519,7 @@ export function JobsScreen() {
       const root = await resolveRoot();
       const result = await saveJobForReview(root, job);
       setMessage({
-        text: result === "saved" ? "Saved to review queue." : "Already saved — no duplicate recorded.",
+        text: result === "saved" ? "Saved to review queue." : "Already saved, no duplicate recorded.",
       });
     } catch (err) {
       setMessage({ text: `Save failed: ${err instanceof Error ? err.message : String(err)}`, error: true });
@@ -529,7 +529,7 @@ export function JobsScreen() {
   };
 
   // Requires a second click on the same job (see applyArmed above) before
-  // it actually fires — this is the one action here that can end with a
+  // it actually fires: this is the one action here that can end with a
   // real application going out, so it doesn't get a single-click trigger
   // the way Check fit/Save to review do.
   const applyWithAplyx = async (job: SearchJob) => {
@@ -606,11 +606,11 @@ export function JobsScreen() {
              *  (operator report, 2026-08-22): Tauri's macOS webview is
              *  WebKit, not Chromium, and WebKit has its own well-known
              *  <select> hit-region quirks with a styled/appearance:none
-             *  control — the visible box and the actual clickable area
+             *  control: the visible box and the actual clickable area
              *  drifted apart, needing the mouse held slightly above the
              *  rendered text. Not reproducible in Chrome-based tooling,
              *  so rather than keep guessing at native-select CSS, this
-             *  swaps to Dropdown — a fully custom-rendered, self-hit-tested
+             *  swaps to Dropdown: a fully custom-rendered, self-hit-tested
              *  listbox already used identically in Settings (Theme
              *  family/Font pickers), sidestepping the native control
              *  entirely instead of fighting its layout quirks. */}
@@ -618,7 +618,7 @@ export function JobsScreen() {
             <Dropdown value={sortMode} onChange={setSortMode} label="Sort by" options={SORT_OPTIONS} />
           </div>
           {/* "Preferred locations only" toggle taken offline for now (operator
-              request, 2026-07-23) — it was cutting real results out of an
+              request, 2026-07-23): it was cutting real results out of an
               already-thin result set while search diversity/volume issues
               were being worked through. preferredOnly stays wired below
               (still always false, its default) so re-enabling this is just
@@ -649,7 +649,7 @@ export function JobsScreen() {
             ) : (
               <div className="data-empty">
                 {jobs.length > 0
-                  ? "No postings match “Preferred locations only” — turn it off to see everything again."
+                  ? "No postings match “Preferred locations only”: turn it off to see everything again."
                   : "Type a title query and press Search to browse the live boards."}
               </div>
             )
@@ -680,7 +680,7 @@ export function JobsScreen() {
                       <CompanyLogo company={job.company} />
                       <div className="data-row-main">
                         <span className="data-row-title">
-                          {job.company} — {job.title}
+                          {job.company} - {job.title}
                         </span>
                         <span className="data-row-sub">
                           {SOURCE_LABEL[job.source]} · {job.location || "location not listed"}
@@ -704,7 +704,7 @@ export function JobsScreen() {
                           <span className="data-row-meta">Looking…</span>
                         ) : (
                           // Explicit "we looked and found nothing" rather than
-                          // silently leaving this slot blank — an empty gap
+                          // silently leaving this slot blank: an empty gap
                           // reads as "still loading" or a rendering bug, not
                           // "extractPay/ashbyPayText genuinely found no pay
                           // info in this posting" (operator report, 2026-08-23).
@@ -716,15 +716,15 @@ export function JobsScreen() {
                           <span className="data-row-meta">{formatPosted(job.posted_at)}</span>
                         )}
                       </div>
-                      {/* A real, generously-sized nested button — not just the
+                      {/* A real, generously-sized nested button, not just the
                           row's own double-click, which nothing on screen hints
                           at. Stops propagation so opening the posting never
                           also fires the row's own select handler. */}
                       <button
                         type="button"
                         className="data-row-open"
-                        title={`Open ${job.company} — ${job.title}`}
-                        aria-label={`Open ${job.company} — ${job.title}`}
+                        title={`Open ${job.company} - ${job.title}`}
+                        aria-label={`Open ${job.company} - ${job.title}`}
                         onClick={(e) => {
                           e.stopPropagation();
                           void open(job);
@@ -760,7 +760,7 @@ export function JobsScreen() {
 
       </div>
 
-      <Modal open={!!selectedJob} onClose={() => setSelected(undefined)} title={selectedJob ? `${selectedJob.company} — ${selectedJob.title}` : ""}>
+      <Modal open={!!selectedJob} onClose={() => setSelected(undefined)} title={selectedJob ? `${selectedJob.company} - ${selectedJob.title}` : ""}>
         {selectedJob && (
           <>
             <div className="detail-row">
@@ -812,12 +812,12 @@ export function JobsScreen() {
             <hr className="detail-rule" />
             {/* Apply with aplyx is the one action on this screen that can
                 end with a real application actually going out (needs a
-                second click on the same job to actually fire — applyArmed,
-                reset whenever the selection changes) — it stays the sole
+                second click on the same job to actually fire: applyArmed,
+                reset whenever the selection changes), it stays the sole
                 btn-primary (gradient-filled) so it visually reads as THE
                 main path. Open posting demoted to the plain/outline .btn
                 style (operator call, 2026-08-22: make it "less intriguing
-                to click" than Apply, not equal to it) — it never submits
+                to click" than Apply, not equal to it): it never submits
                 anything itself, same secondary weight as "Check fit"/"Save
                 to review" below, just first in reading order since you
                 often want to glance at the real posting before doing
@@ -850,11 +850,11 @@ export function JobsScreen() {
 
             {/* jd_text was already fetched by the scraper for most sources
                *  (Ashby/Lever/Greenhouse/Workable/Amazon/Muse) and never
-               *  shown anywhere in the app until now — the fit-gate check
+               *  shown anywhere in the app until now: the fit-gate check
                *  already reads it, but a human never got to. Workday/
                *  SmartRecruiters/Oracle's list feed omits jd_text (it's
                *  behind a second per-requisition API call, not genuinely
-               *  missing) — the useEffect above backfills it lazily via
+               *  missing); the useEffect above backfills it lazily via
                *  fetchJobDescription() the moment this modal opens for one
                *  of those, same call checkJobFit already makes before
                *  evaluating fit. Run through jobs.ts's htmlToText() at
@@ -862,7 +862,7 @@ export function JobsScreen() {
                *  entities, marks section headings, collapses stray tags)
                *  rather than raw source markup, then renderJobDescription()
                *  below splits those "### " markers back out into their own
-               *  labeled sections — no separate "requirements" field to
+               *  labeled sections: no separate "requirements" field to
                *  pull out, postings don't structure that consistently
                *  enough to split deterministically beyond what each source
                *  itself already marked as a heading, so within a section it
@@ -871,7 +871,7 @@ export function JobsScreen() {
             <div className="detail-row">
               <span className="detail-row-label">Full posting</span>
               {selectedJob.jd_text ? (
-                // div, not p — base.css's global `p { max-width: 65ch }`
+                // div, not p: base.css's global `p { max-width: 65ch }`
                 // would clamp this to an oddly narrow ragged column
                 // regardless of the modal's actual (wider) content width.
                 <div className="detail-row-value" style={{ display: "block" }}>
@@ -883,11 +883,11 @@ export function JobsScreen() {
                 </span>
               ) : selectedBackfill?.failed ? (
                 <span className="detail-row-value" style={{ color: "var(--text-faint)" }}>
-                  Couldn't load the full description — open the posting to read it directly.
+                  Couldn't load the full description. Open the posting to read it directly.
                 </span>
               ) : (
                 <span className="detail-row-value" style={{ color: "var(--text-faint)" }}>
-                  Not available for this source — open the posting to read the full description.
+                  Not available for this source. Open the posting to read the full description.
                 </span>
               )}
             </div>

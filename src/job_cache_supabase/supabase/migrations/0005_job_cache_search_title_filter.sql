@@ -1,11 +1,11 @@
 -- Fixes narrow queries (e.g. "intern") returning far too few cached
 -- results, found live: ashbyhq/lever/greenhouse all correctly reported
 -- "ready" with zero matches for an "intern" search, while Amazon (never
--- cached — always live, server-side query-filtered) dominated the page.
+-- cached, always live, server-side query-filtered) dominated the page.
 --
 -- Root cause: job_cache_search's per-company LIMIT (migration 0004) was
 -- applied to an ARBITRARY, unordered sample of each company's cached
--- rows — title-relevance filtering only happened afterward, client-side
+-- rows: title-relevance filtering only happened afterward, client-side
 -- (jobs.ts's titleMatchesQuery), on that already-capped sample. Most
 -- companies post far more full-time roles than intern roles, so an
 -- unordered top-10 sample of, say, OpenAI's 700+ cached postings could
@@ -14,18 +14,18 @@
 --
 -- Adds a loose ILIKE pre-filter (all of p_title_words must appear as a
 -- substring, case-insensitive) applied INSIDE the lateral join, before
--- the per-company LIMIT — so the rows a company contributes are already
+-- the per-company LIMIT, so the rows a company contributes are already
 -- relevant candidates, not a random pre-filter sample most of which
 -- gets discarded. This is intentionally loose, not a replacement for
 -- jobs.ts's titleMatchesQuery (which is inflection-aware and does exact
--- per-word matching on the final merged/deduped result set) — it just
+-- per-word matching on the final merged/deduped result set), it just
 -- has to be good enough that a real match isn't excluded before that
--- precise filter ever sees it. p_title_words = '{}' (the default —
+-- precise filter ever sees it. p_title_words = '{}' (the default,
 -- browsing with no query typed) skips filtering entirely, unchanged
 -- from before.
 --
 -- Run this file via `supabase db push` or paste it into the Supabase
--- SQL editor — NOT done automatically as part of writing this migration.
+-- SQL editor; NOT done automatically as part of writing this migration.
 
 drop function if exists public.job_cache_search(text, text[], text, int);
 

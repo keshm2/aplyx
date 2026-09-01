@@ -1,5 +1,5 @@
 {
-  "_provenance": "Project-owned vetted JazzHR company-slug list. A guessed slug from a company's public name is NOT reliable, same caveat as workable_vetted_slugs.json — each slug below was found from an actual live posting URL (<slug>.applytojob.com/apply/jobs/details/...) and verified against https://<slug>.applytojob.com/apply/jobs (HTTP 200 with real posting rows present) on the verified_at date. Additions are code changes: verify against a real live posting URL, update verified_at, and review in a PR. This list is never fetched from a remote source at run time.",
+  "_provenance": "Project-owned vetted JazzHR company-slug list. A guessed slug from a company's public name is NOT reliable, same caveat as workable_vetted_slugs.json: each slug below was found from an actual live posting URL (<slug>.applytojob.com/apply/jobs/details/...) and verified against https://<slug>.applytojob.com/apply/jobs (HTTP 200 with real posting rows present) on the verified_at date. Additions are code changes: verify against a real live posting URL, update verified_at, and review in a PR. This list is never fetched from a remote source at run time.",
   "verified_at": "2026-08-10",
   "slugs": [
     "empowerproject",

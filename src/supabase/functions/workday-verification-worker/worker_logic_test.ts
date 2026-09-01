@@ -8,7 +8,7 @@
 // matches never produce a secret, manual-required challenges are detected,
 // redaction strips codes/links, and correlation rejects recipient
 // mismatches. The hosted email-tracking-worker (post-application outcome
-// tracking) is a separate function with separate logic — these tests do
+// tracking) is a separate function with separate logic: these tests do
 // NOT touch it, preserving its unchanged behavior by construction.
 
 import {
@@ -80,7 +80,7 @@ Deno.test("detectManualRequired flags TOTP/push/security-key/SSO", () => {
 });
 
 Deno.test("detectManualRequired does not flag a plain OTP page", () => {
-  // A normal verification-code page must NOT be misclassified — that
+  // A normal verification-code page must NOT be misclassified: that
   // would stop a flow the worker should resolve.
   assertEquals(detectManualRequired("Enter your verification code"), undefined);
 });
@@ -174,8 +174,8 @@ Deno.test("correlate: positive match on recipient + trusted sender domain", () =
   assert(r.score > 0);
 });
 
-Deno.test("correlate: false-positive — sender domain substring does not match", () => {
-  // "evil-workday.com" must NOT match expected domain "workday.com" —
+Deno.test("correlate: false-positive, sender domain substring does not match", () => {
+  // "evil-workday.com" must NOT match expected domain "workday.com":
   // the old substring includes() would have matched this.
   const r = correlate(
     {
@@ -189,7 +189,7 @@ Deno.test("correlate: false-positive — sender domain substring does not match"
   assert(!r.matched, "evil-workday.com should not match workday.com");
 });
 
-Deno.test("correlate: ambiguous — recipient only, no independent signal -> manual_required", () => {
+Deno.test("correlate: ambiguous, recipient only, no independent signal -> manual_required", () => {
   // A message addressed to the candidate but from an unknown sender with
   // no subject tokens and no tenant match. The old code would have
   // matched on company name "Co" substring; the new code requires an
@@ -208,7 +208,7 @@ Deno.test("correlate: ambiguous — recipient only, no independent signal -> man
 });
 
 Deno.test("correlate: subdomain of trusted sender domain matches", () => {
-  // mail.workday.com is a subdomain of workday.com — should match.
+  // mail.workday.com is a subdomain of workday.com: should match.
   const r = correlate(
     {
       to: "candidate@example.invalid",
@@ -328,7 +328,7 @@ Deno.test("correlate: does NOT match a different non-Gmail account (dots signifi
 // Regression: the outcome-tracking worker's classify() vocabulary is a
 // separate function in a separate file. This test asserts the
 // verification worker's exports do NOT include any outcome classification
-// (rejected/offer/oa_sent/interview_requested) — proving the two workers
+// (rejected/offer/oa_sent/interview_requested), proving the two workers
 // cannot be confused at the import boundary.
 Deno.test("verification worker exports no outcome-classification symbols", () => {
   const mod = import.meta;

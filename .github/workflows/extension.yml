@@ -1,4 +1,4 @@
-# Phase 10: browser-extension CI — typecheck and build the MV3 bundle.
+# Phase 10: browser-extension CI: typecheck and build the MV3 bundle.
 name: extension
 on:
   push:

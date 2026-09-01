@@ -1,4 +1,4 @@
-# Phase 13: TUI package CI — typecheck, build, and a non-interactive
+# Phase 13: TUI package CI: typecheck, build, and a non-interactive
 # smoke run. The repo's live config/state files are gitignored, so the
 # smoke test only exercises commands that tolerate their absence.
 # src/tui/ depends on the shared @aplyx/core workspace package (src/core),

@@ -24,10 +24,10 @@ import "./HomeScreen.css";
 
 /** The single most useful thing to do right now. Priority: an unreviewed
  *  queue always wins (it's time-sensitive, and both local and hosted
- *  review-queue triage are real now — see ReviewScreen), then connecting a
+ *  review-queue triage are real now, see ReviewScreen), then connecting a
  *  local install for a hosted-only session (job search/applying still run
  *  through a local install, unaffected by hosted pipeline-state sync),
- *  then a first search, then a quiet "you're caught up" — the last two
+ *  then a first search, then a quiet "you're caught up": the last two
  *  are local-only states since a hosted-only session's "connect a local
  *  install" case already covers it. */
 function nextAction(
@@ -35,7 +35,7 @@ function nextAction(
   display: AplyxState | undefined,
   hostedReadiness?: HostedReadiness,
 ): { title: string; detail: string; cta: string; to: string } | undefined {
-  // Not display.queue.length — the queue is append-only and never shrinks
+  // Not display.queue.length: the queue is append-only and never shrinks
   // on its own (AGENTS.md), so a raw length still counts entries already
   // applied/dismissed/failed after being queued. Same isResolved filter
   // ReviewScreen's own pending count uses.
@@ -75,7 +75,7 @@ function nextAction(
   if (source === "local") {
     return {
       title: "You're caught up",
-      detail: "Nothing waiting on you right now — search again whenever you're ready.",
+      detail: "Nothing waiting on you right now. Search again whenever you're ready.",
       cta: "Open Jobs",
       to: "/app/jobs",
     };
@@ -95,7 +95,7 @@ export function HomeScreen() {
   const [quickQuery, setQuickQuery] = useState("");
   const signedIn = status === "signed-in";
   // Independent of `source` (which prefers local whenever a local install
-  // exists) — same reasoning as Application Statuses: the tracking
+  // exists), same reasoning as Application Statuses: the tracking
   // widgets below are a hosted-account feature regardless of which data
   // source is driving the rest of this dashboard.
   const { onlineJobs } = useOnlineAppliedJobs();
@@ -114,7 +114,7 @@ export function HomeScreen() {
       .then((name) => {
         if (typeof name === "string" && name.trim()) setPreferredName(name.trim());
       })
-      // A bridge failure just leaves the greeting name-less — the
+      // A bridge failure just leaves the greeting name-less: the
       // no-name copy below already covers that case.
       .catch(() => {});
   }, [source, root]);
@@ -131,7 +131,7 @@ export function HomeScreen() {
         if (!cancelled && typeof value === "string" && value.trim()) setPreferredName(value.trim());
       })
       .catch(() => {
-        // No preferred name on file — the greeting falls back to the
+        // No preferred name on file: the greeting falls back to the
         // name-less copy below, same as a fresh local install.
       });
     return () => {
@@ -159,7 +159,7 @@ export function HomeScreen() {
     };
   }, [source, hosted]);
 
-  // A stable, value-compared key for "which jobs to exclude" — depending on
+  // A stable, value-compared key for "which jobs to exclude": depending on
   // this string instead of the `state` object itself means an unrelated
   // state-object identity change (e.g. Supabase's routine hourly
   // TOKEN_REFRESHED firing, which replaces `state` via useAplyxState's own
@@ -174,7 +174,7 @@ export function HomeScreen() {
     : "";
 
   // Recommended-jobs marquee: local-only, same reasoning as the profile-name
-  // lookup above — a hosted-only session has no local job_registry.json or
+  // lookup above: a hosted-only session has no local job_registry.json or
   // Python fit gate to read from, so it simply doesn't render (see
   // nextAction's own "connect a local install" case for that state).
   useEffect(() => {
@@ -186,7 +186,7 @@ export function HomeScreen() {
         if (!cancelled) setRecommended(jobs);
       })
       .catch(() => {
-        // A bridge failure just leaves the marquee absent — the loaded-but-
+        // A bridge failure just leaves the marquee absent: the loaded-but-
         // empty state below already covers "nothing to show".
         if (!cancelled) setRecommended([]);
       });
@@ -195,7 +195,7 @@ export function HomeScreen() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately
     // keyed on excludeJobIdsKey (value-stable) rather than `state` (a new
-    // object reference on every refresh) — see the comment above.
+    // object reference on every refresh): see the comment above.
   }, [source, root, loaded, excludeJobIdsKey]);
 
   // Scheduler status: local-only (the local 30-min schedule and its
@@ -218,7 +218,7 @@ export function HomeScreen() {
 
   const next = loaded ? nextAction(source, state, hostedReadiness) : undefined;
   const pendingQueueCount = state ? state.queue.filter((e) => !isResolved(state, e)).length : 0;
-  // Name, not application count, decides "returning user" copy — a
+  // Name, not application count, decides "returning user" copy: a
   // preferred name is set once during onboarding, so anyone past their
   // first login has one; "You're set up" is now only for the genuine
   // first-ever visit (no name on file yet AND no applications sent).
@@ -229,23 +229,23 @@ export function HomeScreen() {
       : "You're set up";
 
   // Response rate: any tracked application whose outcome moved past the
-  // starting "applied" value — a reply of any kind, not just a positive
+  // starting "applied" value: a reply of any kind, not just a positive
   // one. Assessments pending: still-open oa_sent invites, the same
   // information Application Statuses' own detail sheet shows in full.
   const respondedCount = onlineJobs.filter((j) => j.outcome_status && j.outcome_status !== "applied").length;
   const responseRate = onlineJobs.length > 0 ? Math.round((respondedCount / onlineJobs.length) * 100) : 0;
   const pendingAssessments = onlineJobs.filter((j) => j.outcome_status === "oa_sent");
 
-  // A synthesized feed, not a real event log — this app doesn't keep one,
+  // A synthesized feed, not a real event log: this app doesn't keep one,
   // so "recent activity" is reconstructed from current-state timestamps
   // already on hand: when a local application was sent (date_applied) and
   // when a hosted outcome last changed (outcome_updated_at). Honest about
   // what it actually is rather than fabricating finer-grained history that
-  // doesn't exist. Local's date has no time component and hosted's does —
+  // doesn't exist. Local's date has no time component and hosted's does:
   // an imperfect but reasonable sort given what's available.
   // "Run now" quick action: idle/done start a new run then jump to the
   // full Run screen for progress; any other phase (checking/foreign/
-  // running/stopping) just jumps there — a run already exists, this
+  // running/stopping) just jumps there: a run already exists, this
   // button's job is to get you to it, not start a second one.
   function runQuickActionLabel(): string {
     switch (run.phase) {
@@ -280,7 +280,7 @@ export function HomeScreen() {
     ...(state?.applied ?? []).map((j) => ({
       id: `applied:${j.job_id}`,
       timestamp: j.date_applied,
-      title: `Applied to ${j.company} — ${j.title}`,
+      title: `Applied to ${j.company} - ${j.title}`,
       sub: j.date_applied,
       badge: undefined as { label: string; className: string } | undefined,
     })),
@@ -289,7 +289,7 @@ export function HomeScreen() {
       .map((j) => ({
         id: `outcome:${j.job_id}`,
         timestamp: j.outcome_updated_at!,
-        title: `${j.company} — ${j.title}`,
+        title: `${j.company} - ${j.title}`,
         sub: `Updated ${j.outcome_updated_at!.slice(0, 10)}`,
         badge: {
           label: OUTCOME_LABEL[j.outcome_status!] ?? j.outcome_status!,
@@ -310,7 +310,7 @@ export function HomeScreen() {
               Signed in as <strong>{session?.user.email}</strong>.
             </>
           ) : (
-            "Running locally — your data stays on this machine."
+            "Running locally: your data stays on this machine."
           )}
         </p>
         <DigitalClock hour24={hour24Clock} />
@@ -447,7 +447,7 @@ export function HomeScreen() {
                   </svg>
                 </div>
                 <div className="home-alert-card-title">
-                  {job.company} — {job.title}
+                  {job.company} - {job.title}
                 </div>
                 <div className="home-alert-card-detail">
                   {job.outcome_assessment_note ? `Duration: ${job.outcome_assessment_note}` : "No duration listed"}
@@ -522,18 +522,18 @@ export function HomeScreen() {
       )}
 
       {recommended && recommended.length === 0 && (
-        <p className="field-help aplyx-fade-in">No new matches right now — check back after your next scheduled run.</p>
+        <p className="field-help aplyx-fade-in">No new matches right now. Check back after your next scheduled run.</p>
       )}
 
       {loaded && source === "none" && (
-        <p className="field-help aplyx-fade-in">No activity yet — head to Jobs to start searching.</p>
+        <p className="field-help aplyx-fade-in">No activity yet. Head to Jobs to start searching.</p>
       )}
 
       {activity.length > 0 && (
         <section className="aplyx-fade-in">
           <h2 className="section-label">Recent activity</h2>
           {/* Synthesized from current-state timestamps (date_applied,
-             *  outcome_updated_at) — this app has no real event log, so
+             *  outcome_updated_at): this app has no real event log, so
              *  this is the honest version of "recent activity" rather
              *  than fabricated finer-grained history. */}
           <div className="data-list">

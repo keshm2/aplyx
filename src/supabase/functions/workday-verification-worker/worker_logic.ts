@@ -1,9 +1,9 @@
-// Pure logic for workday-verification-worker — correlation, extraction,
+// Pure logic for workday-verification-worker: correlation, extraction,
 // manual-required detection, and redaction. Extracted from index.ts so
 // Deno tests can import these without triggering the top-level
 // Deno.serve() in index.ts (which binds a port on import). index.ts
 // imports these via `from "./worker_logic.ts"`. No network, no Supabase,
-// no env — safe to unit-test in isolation.
+// no env: safe to unit-test in isolation.
 
 export interface ActiveSession {
   session_id: string;
@@ -23,7 +23,7 @@ export interface ActiveSession {
   refresh_token: string;
 }
 
-// Deterministic OTP/link extraction — same spirit as inbound-email's
+// Deterministic OTP/link extraction: same spirit as inbound-email's
 // extractOtp/extractLink, never an LLM call. Workday verification codes
 // are 4-8 digits; verification links are the first non-noise URL.
 export function extractOtp(text: string): string | undefined {
@@ -37,7 +37,7 @@ export function extractLink(text: string): string | undefined {
   return urls.find((u) => !NOISE.test(u));
 }
 
-// Challenges that can NEVER be safely automated — record as manual_required,
+// Challenges that can NEVER be safely automated: record as manual_required,
 // never guess. Detected from subject/body text only (no DOM access here).
 const MANUAL_REQUIRED_PATTERNS: [string, RegExp][] = [
   ["totp", /\bauthenticator(?: app)?\b/i],
@@ -70,10 +70,10 @@ export function redactSnippet(text: string): string {
 // Correlation: a message is a candidate match only when its recipient
 // matches the session's candidate_email (with display-name parsing, case
 // insensitivity, plus-addressing, and Gmail dot normalization) AND there
-// is a sufficient independent correlation signal — a trusted sender
+// is a sufficient independent correlation signal: a trusted sender
 // domain match (anchored to the actual email domain, not a substring) OR
 // a strong tenant/subject token match. Heuristic company-domain guesses
-// are NOT used — only the actual sender domain extracted from the From
+// are NOT used; only the actual sender domain extracted from the From
 // address is compared against expected_sender_domains. Ambiguous or
 // low-confidence matches become manual_required, never a guess.
 
@@ -100,7 +100,7 @@ export function normalizeEmailForCompare(email: string): string {
   const plusIdx = local.indexOf("+");
   if (plusIdx >= 0) local = local.slice(0, plusIdx);
   // Gmail dot normalization: dots in the local part are ignored by
-  // Gmail. Only apply to gmail/googlemail — other providers treat dots
+  // Gmail. Only apply to gmail/googlemail: other providers treat dots
   // as significant (user.tag@example.com != usertag@example.com).
   if (domain === "gmail.com" || domain === "googlemail.com") {
     local = local.replace(/\./g, "");
@@ -115,7 +115,7 @@ export function extractDomain(email: string): string {
 }
 
 /** Returns true if `domain` equals or is a subdomain of `expected`.
- *  Anchored — "evil.com" does NOT match "workday.com" or "co.com". */
+ *  Anchored: "evil.com" does NOT match "workday.com" or "co.com". */
 function domainMatches(domain: string, expected: string): boolean {
   if (!domain || !expected) return false;
   return domain === expected || domain.endsWith("." + expected);
@@ -127,7 +127,7 @@ export function correlate(
 ): { matched: boolean; score: number; reason: string } {
   // Recipient matching: parse display names, normalize case, plus
   // addressing, and Gmail dot normalization. Must NOT match another
-  // account — the normalized forms must be exactly equal.
+  // account: the normalized forms must be exactly equal.
   const toEmail = extractEmailAddress(msg.to);
   const candidateNorm = normalizeEmailForCompare(session.candidate_email.toLowerCase());
   const toNorm = normalizeEmailForCompare(toEmail);
@@ -178,7 +178,7 @@ export function correlate(
   }
 
   // Company name: only as a weak secondary signal via the From domain or
-  // subject — never as a heuristic domain guess. A company name like "Co"
+  // subject: never as a heuristic domain guess. A company name like "Co"
   // substring-matching "nowhere.com" was a false-positive source; now we
   // only check if the company name appears in the From domain or subject.
   if (session.company) {
@@ -193,7 +193,7 @@ export function correlate(
   // match alone is necessary but not sufficient. At least one of (trusted
   // sender domain, strong subject token, tenant match) must be present.
   // Without that, a message merely addressed to the candidate with a
-  // code-like number in the body could be any sender — route to
+  // code-like number in the body could be any sender: route to
   // manual_required rather than guessing.
   if (!senderMatched && !subjectMatched && !tenantMatched) {
     return { matched: false, score: 0, reason: "no independent correlation signal (recipient only)" };
@@ -202,7 +202,7 @@ export function correlate(
   return { matched: true, score, reason: reasons.join(",") };
 }
 
-// MIME plain-text extraction — walks a Gmail message payload tree looking
+// MIME plain-text extraction: walks a Gmail message payload tree looking
 // for the first text/plain part (falls back to tag-stripped text/html).
 // Kept here so the test suite can exercise it without a live Gmail call.
 interface GmailPart {
