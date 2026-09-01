@@ -12,7 +12,7 @@ import {
   writeEnvOverride,
   logDir,
 } from "./settings.js";
-import { runValidator, convertResumePdf, setResumeDescription, openPath, reopenApplicationFilled, triggerSingleJobApply, approveReadyToSubmit } from "./helpers.js";
+import { runValidator, convertResumePdf, setResumeDescription, openPath, reopenApplicationFilled, triggerSingleJobApply, approveReadyToSubmit, syncGraduationFromResume } from "./helpers.js";
 import { readHeartbeat, latestSessionLog, activeRunPid } from "./state.js";
 import { pythonCmd } from "./platform.js";
 import { LocalAdapter } from "./adapters/local.js";
@@ -497,7 +497,11 @@ async function dispatch(command: string, args: Args): Promise<unknown> {
       const resume = args.resume as MasterResume;
       if (!resume) throw new Error("setMasterResume requires { resume }");
       writeMasterResume(root, resume);
-      return { ok: true };
+      // The resume is the source of truth for the graduation date: keep
+      // safe_fields.graduation_date (fit gate + form-fill + Settings) in
+      // step with what the candidate just saved.
+      const graduation = syncGraduationFromResume(root);
+      return { ok: true, graduation };
     }
 
     case "readFillRecord": {

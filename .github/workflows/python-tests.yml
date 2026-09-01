@@ -34,6 +34,7 @@ jobs:
       - run: pip install pypdf playwright
       - run: python3 src/scripts/validate/test_validate_local_config.py
       - run: python3 src/scripts/jobs/test_evaluate_job_fit.py
+      - run: python3 src/scripts/state/test_resume_graduation.py
       - run: python3 src/scripts/runtime/test_workday_inbox_regression.py
       - run: python3 src/scripts/runtime/test_approve_submit_workday.py
       - run: python3 src/scripts/runtime/test_approve_submit_ats.py

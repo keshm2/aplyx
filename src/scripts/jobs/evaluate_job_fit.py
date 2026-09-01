@@ -25,6 +25,12 @@ import re
 import sys
 from typing import Dict, Iterable, List, Optional, Tuple
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "state"))
+try:
+    from resume_graduation import derive_graduation_date
+except Exception:  # pragma: no cover - helper is always present in a real checkout
+    derive_graduation_date = None  # type: ignore
+
 
 DEFAULT_TARGETS = "src/config/targets.json"
 DECISION_VERSION = "phase4-v5"
@@ -327,7 +333,40 @@ def load_targets(path: str) -> dict:
         error("targets config field 'role_keywords' must be a non-empty array")
     if not isinstance(data.get("level_keywords"), list) or not data["level_keywords"]:
         error("targets config field 'level_keywords' must be a non-empty array")
+    _apply_resume_graduation_date(data, path)
     return data
+
+
+def _apply_resume_graduation_date(data: dict, targets_path: str) -> None:
+    """The candidate's resume is the source of truth for their graduation
+    date: when data/resumes/resume.json parses to a confident value, use it
+    for the fit gate instead of whatever safe_fields.graduation_date was set
+    to during onboarding. This is what makes "upload a resume that says
+    December 2027" open up the following summer's internships with no config
+    edit. A low-confidence or unreadable resume date leaves the existing
+    config value untouched. resume.json is resolved next to the targets file
+    (src/config/../../data/resumes/), so a scratch/test targets path with no
+    sibling resume is a no-op, and the hosted worker (Supabase-stored
+    resumes, no local file) is unaffected."""
+    if derive_graduation_date is None:
+        return
+    resume_path = os.path.normpath(
+        os.path.join(os.path.dirname(os.path.abspath(targets_path)), "..", "..", "data", "resumes", "resume.json")
+    )
+    try:
+        with open(resume_path, "r", encoding="utf-8") as fh:
+            resume = json.load(fh)
+    except (OSError, json.JSONDecodeError):
+        return
+    if not isinstance(resume, dict):
+        return
+    derived = derive_graduation_date(resume.get("education", []))
+    if derived.get("confidence") == "high" and derived.get("graduation_date"):
+        safe = data.get("safe_fields")
+        if not isinstance(safe, dict):
+            safe = {}
+            data["safe_fields"] = safe
+        safe["graduation_date"] = derived["graduation_date"]
 
 
 def pick_text(obj: dict, *keys: str) -> str:

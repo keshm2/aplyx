@@ -3,7 +3,7 @@ import { Box, Text, useInput } from "ink";
 import fs from "node:fs";
 import path from "node:path";
 import { listResumeFiles, resumesDir, type ResumeFile } from "../resumes.js";
-import { convertResumePdf, openPath, helperError } from "@aplyx/core/helpers.js";
+import { convertResumePdf, openPath, helperError, syncGraduationFromResume } from "@aplyx/core/helpers.js";
 import {
   readMasterResume,
   writeMasterResume,
@@ -170,8 +170,18 @@ export function ResumesScreen({
   const section = SECTIONS[sectionCursor]!;
 
   const commit = (next: MasterResume) => {
+    const educationChanged =
+      JSON.stringify(next.education ?? []) !== JSON.stringify(resume?.education ?? []);
     writeMasterResume(root, next);
     setResume(next);
+    // The resume is the source of truth for the graduation date; when the
+    // education section changed, re-derive it and keep
+    // safe_fields.graduation_date (fit gate + form-fill) in step.
+    if (educationChanged) {
+      const g = syncGraduationFromResume(root);
+      if (g.updated) setMessage(g.note);
+      else if (g.confidence === "low") setMessage(`Saved. ${g.note}`);
+    }
   };
 
   // Any popup/list-editing state active anywhere means this screen owns

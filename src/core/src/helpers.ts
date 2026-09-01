@@ -2,6 +2,7 @@ import { execFileSync, spawnSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { py } from "./platform.js";
+import { readSafeField, writeSafeField } from "./settings.js";
 import type { AppliedJob } from "./state.js";
 
 /**
@@ -541,6 +542,48 @@ export function setResumeDescription(root: string, stem: string, description: st
     stem,
     error: parsed.error ?? (res.stderr ?? "").trim() ?? `exit ${res.status}`,
   };
+}
+
+export interface GraduationSyncResult {
+  /** true when safe_fields.graduation_date was changed to match the resume. */
+  updated: boolean;
+  /** the value read from the resume ("December 2027"), or "" if none. */
+  value: string;
+  /** "high" | "low" | "none" — only "high" ever triggers an update. */
+  confidence: string;
+  /** human-readable explanation, for surfacing in the Resumes/Settings UI. */
+  note: string;
+}
+
+/** Keep safe_fields.graduation_date in step with the candidate's resume.
+ *  Called right after the master resume is saved. When the resume parses to
+ *  a confident graduation date that differs from what's stored, update the
+ *  config so the fit gate, the form-fill, and the Settings screen all agree
+ *  with the PDF that actually gets attached. A low-confidence or unreadable
+ *  resume date changes nothing and comes back with `updated: false` plus a
+ *  note the UI can show ("couldn't read a clear graduation date — set it in
+ *  Settings"). Never throws. */
+export function syncGraduationFromResume(root: string): GraduationSyncResult {
+  const conv = py(["src/scripts/state/resume_graduation.py"]);
+  const res = spawnSync(conv.cmd, conv.args, { cwd: root, encoding: "utf8" });
+  let parsed: { ok?: boolean; graduation_date?: string; confidence?: string; note?: string } = {};
+  try {
+    parsed = JSON.parse((res.stdout ?? "").trim() || "{}");
+  } catch {
+    return { updated: false, value: "", confidence: "none", note: "could not read graduation date from resume" };
+  }
+  const value = String(parsed.graduation_date ?? "");
+  const confidence = String(parsed.confidence ?? "none");
+  const note = String(parsed.note ?? "");
+  if (confidence !== "high" || !value) {
+    return { updated: false, value, confidence, note };
+  }
+  const current = readSafeField(root, "graduation_date");
+  if (current === value) {
+    return { updated: false, value, confidence, note: "graduation date already matches the resume" };
+  }
+  writeSafeField(root, "graduation_date", value);
+  return { updated: true, value, confidence, note: `graduation date set to ${value} from your resume` };
 }
 
 /** Message from a failed helper invocation, trimmed for display. */

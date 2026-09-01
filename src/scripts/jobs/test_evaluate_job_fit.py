@@ -170,5 +170,67 @@ class OtherHardRejectSanityTests(unittest.TestCase):
         self.assertNotEqual(result["fit_status"], "skipped_unfit")
 
 
+class ResumeGraduationSourceOfTruthTests(unittest.TestCase):
+    """load_targets() overrides safe_fields.graduation_date with a
+    confident value read from data/resumes/resume.json, so updating the
+    resume PDF (not the config) is what shifts which class years pass."""
+
+    def _targets_dir(self, grad_dates: str | None):
+        import json
+        import tempfile
+
+        d = tempfile.mkdtemp()
+        cfg_dir = os.path.join(d, "src", "config")
+        res_dir = os.path.join(d, "data", "resumes")
+        os.makedirs(cfg_dir)
+        os.makedirs(res_dir)
+        targets_path = os.path.join(cfg_dir, "targets.json")
+        with open(targets_path, "w") as fh:
+            json.dump({
+                "role_keywords": ["software engineer"],
+                "level_keywords": ["intern"],
+                "preferred_locations": ["Seattle"],
+                "fallback_scope": "none",
+                "safe_fields": {"graduation_date": "May 2026"},
+            }, fh)
+        if grad_dates is not None:
+            with open(os.path.join(res_dir, "resume.json"), "w") as fh:
+                json.dump({"education": [{"degree": "B.S. CS", "school": "U", "dates": grad_dates, "details": []}]}, fh)
+        return targets_path
+
+    def test_confident_resume_date_overrides_config(self):
+        job = clean_job(jd_text=(
+            "Software Engineer Intern. We only consider candidates graduating in "
+            "the class of 2028. Currently enrolled in a CS degree required. "
+            "Build backend services in Python."
+        ))
+        # Config alone (May 2026) hard-rejects on the class-year mismatch.
+        cfg_only = {**BASE_TARGETS, "safe_fields": {"graduation_date": "May 2026"}}
+        self.assertEqual(fit.evaluate_fit(job, cfg_only)["fit_status"], "skipped_unfit")
+        # A confident resume date (December 2028) is what load_targets uses instead.
+        targets_path = self._targets_dir("Sep 2024 - December 2028")
+        targets = fit.load_targets(targets_path)
+        self.assertEqual(targets["safe_fields"]["graduation_date"], "December 2028")
+        self.assertNotEqual(fit.evaluate_fit(job, targets)["fit_status"], "skipped_unfit")
+
+    def test_low_confidence_resume_date_leaves_config_alone(self):
+        targets_path = self._targets_dir("2027")  # sole entry -> actually high; use a genuinely ambiguous one
+        # rewrite resume with two entries, latest a bare year (low confidence)
+        import json
+        res = os.path.join(os.path.dirname(targets_path), "..", "..", "data", "resumes", "resume.json")
+        with open(res, "w") as fh:
+            json.dump({"education": [
+                {"degree": "B.A.", "school": "U", "dates": "2019 - 2023", "details": []},
+                {"degree": "M.A.", "school": "U", "dates": "2025", "details": []},
+            ]}, fh)
+        targets = fit.load_targets(targets_path)
+        self.assertEqual(targets["safe_fields"]["graduation_date"], "May 2026")
+
+    def test_no_resume_file_leaves_config_alone(self):
+        targets_path = self._targets_dir(None)
+        targets = fit.load_targets(targets_path)
+        self.assertEqual(targets["safe_fields"]["graduation_date"], "May 2026")
+
+
 if __name__ == "__main__":
     unittest.main()
