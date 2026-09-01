@@ -22,7 +22,7 @@ import sys
 import time
 from urllib.parse import urlparse
 
-from browser_resilience import detect_challenge
+from browser_resilience import detect_challenge, goto_ready
 from replay_fill import (
     PROJECT_ROOT,
     DEFAULT_REVIEW_QUEUE,
@@ -175,7 +175,7 @@ def run(job_id: str, review_queue_path: str, fill_records_dir: str) -> int:
 
         page = context.pages[0] if context.pages else context.new_page()
         try:
-            page.goto(str(apply_url), wait_until="domcontentloaded")
+            goto_ready(page, str(apply_url))
             _pause(1200, 240)
             _dismiss_cookie_banner(page)
 

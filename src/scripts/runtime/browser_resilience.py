@@ -111,6 +111,30 @@ def click_with_retry(locator_fn: Callable[[], object], *, timeout_ms: int = 2000
     with_retry(attempt, delays_ms=delays_ms)
 
 
+# --- navigation ----------------------------------------------------------
+
+def goto_ready(page, url: str, *, settle_timeout_ms: int = 3000):
+    """Navigate to `url`, then give the page a brief chance to go quiet
+    before the caller starts reading or filling it.
+
+    `page.goto(..., wait_until="domcontentloaded")` returns the moment the
+    HTML parses, which on a client-rendered ATS (Workday, Ashby) is before
+    the form's fields exist in the DOM: the first field read then races the
+    hydration/XHR burst. A short networkidle wait after the goto lets that
+    initial burst finish. It is bounded and best-effort: a page that never
+    goes idle (long-poll, analytics beacons) just falls through after
+    settle_timeout_ms rather than blocking the flow, and the element-level
+    pollers in the runtimes (_wait_for_* ) stay the real correctness guard
+    this only narrows the window for. Navigation errors propagate; only the
+    settle wait is swallowed."""
+    response = page.goto(url, wait_until="domcontentloaded")
+    try:
+        page.wait_for_load_state("networkidle", timeout=settle_timeout_ms)
+    except Exception:
+        pass
+    return response
+
+
 # --- generic gate detection ------------------------------------------------
 
 # Selectors indicating the page has put up something the runtime must

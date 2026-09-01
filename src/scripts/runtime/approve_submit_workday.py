@@ -42,6 +42,7 @@ from urllib.parse import quote, urlparse
 from browser_resilience import (
     click_with_retry,
     detect_challenge,
+    goto_ready,
     normalize_url,
     page_signature,
     sanitize_checkpoint,
@@ -963,7 +964,7 @@ def _switch_to_apply_manually_url(page) -> bool:
     if manual_url == url:
         return False
     try:
-        page.goto(manual_url, wait_until="domcontentloaded")
+        goto_ready(page, manual_url)
         _pause(1400, 260)
         return True
     except Exception:
@@ -2324,7 +2325,7 @@ def run(job_id: str, review_queue_path: str, state_dir: str, alias_email: str, a
             start_url = str(apply_url)
             if state.get("status") not in {None, "", "initialized"}:
                 start_url = _workday_login_url(start_url)
-            page.goto(start_url, wait_until="domcontentloaded")
+            goto_ready(page, start_url)
             _pause(1200, 240)
             _ensure_apply_flow(page)
 
@@ -2344,7 +2345,7 @@ def run(job_id: str, review_queue_path: str, state_dir: str, alias_email: str, a
                 return _emit_with_checkpoint(page, state_dir, job_id, state, False, f"Workday presented a {manual} challenge that aplyx cannot safely automate. Checkpoint saved. Complete this step manually and re-run.", outcome="checkpoint", manual_required=manual)
 
             if verification_link:
-                page.goto(verification_link, wait_until="domcontentloaded")
+                goto_ready(page, verification_link)
                 _pause(1200, 240)
                 # A verification link is a single-use credential just like
                 # an OTP. Keep only a digest in the checkpoint; the raw link
@@ -2360,7 +2361,7 @@ def run(job_id: str, review_queue_path: str, state_dir: str, alias_email: str, a
                     # the page is clearly past verification. If the page
                     # ends up in an unknown state, the normal fail-closed
                     # checkpoint path below handles it.
-                    page.goto(str(apply_url), wait_until="domcontentloaded")
+                    goto_ready(page, str(apply_url))
                     _pause(1200, 240)
                     _ensure_apply_flow(page)
 

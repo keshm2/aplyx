@@ -135,6 +135,9 @@ class FakePage:
         self._goto_history.append(url)
         self._url = url
 
+    def wait_for_load_state(self, state: str = "load", timeout: float | None = None) -> None:
+        return None
+
     def locator(self, selector: str) -> FakeLocator:
         return FakeLocator(self, selector)
 

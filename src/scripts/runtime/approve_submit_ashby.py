@@ -18,7 +18,7 @@ import sys
 import time
 from urllib.parse import urlparse
 
-from browser_resilience import detect_challenge
+from browser_resilience import detect_challenge, goto_ready
 from replay_fill import (
     DEFAULT_FILL_RECORDS_DIR,
     DEFAULT_REVIEW_QUEUE,
@@ -166,7 +166,7 @@ def run(job_id: str, review_queue_path: str, fill_records_dir: str) -> int:
 
         page = context.pages[0] if context.pages else context.new_page()
         try:
-            page.goto(str(apply_url), wait_until="domcontentloaded")
+            goto_ready(page, str(apply_url))
             _pause(900, 180)
 
             if _has_captcha(page):

@@ -42,6 +42,8 @@ import re
 import sys
 import time
 
+from browser_resilience import goto_ready
+
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 DEFAULT_REVIEW_QUEUE = "data/review_queue.json"
@@ -501,7 +503,7 @@ def run(job_id, review_queue_path, fill_records_dir, user_data_dir=None, wait_ms
 
         page = context.pages[0] if context.pages else context.new_page()
         try:
-            page.goto(apply_url, wait_until="domcontentloaded")
+            goto_ready(page, apply_url)
         except Exception as exc:
             print(f"replay_fill: warning: navigation issue ({exc}); continuing anyway", file=sys.stderr)
 
