@@ -129,6 +129,22 @@ class HostMatchTests(unittest.TestCase):
         self.assertFalse(lever._looks_like_lever("https://acme.lever.co/1"))
 
 
+class GreenhouseEmbedUrlTests(unittest.TestCase):
+    def test_builds_from_company_and_external_id(self):
+        u = gh._embed_url({"company": "databricks", "external_job_id": "8559344002"}, "greenhouse-8559344002")
+        self.assertEqual(u, "https://job-boards.greenhouse.io/embed/job_app?for=databricks&token=8559344002")
+
+    def test_falls_back_to_job_id_prefix(self):
+        u = gh._embed_url({"company": "stripe"}, "greenhouse-12345")
+        self.assertEqual(u, "https://job-boards.greenhouse.io/embed/job_app?for=stripe&token=12345")
+
+    def test_none_without_numeric_token(self):
+        self.assertIsNone(gh._embed_url({"company": "stripe"}, "jk:abc123"))
+
+    def test_none_without_company(self):
+        self.assertIsNone(gh._embed_url({}, "greenhouse-12345"))
+
+
 # --------------------------------------------------------------------------
 # _looks_successful  — the regression-critical helper
 # --------------------------------------------------------------------------

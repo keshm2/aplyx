@@ -684,12 +684,23 @@ export async function fetchGreenhouse(slugs: string[]): Promise<{ jobs: SearchJo
         if (!title || !url) return [];
         const location = (job.location ?? {}) as Record<string, unknown>;
         const jdText = htmlToText(String(job.content ?? "")) || undefined;
+        const jobId = displayText(job.id);
+        // absolute_url is whatever the company configured, and for any
+        // employer running Greenhouse embedded on its own careers site
+        // (databricks.com/company/careers/..., etc.) it points at that
+        // page, where the real form lives inside an iframe the submit
+        // runtime can't reach. The /embed/job_app endpoint always renders
+        // the form top-level on a greenhouse.io host; use it as apply_url.
+        const applyUrl = jobId
+          ? `https://job-boards.greenhouse.io/embed/job_app?for=${encodeURIComponent(slug)}&token=${encodeURIComponent(jobId)}`
+          : undefined;
         return [{
           source: "greenhouse",
           company: slug,
           title,
           url,
-          external_job_id: displayText(job.id) || undefined,
+          apply_url: applyUrl,
+          external_job_id: jobId || undefined,
           location: displayText(location.name) || undefined,
           jd_text: jdText,
           pay_text: extractPay(jdText),

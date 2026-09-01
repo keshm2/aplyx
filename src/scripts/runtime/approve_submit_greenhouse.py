@@ -142,6 +142,21 @@ def _looks_successful(page) -> tuple[bool, str]:
     )
 
 
+def _embed_url(entry: dict, job_id: str) -> str | None:
+    """Greenhouse's /embed/job_app endpoint renders the application form
+    top-level on a greenhouse.io host. Reconstruct it from the company
+    slug and the numeric job token so a stale queue entry (whose only URL
+    is the company's own careers page, with the real form in an iframe)
+    can still be filled. Newer entries already carry this as apply_url."""
+    slug = (entry.get("company") or "").strip()
+    token = (entry.get("external_job_id") or "").strip()
+    if not token and job_id.startswith("greenhouse-"):
+        token = job_id[len("greenhouse-"):]
+    if slug and token.isdigit():
+        return f"https://job-boards.greenhouse.io/embed/job_app?for={slug}&token={token}"
+    return None
+
+
 def _fail(page, message: str, code: int, job_id: str) -> int:
     """Print a structured failure, attaching a screenshot saved before the
     browser closes so the reason stays inspectable (the window itself is
@@ -165,7 +180,7 @@ def run(job_id: str, review_queue_path: str, fill_records_dir: str) -> int:
     # form embedded on the company's own domain (careers.acme.com), where
     # the host check alone would wrongly bounce it.
     source = (entry.get("source") or "").lower()
-    if source != "greenhouse" and not _looks_like_greenhouse(str(apply_url)):
+    if source != "greenhouse" and not job_id.startswith("greenhouse-") and not _looks_like_greenhouse(str(apply_url)):
         print(json.dumps({"ok": False, "message": "approve-submit is only implemented for Greenhouse entries right now"}))
         return 1
 
@@ -202,7 +217,17 @@ def run(job_id: str, review_queue_path: str, fill_records_dir: str) -> int:
                 return _fail(page, "Greenhouse form contains CAPTCHA; review manually instead of auto-submitting", 4, job_id)
 
             if not wait_for_form_ready(page):
-                return _fail(page, "the Greenhouse application form did not finish loading, or the posting is no longer accepting applications; nothing was submitted", 9, job_id)
+                # The URL resolved to a page with no reachable form: most
+                # often the company's own careers site with the real
+                # Greenhouse form in an iframe. Retry on the top-level
+                # /embed/job_app form.
+                embed = _embed_url(entry, job_id)
+                if embed and embed != str(apply_url):
+                    goto_ready(page, embed)
+                    _pause(1200, 240)
+                    dismiss_consent_banner(page)
+                if not wait_for_form_ready(page):
+                    return _fail(page, "the Greenhouse application form did not finish loading, or the posting is no longer accepting applications; nothing was submitted", 9, job_id)
 
             unmatched = []
             for field in fields:
