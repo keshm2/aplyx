@@ -135,6 +135,78 @@ def goto_ready(page, url: str, *, settle_timeout_ms: int = 3000):
     return response
 
 
+# --- form readiness ------------------------------------------------------
+
+_FILLABLE_FIELD_SELECTOR = (
+    "form input:not([type=hidden]):not([type=submit]):not([type=button]), "
+    "form textarea, form select, "
+    "input[type=text], input[type=email], input[type=tel], textarea"
+)
+_SUBMITISH_SELECTOR = (
+    "button[type=submit], input[type=submit], "
+    "button[class*='submit' i], button[data-testid*='submit' i]"
+)
+
+
+def wait_for_form_ready(page, *, timeout_s: float = 12.0) -> bool:
+    """Poll until the application form is actually interactable, or the
+    timeout elapses. Returns True once at least one visible fillable field
+    AND a submit-ish control are both present, else False.
+
+    goto_ready's networkidle wait plus a caller's fixed pause is not enough
+    on a client-rendered ATS (Greenhouse's newer embed, Ashby, Lever): the
+    page can be network-quiet with the form shell painted but its inputs
+    not yet mounted. replay_fill.locate_field resolves a label via
+    Playwright locators whose .count() does NOT auto-wait, so a fill loop
+    started too early reads zero matches for every field and the whole
+    replay fails as "could not safely re-fill" when nothing was actually
+    wrong. This is the element-level guard goto_ready's own docstring
+    defers to. Never raises; a timeout returns False so the caller can
+    report "form did not load" distinctly from "fields changed"."""
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        try:
+            fields = page.locator(_FILLABLE_FIELD_SELECTOR)
+            submit = page.locator(_SUBMITISH_SELECTOR)
+            has_field = False
+            for i in range(min(fields.count(), 8)):
+                try:
+                    if fields.nth(i).is_visible():
+                        has_field = True
+                        break
+                except Exception:
+                    continue
+            if has_field and submit.count() > 0:
+                return True
+        except Exception:
+            pass
+        time.sleep(0.25)
+    return False
+
+
+_CONSENT_BUTTON_LABELS: tuple[str, ...] = (
+    "Accept all", "Accept All Cookies", "Accept all cookies", "Allow all",
+    "Accept", "Agree", "I agree", "Got it", "OK", "Continue",
+)
+
+
+def dismiss_consent_banner(page) -> bool:
+    """Click a cookie/consent-banner accept button if one is visible, so it
+    can't sit over the submit control and eat the click. Best-effort and
+    quick: tries a short list of common labels, returns True if one was
+    clicked. A consent overlay is a real cause of a "couldn't find submit"
+    or a click timeout on EU Ashby/Lever/Greenhouse postings."""
+    for label in _CONSENT_BUTTON_LABELS:
+        try:
+            btn = page.get_by_role("button", name=label, exact=False)
+            if btn.count() >= 1 and btn.first.is_visible():
+                btn.first.click(timeout=1000)
+                return True
+        except Exception:
+            continue
+    return False
+
+
 # --- generic gate detection ------------------------------------------------
 
 # Selectors indicating the page has put up something the runtime must

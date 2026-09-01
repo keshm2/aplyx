@@ -22,7 +22,12 @@ import sys
 import time
 from urllib.parse import urlparse
 
-from browser_resilience import detect_challenge, goto_ready
+from browser_resilience import (
+    detect_challenge,
+    dismiss_consent_banner,
+    goto_ready,
+    wait_for_form_ready,
+)
 from replay_fill import (
     PROJECT_ROOT,
     DEFAULT_REVIEW_QUEUE,
@@ -52,25 +57,6 @@ def _looks_like_greenhouse(url: str) -> bool:
         return False
     host = host.lower()
     return host in GREENHOUSE_HOSTS or host.endswith(".greenhouse.io")
-
-
-def _dismiss_cookie_banner(page) -> None:
-    labels = [
-        "Accept",
-        "Accept all",
-        "Allow all",
-        "Agree",
-        "I agree",
-    ]
-    for label in labels:
-        try:
-            btn = page.get_by_role("button", name=label, exact=False)
-            if btn.count() >= 1 and btn.first.is_visible():
-                btn.first.click(timeout=1000)
-                _pause(250, 75)
-                return
-        except Exception:
-            continue
 
 
 def _has_captcha(page) -> bool:
@@ -117,6 +103,17 @@ def _validation_errors(page) -> list[str]:
     return errors
 
 
+# A confirmation-shaped URL path is a positive signal; a bare "the URL is
+# no longer the form" is NOT — a failed submit that bounces to an SSO
+# page, an error page, or the company careers site would otherwise be
+# misreported as a successful application (worse than a false failure:
+# the job gets logged as applied when nothing was sent).
+_CONFIRMATION_URL_MARKERS = (
+    "/thank", "/thanks", "/thank_you", "/thank-you",
+    "/confirmation", "/confirm", "/submitted", "/success", "/complete",
+)
+
+
 def _looks_successful(page) -> tuple[bool, str]:
     body = ""
     try:
@@ -125,19 +122,25 @@ def _looks_successful(page) -> tuple[bool, str]:
         body = ""
     url = page.url.lower()
     success_phrases = [
-        "thank you",
+        "thank you for applying",
+        "thanks for applying",
         "application submitted",
         "application received",
         "we've received your application",
         "we have received your application",
         "your application has been submitted",
+        "your application was submitted",
+        "successfully submitted",
     ]
     for phrase in success_phrases:
         if phrase in body:
             return True, f"Greenhouse confirmation detected: {phrase}"
-    if "/job_app" not in url and "/embed/" not in url:
-        return True, f"Greenhouse form redirected to {page.url}"
-    return False, "submit did not reach an obvious confirmation state"
+    if any(marker in url for marker in _CONFIRMATION_URL_MARKERS):
+        return True, f"Greenhouse reached a confirmation page: {page.url}"
+    return False, (
+        f"submit did not reach a confirmation page (now at {page.url}); "
+        "verify manually before marking this applied"
+    )
 
 
 def run(job_id: str, review_queue_path: str, fill_records_dir: str) -> int:
@@ -177,11 +180,15 @@ def run(job_id: str, review_queue_path: str, fill_records_dir: str) -> int:
         try:
             goto_ready(page, str(apply_url))
             _pause(1200, 240)
-            _dismiss_cookie_banner(page)
+            dismiss_consent_banner(page)
 
             if _has_captcha(page):
                 print(json.dumps({"ok": False, "message": "Greenhouse form contains CAPTCHA; review manually instead of auto-submitting"}))
                 return 4
+
+            if not wait_for_form_ready(page):
+                print(json.dumps({"ok": False, "message": "the Greenhouse application form did not finish loading, or the posting is no longer accepting applications; nothing was submitted"}))
+                return 9
 
             unmatched = []
             for field in fields:

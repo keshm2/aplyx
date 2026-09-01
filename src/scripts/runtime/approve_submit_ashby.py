@@ -18,7 +18,12 @@ import sys
 import time
 from urllib.parse import urlparse
 
-from browser_resilience import detect_challenge, goto_ready
+from browser_resilience import (
+    detect_challenge,
+    dismiss_consent_banner,
+    goto_ready,
+    wait_for_form_ready,
+)
 from replay_fill import (
     DEFAULT_FILL_RECORDS_DIR,
     DEFAULT_REVIEW_QUEUE,
@@ -105,6 +110,17 @@ def _validation_errors(page) -> list[str]:
     return errors
 
 
+# A confirmation-shaped URL path is a positive signal; a bare "the URL is
+# no longer jobs.ashbyhq.com" is NOT — a failed submit that bounces to an
+# SSO or error page elsewhere would otherwise be misreported as a
+# successful application, and the job would be logged as applied when
+# nothing was sent.
+_CONFIRMATION_URL_MARKERS = (
+    "/thank", "/thanks", "/thank-you", "/submitted",
+    "/confirmation", "/confirm", "/success", "/complete",
+)
+
+
 def _looks_successful(page) -> tuple[bool, str]:
     body = ""
     try:
@@ -120,15 +136,17 @@ def _looks_successful(page) -> tuple[bool, str]:
         "we've received your application",
         "we have received your application",
         "submission received",
+        "successfully submitted",
     ]
     for phrase in success_phrases:
         if phrase in body:
             return True, f"Ashby confirmation detected: {phrase}"
-    if "/thanks" in url or "/thank" in url or "/submitted" in url:
-        return True, f"Ashby form redirected to {page.url}"
-    if ASHBY_HOST not in url:
-        return True, f"Ashby form redirected away from posting to {page.url}"
-    return False, "submit did not reach an obvious Ashby confirmation state"
+    if any(marker in url for marker in _CONFIRMATION_URL_MARKERS):
+        return True, f"Ashby reached a confirmation page: {page.url}"
+    return False, (
+        f"submit did not reach a confirmation page (now at {page.url}); "
+        "verify manually before marking this applied"
+    )
 
 
 def run(job_id: str, review_queue_path: str, fill_records_dir: str) -> int:
@@ -168,10 +186,15 @@ def run(job_id: str, review_queue_path: str, fill_records_dir: str) -> int:
         try:
             goto_ready(page, str(apply_url))
             _pause(900, 180)
+            dismiss_consent_banner(page)
 
             if _has_captcha(page):
                 print(json.dumps({"ok": False, "message": "Ashby form contains CAPTCHA; review manually instead of auto-submitting"}))
                 return 4
+
+            if not wait_for_form_ready(page):
+                print(json.dumps({"ok": False, "message": "the Ashby application form did not finish loading, or the posting is no longer accepting applications; nothing was submitted"}))
+                return 9
 
             unmatched = []
             for field in fields:
