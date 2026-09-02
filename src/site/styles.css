@@ -4333,6 +4333,204 @@ button {
   }
 }
 
+/* --- City autocomplete (setup walkthrough / Profile "Home location") ---- */
+
+.city-autocomplete {
+  position: relative;
+}
+
+.city-autocomplete-list {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + var(--space-2));
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: var(--space-1);
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: 0 12px 28px -10px color-mix(in srgb, black 28%, transparent);
+  max-height: 15rem;
+  overflow-y: auto;
+}
+
+.city-autocomplete-option {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.city-autocomplete-option.is-active {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+/* --- Themed date picker (setup walkthrough / Profile "Date of birth") --- */
+
+.site-datepicker {
+  position: relative;
+}
+
+.site-datepicker input {
+  width: 100%;
+  padding-right: calc(var(--space-3) * 2 + 1.25rem);
+}
+
+.datepicker-toggle {
+  position: absolute;
+  right: var(--space-2);
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color var(--duration-quick) var(--ease-out-expo), background var(--duration-quick) var(--ease-out-expo);
+}
+
+.datepicker-toggle:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.datepicker-pop {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + var(--space-2));
+  left: 0;
+  width: 19.5rem;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: 0 12px 32px -8px color-mix(in srgb, black 30%, transparent);
+}
+
+.datepicker-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.datepicker-selects {
+  display: flex;
+  flex: 1;
+  gap: var(--space-2);
+}
+
+.datepicker-selects select {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  font: inherit;
+  font-size: var(--text-xs);
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.datepicker-selects select:first-child {
+  flex: 1.5;
+}
+
+.datepicker-selects select:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.datepicker-nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  flex-shrink: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color var(--duration-quick) var(--ease-out-expo), transform var(--duration-press) var(--ease-press);
+}
+
+.datepicker-nav:hover {
+  border-color: var(--border-strong);
+}
+
+.datepicker-nav:active {
+  transform: scale(0.92);
+}
+
+.datepicker-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.datepicker-weekdays {
+  margin-bottom: 2px;
+}
+
+.datepicker-weekday {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 1.6rem;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.datepicker-day {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 2rem;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: background var(--duration-quick) var(--ease-out-expo), color var(--duration-quick) var(--ease-out-expo), transform var(--duration-press) var(--ease-press);
+}
+
+.datepicker-day:hover {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.datepicker-day:active {
+  transform: scale(0.9);
+}
+
+.datepicker-day.is-selected {
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .datepicker-nav,
+  .datepicker-day {
+    transition: background var(--duration-quick) ease, color var(--duration-quick) ease;
+  }
+}
+
 /* --- Extension page (extension.html): demo mockup + supporting sections.
    The mockup reuses .hero-mockup-chrome (browser chrome) and the exact
    prompt markup/animation from src/extension/src/content.ts's shadow DOM,

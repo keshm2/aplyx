@@ -190,7 +190,7 @@
   z-index: 40;
   top: calc(100% + var(--space-2));
   left: 0;
-  width: 17rem;
+  width: 19.5rem;
   padding: var(--space-3);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg, 12px);
@@ -216,12 +216,16 @@
   min-width: 0;
   padding: var(--space-1) var(--space-2);
   font: inherit;
-  font-size: var(--text-sm, 0.875rem);
+  font-size: var(--text-xs, 0.75rem);
   color: var(--text);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm, 6px);
   appearance: none;
+}
+
+.datepicker-selects select:first-child {
+  flex: 1.5;
 }
 
 .datepicker-selects select:focus-visible {

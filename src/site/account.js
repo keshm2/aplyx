@@ -13,6 +13,7 @@
  * with no build step, so this stays isolated to the one page that needs it
  * rather than converting the whole site to a module graph. */
 import { supabase } from "./nav-auth.js";
+import { US_CITIES, rankCitiesByCoord, filterCities } from "./usCitiesData.js";
 
 // Deliberately separate project from the auth client above: same split as
 // src/core/src/supabaseConfig.ts's readJobCacheSupabaseConfig: job_cache
@@ -978,7 +979,7 @@ const PROFILE_PAGES = [
   },
   {
     title: "Location",
-    fields: [{ id: "location", label: "Home location (city, state)", kind: "text", placeholder: "e.g. Seattle, WA" }],
+    fields: [{ id: "location", label: "Home location (city, state)", kind: "city", placeholder: "type any city, e.g. Seattle, WA" }],
   },
   {
     title: "Profiles",
@@ -1030,7 +1031,7 @@ const PROFILE_PAGES = [
       },
       { id: "ethnicity", label: "Ethnicity (optional)", kind: "text", placeholder: "e.g. Asian / Decline" },
       { id: "hispanic_or_latino", label: "Hispanic or Latino?", kind: "yesno" },
-      { id: "date_of_birth", label: "Date of birth (optional)", kind: "text", placeholder: "MM/DD/YYYY" },
+      { id: "date_of_birth", label: "Date of birth (optional)", kind: "date", placeholder: "MM/DD/YYYY" },
       {
         id: "veteran_status",
         label: "Veteran status",
@@ -1068,6 +1069,280 @@ const PROFILE_PAGES = [
 
 const PREFERENCE_FIELD_IDS = new Set(["role_keywords", "preferred_locations", "target_companies"]);
 
+// --- City autocomplete (the "Home location" field) ------------------------
+//
+// Ranks suggestions by real proximity to the browser's own geolocation, so
+// "if I am located in Redmond, typing re brings up Redmond first" holds
+// even before the user has typed or saved a home city anywhere: there's
+// nothing else to rank against yet. Geolocation is requested once, lazily,
+// on first focus (never blocks page load, never required); a denial or
+// timeout just falls back to the plain fuzzy-matched order. Distance is
+// approximate (state-centroid haversine, see usCitiesData.js), same as the
+// desktop app's preferred-locations ranking - good enough to answer "which
+// candidate is closest", not a real routing distance.
+let geoCoordPromise = null;
+function getGeoCoord() {
+  if (geoCoordPromise) return geoCoordPromise;
+  geoCoordPromise = new Promise((resolve) => {
+    if (!navigator.geolocation) return resolve(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve([pos.coords.latitude, pos.coords.longitude]),
+      () => resolve(null),
+      { timeout: 4000, maximumAge: 10 * 60 * 1000 },
+    );
+  });
+  return geoCoordPromise;
+}
+
+/** Wires a plain text `input` (already in the DOM inside `mount`) into a
+ *  themed suggestion listbox: fuzzy-filtered US_CITIES, ranked by real
+ *  proximity once geolocation resolves (silently falls back to unranked
+ *  order otherwise). Keyboard (up/down/enter/escape) and click both
+ *  commit a suggestion; free text is always accepted as-is, same "never a
+ *  validated enum" contract as the app's own location field. */
+function attachCityAutocomplete(mount, input) {
+  const list = document.createElement("ul");
+  list.className = "city-autocomplete-list";
+  list.hidden = true;
+  list.setAttribute("role", "listbox");
+  mount.appendChild(list);
+
+  let rankedPool = US_CITIES;
+  getGeoCoord().then((coord) => {
+    if (coord) rankedPool = rankCitiesByCoord(US_CITIES, coord);
+  });
+
+  let activeIndex = -1;
+  let currentMatches = [];
+
+  function render(matches) {
+    currentMatches = matches;
+    activeIndex = matches.length ? 0 : -1;
+    list.innerHTML = "";
+    matches.forEach((city, i) => {
+      const item = document.createElement("li");
+      item.className = "city-autocomplete-option" + (i === 0 ? " is-active" : "");
+      item.setAttribute("role", "option");
+      item.textContent = city;
+      item.addEventListener("mousedown", (e) => {
+        // mousedown (not click): fires before the input's blur, so
+        // commit() runs before the listbox gets hidden by the blur
+        // handler out from under the click.
+        e.preventDefault();
+        commit(city);
+      });
+      list.appendChild(item);
+    });
+    list.hidden = matches.length === 0;
+  }
+
+  function commit(city) {
+    input.value = city;
+    list.hidden = true;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
+  function updateActive(next) {
+    const items = list.querySelectorAll(".city-autocomplete-option");
+    items.forEach((el, i) => el.classList.toggle("is-active", i === next));
+    activeIndex = next;
+  }
+
+  input.addEventListener("input", () => {
+    render(filterCities(input.value, rankedPool, 8));
+  });
+  input.addEventListener("focus", () => {
+    render(filterCities(input.value, rankedPool, 8));
+  });
+  input.addEventListener("blur", () => {
+    // Deferred: lets a mousedown-triggered commit() run first (see above).
+    setTimeout(() => {
+      list.hidden = true;
+    }, 120);
+  });
+  input.addEventListener("keydown", (e) => {
+    if (list.hidden || currentMatches.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      updateActive((activeIndex + 1) % currentMatches.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      updateActive((activeIndex - 1 + currentMatches.length) % currentMatches.length);
+    } else if (e.key === "Enter" && activeIndex >= 0) {
+      e.preventDefault();
+      commit(currentMatches[activeIndex]);
+    } else if (e.key === "Escape") {
+      list.hidden = true;
+    }
+  });
+}
+
+// --- Themed date picker (the "Date of birth" field) ------------------------
+//
+// A calendar popover built from the site's own tokens, not the OS-native
+// date input: month grid, prev/next, and month/year dropdowns spanning
+// 1920 through eight years out. Typing MM/DD/YYYY directly still works;
+// the calendar is a shortcut onto the same value.
+const DATE_MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const DATE_WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
+const DATE_MIN_YEAR = 1920;
+
+function pad2(n) {
+  return String(n).padStart(2, "0");
+}
+
+function parseMDY(value) {
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec((value || "").trim());
+  if (!m) return null;
+  const month = Number(m[1]) - 1;
+  const day = Number(m[2]);
+  const year = Number(m[3]);
+  if (month < 0 || month > 11 || day < 1 || day > 31 || year < DATE_MIN_YEAR) return null;
+  const d = new Date(year, month, day);
+  if (d.getMonth() !== month || d.getDate() !== day) return null;
+  return d;
+}
+
+function attachDatePicker(mount, input) {
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "datepicker-toggle";
+  toggle.setAttribute("aria-label", "Open calendar");
+  toggle.innerHTML =
+    '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>';
+  mount.appendChild(toggle);
+
+  const pop = document.createElement("div");
+  pop.className = "datepicker-pop";
+  pop.hidden = true;
+  pop.setAttribute("role", "dialog");
+  pop.setAttribute("aria-label", "Choose a date");
+  mount.appendChild(pop);
+
+  const maxYear = new Date().getFullYear() + 8;
+  let view = parseMDY(input.value) || new Date();
+
+  function renderPop() {
+    const viewYear = view.getFullYear();
+    const viewMonth = view.getMonth();
+    const selected = parseMDY(input.value);
+    const firstWeekday = new Date(viewYear, viewMonth, 1).getDay();
+    const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+    pop.innerHTML = "";
+
+    const head = document.createElement("div");
+    head.className = "datepicker-head";
+
+    const prev = document.createElement("button");
+    prev.type = "button";
+    prev.className = "datepicker-nav";
+    prev.setAttribute("aria-label", "Previous month");
+    prev.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>';
+    prev.addEventListener("click", () => {
+      view = new Date(viewYear, viewMonth - 1, 1);
+      renderPop();
+    });
+
+    const selects = document.createElement("div");
+    selects.className = "datepicker-selects";
+
+    const monthSel = document.createElement("select");
+    monthSel.setAttribute("aria-label", "Month");
+    DATE_MONTHS.forEach((name, i) => {
+      const opt = document.createElement("option");
+      opt.value = String(i);
+      opt.textContent = name;
+      if (i === viewMonth) opt.selected = true;
+      monthSel.appendChild(opt);
+    });
+    monthSel.addEventListener("change", () => {
+      view = new Date(viewYear, Number(monthSel.value), 1);
+      renderPop();
+    });
+
+    const yearSel = document.createElement("select");
+    yearSel.setAttribute("aria-label", "Year");
+    for (let y = maxYear; y >= DATE_MIN_YEAR; y--) {
+      const opt = document.createElement("option");
+      opt.value = String(y);
+      opt.textContent = String(y);
+      if (y === viewYear) opt.selected = true;
+      yearSel.appendChild(opt);
+    }
+    yearSel.addEventListener("change", () => {
+      view = new Date(Number(yearSel.value), viewMonth, 1);
+      renderPop();
+    });
+
+    selects.appendChild(monthSel);
+    selects.appendChild(yearSel);
+
+    const next = document.createElement("button");
+    next.type = "button";
+    next.className = "datepicker-nav";
+    next.setAttribute("aria-label", "Next month");
+    next.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>';
+    next.addEventListener("click", () => {
+      view = new Date(viewYear, viewMonth + 1, 1);
+      renderPop();
+    });
+
+    head.appendChild(prev);
+    head.appendChild(selects);
+    head.appendChild(next);
+    pop.appendChild(head);
+
+    const weekdays = document.createElement("div");
+    weekdays.className = "datepicker-grid datepicker-weekdays";
+    DATE_WEEKDAYS.forEach((d) => {
+      const s = document.createElement("span");
+      s.className = "datepicker-weekday";
+      s.textContent = d;
+      weekdays.appendChild(s);
+    });
+    pop.appendChild(weekdays);
+
+    const grid = document.createElement("div");
+    grid.className = "datepicker-grid";
+    for (let i = 0; i < firstWeekday; i++) grid.appendChild(document.createElement("span"));
+    for (let day = 1; day <= daysInMonth; day++) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "datepicker-day";
+      if (selected && selected.getFullYear() === viewYear && selected.getMonth() === viewMonth && selected.getDate() === day) {
+        btn.classList.add("is-selected");
+      }
+      btn.textContent = String(day);
+      btn.addEventListener("click", () => {
+        input.value = `${pad2(viewMonth + 1)}/${pad2(day)}/${viewYear}`;
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        pop.hidden = true;
+      });
+      grid.appendChild(btn);
+    }
+    pop.appendChild(grid);
+  }
+
+  function open() {
+    view = parseMDY(input.value) || view;
+    renderPop();
+    pop.hidden = false;
+  }
+
+  toggle.addEventListener("click", () => {
+    if (pop.hidden) open();
+    else pop.hidden = true;
+  });
+  input.addEventListener("focus", open);
+  document.addEventListener("mousedown", (e) => {
+    if (!mount.contains(e.target)) pop.hidden = true;
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") pop.hidden = true;
+  });
+}
+
 const profileForm = document.getElementById("profile-form");
 const profileFormFields = document.getElementById("profile-form-fields");
 const profileMessage = document.getElementById("profile-message");
@@ -1092,6 +1367,7 @@ function buildProfileFieldset(page, idPrefix) {
     label.appendChild(span);
 
     let input;
+    let mount = label;
     if (field.kind === "yesno" || field.kind === "select3") {
       input = document.createElement("select");
       const options = field.kind === "yesno" ? [{ value: "", label: "Not answered" }, { value: "yes", label: "Yes" }, { value: "no", label: "No" }] : [{ value: "", label: "Not answered" }, ...field.options];
@@ -1105,11 +1381,20 @@ function buildProfileFieldset(page, idPrefix) {
       input = document.createElement("input");
       input.type = "text";
       if (field.placeholder) input.placeholder = field.placeholder;
+      if (field.kind === "city" || field.kind === "date") {
+        // Wrap in a positioned box so the popover (suggestion list /
+        // calendar) anchors to the input, not the whole label row.
+        mount = document.createElement("div");
+        mount.className = field.kind === "city" ? "city-autocomplete" : "site-datepicker";
+        label.appendChild(mount);
+      }
     }
     input.id = `${idPrefix}${field.id}`;
     input.dataset.fieldId = field.id;
     input.dataset.fieldKind = field.kind;
-    label.appendChild(input);
+    mount.appendChild(input);
+    if (field.kind === "city") attachCityAutocomplete(mount, input);
+    if (field.kind === "date") attachDatePicker(mount, input);
     fieldset.appendChild(label);
   });
   return fieldset;
