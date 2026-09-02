@@ -95,20 +95,24 @@ function pickTicks(domainMax: number, place: (v: number) => number, minGap: numb
 
 export function WeeklyActivityChart({
   applied,
-  cumulative = false,
+  metric = "sent",
+  title = "Weekly activity",
   compact = false,
   logScale = false,
 }: {
   applied: AppliedJob[];
-  /** Also plot the running total of applications sent (a much larger,
-   *  monotonically rising line) alongside the per-day count. The two have
-   *  genuinely different magnitudes — the daily line rarely exceeds a
-   *  handful while the total climbs into the dozens — which is exactly
-   *  what makes a log y-axis earn its place. */
-  cumulative?: boolean;
-  /** Shrinks the plot area (Run screen: room for the second line and a
-   *  y-axis without the chart dominating the page); Home keeps the
-   *  original larger size. */
+  /** Which series to plot as this chart's single line. "sent" is the
+   *  per-day count; "cumulative" is its running total within the window
+   *  (a monotonic line climbing into the dozens). Kept as one chart per
+   *  metric — the Run screen renders two side by side — rather than
+   *  overlaying both, since their magnitudes are too different to share a
+   *  y-axis comfortably. */
+  metric?: "sent" | "cumulative";
+  /** Header title; the caller names the metric ("Applications per day",
+   *  "Cumulative total") since one component now serves both. */
+  title?: string;
+  /** Shrinks the plot area (Run screen: two charts side by side without
+   *  either dominating the page); Home keeps the original larger size. */
   compact?: boolean;
   /** Logarithmic y-axis: log(count + 1) so a day with zero events still
    *  has a defined position instead of -Infinity. Draws real tick labels
@@ -117,23 +121,19 @@ export function WeeklyActivityChart({
   logScale?: boolean;
 }) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
-  // Unique per mount so two instances of this chart on the same page (not
-  // currently the case, but SVG gradient ids are global) never collide.
+  // Unique per mount so the two charts on the Run screen never collide on
+  // their SVG gradient ids (those are document-global).
   const gradientId = useId();
 
   const points = useMemo(() => computeSeries(applied, DAYS), [applied]);
-  const showCumulative = cumulative && points.some((p) => p.cumulative > 0);
+  const valueOf = (p: DayPoint) => (metric === "cumulative" ? p.cumulative : p.sent);
 
   const VIEW_H = compact ? 128 : 160;
   const padLeft = logScale ? PAD_X + PAD_LEFT_AXIS : PAD_X;
   const plotW = VIEW_W - padLeft - PAD_X;
   const plotH = VIEW_H - PAD_TOP - PAD_BOTTOM;
 
-  const domainMax = Math.max(
-    1,
-    ...points.map((p) => p.sent),
-    ...(showCumulative ? points.map((p) => p.cumulative) : []),
-  );
+  const domainMax = Math.max(1, ...points.map(valueOf));
   const logDomainMax = Math.log(domainMax + 1);
 
   function scaleY(count: number): number {
@@ -142,47 +142,34 @@ export function WeeklyActivityChart({
   }
 
   const x = (i: number) => padLeft + (i / (points.length - 1)) * plotW;
-  const sentCoords = points.map((p, i) => ({ x: x(i), y: scaleY(p.sent) }));
-  const cumulativeCoords = showCumulative ? points.map((p, i) => ({ x: x(i), y: scaleY(p.cumulative) })) : [];
+  const coords = points.map((p, i) => ({ x: x(i), y: scaleY(valueOf(p)) }));
 
-  const linePath = smoothPath(sentCoords);
-  const areaPath = `${linePath} L ${sentCoords[sentCoords.length - 1].x},${PAD_TOP + plotH} L ${sentCoords[0].x},${PAD_TOP + plotH} Z`;
-  const cumulativeLinePath = showCumulative ? smoothPath(cumulativeCoords) : "";
+  const linePath = smoothPath(coords);
+  const areaPath = `${linePath} L ${coords[coords.length - 1].x},${PAD_TOP + plotH} L ${coords[0].x},${PAD_TOP + plotH} Z`;
 
   // Sparse x-axis labels: every ~3rd day plus the last, so 14 labels never
   // collide into an unreadable row.
   const labelStep = Math.ceil(points.length / 5);
 
   const total = points.reduce((sum, p) => sum + p.sent, 0);
+  const latestCumulative = points[points.length - 1]?.cumulative ?? 0;
+  // The uneven y-axis tick spacing (drawn below) is what signals a log
+  // scale; the header just carries the headline number for this metric.
+  const headerRight =
+    metric === "cumulative" ? `${latestCumulative} total · ${DAYS}d` : `${total} sent · ${DAYS}d`;
   const ticks = logScale ? pickTicks(domainMax, scaleY, 12) : [];
 
   return (
     <div className={`activity-chart${compact ? " activity-chart-compact" : ""}`}>
       <div className="activity-chart-header">
-        <h2 className="activity-chart-title">Weekly activity</h2>
-        {showCumulative ? (
-          <div className="activity-chart-legend">
-            <span className="activity-chart-legend-item">
-              <span className="activity-chart-legend-swatch activity-chart-legend-swatch-a" aria-hidden="true" />
-              Per day
-            </span>
-            <span className="activity-chart-legend-item">
-              <span className="activity-chart-legend-swatch activity-chart-legend-swatch-b" aria-hidden="true" />
-              Cumulative
-            </span>
-            {logScale && <span className="activity-chart-legend-note">log scale</span>}
-          </div>
-        ) : (
-          <span className="activity-chart-total">
-            {total} sent in the last {DAYS} days{logScale ? " · log scale" : ""}
-          </span>
-        )}
+        <h2 className="activity-chart-title">{title}</h2>
+        <span className="activity-chart-total">{headerRight}</span>
       </div>
       <svg
         className="activity-chart-svg"
         viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
         role="img"
-        aria-label={`Applications sent per day over the last ${DAYS} days, totaling ${total}${showCumulative ? ", with a cumulative total line" : ""}${logScale ? ", on a logarithmic scale" : ""}`}
+        aria-label={`${title}: ${headerRight}`}
         onMouseLeave={() => setHoverIndex(null)}
       >
         {/* Moss's three-stop identity (moss → honey → clay), applied
@@ -223,19 +210,18 @@ export function WeeklyActivityChart({
 
         <path className="activity-chart-area" d={areaPath} fill={`url(#${gradientId})`} />
         <path className="activity-chart-line" d={linePath} pathLength={1} stroke={`url(#${gradientId})`} />
-        {showCumulative && <path className="activity-chart-line-b" d={cumulativeLinePath} pathLength={1} />}
 
         {hoverIndex !== null && (
           <line
             className="activity-chart-crosshair"
-            x1={sentCoords[hoverIndex].x}
-            x2={sentCoords[hoverIndex].x}
+            x1={coords[hoverIndex].x}
+            x2={coords[hoverIndex].x}
             y1={PAD_TOP}
             y2={PAD_TOP + plotH}
           />
         )}
 
-        {sentCoords.map((c, i) => (
+        {coords.map((c, i) => (
           <circle
             key={points[i].date}
             className={`activity-chart-dot${hoverIndex === i ? " activity-chart-dot-active" : ""}`}
@@ -244,19 +230,9 @@ export function WeeklyActivityChart({
             r={hoverIndex === i ? 4 : 2.5}
           />
         ))}
-        {showCumulative &&
-          cumulativeCoords.map((c, i) => (
-            <circle
-              key={points[i].date}
-              className={`activity-chart-dot-b${hoverIndex === i ? " activity-chart-dot-b-active" : ""}`}
-              cx={c.x}
-              cy={c.y}
-              r={hoverIndex === i ? 4 : 2.5}
-            />
-          ))}
 
         {/* Hit targets bigger than the visible dots, one per day. */}
-        {sentCoords.map((c, i) => (
+        {coords.map((c, i) => (
           <rect
             key={`hit-${points[i].date}`}
             x={c.x - plotW / points.length / 2}
@@ -270,7 +246,7 @@ export function WeeklyActivityChart({
 
         {points.map((p, i) =>
           i % labelStep === 0 || i === points.length - 1 ? (
-            <text key={p.date} className="activity-chart-axis-label" x={sentCoords[i].x} y={VIEW_H - 8} textAnchor="middle">
+            <text key={p.date} className="activity-chart-axis-label" x={coords[i].x} y={VIEW_H - 8} textAnchor="middle">
               {p.label}
             </text>
           ) : null,
@@ -278,18 +254,9 @@ export function WeeklyActivityChart({
       </svg>
 
       {hoverIndex !== null && (
-        <div
-          className="activity-chart-tooltip"
-          style={{ left: `${(sentCoords[hoverIndex].x / VIEW_W) * 100}%` }}
-        >
-          <strong>{points[hoverIndex].sent}</strong> sent
-          {showCumulative ? (
-            <>
-              {" "}
-              · <strong>{points[hoverIndex].cumulative}</strong> total
-            </>
-          ) : null}{" "}
-          on {new Date(points[hoverIndex].date + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+        <div className="activity-chart-tooltip" style={{ left: `${(coords[hoverIndex].x / VIEW_W) * 100}%` }}>
+          <strong>{valueOf(points[hoverIndex])}</strong> {metric === "cumulative" ? "total" : "sent"} on{" "}
+          {new Date(points[hoverIndex].date + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}
         </div>
       )}
     </div>

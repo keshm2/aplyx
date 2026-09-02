@@ -41,42 +41,6 @@
   white-space: nowrap;
 }
 
-.activity-chart-legend {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.activity-chart-legend-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-
-.activity-chart-legend-swatch {
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 999px;
-}
-
-.activity-chart-legend-swatch-a {
-  background: var(--accent);
-}
-
-.activity-chart-legend-swatch-b {
-  background: var(--info);
-}
-
-.activity-chart-legend-note {
-  font-size: var(--text-xs);
-  color: var(--text-faint);
-  font-style: italic;
-  white-space: nowrap;
-}
-
 .activity-chart-svg {
   width: 100%;
   height: auto;
@@ -134,31 +98,6 @@
   fill: var(--accent);
 }
 
-/* Second series (cumulative total): --info, a solid but thinner line than
- * the primary gradient stroke so the two are readable overlapping,
- * without a separate dashed pattern muddying the log-scaled curves. */
-.activity-chart-line-b {
-  fill: none;
-  stroke: var(--info);
-  stroke-width: 1.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-  animation: activity-chart-draw var(--duration-slow) var(--ease-glide) 100ms forwards;
-}
-
-.activity-chart-dot-b {
-  fill: var(--surface);
-  stroke: var(--info);
-  stroke-width: 1.5;
-  transition: r var(--duration-quick) var(--ease-snap);
-}
-
-.activity-chart-dot-b-active {
-  fill: var(--info);
-}
-
 .activity-chart-crosshair {
   stroke: var(--border-strong);
   stroke-width: 1;
@@ -204,8 +143,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .activity-chart-line,
-  .activity-chart-line-b {
+  .activity-chart-line {
     animation: none;
     stroke-dashoffset: 0;
   }
@@ -214,8 +152,7 @@
   }
 }
 
-:root[data-reduced-motion="1"] .activity-chart-line,
-:root[data-reduced-motion="1"] .activity-chart-line-b {
+:root[data-reduced-motion="1"] .activity-chart-line {
   animation: none;
   stroke-dashoffset: 0;
 }

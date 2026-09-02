@@ -16,6 +16,22 @@
   font-size: var(--text-sm);
 }
 
+/* The per-day and cumulative charts are two separate graphs (different
+ * metrics, different scales), side by side on wide viewports and stacked
+ * once there's no room. */
+.run-charts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+  align-items: start;
+}
+
+@media (max-width: 640px) {
+  .run-charts {
+    grid-template-columns: 1fr;
+  }
+}
+
 .run-start-card {
   display: flex;
   flex-direction: column;

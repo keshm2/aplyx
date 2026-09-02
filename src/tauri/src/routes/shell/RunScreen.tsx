@@ -93,13 +93,121 @@ export function RunScreen() {
   }
 
   return (
-    <div style={{ maxWidth: "48rem", margin: "0 auto", display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
+    <div style={{ maxWidth: "54rem", margin: "0 auto", display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
       <header className="run-header">
         <div className="run-header-text">
           <h1>Run</h1>
           <p>{todayLabel}</p>
         </div>
       </header>
+
+      {/* A live run is the one thing you watch moment-to-moment, so it sits
+          right under the header; the history metrics + charts + the
+          start-a-run "menu" only render when a run isn't actively going. */}
+      {(run.phase === "running" || run.phase === "stopping") && (
+        <section className="settings-section">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-3)" }}>
+            <h2 style={{ fontSize: "var(--text-lg)" }}>Running</h2>
+            <span className="status-badge status-badge-info">{formatElapsed(elapsed)}</span>
+          </div>
+          <RunChecklist checklist={checklist} />
+          {currentApplication && (
+            <p className="field-help">
+              Applying to <strong>{currentApplication.title}</strong> @ {currentApplication.company}
+            </p>
+          )}
+          <div style={{ display: "flex", gap: "var(--space-2)", marginTop: "var(--space-3)", flexWrap: "wrap" }}>
+            {confirmStop ? (
+              <>
+                <span className="field-help" style={{ alignSelf: "center" }}>
+                  Stop this run?
+                </span>
+                <button
+                  type="button"
+                  className="settings-action-btn settings-action-btn-danger"
+                  onClick={() => {
+                    setConfirmStop(false);
+                    void stopCurrentRun();
+                  }}
+                >
+                  Yes, stop
+                </button>
+                <button type="button" className="settings-action-btn" onClick={() => setConfirmStop(false)}>
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="settings-action-btn settings-action-btn-danger"
+                disabled={run.phase === "stopping"}
+                onClick={() => setConfirmStop(true)}
+              >
+                {run.phase === "stopping" ? "Stopping…" : "Stop"}
+              </button>
+            )}
+            <button type="button" className="settings-action-btn" onClick={() => setShowRaw((s) => !s)}>
+              {showRaw ? "Hide raw log" : "Show raw log"}
+            </button>
+          </div>
+          {showRaw && (
+            <div ref={logRef} className="run-log-tail">
+              {run.rawLines.length === 0 ? "(no output yet)" : run.rawLines.map((l, i) => <div key={i}>{l}</div>)}
+            </div>
+          )}
+        </section>
+      )}
+
+      {loaded && state && run.phase !== "running" && run.phase !== "stopping" && (
+        <div className="metric-bar aplyx-fade-rise">
+          <div className="metric">
+            <div className="metric-top">
+              <span className="metric-icon metric-icon-good" aria-hidden="true">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="22" y1="2" x2="11" y2="13" />
+                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                </svg>
+              </span>
+              <span className="metric-label">Applied today</span>
+            </div>
+            <span className="metric-value" style={{ color: "var(--good)" }}>
+              {appliedToday}
+            </span>
+          </div>
+          <div className="metric">
+            <div className="metric-top">
+              <span className="metric-icon metric-icon-neutral" aria-hidden="true">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 7v9M8 3h8" />
+                </svg>
+              </span>
+              <span className="metric-label">Session cap</span>
+            </div>
+            <span className="metric-value">{sessionCapValue > 0 ? sessionCapValue : SESSION_CAP_MAX}</span>
+            <span className="metric-caption">{sessionCapValue > 0 ? "This run's cap" : "Max applications per run"}</span>
+          </div>
+          <div className="metric">
+            <div className="metric-top">
+              <span className="metric-icon metric-icon-neutral" aria-hidden="true">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </span>
+              <span className="metric-label">All-time applications</span>
+            </div>
+            <span className="metric-value">{state.applied.length}</span>
+          </div>
+        </div>
+      )}
+
+      {loaded && state && state.applied.length > 0 && run.phase !== "running" && run.phase !== "stopping" && (
+        <div className="run-charts">
+          <WeeklyActivityChart applied={state.applied} metric="sent" title="Applications per day" compact logScale />
+          <WeeklyActivityChart applied={state.applied} metric="cumulative" title="Cumulative total" compact logScale />
+        </div>
+      )}
 
       {(run.phase === "idle" || run.phase === "checking") && (
         <section className="settings-section run-start-card">
@@ -198,60 +306,6 @@ export function RunScreen() {
         </section>
       )}
 
-      {(run.phase === "running" || run.phase === "stopping") && (
-        <section className="settings-section">
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-3)" }}>
-            <h2 style={{ fontSize: "var(--text-lg)" }}>Running</h2>
-            <span className="status-badge status-badge-info">{formatElapsed(elapsed)}</span>
-          </div>
-          <RunChecklist checklist={checklist} />
-          {currentApplication && (
-            <p className="field-help">
-              Applying to <strong>{currentApplication.title}</strong> @ {currentApplication.company}
-            </p>
-          )}
-          <div style={{ display: "flex", gap: "var(--space-2)", marginTop: "var(--space-3)", flexWrap: "wrap" }}>
-            {confirmStop ? (
-              <>
-                <span className="field-help" style={{ alignSelf: "center" }}>
-                  Stop this run?
-                </span>
-                <button
-                  type="button"
-                  className="settings-action-btn settings-action-btn-danger"
-                  onClick={() => {
-                    setConfirmStop(false);
-                    void stopCurrentRun();
-                  }}
-                >
-                  Yes, stop
-                </button>
-                <button type="button" className="settings-action-btn" onClick={() => setConfirmStop(false)}>
-                  Cancel
-                </button>
-              </>
-            ) : (
-              <button
-                type="button"
-                className="settings-action-btn settings-action-btn-danger"
-                disabled={run.phase === "stopping"}
-                onClick={() => setConfirmStop(true)}
-              >
-                {run.phase === "stopping" ? "Stopping…" : "Stop"}
-              </button>
-            )}
-            <button type="button" className="settings-action-btn" onClick={() => setShowRaw((s) => !s)}>
-              {showRaw ? "Hide raw log" : "Show raw log"}
-            </button>
-          </div>
-          {showRaw && (
-            <div ref={logRef} className="run-log-tail">
-              {run.rawLines.length === 0 ? "(no output yet)" : run.rawLines.map((l, i) => <div key={i}>{l}</div>)}
-            </div>
-          )}
-        </section>
-      )}
-
       {run.phase === "done" && (
         <section className="settings-section">
           <div className="check-row">
@@ -305,54 +359,6 @@ export function RunScreen() {
             </div>
           )}
         </section>
-      )}
-
-      {loaded && state && (
-        <div className="metric-bar aplyx-fade-rise">
-          <div className="metric">
-            <div className="metric-top">
-              <span className="metric-icon metric-icon-good" aria-hidden="true">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="22" y1="2" x2="11" y2="13" />
-                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                </svg>
-              </span>
-              <span className="metric-label">Applied today</span>
-            </div>
-            <span className="metric-value" style={{ color: "var(--good)" }}>
-              {appliedToday}
-            </span>
-          </div>
-          <div className="metric">
-            <div className="metric-top">
-              <span className="metric-icon metric-icon-neutral" aria-hidden="true">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="9" />
-                  <path d="M12 7v9M8 3h8" />
-                </svg>
-              </span>
-              <span className="metric-label">Session cap</span>
-            </div>
-            <span className="metric-value">{sessionCapValue > 0 ? sessionCapValue : SESSION_CAP_MAX}</span>
-            <span className="metric-caption">{sessionCapValue > 0 ? "This run's cap" : "Max applications per run"}</span>
-          </div>
-          <div className="metric">
-            <div className="metric-top">
-              <span className="metric-icon metric-icon-neutral" aria-hidden="true">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-              </span>
-              <span className="metric-label">All-time applications</span>
-            </div>
-            <span className="metric-value">{state.applied.length}</span>
-          </div>
-        </div>
-      )}
-
-      {loaded && state && state.applied.length > 0 && (
-        <WeeklyActivityChart applied={state.applied} cumulative compact logScale />
       )}
     </div>
   );
