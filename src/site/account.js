@@ -992,7 +992,18 @@ const PROFILE_PAGES = [
     fields: [
       { id: "authorized_to_work", label: "Authorized to work in the US?", kind: "yesno" },
       { id: "require_sponsorship", label: "Need visa sponsorship?", kind: "yesno" },
-      { id: "citizenship_status", label: "Citizenship status (optional)", kind: "text", placeholder: "e.g. U.S. Citizen, Permanent Resident, F-1 visa" },
+      {
+        id: "citizenship_status",
+        label: "Work authorization status (optional)",
+        kind: "select3",
+        options: [
+          { value: "U.S. Citizen", label: "U.S. Citizen" },
+          { value: "U.S. National", label: "U.S. National" },
+          { value: "U.S. Permanent Resident", label: "U.S. Permanent Resident" },
+          { value: "Refugee or Asylee", label: "Refugee or Asylee" },
+          { value: "Other work authorization", label: "Other work authorization" },
+        ],
+      },
     ],
   },
   {
@@ -1006,7 +1017,17 @@ const PROFILE_PAGES = [
   {
     title: "Demographics",
     fields: [
-      { id: "gender", label: "Gender (optional)", kind: "text", placeholder: "e.g. Woman / Man / Non-binary / Decline" },
+      {
+        id: "gender",
+        label: "Gender (optional)",
+        kind: "select3",
+        options: [
+          { value: "Male", label: "Male" },
+          { value: "Female", label: "Female" },
+          { value: "Non-binary", label: "Non-binary" },
+          { value: "Decline to self-identify", label: "Decline to self-identify" },
+        ],
+      },
       { id: "ethnicity", label: "Ethnicity (optional)", kind: "text", placeholder: "e.g. Asian / Decline" },
       { id: "hispanic_or_latino", label: "Hispanic or Latino?", kind: "yesno" },
       { id: "date_of_birth", label: "Date of birth (optional)", kind: "text", placeholder: "MM/DD/YYYY" },

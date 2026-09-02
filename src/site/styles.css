@@ -3439,9 +3439,16 @@ button {
 }
 
 .account-wrap {
-  max-width: 30rem;
+  max-width: 34rem;
   margin: 0 auto;
   transition: max-width var(--duration-normal) var(--ease-standard);
+}
+
+/* The guided account setup carries more than a login form (profile
+   fields, a resume drop, step progress), so it gets real width rather
+   than the same cramped column the sign-in card uses. */
+.account-wrap:has(#setup-panel:not([hidden])) {
+  max-width: 46rem;
 }
 
 /* Widens once signed in: a job-listing dashboard wants real width, a
@@ -3460,7 +3467,7 @@ button {
 }
 
 #auth-panel {
-  max-width: 30rem;
+  max-width: 34rem;
   margin: 0 auto;
 }
 
@@ -3892,8 +3899,12 @@ button {
    the single banner-to-a-tab nudge this replaced. See account.js's
    updateSetupGate()/showSetupStep(). --- */
 
+/* Wider than the sign-in card: the setup walkthrough carries a full
+   profile form (name, contact, work eligibility, education, demographics,
+   targets) plus a resume drop, so the 30rem column the sign-in form uses
+   made every field a cramped single stack. */
 #setup-panel {
-  max-width: 30rem;
+  max-width: 46rem;
   margin: 0 auto;
 }
 
