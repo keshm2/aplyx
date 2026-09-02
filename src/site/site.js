@@ -139,6 +139,19 @@
     // panel (data-os-tab="mac" <-> data-os-panel="mac") and hides the
     // rest. No-op on pages without any [data-os-tab] elements.
     var osTabs = document.querySelectorAll("[data-os-tab]");
+    var osTablist = document.querySelector(".os-tablist");
+
+    // Drive the shared sliding underline (.os-tablist::after) to sit under
+    // whichever tab is active: the CSS transitions --tab-x / --tab-w so
+    // the indicator travels between tabs instead of blinking.
+    function positionOsIndicator() {
+      if (!osTablist) return;
+      var active = osTablist.querySelector(".os-tab.is-active");
+      if (!active) return;
+      osTablist.style.setProperty("--tab-x", active.offsetLeft + "px");
+      osTablist.style.setProperty("--tab-w", active.offsetWidth + "px");
+    }
+
     osTabs.forEach(function (tab) {
       tab.addEventListener("click", function () {
         var target = tab.getAttribute("data-os-tab");
@@ -148,8 +161,25 @@
         document.querySelectorAll("[data-os-panel]").forEach(function (panel) {
           panel.classList.toggle("is-active", panel.getAttribute("data-os-panel") === target);
         });
+        positionOsIndicator();
       });
     });
+
+    if (osTablist) {
+      positionOsIndicator();
+      // Fonts finishing load or a viewport change move the tab boxes;
+      // keep the underline aligned. rAF so the first read happens after
+      // layout settles.
+      requestAnimationFrame(positionOsIndicator);
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(positionOsIndicator);
+      }
+      var osResizeTimer;
+      window.addEventListener("resize", function () {
+        clearTimeout(osResizeTimer);
+        osResizeTimer = setTimeout(positionOsIndicator, 120);
+      });
+    }
 
     // Copy-to-clipboard buttons on install commands (/install): copies
     // the sibling <pre>'s text and flips the icon to a checkmark briefly.
