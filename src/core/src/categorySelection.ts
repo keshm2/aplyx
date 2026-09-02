@@ -1,7 +1,8 @@
-/** Shared read/write logic for the Season/Level/Role checkbox submenus
- *  (Settings' Company targets section). Each submenu is backed by a
- *  fixed list of {id, label, keywords} categories (see
- *  src/tui/src/data/{season,level,role}Categories.ts); this module maps
+/** Shared read/write logic for the Season/Level/Role checkbox menus
+ *  (Settings' Company targets section, and the onboarding "what are you
+ *  looking for?" step). Each menu is backed by a fixed list of
+ *  {id, label, keywords} categories (see
+ *  src/core/src/data/{season,level,role}Categories.ts); this module maps
  *  between "which category ids are checked" and the flat keyword array
  *  actually stored in targets.json (role_keywords/level_keywords/
  *  season_keywords), which is what evaluate_job_fit.py reads. */

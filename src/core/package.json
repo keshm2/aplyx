@@ -74,6 +74,10 @@
       "types": "./dist/autocomplete.d.ts",
       "default": "./dist/autocomplete.js"
     },
+    "./categorySelection.js": {
+      "types": "./dist/categorySelection.d.ts",
+      "default": "./dist/categorySelection.js"
+    },
     "./harness.js": {
       "types": "./dist/harness.d.ts",
       "default": "./dist/harness.js"

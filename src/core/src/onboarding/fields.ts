@@ -19,6 +19,7 @@ export type FieldKind =
   | "multi-location"
   | "multi-company"
   | "roles"
+  | "levels"
   | "date";
 
 export interface SelectOption {
@@ -139,6 +140,17 @@ export const PAGES: PageDef[] = [
       },
       { id: "gpa", label: "GPA (optional)", kind: "text", placeholder: "3.8" },
       { id: "currently_enrolled", label: "Currently enrolled in school? (y/n)", kind: "yesno" },
+    ],
+  },
+  {
+    title: "What are you looking for?",
+    fields: [
+      {
+        id: "levels",
+        label: "Roles aplyx should find and apply to",
+        kind: "levels",
+        help: "Pre-selected from your graduation date. Change any time in Settings → Levels. A posting whose level is none of these is skipped; \"Full time\" also allows roles asking for 3+ years.",
+      },
     ],
   },
   {

@@ -1,7 +1,62 @@
-import { readSafeField, writeSafeField, readTargetsArrayList, writeTargetsArrayList } from "../settings.js";
+import {
+  readSafeField,
+  writeSafeField,
+  readTargetsArrayList,
+  writeTargetsArrayList,
+  writeTargetsBool,
+} from "../settings.js";
 import { readProfileUsername, writeProfileUsername } from "../profileLinks.js";
 import { readCommittedCompanyDisplays, writeCommittedCompanyDisplays } from "../companyTargets.js";
+import { LEVEL_CATEGORIES } from "../data/levelCategories.js";
+import { selectedCategoryIds, keywordsForSelectedCategories } from "../categorySelection.js";
 import type { CompanyEntry } from "../data/companyDirectory.js";
+
+const EXPERIENCED_LEVEL_ID = "full_time";
+
+/** Which level checkboxes to pre-select when the user has never set them,
+ *  from the graduation date they entered earlier in onboarding. Mirrors
+ *  resume_graduation.derive_recruiting_stage's mapping (kept in sync by
+ *  hand; both are a three-row table): a student graduating within ~10
+ *  months is in new-grad season, otherwise they have a summer left and
+ *  want internships. No parseable date -> offer both. */
+export function defaultLevelIds(root: string): string[] {
+  const raw = readSafeField(root, "graduation_date");
+  const yearMatch = raw.match(/\b(20\d{2})\b/);
+  if (!yearMatch) return ["intern", "new_grad"];
+  const year = Number(yearMatch[1]);
+  const months = [
+    "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec",
+  ];
+  const lower = raw.toLowerCase();
+  let month = 6;
+  for (let i = 0; i < months.length; i++) {
+    if (lower.includes(months[i]!)) {
+      month = i + 1;
+      break;
+    }
+  }
+  const now = new Date();
+  const monthsOut = (year - now.getFullYear()) * 12 + (month - (now.getMonth() + 1));
+  return monthsOut <= 10 ? ["new_grad", "entry_level"] : ["intern"];
+}
+
+/** The level category ids currently selected, or the graduation-derived
+ *  default when nothing is stored yet. */
+export function readSelectedLevelIds(root: string): string[] {
+  const stored = [...selectedCategoryIds(LEVEL_CATEGORIES, readTargetsArrayList(root, "level_keywords"))];
+  return stored.length > 0 ? stored : defaultLevelIds(root);
+}
+
+/** Write the level selection: the union of the checked categories' keyword
+ *  bundles into level_keywords, plus allow_experienced_roles when "Full
+ *  time" is checked (the flag evaluate_job_fit.py reads to relax its
+ *  experience-based rejects). Same expansion the Settings Levels menu
+ *  does. */
+export function writeSelectedLevelIds(root: string, ids: string[]): void {
+  const set = new Set(Array.isArray(ids) ? ids : []);
+  writeTargetsArrayList(root, "level_keywords", keywordsForSelectedCategories(LEVEL_CATEGORIES, set));
+  writeTargetsBool(root, "allow_experienced_roles", set.has(EXPERIENCED_LEVEL_ID));
+}
 
 export type FieldValue = string | string[];
 
@@ -29,6 +84,8 @@ export function readLocalProfileField(root: string, id: string, directory: Compa
       return readTargetsArrayList(root, "preferred_locations");
     case "target_companies":
       return readCommittedCompanyDisplays(root, directory);
+    case "levels":
+      return readSelectedLevelIds(root);
     default:
       return readSafeField(root, id);
   }
@@ -50,6 +107,9 @@ export function writeLocalProfileField(root: string, id: string, value: FieldVal
       return;
     case "target_companies":
       writeCommittedCompanyDisplays(root, value as string[], directory);
+      return;
+    case "levels":
+      writeSelectedLevelIds(root, value as string[]);
       return;
     default:
       writeSafeField(root, id, value as string);

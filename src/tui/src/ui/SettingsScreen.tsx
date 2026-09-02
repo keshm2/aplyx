@@ -27,7 +27,7 @@ import { US_CITIES } from "@aplyx/core/data/usCities.js";
 import { ROLE_CATEGORIES } from "@aplyx/core/data/roleCategories.js";
 import { LEVEL_CATEGORIES } from "@aplyx/core/data/levelCategories.js";
 import { SEASON_CATEGORIES } from "@aplyx/core/data/seasonCategories.js";
-import { selectedCategoryIds, keywordsForSelectedCategories, type KeywordCategory } from "../categorySelection.js";
+import { selectedCategoryIds, keywordsForSelectedCategories, type KeywordCategory } from "@aplyx/core/categorySelection.js";
 import { filterSuggestions } from "./autocomplete.js";
 import { MultiEntryAutocomplete } from "./MultiEntryAutocomplete.js";
 import { AutoSparkleText, RainbowText } from "./KeyHints.js";

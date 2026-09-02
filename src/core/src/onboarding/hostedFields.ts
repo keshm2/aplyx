@@ -18,7 +18,7 @@ import { FIELD_IDS } from "./fields.js";
  * jsonb column since they only become meaningful once synced into a local
  * install's src/config/targets.json for the Python fit-gate engine (Phase 14B).
  */
-const HOSTED_PREFERENCE_FIELD_IDS_INTERNAL = ["role_keywords", "preferred_locations", "target_companies"];
+const HOSTED_PREFERENCE_FIELD_IDS_INTERNAL = ["role_keywords", "preferred_locations", "target_companies", "levels"];
 
 export const HOSTED_PROFILE_FIELD_IDS: string[] = FIELD_IDS.filter(
   (id) => !HOSTED_PREFERENCE_FIELD_IDS_INTERNAL.includes(id),

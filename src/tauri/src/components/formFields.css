@@ -102,6 +102,30 @@
   gap: var(--space-2);
 }
 
+.checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+}
+
+.checkbox-row input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.checkbox-row .field-help {
+  display: inline;
+  margin: 0;
+}
+
 .yesno-toggle button {
   flex: 1 1 auto;
   min-width: 6rem;

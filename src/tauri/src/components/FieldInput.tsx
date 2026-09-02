@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { FieldDef } from "@aplyx/core/onboarding/fields.js";
 import { US_CITIES } from "@aplyx/core/data/usCities.js";
+import { LEVEL_CATEGORIES } from "@aplyx/core/data/levelCategories.js";
 import { findRoot, listCompanies } from "../lib/bridge";
 import { TagSearchInput } from "./TagSearchInput";
 import "./formFields.css";
@@ -72,6 +73,30 @@ function FieldControl({ field, value, onChange }: { field: FieldDef; value: Fiel
               {opt.label}
             </button>
           ))}
+        </div>
+      );
+    }
+
+    case "levels": {
+      const selected = new Set(Array.isArray(value) ? value : []);
+      const toggle = (id: string) => {
+        const next = new Set(selected);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        onChange(LEVEL_CATEGORIES.filter((c) => next.has(c.id)).map((c) => c.id));
+      };
+      return (
+        <div className="checkbox-group" role="group" aria-label={field.label}>
+          {LEVEL_CATEGORIES.map((cat) => (
+            <label key={cat.id} className="checkbox-row">
+              <input type="checkbox" checked={selected.has(cat.id)} onChange={() => toggle(cat.id)} />
+              <span>
+                {cat.label}
+                {cat.experienceHint ? <span className="field-help"> ({cat.experienceHint})</span> : null}
+              </span>
+            </label>
+          ))}
+          {selected.size === 0 ? <p className="field-help">Pick at least one.</p> : null}
         </div>
       );
     }

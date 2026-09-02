@@ -8,6 +8,8 @@ import { readProfileUsername, writeProfileUsername } from "@aplyx/core/profileLi
 import { US_CITIES } from "@aplyx/core/data/usCities.js";
 import { loadCompanyDirectory, companyWeight, type CompanyEntry } from "@aplyx/core/data/companyDirectory.js";
 import { readCommittedCompanyDisplays, writeCommittedCompanyDisplays } from "@aplyx/core/companyTargets.js";
+import { readSelectedLevelIds, writeSelectedLevelIds } from "@aplyx/core/onboarding/profile.js";
+import { LEVEL_CATEGORIES } from "@aplyx/core/data/levelCategories.js";
 import { KeyHints } from "../KeyHints.js";
 import { OnboardingSidePanel } from "../OnboardingSidePanel.js";
 import { RESUMES_HINTS, RESUMES_PROMPT_HINTS } from "../ResumesScreen.js";
@@ -27,6 +29,7 @@ import { QuestionFrame } from "./QuestionFrame.js";
 import { TextField } from "./TextField.js";
 import { YesNoTextField } from "./YesNoTextField.js";
 import { Select3TextField } from "./Select3TextField.js";
+import { LevelSelectField } from "./LevelSelectField.js";
 import { AutocompleteTextField } from "./AutocompleteTextField.js";
 import { MultiEntryAutocomplete } from "../MultiEntryAutocomplete.js";
 import { ResumeStep } from "./ResumeStep.js";
@@ -137,6 +140,9 @@ function computeInitialValues(root: string, directory: CompanyEntry[]): Record<s
         case "target_companies":
           out[field.id] = readCommittedCompanyDisplays(root, directory);
           break;
+        case "levels":
+          out[field.id] = readSelectedLevelIds(root);
+          break;
         default:
           out[field.id] = readSafeField(root, field.id);
       }
@@ -166,6 +172,9 @@ function persistFieldValue(root: string, id: string, value: string | string[], d
       break;
     case "target_companies":
       writeCommittedCompanyDisplays(root, value as string[], directory);
+      break;
+    case "levels":
+      writeSelectedLevelIds(root, value as string[]);
       break;
     default:
       writeSafeField(root, id, value as string);
@@ -273,6 +282,16 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
    */
   function commitDraftForField(field: FieldDef | undefined): Set<string> | undefined {
     if (!field) return undefined;
+    if (field.kind === "levels") {
+      // No draft: the toggle handler writes through on every change. On
+      // leaving the field, make sure the (possibly still-default)
+      // selection is actually on disk and the field counts as committed
+      // so the page-advance gate is satisfied.
+      const ids = Array.isArray(values[field.id]) ? (values[field.id] as string[]) : [];
+      if (ids.length === 0) return undefined;
+      persistFieldValue(root, field.id, ids, directory);
+      return focus.commit(field.id);
+    }
     if (field.kind === "multi-location" || field.kind === "multi-company") {
       if (addedItems.length === 0) return undefined;
       const existing = values[field.id];
@@ -567,6 +586,24 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
         if (!field.required && (key.backspace || key.delete)) return setDraftText("");
         return;
       }
+      case "levels": {
+        const currentIds = Array.isArray(values[field.id]) ? (values[field.id] as string[]) : [];
+        if (key.return) {
+          if (currentIds.length === 0) return; // must pick at least one
+          return commitAndAdvance(field.id, currentIds);
+        }
+        const idx = Number(input) - 1;
+        const cat = LEVEL_CATEGORIES[idx];
+        if (cat) {
+          const set = new Set(currentIds);
+          if (set.has(cat.id)) set.delete(cat.id);
+          else set.add(cat.id);
+          const next = LEVEL_CATEGORIES.filter((c) => set.has(c.id)).map((c) => c.id);
+          persistFieldValue(root, field.id, next, directory);
+          setValues((v) => ({ ...v, [field.id]: next }));
+        }
+        return;
+      }
       case "location":
         if (key.return) return handleLocationEnter(field);
         if (key.upArrow) return moveSuggestion(-1);
@@ -744,6 +781,15 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
             key={field.id}
             label={field.label}
             value={isFocused ? draftText : committedText}
+            focused={isFocused}
+          />
+        );
+      case "levels":
+        return (
+          <LevelSelectField
+            key={field.id}
+            label={field.label}
+            selected={new Set(committedList)}
             focused={isFocused}
           />
         );
