@@ -182,7 +182,13 @@ export const PAGES: PageDef[] = [
       },
       { id: "ethnicity", label: "Ethnicity (optional)", kind: "text", placeholder: "e.g. Asian / Decline" },
       { id: "hispanic_or_latino", label: "Hispanic or Latino? (y/n)", kind: "yesno" },
-      { id: "date_of_birth", label: "Date of birth (optional)", kind: "date", placeholder: "MM/DD/YYYY" },
+      {
+        id: "date_of_birth",
+        label: "Date of birth (optional)",
+        kind: "date",
+        placeholder: "MM/DD/YYYY",
+        help: "Type the digits directly, or press c for a calendar.",
+      },
       {
         id: "veteran_status",
         label: "Veteran status",

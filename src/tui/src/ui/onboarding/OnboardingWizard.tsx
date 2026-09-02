@@ -22,6 +22,8 @@ import {
 } from "../TextInput.js";
 import { filterSuggestions } from "../autocomplete.js";
 import { acceptDobDigit, deleteDobDigit, dobDigits, dobError, formatDob } from "./dateInput.js";
+import { addDaysClamped, addMonthsClamped, addYearsClamped, clampToRange, formatMDY, parseMDY as parseCalendarDate } from "./dateCalendar.js";
+import { DateCalendarField } from "./DateCalendarField.js";
 import { PAGES, TOTAL_FIELDS, RESUME_PAGE_INDEX, COMPLETION_PAGE_INDEX, type FieldDef } from "@aplyx/core/onboarding/fields.js";
 import { useFieldFocus } from "./useFieldFocus.js";
 import { useSkipDefaultFlow } from "./useSkipDefaultFlow.js";
@@ -243,6 +245,13 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
    *  can never go stale: e.g. it disappears the instant the user
    *  commits the page's last field via Enter, with no extra bookkeeping. */
   const [blockedAdvanceAttempted, setBlockedAdvanceAttempted] = useState(false);
+  /** The date-of-birth field's calendar overlay (see dateCalendar.ts):
+   *  `c` while focused on that field opens it, taking over arrow keys/
+   *  PageUp/PageDown/[]/Enter/Escape until it's closed. dobCalendarCursor
+   *  is the day the grid is currently on, always kept inside
+   *  [Jan 1 1920, today] by the dateCalendar.ts move helpers. */
+  const [dobCalendarOpen, setDobCalendarOpen] = useState(false);
+  const [dobCalendarCursor, setDobCalendarCursor] = useState<Date>(() => new Date());
 
   useEffect(() => {
     const onResize = () => setSize(stdoutSize());
@@ -564,6 +573,12 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
         if (key.return) return commitAndAdvance(field.id, draftText.trim());
         return editText(input, key, false);
       case "date":
+        if (input === "c") {
+          const parsed = clampToRange(parseCalendarDate(draftText.trim()) ?? new Date());
+          setDobCalendarCursor(parsed);
+          setDobCalendarOpen(true);
+          return;
+        }
         if (key.return) {
           const err = dobError(dobDigits(draftText));
           if (err) return setEntryHint(err);
@@ -638,6 +653,32 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
     }
   }
 
+  /** Owns every key while the date-of-birth calendar overlay is open (see
+   *  dobCalendarOpen above): arrow keys move the cursor day, PageUp/
+   *  PageDown move by month (stolen from the global page-nav binding for
+   *  as long as the overlay is open), [ and ] move by year, Enter commits
+   *  through the same commitAndAdvance() a typed Enter uses, Escape
+   *  cancels back to digit entry with the field's value unchanged. */
+  function handleCalendarInput(input: string, key: Key) {
+    if (key.escape) {
+      setDobCalendarOpen(false);
+      return;
+    }
+    if (key.return) {
+      setDobCalendarOpen(false);
+      if (focusedField) commitAndAdvance(focusedField.id, formatMDY(dobCalendarCursor));
+      return;
+    }
+    if (key.leftArrow) return setDobCalendarCursor((c) => addDaysClamped(c, -1));
+    if (key.rightArrow) return setDobCalendarCursor((c) => addDaysClamped(c, 1));
+    if (key.upArrow) return setDobCalendarCursor((c) => addDaysClamped(c, -7));
+    if (key.downArrow) return setDobCalendarCursor((c) => addDaysClamped(c, 7));
+    if (key.pageUp) return setDobCalendarCursor((c) => addMonthsClamped(c, -1));
+    if (key.pageDown) return setDobCalendarCursor((c) => addMonthsClamped(c, 1));
+    if (input === "[") return setDobCalendarCursor((c) => addYearsClamped(c, -1));
+    if (input === "]") return setDobCalendarCursor((c) => addYearsClamped(c, 1));
+  }
+
   useInput(
     (input, key) => {
       if (resumeInputActive) return;
@@ -650,6 +691,15 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
 
       if (isCompletionPage) {
         if (key.return) onDone();
+        return;
+      }
+
+      // Steals PageUp/PageDown (month nav) and every other key from the
+      // normal page-navigation/field-editing bindings below for as long
+      // as the calendar overlay is open; see handleCalendarInput's own
+      // comment for the full key map.
+      if (dobCalendarOpen) {
+        handleCalendarInput(input, key);
         return;
       }
 
@@ -766,18 +816,20 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
         );
       case "date":
         return (
-          <TextField
-            key={field.id}
-            label={field.label}
-            value={isFocused ? draftText : committedText}
-            cursor={isFocused ? draftCursor : committedText.length}
-            focused={isFocused}
-            placeholder={field.placeholder}
-            help={field.help}
-            // Only the live per-keystroke complaint (e.g. "Feb has 28
-            // days in 2005"); refused digits simply don't appear.
-            warning={isFocused && entryHint ? entryHint : undefined}
-          />
+          <Box key={field.id} flexDirection="column">
+            <TextField
+              label={field.label}
+              value={isFocused ? draftText : committedText}
+              cursor={isFocused ? draftCursor : committedText.length}
+              focused={isFocused}
+              placeholder={field.placeholder}
+              help={field.help}
+              // Only the live per-keystroke complaint (e.g. "Feb has 28
+              // days in 2005"); refused digits simply don't appear.
+              warning={isFocused && entryHint ? entryHint : undefined}
+            />
+            {isFocused && dobCalendarOpen ? <DateCalendarField cursor={dobCalendarCursor} /> : null}
+          </Box>
         );
       case "roles":
         return (
