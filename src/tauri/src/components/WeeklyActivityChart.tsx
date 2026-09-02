@@ -10,35 +10,41 @@ const PAD_BOTTOM = 28;
 /** Left gutter reserved for y-axis tick labels: only allocated when
  *  logScale is on, since the linear chart (Home) never drew them and
  *  shouldn't suddenly gain a left margin. */
-const PAD_LEFT_AXIS = 20;
+const PAD_LEFT_AXIS = 22;
 
 interface DayPoint {
   date: string; // YYYY-MM-DD
   label: string; // short weekday, e.g. "Mon"
-  count: number;
+  sent: number; // applications sent that day
+  cumulative: number; // running total of sent, within the window
 }
 
-/** Per-day counts for the last `days` days (oldest first) from a set of
- *  ISO date strings, one per event. Days with zero events are included
- *  (not skipped), so a quiet stretch reads as a real dip, not a gap. */
-function computeDailySeries(dates: string[], days: number): DayPoint[] {
+/** Per-day "applications sent" plus its running total, for the last
+ *  `days` days (oldest first), derived entirely from state.applied. Days
+ *  with zero applications are included (not skipped), so a quiet stretch
+ *  reads as a real flat stretch, not a gap. */
+function computeSeries(applied: AppliedJob[], days: number): DayPoint[] {
   const counts = new Map<string, number>();
-  for (const raw of dates) {
-    const date = (raw ?? "").slice(0, 10);
+  for (const job of applied) {
+    const date = (job.date_applied ?? "").slice(0, 10);
     if (!date) continue;
     counts.set(date, (counts.get(date) ?? 0) + 1);
   }
   const points: DayPoint[] = [];
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  let running = 0;
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
     const iso = d.toISOString().slice(0, 10);
+    const sent = counts.get(iso) ?? 0;
+    running += sent;
     points.push({
       date: iso,
       label: d.toLocaleDateString(undefined, { weekday: "short" }),
-      count: counts.get(iso) ?? 0,
+      sent,
+      cumulative: running,
     });
   }
   return points;
@@ -66,39 +72,48 @@ function smoothPath(points: { x: number; y: number }[]): string {
   return d;
 }
 
-/** "Nice" tick values for the y-axis, log or linear: a fixed candidate
- *  ladder filtered to whatever actually fits under the current max,
- *  always anchored at 0. Picking from a fixed ladder (rather than
- *  computing evenly-spaced steps) keeps labels as whole, recognizable
- *  numbers even after a log transform compresses the space between them. */
-function pickTicks(domainMax: number): number[] {
-  const ladder = [1, 2, 3, 5, 10, 15, 20, 30, 50, 75, 100];
-  const ticks = [0, ...ladder.filter((v) => v <= domainMax)];
-  if (ticks[ticks.length - 1] !== domainMax) ticks.push(domainMax);
-  return ticks;
+/** "Nice" whole tick values from a sparse 1/2/5 ladder, spanning up to
+ *  domainMax, thinned by `minGap` (px) so labels near the log-compressed
+ *  top don't overprint. Always keeps 0; the highest label may sit just
+ *  below the chart's true top (where the data still plots) rather than
+ *  forcing an odd exact-max label like "21". `place` maps a value to its
+ *  y-pixel. A ladder (not evenly-spaced steps) keeps every label a round,
+ *  recognizable number after the log transform squeezes them together. */
+function pickTicks(domainMax: number, place: (v: number) => number, minGap: number): number[] {
+  const ladder = [1, 2, 5, 10, 20, 50, 100, 200, 500];
+  const candidates = [0, ...ladder.filter((v) => v <= domainMax)];
+  const kept: number[] = [];
+  let lastY = Infinity;
+  for (const v of candidates) {
+    const y = place(v);
+    if (v !== 0 && Math.abs(y - lastY) < minGap) continue;
+    kept.push(v);
+    lastY = y;
+  }
+  return kept;
 }
 
 export function WeeklyActivityChart({
   applied,
-  responses,
+  cumulative = false,
   compact = false,
   logScale = false,
 }: {
   applied: AppliedJob[];
-  /** A second series (e.g. hosted-tracked outcome updates) plotted
-   *  alongside applications sent, on the same axes. Only actually drawn
-   *  when it has at least one real data point, so a local-only session
-   *  with no hosted account silently stays single-series rather than
-   *  drawing an always-flat second line. */
-  responses?: AppliedJob[];
-  /** Shrinks the plot area (Run screen: room for a second series and a
+  /** Also plot the running total of applications sent (a much larger,
+   *  monotonically rising line) alongside the per-day count. The two have
+   *  genuinely different magnitudes — the daily line rarely exceeds a
+   *  handful while the total climbs into the dozens — which is exactly
+   *  what makes a log y-axis earn its place. */
+  cumulative?: boolean;
+  /** Shrinks the plot area (Run screen: room for the second line and a
    *  y-axis without the chart dominating the page); Home keeps the
    *  original larger size. */
   compact?: boolean;
-  /** Logarithmic y-axis: lets a small "applications sent" series and a
-   *  much larger or smaller second series share one legible scale. Uses
-   *  log(count + 1) so a day with zero events still has a defined
-   *  position instead of -Infinity. */
+  /** Logarithmic y-axis: log(count + 1) so a day with zero events still
+   *  has a defined position instead of -Infinity. Draws real tick labels
+   *  (0, 1, 2, 5, 10, ...) at their true log positions, so the uneven
+   *  spacing between them is the visible proof it's a log scale. */
   logScale?: boolean;
 }) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
@@ -106,25 +121,19 @@ export function WeeklyActivityChart({
   // currently the case, but SVG gradient ids are global) never collide.
   const gradientId = useId();
 
-  const points = useMemo(() => computeDailySeries(applied.map((j) => j.date_applied), DAYS), [applied]);
-  const responsePoints = useMemo(
-    () =>
-      responses
-        ? computeDailySeries(
-            responses.filter((j) => j.outcome_status && j.outcome_status !== "applied").map((j) => j.outcome_updated_at ?? ""),
-            DAYS,
-          )
-        : [],
-    [responses],
-  );
-  const hasResponses = responsePoints.some((p) => p.count > 0);
+  const points = useMemo(() => computeSeries(applied, DAYS), [applied]);
+  const showCumulative = cumulative && points.some((p) => p.cumulative > 0);
 
-  const VIEW_H = compact ? 122 : 160;
+  const VIEW_H = compact ? 128 : 160;
   const padLeft = logScale ? PAD_X + PAD_LEFT_AXIS : PAD_X;
   const plotW = VIEW_W - padLeft - PAD_X;
   const plotH = VIEW_H - PAD_TOP - PAD_BOTTOM;
 
-  const domainMax = Math.max(1, ...points.map((p) => p.count), ...(hasResponses ? responsePoints.map((p) => p.count) : []));
+  const domainMax = Math.max(
+    1,
+    ...points.map((p) => p.sent),
+    ...(showCumulative ? points.map((p) => p.cumulative) : []),
+  );
   const logDomainMax = Math.log(domainMax + 1);
 
   function scaleY(count: number): number {
@@ -132,47 +141,48 @@ export function WeeklyActivityChart({
     return PAD_TOP + plotH - t * plotH;
   }
 
-  const toCoords = (series: DayPoint[]) =>
-    series.map((p, i) => ({ x: padLeft + (i / (series.length - 1)) * plotW, y: scaleY(p.count) }));
+  const x = (i: number) => padLeft + (i / (points.length - 1)) * plotW;
+  const sentCoords = points.map((p, i) => ({ x: x(i), y: scaleY(p.sent) }));
+  const cumulativeCoords = showCumulative ? points.map((p, i) => ({ x: x(i), y: scaleY(p.cumulative) })) : [];
 
-  const coords = toCoords(points);
-  const responseCoords = hasResponses ? toCoords(responsePoints) : [];
-
-  const linePath = smoothPath(coords);
-  const areaPath = `${linePath} L ${coords[coords.length - 1].x},${PAD_TOP + plotH} L ${coords[0].x},${PAD_TOP + plotH} Z`;
-  const responseLinePath = hasResponses ? smoothPath(responseCoords) : "";
+  const linePath = smoothPath(sentCoords);
+  const areaPath = `${linePath} L ${sentCoords[sentCoords.length - 1].x},${PAD_TOP + plotH} L ${sentCoords[0].x},${PAD_TOP + plotH} Z`;
+  const cumulativeLinePath = showCumulative ? smoothPath(cumulativeCoords) : "";
 
   // Sparse x-axis labels: every ~3rd day plus the last, so 14 labels never
   // collide into an unreadable row.
   const labelStep = Math.ceil(points.length / 5);
 
-  const total = points.reduce((sum, p) => sum + p.count, 0);
-  const ticks = logScale ? pickTicks(domainMax) : [];
+  const total = points.reduce((sum, p) => sum + p.sent, 0);
+  const ticks = logScale ? pickTicks(domainMax, scaleY, 12) : [];
 
   return (
     <div className={`activity-chart${compact ? " activity-chart-compact" : ""}`}>
       <div className="activity-chart-header">
         <h2 className="activity-chart-title">Weekly activity</h2>
-        {hasResponses ? (
+        {showCumulative ? (
           <div className="activity-chart-legend">
             <span className="activity-chart-legend-item">
               <span className="activity-chart-legend-swatch activity-chart-legend-swatch-a" aria-hidden="true" />
-              Sent
+              Per day
             </span>
             <span className="activity-chart-legend-item">
               <span className="activity-chart-legend-swatch activity-chart-legend-swatch-b" aria-hidden="true" />
-              Responses
+              Cumulative
             </span>
+            {logScale && <span className="activity-chart-legend-note">log scale</span>}
           </div>
         ) : (
-          <span className="activity-chart-total">{total} sent in the last {DAYS} days</span>
+          <span className="activity-chart-total">
+            {total} sent in the last {DAYS} days{logScale ? " · log scale" : ""}
+          </span>
         )}
       </div>
       <svg
         className="activity-chart-svg"
         viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
         role="img"
-        aria-label={`Applications sent per day over the last ${DAYS} days, totaling ${total}${hasResponses ? ", plotted alongside responses received" : ""}`}
+        aria-label={`Applications sent per day over the last ${DAYS} days, totaling ${total}${showCumulative ? ", with a cumulative total line" : ""}${logScale ? ", on a logarithmic scale" : ""}`}
         onMouseLeave={() => setHoverIndex(null)}
       >
         {/* Moss's three-stop identity (moss → honey → clay), applied
@@ -192,33 +202,40 @@ export function WeeklyActivityChart({
         {/* Recessive reference lines: plain thirds for the linear chart,
            or one per real tick value (0, 1, 2, 5, 10, ...) once log-scaled,
            since evenly-spaced fractions would no longer land on round
-           numbers. */}
+           numbers — and the uneven gaps between these lines are what
+           actually shows the axis is logarithmic. */}
         {(logScale ? ticks.map((v) => scaleY(v)) : [PAD_TOP, PAD_TOP + plotH * 0.5, PAD_TOP + plotH]).map((y, i) => (
           <line key={i} className="activity-chart-gridline" x1={padLeft} x2={VIEW_W - PAD_X} y1={y} y2={y} />
         ))}
 
         {logScale &&
           ticks.map((v) => (
-            <text key={v} className="activity-chart-axis-label activity-chart-axis-label-y" x={padLeft - 6} y={scaleY(v) + 3} textAnchor="end">
+            <text
+              key={v}
+              className="activity-chart-axis-label activity-chart-axis-label-y"
+              x={padLeft - 6}
+              y={scaleY(v) + 3}
+              textAnchor="end"
+            >
               {v}
             </text>
           ))}
 
         <path className="activity-chart-area" d={areaPath} fill={`url(#${gradientId})`} />
         <path className="activity-chart-line" d={linePath} pathLength={1} stroke={`url(#${gradientId})`} />
-        {hasResponses && <path className="activity-chart-line-b" d={responseLinePath} pathLength={1} />}
+        {showCumulative && <path className="activity-chart-line-b" d={cumulativeLinePath} pathLength={1} />}
 
         {hoverIndex !== null && (
           <line
             className="activity-chart-crosshair"
-            x1={coords[hoverIndex].x}
-            x2={coords[hoverIndex].x}
+            x1={sentCoords[hoverIndex].x}
+            x2={sentCoords[hoverIndex].x}
             y1={PAD_TOP}
             y2={PAD_TOP + plotH}
           />
         )}
 
-        {coords.map((c, i) => (
+        {sentCoords.map((c, i) => (
           <circle
             key={points[i].date}
             className={`activity-chart-dot${hoverIndex === i ? " activity-chart-dot-active" : ""}`}
@@ -227,10 +244,10 @@ export function WeeklyActivityChart({
             r={hoverIndex === i ? 4 : 2.5}
           />
         ))}
-        {hasResponses &&
-          responseCoords.map((c, i) => (
+        {showCumulative &&
+          cumulativeCoords.map((c, i) => (
             <circle
-              key={responsePoints[i].date}
+              key={points[i].date}
               className={`activity-chart-dot-b${hoverIndex === i ? " activity-chart-dot-b-active" : ""}`}
               cx={c.x}
               cy={c.y}
@@ -239,7 +256,7 @@ export function WeeklyActivityChart({
           ))}
 
         {/* Hit targets bigger than the visible dots, one per day. */}
-        {coords.map((c, i) => (
+        {sentCoords.map((c, i) => (
           <rect
             key={`hit-${points[i].date}`}
             x={c.x - plotW / points.length / 2}
@@ -253,7 +270,7 @@ export function WeeklyActivityChart({
 
         {points.map((p, i) =>
           i % labelStep === 0 || i === points.length - 1 ? (
-            <text key={p.date} className="activity-chart-axis-label" x={coords[i].x} y={VIEW_H - 8} textAnchor="middle">
+            <text key={p.date} className="activity-chart-axis-label" x={sentCoords[i].x} y={VIEW_H - 8} textAnchor="middle">
               {p.label}
             </text>
           ) : null,
@@ -263,13 +280,13 @@ export function WeeklyActivityChart({
       {hoverIndex !== null && (
         <div
           className="activity-chart-tooltip"
-          style={{ left: `${(coords[hoverIndex].x / VIEW_W) * 100}%` }}
+          style={{ left: `${(sentCoords[hoverIndex].x / VIEW_W) * 100}%` }}
         >
-          <strong>{points[hoverIndex].count}</strong> sent
-          {hasResponses ? (
+          <strong>{points[hoverIndex].sent}</strong> sent
+          {showCumulative ? (
             <>
               {" "}
-              · <strong>{responsePoints[hoverIndex].count}</strong> responses
+              · <strong>{points[hoverIndex].cumulative}</strong> total
             </>
           ) : null}{" "}
           on {new Date(points[hoverIndex].date + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}

@@ -70,6 +70,13 @@
   background: var(--info);
 }
 
+.activity-chart-legend-note {
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+  font-style: italic;
+  white-space: nowrap;
+}
+
 .activity-chart-svg {
   width: 100%;
   height: auto;
@@ -127,8 +134,8 @@
   fill: var(--accent);
 }
 
-/* Second series (responses received): --info, a solid but thinner line
- * than the primary gradient stroke so the two are readable overlapping,
+/* Second series (cumulative total): --info, a solid but thinner line than
+ * the primary gradient stroke so the two are readable overlapping,
  * without a separate dashed pattern muddying the log-scaled curves. */
 .activity-chart-line-b {
   fill: none;
