@@ -89,9 +89,51 @@
     window.requestAnimationFrame(step);
   }
 
+  // A visitor with no explicit choice (no data-theme attribute; the
+  // anti-flash inline script never set one) is following the OS setting
+  // purely through the @media(prefers-color-scheme) CSS rules, with no JS
+  // involved at all. That's correct for the very first paint, but it means
+  // switching the OS's own appearance while this tab is open just repaints
+  // instantly, with none of the cross-fade the explicit toggle button gets
+  // - the exact inconsistency this listener closes. On a system-level
+  // change, and only when no explicit choice exists (an explicit toggle
+  // owns data-theme from here on and this must never fight it), briefly
+  // set data-theme to the new value inside a view-transition so the same
+  // cross-fade plays, then remove the attribute again once it finishes:
+  // this was never a user choice, so it must not become a standing
+  // override that stops following the OS on the next change.
+  function watchSystemTheme() {
+    if (!window.matchMedia) return;
+    var media = window.matchMedia("(prefers-color-scheme: dark)");
+    media.addEventListener("change", function (e) {
+      var stored = null;
+      try {
+        stored = localStorage.getItem("aplyx.theme");
+      } catch (err) {
+        // localStorage unavailable; treat as no explicit choice.
+      }
+      if (stored === "light" || stored === "dark") return;
+      var next = e.matches ? "dark" : "light";
+      var root = document.documentElement;
+      function revert() {
+        root.removeAttribute("data-theme");
+      }
+      // No fallback branch needed: without View Transition support the
+      // @media query has already repainted the page on its own, instantly,
+      // the same as it always did before this listener existed.
+      if (document.startViewTransition) {
+        var vt = document.startViewTransition(function () {
+          root.dataset.theme = next;
+        });
+        vt.finished.then(revert).catch(revert);
+      }
+    });
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
     var toggle = document.querySelector("[data-theme-toggle]");
     if (toggle) toggle.addEventListener("click", toggleTheme);
+    watchSystemTheme();
 
     var nav = document.querySelector(".site-nav");
     if (nav) {
