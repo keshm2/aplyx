@@ -17,6 +17,74 @@
  * groupings, e.g. "Durham, NC"), which showed up as duplicate suggestions
  * and duplicate React keys downstream.
  */
+/**
+ * Approximate centre of each US state (population-weighted, so it lands on
+ * the state's main metro rather than its geographic middle). Used only to
+ * rank location suggestions by rough proximity to the applicant's home
+ * state - "type `re` while living in Redmond, WA and see Renton before
+ * Reston" - never for anything that needs real distances. DC included.
+ */
+export const US_STATE_COORDS: Record<string, [number, number]> = {
+  AL: [33.0, -86.8], AK: [61.2, -149.9], AZ: [33.4, -112.1], AR: [34.7, -92.3],
+  CA: [37.4, -122.0], CO: [39.7, -104.9], CT: [41.3, -72.9], DE: [39.7, -75.6],
+  DC: [38.9, -77.0], FL: [28.1, -81.5], GA: [33.7, -84.4], HI: [21.3, -157.8],
+  ID: [43.6, -116.2], IL: [41.8, -87.7], IN: [39.8, -86.1], IA: [41.6, -93.6],
+  KS: [38.9, -95.3], KY: [38.2, -85.7], LA: [30.0, -90.1], ME: [43.7, -70.3],
+  MD: [39.1, -77.0], MA: [42.4, -71.1], MI: [42.7, -83.4], MN: [44.9, -93.2],
+  MS: [32.3, -90.2], MO: [39.0, -94.4], MT: [45.8, -108.5], NE: [41.1, -96.1],
+  NV: [39.4, -119.6], NH: [43.0, -71.5], NJ: [40.7, -74.1], NM: [35.1, -106.6],
+  NY: [40.8, -73.9], NC: [35.8, -78.7], ND: [46.9, -96.8], OH: [40.0, -83.0],
+  OK: [35.5, -97.5], OR: [45.4, -122.7], PA: [40.2, -76.9], RI: [41.8, -71.4],
+  SC: [34.0, -81.0], SD: [43.5, -96.7], TN: [36.0, -86.7], TX: [30.4, -97.7],
+  UT: [40.6, -111.9], VT: [44.5, -73.2], VA: [38.0, -78.5], WA: [47.5, -122.2],
+  WV: [38.3, -81.6], WI: [43.3, -88.4], WY: [42.9, -106.3],
+};
+
+/** The 2-letter state code from a "City, ST" string, or "" (e.g. "Remote"). */
+export function cityState(city: string): string {
+  const m = /,\s*([A-Z]{2})\s*$/.exec(city.trim());
+  return m ? m[1]! : "";
+}
+
+function haversineMiles(a: [number, number], b: [number, number]): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const [lat1, lon1] = a;
+  const [lat2, lon2] = b;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 3959 * 2 * Math.asin(Math.sqrt(h));
+}
+
+/**
+ * Re-order already-filtered city suggestions so the ones nearest the
+ * applicant's home city come first: exact home match, then same state,
+ * then by home-state -> candidate-state distance, stable within each tier.
+ * A no-op when `home` has no recognizable state (keeps the input order,
+ * i.e. the curated tech-hub weighting). "Remote" is always kept at the
+ * top if present.
+ */
+export function rankCitiesByProximity(cities: string[], home: string): string[] {
+  const homeState = cityState(home || "");
+  const homeCoord = US_STATE_COORDS[homeState];
+  if (!homeCoord) return cities;
+  const homeNorm = (home || "").trim().toLowerCase();
+  const score = (city: string): number => {
+    if (city === "Remote") return -2;
+    if (city.trim().toLowerCase() === homeNorm) return -1;
+    const st = cityState(city);
+    if (st === homeState) return 0;
+    const c = US_STATE_COORDS[st];
+    return c ? haversineMiles(homeCoord, c) : 99999;
+  };
+  return cities
+    .map((city, i) => ({ city, i, s: score(city) }))
+    .sort((a, b) => a.s - b.s || a.i - b.i)
+    .map((e) => e.city);
+}
+
 const RAW_US_CITIES: string[] = [
   "Remote",
 

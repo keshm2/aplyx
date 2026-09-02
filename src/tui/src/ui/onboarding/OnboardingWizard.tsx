@@ -5,7 +5,7 @@ import path from "node:path";
 import { theme, MIN_COLUMNS, MIN_ROWS, SIDE_PANEL_WIDTH } from "../../theme.js";
 import { readSafeField, writeSafeField, readTargetsArrayList, writeTargetsArrayList } from "@aplyx/core/settings.js";
 import { readProfileUsername, writeProfileUsername } from "@aplyx/core/profileLinks.js";
-import { US_CITIES } from "@aplyx/core/data/usCities.js";
+import { US_CITIES, rankCitiesByProximity } from "@aplyx/core/data/usCities.js";
 import { loadCompanyDirectory, companyWeight, type CompanyEntry } from "@aplyx/core/data/companyDirectory.js";
 import { readCommittedCompanyDisplays, writeCommittedCompanyDisplays } from "@aplyx/core/companyTargets.js";
 import { readSelectedLevelIds, writeSelectedLevelIds } from "@aplyx/core/onboarding/profile.js";
@@ -261,7 +261,15 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
   const fields = isFieldPage ? PAGES[currentPage]!.fields : [];
   const focusedField: FieldDef | undefined = fields[focus.focusIndex];
 
-  const locationPool = US_CITIES;
+  // Preferred-location suggestions surface the applicant's own metro
+  // first: rank matches by rough distance from their home city (the
+  // separate `location` field, entered earlier), so "re" from Redmond
+  // pulls up Renton, not Reston. The home `location` field itself has no
+  // home to sort against, so it keeps the curated tech-hub order.
+  const locationPool =
+    focusedField?.kind === "multi-location"
+      ? rankCitiesByProximity(US_CITIES, readSafeField(root, "location"))
+      : US_CITIES;
   const suggestions: string[] =
     focusedField?.kind === "location" || focusedField?.kind === "multi-location"
       ? filterSuggestions(draftText, locationPool, 8)

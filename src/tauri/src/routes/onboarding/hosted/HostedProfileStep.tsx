@@ -90,6 +90,7 @@ export function HostedProfileStep({
                 (field.kind === "roles" || field.kind === "multi-location" || field.kind === "multi-company" ? [] : "")
               }
               onChange={(v) => setValues((prev) => ({ ...prev, [field.id]: v }))}
+              homeCity={String(values.location ?? "")}
             />
           ))}
         </div>

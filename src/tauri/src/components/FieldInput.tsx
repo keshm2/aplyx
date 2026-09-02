@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { FieldDef } from "@aplyx/core/onboarding/fields.js";
-import { US_CITIES } from "@aplyx/core/data/usCities.js";
+import { US_CITIES, rankCitiesByProximity } from "@aplyx/core/data/usCities.js";
 import { LEVEL_CATEGORIES } from "@aplyx/core/data/levelCategories.js";
 import { findRoot, listCompanies } from "../lib/bridge";
 import { TagSearchInput } from "./TagSearchInput";
@@ -26,10 +26,14 @@ export function FieldInput({
   field,
   value,
   onChange,
+  homeCity = "",
 }: {
   field: FieldDef;
   value: FieldValue;
   onChange: (value: FieldValue) => void;
+  /** The applicant's home "City, ST", so preferred-location suggestions
+   *  can be ranked by proximity to where they live. */
+  homeCity?: string;
 }) {
   return (
     <div className="field">
@@ -37,12 +41,26 @@ export function FieldInput({
         {field.label}
       </label>
       {field.help && <p className="field-help">{field.help}</p>}
-      <FieldControl field={field} value={value} onChange={onChange} />
+      <FieldControl field={field} value={value} onChange={onChange} homeCity={homeCity} />
     </div>
   );
 }
 
-function FieldControl({ field, value, onChange }: { field: FieldDef; value: FieldValue; onChange: (v: FieldValue) => void }) {
+function FieldControl({
+  field,
+  value,
+  onChange,
+  homeCity,
+}: {
+  field: FieldDef;
+  value: FieldValue;
+  onChange: (v: FieldValue) => void;
+  homeCity: string;
+}) {
+  const nearbyCities = useMemo(
+    () => (homeCity ? rankCitiesByProximity(US_CITIES, homeCity) : US_CITIES),
+    [homeCity],
+  );
   switch (field.kind) {
     case "yesno": {
       const current = String(value ?? "");
@@ -128,7 +146,7 @@ function FieldControl({ field, value, onChange }: { field: FieldDef; value: Fiel
           placeholder={field.placeholder}
           value={Array.isArray(value) ? value : []}
           onChange={onChange}
-          suggestions={US_CITIES}
+          suggestions={nearbyCities}
         />
       );
 

@@ -100,6 +100,7 @@ export function ProfileStep({ root, onComplete }: { root: string; onComplete: ()
               field={field}
               value={values[field.id] ?? (field.kind === "roles" || field.kind === "levels" || field.kind === "multi-location" || field.kind === "multi-company" ? [] : "")}
               onChange={(v) => setValues((prev) => ({ ...prev, [field.id]: v }))}
+              homeCity={String(values.location ?? "")}
             />
           ))}
         </div>

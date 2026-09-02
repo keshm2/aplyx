@@ -94,6 +94,7 @@ export function ProfileScreen() {
                   field={field}
                   value={values[field.id] ?? emptyValueFor(field.kind)}
                   onChange={(v) => setField(field.id, v)}
+                  homeCity={String(values.location ?? "")}
                 />
               ))}
             </div>
