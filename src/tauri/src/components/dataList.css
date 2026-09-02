@@ -142,7 +142,7 @@
 .search-loading-text {
   font-size: var(--text-sm);
   color: var(--text-muted);
-  animation: aplyx-fade-in-out 1.8s ease-in-out;
+  animation: aplyx-fade-in-out 1.8s var(--ease-standard);
 }
 
 .data-screen {
@@ -535,6 +535,15 @@
   font-weight: 600;
   color: var(--text-muted);
   background: var(--surface);
+  transition:
+    border-color var(--duration-quick) var(--ease-snap),
+    background-color var(--duration-quick) var(--ease-snap),
+    color var(--duration-quick) var(--ease-snap),
+    transform var(--duration-quick) var(--ease-out);
+}
+
+.source-toggle:active {
+  transform: scale(var(--scale-press));
 }
 
 .source-toggle.on {

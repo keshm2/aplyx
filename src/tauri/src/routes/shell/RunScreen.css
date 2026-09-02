@@ -19,6 +19,7 @@
   border-radius: 50%;
   background: var(--border-strong);
   flex-shrink: 0;
+  transition: background var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard);
 }
 
 .run-checklist-done {
@@ -49,4 +50,21 @@
   font-size: var(--text-xs);
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+/* Each line mounts once, as run.rawLines grows: fading it in (rather than
+   just popping into the scroll region) makes a live-tailing log read as
+   actively streaming instead of a static textarea. */
+.run-log-tail > div {
+  animation: aplyx-fade-in var(--duration-quick) var(--ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .run-log-tail > div {
+    animation: none;
+  }
+}
+
+:root[data-reduced-motion="1"] .run-log-tail > div {
+  animation: none;
 }

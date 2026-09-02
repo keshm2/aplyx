@@ -32,7 +32,12 @@
   font-weight: 600;
   color: var(--text-muted);
   text-align: center;
-  transition: background-color var(--duration-quick) var(--ease-standard), color var(--duration-quick) var(--ease-standard);
+  transition: background-color var(--duration-quick) var(--ease-standard), color var(--duration-quick) var(--ease-standard),
+    transform var(--duration-quick) var(--ease-out);
+}
+
+.settings-tab:active {
+  transform: scale(var(--scale-press));
 }
 
 .settings-tab-active {
@@ -177,7 +182,8 @@
   background: transparent;
   color: var(--text-muted, var(--text));
   cursor: pointer;
-  transition: color 120ms ease, background 120ms ease, transform 90ms cubic-bezier(0.3, 0, 0.2, 1);
+  transition: color var(--duration-quick) var(--ease-snap), background var(--duration-quick) var(--ease-snap),
+    transform var(--duration-quick) var(--ease-snap);
 }
 
 .datepicker-toggle:hover {
@@ -186,7 +192,7 @@
 }
 
 .datepicker-toggle:active {
-  transform: scale(0.88);
+  transform: scale(var(--scale-press));
 }
 
 .datepicker-pop {
@@ -250,7 +256,8 @@
   background: var(--surface);
   color: var(--text);
   cursor: pointer;
-  transition: border-color 120ms ease, background 120ms ease, transform 90ms cubic-bezier(0.3, 0, 0.2, 1);
+  transition: border-color var(--duration-quick) var(--ease-snap), background var(--duration-quick) var(--ease-snap),
+    transform var(--duration-quick) var(--ease-snap);
 }
 
 .datepicker-nav:hover {
@@ -258,7 +265,7 @@
 }
 
 .datepicker-nav:active {
-  transform: scale(0.92);
+  transform: scale(var(--scale-press));
 }
 
 .datepicker-grid {
@@ -293,7 +300,8 @@
   font: inherit;
   font-size: var(--text-sm, 0.875rem);
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease, transform 90ms cubic-bezier(0.3, 0, 0.2, 1);
+  transition: background var(--duration-quick) var(--ease-snap), color var(--duration-quick) var(--ease-snap),
+    transform var(--duration-quick) var(--ease-snap);
 }
 
 .datepicker-day:hover {
@@ -301,7 +309,7 @@
 }
 
 .datepicker-day:active {
-  transform: scale(0.9);
+  transform: scale(var(--scale-press));
 }
 
 .datepicker-day.is-selected {

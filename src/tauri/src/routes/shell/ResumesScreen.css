@@ -94,6 +94,22 @@
   font-size: var(--text-sm);
 }
 
+.resume-entry-title-input,
+.resume-entry-card > input,
+.resume-entry-details,
+.resume-cert-row input,
+.resume-import-textarea {
+  transition: border-color var(--duration-quick) var(--ease-out);
+}
+
+.resume-entry-title-input:focus-visible,
+.resume-entry-card > input:focus-visible,
+.resume-entry-details:focus-visible,
+.resume-cert-row input:focus-visible,
+.resume-import-textarea:focus-visible {
+  border-color: var(--accent);
+}
+
 .resume-entry-delete {
   flex-shrink: 0;
   width: 1.75rem;
