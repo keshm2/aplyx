@@ -13,7 +13,11 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from resume_graduation import derive_graduation_date  # noqa: E402
+import datetime as dt  # noqa: E402
+
+from resume_graduation import derive_graduation_date, derive_recruiting_stage  # noqa: E402
+
+_TODAY = dt.date(2026, 9, 1)
 
 
 def edu(dates="", details=None, degree="B.S. CS", school="State U"):
@@ -94,6 +98,33 @@ class DeriveTests(unittest.TestCase):
     def test_non_dict_entries_are_skipped(self):
         r = derive_graduation_date(["garbage", edu("Sep 2023 – Jun 2027")])
         self.assertEqual(r["graduation_date"], "June 2027")
+
+
+class RecruitingStageTests(unittest.TestCase):
+    def test_graduating_soon_is_new_grad(self):
+        r = derive_recruiting_stage("June 2027", _TODAY)  # ~9 months out
+        self.assertEqual(r["stage"], "new_grad")
+        self.assertIn("new_grad", r["level_ids"])
+        self.assertIn("entry_level", r["level_ids"])
+        self.assertNotIn("intern", r["level_ids"])
+
+    def test_one_more_summer_is_internship(self):
+        r = derive_recruiting_stage("December 2027", _TODAY)  # ~15 months out
+        self.assertEqual(r["stage"], "internship")
+        self.assertEqual(r["level_ids"], ["intern"])
+
+    def test_far_out_is_internship(self):
+        r = derive_recruiting_stage("May 2029", _TODAY)
+        self.assertEqual(r["stage"], "internship")
+
+    def test_past_graduation_is_new_grad(self):
+        r = derive_recruiting_stage("May 2026", _TODAY)  # already past
+        self.assertEqual(r["stage"], "new_grad")
+
+    def test_unknown_date_defaults_to_intern_and_new_grad(self):
+        r = derive_recruiting_stage("", _TODAY)
+        self.assertEqual(r["stage"], "unknown")
+        self.assertEqual(set(r["level_ids"]), {"intern", "new_grad"})
 
 
 if __name__ == "__main__":

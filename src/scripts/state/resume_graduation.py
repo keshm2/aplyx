@@ -149,6 +149,52 @@ def derive_graduation_date(education: list) -> dict:
     return {"graduation_date": value, "confidence": confidence, "note": note, "source": label}
 
 
+def _parse_month_year(value: str) -> tuple[int, int] | None:
+    ym = _YEAR_RE.search(value or "")
+    if not ym:
+        return None
+    year = int(ym.group(1))
+    month = 6
+    for name, num in _MONTHS.items():
+        if re.search(rf"\b{name}\b", value, re.I):
+            month = num
+            break
+    return (year, month)
+
+
+# Level bucket ids match src/core/src/data/levelCategories.ts.
+def derive_recruiting_stage(graduation_date: str, today=None) -> dict:
+    """Map a graduation date to the level buckets aplyx should target by
+    default. Standard US recruiting calendar: a student graduating in
+    spring/summer of year N does their last internship in summer N-1 and
+    is recruited for new-grad roles from ~fall N-1. So, relative to today:
+
+      <= ~10 months to graduation (or past)  -> new_grad + entry_level
+      ~10-22 months (one more summer left)    -> intern
+      > 22 months                             -> intern
+
+    Returns {stage, level_ids, note}. level_ids is a suggested default the
+    onboarding checkboxes pre-select; the user can change it, and it is
+    never re-applied automatically afterward."""
+    import datetime as _dt
+
+    today = today or _dt.date.today()
+    parsed = _parse_month_year(graduation_date)
+    if parsed is None:
+        return {"stage": "unknown", "level_ids": ["intern", "new_grad"],
+                "note": "no graduation date to derive a stage from; defaulting to intern + new grad"}
+    year, month = parsed
+    months_out = (year - today.year) * 12 + (month - today.month)
+    if months_out <= 10:
+        return {"stage": "new_grad", "level_ids": ["new_grad", "entry_level"],
+                "note": f"graduates in ~{max(months_out, 0)} months: targeting new-grad and entry-level roles"}
+    if months_out <= 22:
+        return {"stage": "internship", "level_ids": ["intern"],
+                "note": f"graduates in ~{months_out} months, one more summer available: targeting internships"}
+    return {"stage": "internship", "level_ids": ["intern"],
+            "note": f"graduates in ~{months_out} months: targeting internships"}
+
+
 def _default_resume_path() -> str:
     root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
     return os.path.join(root, "data", "resumes", "resume.json")
@@ -173,6 +219,9 @@ def main(argv: list[str] | None = None) -> int:
 
     result = derive_graduation_date(resume.get("education", []) if isinstance(resume, dict) else [])
     result["ok"] = True
+    # The suggested default level set for the onboarding checkboxes, from
+    # whatever date we just derived (or a neutral default when we couldn't).
+    result["recruiting_stage"] = derive_recruiting_stage(result.get("graduation_date", ""))
     print(json.dumps(result))
     return 0
 

@@ -402,6 +402,74 @@ def find_first_keyword(text: str, keywords: Iterable[str]) -> str:
     return ""
 
 
+# Posting-level classification, used to enforce the user's selected levels
+# (Settings -> Levels, or the onboarding "what are you looking for?" step).
+# The bucket ids and their intent mirror
+# src/core/src/data/levelCategories.ts's LEVEL_CATEGORIES; both lists are
+# short and change rarely, so they are kept in sync by hand rather than
+# generated. A posting can land in several buckets at once (a combined
+# "Intern / New Grad" requisition).
+LEVEL_BUCKET_PATTERNS: Dict[str, "re.Pattern[str]"] = {
+    "intern": re.compile(r"\b(intern|internship|co[\s-]?op)\b", re.I),
+    "new_grad": re.compile(
+        r"\b(new[\s-]?grad(?:uate)?|university[\s-]?grad(?:uate)?|campus[\s-]?hire|"
+        r"new[\s-]?college[\s-]?grad(?:uate)?|recent[\s-]?grad(?:uate)?|"
+        r"grad(?:uate)?[\s-]?(?:program|rotational|rotation))\b",
+        re.I,
+    ),
+    "entry_level": re.compile(r"\b(entry[\s-]?level|junior|associate)\b", re.I),
+    "experienced": re.compile(
+        r"\b(senior|staff|principal|distinguished|sr\.?|lead[\s-]engineer|"
+        r"experienced\s+(?:engineer|developer|professional))\b",
+        re.I,
+    ),
+}
+
+# Reverse map from a configured level keyword (the flat list the Settings
+# Levels checkboxes write into targets.json) back to its bucket id.
+_LEVEL_KEYWORD_TO_BUCKET: Dict[str, str] = {
+    "intern": "intern", "internship": "intern", "co-op": "intern", "coop": "intern",
+    "new grad": "new_grad", "new graduate": "new_grad", "university grad": "new_grad",
+    "campus": "new_grad", "new college grad": "new_grad",
+    "entry level": "entry_level", "entry-level": "entry_level", "junior": "entry_level",
+    "associate": "entry_level", "early career": "entry_level",
+    "senior": "experienced", "staff": "experienced", "principal": "experienced", "sr.": "experienced",
+}
+
+
+def selected_level_buckets(level_keywords: Iterable[str], allow_experienced_roles: bool) -> set:
+    """Which level buckets the user is targeting, inferred from the flat
+    level_keywords list plus the allow_experienced_roles flag. An empty
+    result means "no recognizable selection" (a hand-edited or legacy
+    config): callers skip level enforcement entirely in that case rather
+    than reject everything."""
+    buckets = {
+        _LEVEL_KEYWORD_TO_BUCKET[k]
+        for k in (str(kw).strip().lower() for kw in level_keywords)
+        if k in _LEVEL_KEYWORD_TO_BUCKET
+    }
+    if allow_experienced_roles:
+        buckets.add("experienced")
+    return buckets
+
+
+def classify_posting_level(
+    title: str, jd_text: str, years_required: Optional[int], graduation_date: str = ""
+) -> Tuple[set, set]:
+    """(buckets matched in the title, buckets matched in the JD body). A
+    hard 3+ years requirement counts as an 'experienced' JD signal even
+    when no seniority word appears; a candidate-directed class-year window
+    that includes this candidate's graduation year counts as 'new_grad'
+    even when the posting never says the words."""
+    title_buckets = {b for b, rx in LEVEL_BUCKET_PATTERNS.items() if rx.search(title or "")}
+    jd_buckets = {b for b, rx in LEVEL_BUCKET_PATTERNS.items() if rx.search(jd_text or "")}
+    if years_required is not None and years_required >= 3:
+        jd_buckets.add("experienced")
+    if graduation_date and jd_targets_candidate_class_year(jd_text, graduation_date):
+        jd_buckets.add("new_grad")
+    return title_buckets, jd_buckets
+
+
 def split_requirements_text(jd_text: str) -> str:
     if not jd_text:
         return ""
@@ -546,6 +614,32 @@ def graduation_mismatch_reason(jd_text: str, graduation_date: str) -> Optional[s
     return None
 
 
+def jd_targets_candidate_class_year(jd_text: str, graduation_date: str) -> bool:
+    """True when the JD names a graduating class year (or range), pointed at
+    the candidate, that includes this candidate's own graduation year. Such
+    a posting is a new-grad / early-career posting FOR THIS CANDIDATE even
+    when it never uses the words 'new grad' - the inverse of
+    graduation_mismatch_reason, which only fires on a year the candidate
+    can't satisfy."""
+    if not jd_text or not graduation_date:
+        return False
+    parsed = parse_graduation_month_year(graduation_date)
+    if parsed is None:
+        return False
+    candidate_year = parsed[0]
+    for pattern in (GRAD_CLASS_RANGE_RE, GRADUATING_RANGE_RE):
+        match = pattern.search(jd_text)
+        if not match:
+            continue
+        clause = sentence_window(jd_text, match.start(), match.end())
+        if not CANDIDATE_DIRECTED_RE.search(clause):
+            continue
+        years = [int(y) for y in match.groups() if y]
+        if years and min(years) <= candidate_year <= max(years):
+            return True
+    return False
+
+
 def explicit_non_us_location(location: str, location_tier: str) -> bool:
     loc = normalize_text(location).lower()
     if not loc:
@@ -672,7 +766,9 @@ def evaluate_fit(job: dict, targets: dict) -> dict:
             years_required=years_required,
         )
 
-    welcoming = has_welcoming_language(title, jd_text, role_type, internship_term)
+    welcoming = has_welcoming_language(title, jd_text, role_type, internship_term) or (
+        jd_targets_candidate_class_year(jd_text, graduation_date)
+    )
     if years_required is not None and years_required >= 3 and not welcoming and not allow_experienced_roles:
         fit_reasons.append(f"JD requires {years_required}+ years of experience without clear intern/new-grad language.")
         return build_result(
@@ -781,6 +877,47 @@ def evaluate_fit(job: dict, targets: dict) -> dict:
             years_required=years_required,
         )
 
+    # Enforce the user's selected levels. A posting whose level bucket
+    # (intern / new_grad / entry_level / experienced) is none of the ones
+    # the user is targeting is rejected outright when the mismatch is in
+    # the title, or sent to review when it only shows in the JD body. A
+    # posting that also matches a selected bucket (a combined "Intern /
+    # New Grad" req for a new-grad user) passes. Skipped entirely when the
+    # config selects no recognizable bucket, so a hand-edited or legacy
+    # level_keywords list keeps its prior behavior.
+    selected_buckets = selected_level_buckets(level_keywords, allow_experienced_roles)
+    if selected_buckets:
+        title_buckets, jd_buckets = classify_posting_level(title, jd_text, years_required, graduation_date)
+        posting_buckets = title_buckets | jd_buckets
+        if posting_buckets and posting_buckets.isdisjoint(selected_buckets):
+            wanted = ", ".join(sorted(b.replace("_", " ") for b in selected_buckets))
+            got = " / ".join(sorted(b.replace("_", " ") for b in posting_buckets))
+            if title_buckets:
+                fit_reasons.append(
+                    f"Posting is a {got} role; you are targeting {wanted} only."
+                )
+                return build_result(
+                    fit_status="skipped_unfit",
+                    fit_score=15,
+                    fit_reasons=fit_reasons,
+                    matched_role_keyword=matched_role_keyword,
+                    matched_level_keyword=matched_level_keyword,
+                    matched_level_source=matched_level_source,
+                    years_required=years_required,
+                )
+            fit_reasons.append(
+                f"JD suggests a {got} role but you are targeting {wanted}"
+            )
+            return build_result(
+                fit_status="needs_review",
+                fit_score=60,
+                fit_reasons=fit_reasons,
+                matched_role_keyword=matched_role_keyword,
+                matched_level_keyword=matched_level_keyword,
+                matched_level_source=matched_level_source,
+                years_required=years_required,
+            )
+
     # Deterministic scoring.
     score = 0
     if role_source == "title":
@@ -796,6 +933,12 @@ def evaluate_fit(job: dict, targets: dict) -> dict:
     elif matched_level_source == "jd":
         score += 10
         fit_reasons.append(f"Level keyword '{matched_level_keyword}' matched in the JD.")
+    elif jd_targets_candidate_class_year(jd_text, graduation_date):
+        # The JD explicitly names a graduating class window that includes
+        # this candidate's year: a strong, candidate-specific new-grad
+        # signal even without the words "new grad".
+        score += 20
+        fit_reasons.append("JD names a graduating class year that matches the candidate.")
     elif welcoming or role_type or internship_term:
         score += 6
         fit_reasons.append("Intern/new-grad intent is implied, but not stated with a configured level keyword.")

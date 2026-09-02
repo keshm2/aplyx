@@ -232,5 +232,68 @@ class ResumeGraduationSourceOfTruthTests(unittest.TestCase):
         self.assertEqual(targets["safe_fields"]["graduation_date"], "May 2026")
 
 
+class LevelEnforcementTests(unittest.TestCase):
+    """The user's selected levels are a filter, not just a scoring signal:
+    a posting whose bucket is none of the ones they target is rejected
+    (title) or sent to review (JD body only)."""
+
+    NG_ONLY = {
+        "role_keywords": ["software engineer"],
+        "level_keywords": ["new grad", "new graduate", "university grad", "campus"],
+        "safe_fields": {"graduation_date": "June 2027"},
+    }
+    INTERN_ONLY = {
+        "role_keywords": ["software engineer"],
+        "level_keywords": ["intern", "internship"],
+        "safe_fields": {"graduation_date": "June 2028"},
+    }
+
+    def _fit(self, targets, **job):
+        j = {"title": "Software Engineer", "company": "X", "location": "Seattle, WA"}
+        j.update(job)
+        return fit.evaluate_fit(j, targets)
+
+    def test_new_grad_user_rejects_internship_by_title(self):
+        r = self._fit(self.NG_ONLY, title="Software Engineer Intern",
+                      jd_text="Summer 2028 internship. Enrolled in a CS degree. Python.")
+        self.assertEqual(r["fit_status"], "skipped_unfit")
+        self.assertIn("intern", r["reasoning"].lower())
+
+    def test_intern_user_rejects_new_grad_posting(self):
+        r = self._fit(self.INTERN_ONLY, title="New Grad Software Engineer",
+                      jd_text="Full time for recent graduates. Python.")
+        self.assertEqual(r["fit_status"], "skipped_unfit")
+
+    def test_jd_only_mismatch_goes_to_review_not_reject(self):
+        r = self._fit(self.NG_ONLY, title="Software Engineer",
+                      jd_text="This is an internship for summer 2028. Enrolled students only. Python.")
+        self.assertEqual(r["fit_status"], "needs_review")
+
+    def test_combined_intern_newgrad_posting_passes_for_new_grad_user(self):
+        r = self._fit(self.NG_ONLY, title="Software Engineer Intern / New Grad",
+                      jd_text="For 2027 graduates and rising seniors. Python backend.")
+        self.assertNotEqual(r["fit_status"], "skipped_unfit")
+
+    def test_matching_level_keyword_still_passes(self):
+        r = self._fit(self.NG_ONLY, title="New Grad Software Engineer",
+                      jd_text="For 2027 university graduates. Python backend, bachelors.")
+        self.assertNotEqual(r["fit_status"], "skipped_unfit")
+
+    def test_class_year_match_counts_as_new_grad_without_the_words(self):
+        # "class of 2027" with no "new grad" wording, for a 2027 grad,
+        # new-grad-only user: not rejected by the level filter.
+        r = self._fit(self.NG_ONLY, title="Software Engineer",
+                      jd_text="We hire candidates graduating in the class of 2027. Python, bachelors.")
+        self.assertNotEqual(r["fit_status"], "skipped_unfit")
+
+    def test_legacy_config_with_no_recognizable_bucket_skips_enforcement(self):
+        legacy = {"role_keywords": ["software engineer"], "level_keywords": ["gib"],
+                  "safe_fields": {"graduation_date": "June 2027"}}
+        r = self._fit(legacy, title="Software Engineer Intern",
+                      jd_text="Summer internship. Enrolled in CS. Python.")
+        # not rejected *by the level filter* (may still be needs_review/candidate on score)
+        self.assertNotIn("you are targeting", r["reasoning"])
+
+
 if __name__ == "__main__":
     unittest.main()
