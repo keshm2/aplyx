@@ -29,6 +29,7 @@ import { QuestionFrame } from "./QuestionFrame.js";
 import { TextField } from "./TextField.js";
 import { YesNoTextField } from "./YesNoTextField.js";
 import { Select3TextField } from "./Select3TextField.js";
+import { SelectField } from "./SelectField.js";
 import { LevelSelectField } from "./LevelSelectField.js";
 import { AutocompleteTextField } from "./AutocompleteTextField.js";
 import { MultiEntryAutocomplete } from "../MultiEntryAutocomplete.js";
@@ -586,6 +587,17 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
         if (!field.required && (key.backspace || key.delete)) return setDraftText("");
         return;
       }
+      case "select": {
+        // Arbitrary-length dropdown (citizenship, gender). Number keys
+        // 1-9 pick an option; the machine value goes to safe_fields, same
+        // as select3. Never required.
+        const opts = field.options ?? [];
+        if (key.return) return commitAndAdvance(field.id, draftText);
+        if (key.backspace || key.delete) return setDraftText("");
+        const n = Number(input);
+        if (n >= 1 && opts[n - 1]) return setDraftText(opts[n - 1]!.value);
+        return;
+      }
       case "levels": {
         const currentIds = Array.isArray(values[field.id]) ? (values[field.id] as string[]) : [];
         if (key.return) {
@@ -801,6 +813,16 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
           <Select3TextField key={field.id} label={field.label} value={resolvedLabel} focused={isFocused} options={opts3} />
         );
       }
+      case "select":
+        return (
+          <SelectField
+            key={field.id}
+            label={field.label}
+            value={isFocused ? draftText : committedText}
+            focused={isFocused}
+            options={field.options ?? []}
+          />
+        );
       case "location":
         return (
           <AutocompleteTextField

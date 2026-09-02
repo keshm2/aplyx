@@ -101,6 +101,26 @@ function FieldControl({ field, value, onChange }: { field: FieldDef; value: Fiel
       );
     }
 
+    case "select": {
+      const current = String(value ?? "");
+      const options = field.options ?? [];
+      return (
+        <select
+          id={field.id}
+          className="field-select"
+          value={current}
+          onChange={(e) => onChange(e.currentTarget.value)}
+        >
+          <option value="">Prefer not to say</option>
+          {options.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      );
+    }
+
     case "multi-location":
       return (
         <TagSearchInput

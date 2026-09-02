@@ -15,6 +15,7 @@ export type FieldKind =
   | "text"
   | "yesno"
   | "select3"
+  | "select"
   | "location"
   | "multi-location"
   | "multi-company"
@@ -43,12 +44,15 @@ export interface FieldDef {
   placeholder?: string;
   /** Optional per-field help shown under the label. */
   help?: string;
-  /** kind: "select3" only: exactly three fixed choices, rendered as a
-   *  toggle group (Tauri) / number-key picker (TUI). Used for EEO
-   *  self-identification fields, which by law must always offer a decline
-   *  option alongside the two substantive answers; never a free-text
-   *  field a user could leave ambiguous or an agent could misinterpret. */
-  options?: [SelectOption, SelectOption, SelectOption];
+  /** kind "select3": exactly three fixed choices rendered as a toggle
+   *  group (used for EEO self-identification fields, which by law must
+   *  always offer a decline option alongside the two substantive
+   *  answers). kind "select": an arbitrary-length dropdown of fixed
+   *  choices, for fields (citizenship, gender) where a free-text answer
+   *  an agent has to interpret is worse than a pick from the same set
+   *  every job board offers. Either way the stored value is the option's
+   *  machine `value`, never its label. */
+  options?: SelectOption[];
   /** Page progression can't advance past a page with an unanswered
    *  required field. For select3 EEO fields this only enforces picking
    *  ONE of the three offered options (including "decline to answer",
@@ -121,10 +125,18 @@ export const PAGES: PageDef[] = [
       { id: "require_sponsorship", label: "Need visa sponsorship? (y/n)", kind: "yesno" },
       {
         id: "citizenship_status",
-        label: "Citizenship status (optional)",
-        kind: "text",
-        placeholder: "e.g. U.S. Citizen, Permanent Resident, F-1 visa",
-        help: "Some postings (government contractors, defense-adjacent roles) require a specific status; leave blank if none of yours ask for it.",
+        label: "Work authorization status (optional)",
+        kind: "select",
+        help: "Some postings (government contractors, defense-adjacent roles) ask for this directly. Leave it unset if none of yours do; the labels match what job-board forms offer.",
+        // value === label so the form-fill's exact option-text match lands
+        // on a real ATS dropdown option.
+        options: [
+          { value: "U.S. Citizen", label: "U.S. Citizen" },
+          { value: "U.S. National", label: "U.S. National" },
+          { value: "U.S. Permanent Resident", label: "U.S. Permanent Resident" },
+          { value: "Refugee or Asylee", label: "Refugee or Asylee" },
+          { value: "Other work authorization", label: "Other work authorization" },
+        ],
       },
     ],
   },
@@ -159,9 +171,14 @@ export const PAGES: PageDef[] = [
       {
         id: "gender",
         label: "Gender (optional)",
-        kind: "text",
-        placeholder: "e.g. Woman / Man / Non-binary / Decline",
-        help: "Asked by many EEO forms. Leave blank to decline; aplyx never invents an answer.",
+        kind: "select",
+        help: "Asked by many EEO forms. Leave it unset and aplyx answers nothing; \"Decline to self-identify\" is a real answer that fills the same option on the form.",
+        options: [
+          { value: "Male", label: "Male" },
+          { value: "Female", label: "Female" },
+          { value: "Non-binary", label: "Non-binary" },
+          { value: "Decline to self-identify", label: "Decline to self-identify" },
+        ],
       },
       { id: "ethnicity", label: "Ethnicity (optional)", kind: "text", placeholder: "e.g. Asian / Decline" },
       { id: "hispanic_or_latino", label: "Hispanic or Latino? (y/n)", kind: "yesno" },
