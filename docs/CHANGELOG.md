@@ -7,6 +7,52 @@ but trimmed to fit a small in-repo doc.
 > Per-`docs/RELEASE.md` is the canonical, deep-dive release
 > document for each tagged build. This file is the index.
 
+## [1.0.4b] - 2026-09-01
+
+Sixth beta. Two themes: the Greenhouse/Ashby/Lever submit path, which had
+far less real-world testing than Workday, is hardened and live-verified;
+and graduation timeline now actually shapes a search, so a student
+graduating this spring and one with two years left no longer get the same
+postings.
+
+### Added
+
+- An onboarding step, "What are you looking for?", with Intern / New grad
+  / Entry-level / Full time checkboxes, pre-selected from your graduation
+  date (graduating within ~10 months defaults to new grad + entry level,
+  otherwise intern). Changeable any time in Settings -> Levels.
+- `resume_graduation.py`: the graduation date is read from your resume's
+  education section (`data/resumes/resume.json`), so uploading a resume
+  that says a later date shifts which seasons pass the fit gate with no
+  config edit. Low-confidence reads leave the existing value alone.
+
+### Changed
+
+- The fit gate enforces your selected levels instead of only scoring
+  them: a posting whose level bucket is none you target is skipped (from
+  the title) or sent to review (from the JD body). A candidate-directed
+  "class of <year>" that includes your graduation year now counts as a
+  new-grad match even without the words.
+- `page.goto` in every ATS runtime waits for network idle before reading
+  the form; a shared `wait_for_form_ready` polls for the actual fields
+  before the fill loop starts.
+- A fresh `targets.example.json` now defaults to intern + new grad only,
+  not every early-career keyword.
+
+### Fixed
+
+- The Greenhouse/Ashby/Lever submit runtimes could report an application
+  as submitted when a failed submit merely bounced to an SSO or error
+  page. Success now requires a real confirmation signal.
+- Greenhouse forms embedded in an iframe on a company's own careers site
+  (databricks.com and many others) were unreachable; the runtime now
+  resolves the top-level `/embed/job_app` form, and the scraper stores
+  that URL as `apply_url`.
+- Consent-banner dismissal, previously Greenhouse-only, now runs for
+  Ashby and Lever too, so an EU cookie overlay can't eat the submit click.
+- Every in-browser submit failure now saves a screenshot to
+  `data/screenshots/` before the window closes.
+
 ## [1.0.3b] - 2026-08-31
 
 Fifth beta. Workday goes from "checkpoint-heavy" to seamless: real login-URL,

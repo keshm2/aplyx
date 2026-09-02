@@ -1,6 +1,6 @@
 [package]
 name = "desktop"
-version = "1.0.3-beta.0"
+version = "1.0.4-beta.0"
 description = "aplyx desktop app, a Tauri shell over the shared @aplyx/core TypeScript core"
 authors = ["aplyx"]
 license = "MIT"
