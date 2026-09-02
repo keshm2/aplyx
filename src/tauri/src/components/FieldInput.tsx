@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { FieldDef } from "@aplyx/core/onboarding/fields.js";
 import { US_CITIES, rankCitiesByProximity } from "@aplyx/core/data/usCities.js";
 import { LEVEL_CATEGORIES } from "@aplyx/core/data/levelCategories.js";
+import { DatePickerField } from "./DatePickerField";
 import { findRoot, listCompanies } from "../lib/bridge";
 import { TagSearchInput } from "./TagSearchInput";
 import "./formFields.css";
@@ -202,6 +203,15 @@ function FieldControl({
       );
 
     case "date":
+      return (
+        <DatePickerField
+          id={field.id}
+          value={String(value ?? "")}
+          onChange={onChange}
+          placeholder={field.placeholder}
+        />
+      );
+
     case "text":
     default:
       return (
