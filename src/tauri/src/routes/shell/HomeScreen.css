@@ -1,81 +1,57 @@
 /*
- * Home as a real dashboard (docs/ui-development-plan.md, Phase 14C):
- * fewer, larger, more meaningful sections instead of many equal-weight
- * boxes: a stat row for orientation, then one clear "what's next" card
- * instead of a flat checklist.
+ * Home as a real dashboard (docs/ui-development-plan.md, Phase 14C),
+ * restyled toward a Shopify-admin feel (operator request, 2026-09-02):
+ * a compact left-aligned header instead of a centered marketing-style
+ * hero, one unified toolbar, metrics presented as a single segmented
+ * bar rather than floating individual cards, and a restrained bordered
+ * "guide" card for what to do next instead of a glowing gradient banner.
+ * Section headers below (.section-label, shared with other screens) are
+ * overridden to plain bold text here rather than the small-caps eyebrow
+ * label used elsewhere, matching Polaris's heading style for a page
+ * that's read as a dashboard, not landed on as a pitch.
  */
 
-.home-greeting {
-  position: relative;
-  isolation: isolate;
+.home-page .section-label {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: var(--text-base);
+  font-weight: 700;
+  color: var(--text);
+}
+
+.home-header {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  text-align: center;
+  justify-content: space-between;
   gap: var(--space-4);
-  /* Breathing room for the glow behind it (::before below) to actually
-   * read as a glow rather than getting clipped flush against the text. */
-  padding: var(--space-4) 0;
+  flex-wrap: wrap;
 }
 
-/* The app's one other constant, always-on glow (.home-next, HomeScreen.css)
- * is the "what to do next" card; this is the other legitimate case for
- * it: the greeting is the very first thing seen on Home, once per visit,
- * not a repeating list item. Same restrained values (--glow-blur/
- * --glow-opacity), not a new, louder treatment. */
-.home-greeting::before {
-  content: "";
-  position: absolute;
-  inset: -20% -10%;
-  z-index: -1;
-  /* Confirmed live (operator report, 2026-08-22): this decorative glow's
-   * negative inset bleeds it upward far enough to geometrically overlap
-   * TopBar's nav-menu dropdown sitting above it on the page, and being
-   * a later DOM sibling, it paints on top there, so without this it
-   * silently intercepted clicks meant for the real button underneath,
-   * reproducing as "have to click above the dropdown for it to
-   * register." isolation:isolate on the parent scopes this element's
-   * negative z-index for PAINT ordering, not for hit-testing: pointer
-   * events on a purely decorative box need to be turned off explicitly. */
-  pointer-events: none;
-  background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 45%, transparent), transparent 70%) 30%
-      40% / 55% 100% no-repeat,
-    radial-gradient(closest-side, color-mix(in srgb, var(--accent-2) 40%, transparent), transparent 70%) 70% 60% /
-      50% 100% no-repeat;
-  filter: blur(var(--glow-blur));
-  opacity: var(--glow-opacity);
-}
-
-.home-greeting h1 {
-  font-size: var(--text-4xl);
+.home-header-text h1 {
+  font-size: var(--text-2xl);
+  color: var(--text);
   margin-bottom: var(--space-1);
-  /* The one gradient-text moment in the app: Moss's identity gradient
-   * spent on the single most-looked-at line on the screen you land on
-   * first, not smeared across every heading. */
-  background: var(--accent-gradient);
-  background-clip: text;
-  -webkit-background-clip: text;
-  color: transparent;
 }
 
-.home-greeting p {
+.home-header-text p {
   color: var(--text-muted);
   font-size: var(--text-sm);
-  /* p's own global max-width: 65ch (base.css) makes this a narrower box
-   * than the heading above; margin: 0 auto keeps that narrower box
-   * centered under it instead of flush against the flex container's left
-   * edge, same fix DigitalClock's sibling position below needs to avoid. */
-  margin: 0 auto;
+}
+
+.home-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }
 
 .home-quick-search {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-2);
-  margin-bottom: var(--space-3);
 }
 
 .home-quick-search input {
-  flex: 1;
+  flex: 1 1 16rem;
   min-width: 0;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
@@ -91,8 +67,107 @@
 
 .home-quick-links {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* Plain text links, not bordered buttons: these are secondary shortcuts
+ * next to the toolbar's real actions (search, run now), the same weight
+ * Shopify gives its page-header secondary links. */
+.home-link-btn {
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  transition: color var(--duration-quick) var(--ease-out), transform var(--duration-quick) var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .home-link-btn:hover {
+    color: var(--accent-strong);
+  }
+}
+
+.home-link-btn:active {
+  transform: scale(var(--scale-press));
+}
+
+.home-quick-links-sep {
+  color: var(--text-faint);
+  font-size: var(--text-sm);
+}
+
+/* Segmented metrics bar: one bordered surface split by hairline dividers
+ * instead of N separate floating cards, matching Shopify's Analytics
+ * summary row. */
+.home-metric-bar {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.home-metric {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4) var(--space-5);
+  border-right: 1px solid var(--border);
+}
+
+.home-metric:last-child {
+  border-right: none;
+}
+
+.home-metric-value {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.home-metric-label {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.home-metric-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+  margin-top: var(--space-1);
+}
+
+.home-metric-progress-fill {
+  height: 100%;
+  background: var(--good);
+  border-radius: 999px;
+  transition: width var(--duration-normal) var(--ease-out);
+}
+
+@media (max-width: 640px) {
+  .home-metric-bar {
+    flex-direction: column;
+  }
+  .home-metric {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .home-metric:last-child {
+    border-bottom: none;
+  }
 }
 
 /* A card per pending assessment, not a plain list row: the deadline/link
@@ -167,92 +242,60 @@
   }
 }
 
-/* The one place in the app with a constant, always-on glow: everywhere
- * else earns it only on hover/focus (see .home-next-cta below), because
- * this card is seen once per Home visit, not dozens of times a session.
- * isolation: isolate keeps ::before's negative z-index scoped to this
- * element instead of escaping into the page stack. */
-.home-next {
-  position: relative;
-  isolation: isolate;
-  background: var(--accent-soft);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-lg);
-  padding: var(--space-5);
+/* "What to do next": a plain bordered card (Polaris "setup guide" style)
+ * rather than the earlier always-glowing gradient banner — restrained
+ * enough to sit comfortably below the metrics bar as one card among
+ * several, not a hero moment competing with the header above it. */
+.home-guide {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-5);
-  transition: transform var(--duration-quick) var(--ease-snap), box-shadow var(--duration-quick) var(--ease-snap);
-}
-
-.home-next::before {
-  content: "";
-  position: absolute;
-  inset: -30% -8%;
-  z-index: -1;
-  background: radial-gradient(closest-side, color-mix(in srgb, var(--accent-3) 40%, transparent), transparent 70%)
-      12% 25% / 50% 100% no-repeat,
-    radial-gradient(closest-side, color-mix(in srgb, var(--accent-2) 40%, transparent), transparent 70%) 88% 75% /
-      50% 100% no-repeat,
-    radial-gradient(closest-side, color-mix(in srgb, var(--accent) 45%, transparent), transparent 70%) 50% 50% / 55%
-      120% no-repeat;
-  filter: blur(var(--glow-blur));
-  opacity: var(--glow-opacity);
+  gap: var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  transition: border-color var(--duration-quick) var(--ease-snap), transform var(--duration-quick) var(--ease-snap),
+    box-shadow var(--duration-quick) var(--ease-snap);
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .home-next:hover {
-    transform: translateY(-2px);
+  .home-guide:hover {
+    border-color: var(--border-strong);
+    transform: translateY(-1px);
     box-shadow: var(--shadow-lift);
   }
 }
 
-.home-next-copy h2 {
+.home-guide-icon {
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.home-guide-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.home-guide-copy h2 {
   font-size: var(--text-lg);
   margin-bottom: var(--space-1);
 }
 
-.home-next-copy p {
+.home-guide-copy p {
   font-size: var(--text-sm);
   color: var(--text-muted);
 }
 
-.home-next-cta {
+.home-guide-cta {
   flex-shrink: 0;
-  border: none;
-  background: var(--accent-gradient);
-  color: var(--accent-ink);
-  border-radius: var(--radius-md);
-  padding: var(--space-2) var(--space-5);
-  font-size: var(--text-sm);
-  font-weight: 700;
   white-space: nowrap;
-  transition: box-shadow var(--duration-quick) var(--ease-out), transform var(--duration-quick) var(--ease-snap);
-}
-
-/* A real :hover rule, not gated behind a click/focus state: this is a
- * mouse-driven desktop app, so (hover: hover) and (pointer: fine) reliably
- * matches whenever a real pointing device is present, same as every other
- * hover rule already in this file. */
-@media (hover: hover) and (pointer: fine) {
-  .home-next-cta:hover {
-    box-shadow: 0 0 0 5px var(--accent-tint-bg-hover), 0 8px 20px -8px color-mix(in srgb, var(--accent) 60%, transparent);
-  }
-}
-
-.home-next-cta:active {
-  transform: scale(var(--scale-press));
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .home-next-cta:hover {
-    box-shadow: none;
-  }
-}
-
-:root[data-reduced-motion="1"] .home-next-cta:hover {
-  box-shadow: none;
 }
 
 /* The wider dashboard (Phase 14C's original 44rem single column widened to
@@ -273,7 +316,7 @@
 }
 
 @media (max-width: 640px) {
-  .home-next {
+  .home-guide {
     flex-direction: column;
     align-items: stretch;
     text-align: left;
@@ -284,11 +327,11 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .home-next:hover {
+  .home-guide:hover {
     transform: none;
   }
 }
 
-:root[data-reduced-motion="1"] .home-next:hover {
+:root[data-reduced-motion="1"] .home-guide:hover {
   transform: none;
 }

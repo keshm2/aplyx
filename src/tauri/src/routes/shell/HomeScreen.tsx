@@ -301,23 +301,27 @@ export function HomeScreen() {
     .slice(0, 8);
 
   return (
-    <div style={{ maxWidth: "68rem", margin: "0 auto", display: "flex", flexDirection: "column", gap: "var(--space-6)" }}>
-      <div className="aplyx-fade-in home-greeting">
-        <h1>{greeting}</h1>
-        <p>
-          {signedIn ? (
-            <>
-              Signed in as <strong>{session?.user.email}</strong>.
-            </>
-          ) : (
-            "Running locally: your data stays on this machine."
-          )}
-        </p>
+    <div
+      className="home-page"
+      style={{ maxWidth: "68rem", margin: "0 auto", display: "flex", flexDirection: "column", gap: "var(--space-6)" }}
+    >
+      <header className="aplyx-fade-in home-header">
+        <div className="home-header-text">
+          <h1>{greeting}</h1>
+          <p>
+            {signedIn ? (
+              <>
+                Signed in as <strong>{session?.user.email}</strong>.
+              </>
+            ) : (
+              "Running locally: your data stays on this machine."
+            )}
+          </p>
+        </div>
         <DigitalClock hour24={hour24Clock} />
-      </div>
+      </header>
 
-      <section className="aplyx-fade-in home-quick-actions">
-        <h2 className="section-label">Quick actions</h2>
+      <section className="aplyx-fade-in home-toolbar">
         <form
           className="home-quick-search"
           onSubmit={(e) => {
@@ -333,28 +337,30 @@ export function HomeScreen() {
             placeholder="Search for a role, e.g. software engineer intern"
           />
           <button type="submit" className="btn btn-primary">Search</button>
-        </form>
-        <div className="home-quick-links">
           {source === "local" && root && (
             <button
               type="button"
-              className="btn btn-primary"
+              className="btn"
               disabled={run.phase === "checking" || run.phase === "stopping" || runStarting}
               onClick={() => void handleRunQuickAction()}
             >
               {runQuickActionLabel()}
             </button>
           )}
-          <button type="button" className="settings-action-btn" onClick={() => navigate("/app/review")}>
+        </form>
+        <nav className="home-quick-links" aria-label="Shortcuts">
+          <button type="button" className="home-link-btn" onClick={() => navigate("/app/review")}>
             Review queue{pendingQueueCount > 0 ? ` (${pendingQueueCount})` : ""}
           </button>
-          <button type="button" className="settings-action-btn" onClick={() => navigate("/app/status")}>
+          <span className="home-quick-links-sep" aria-hidden="true">·</span>
+          <button type="button" className="home-link-btn" onClick={() => navigate("/app/status")}>
             Application statuses
           </button>
-          <button type="button" className="settings-action-btn" onClick={() => navigate("/app/resumes")}>
+          <span className="home-quick-links-sep" aria-hidden="true">·</span>
+          <button type="button" className="home-link-btn" onClick={() => navigate("/app/resumes")}>
             Resumes
           </button>
-        </div>
+        </nav>
       </section>
 
       {!loaded && (
@@ -366,43 +372,43 @@ export function HomeScreen() {
       )}
 
       {loaded && state && (
-        <div className="stat-cards">
-          <div className="stat-card aplyx-fade-rise">
-            <span className="stat-value" style={{ color: "var(--good)" }}>
+        <div className="home-metric-bar aplyx-fade-rise">
+          <div className="home-metric">
+            <span className="home-metric-value" style={{ color: "var(--good)" }}>
               {state.applied.length}
             </span>
-            <span className="stat-label">Applications sent</span>
+            <span className="home-metric-label">Applications sent</span>
           </div>
-          <div className="stat-card aplyx-fade-rise">
-            <span className="stat-value" style={{ color: pendingQueueCount > 0 ? "var(--warn)" : "var(--text)" }}>
+          <div className="home-metric">
+            <span className="home-metric-value" style={{ color: pendingQueueCount > 0 ? "var(--warn)" : "var(--text)" }}>
               {pendingQueueCount}
             </span>
-            <span className="stat-label">Waiting in review queue</span>
+            <span className="home-metric-label">Waiting in review queue</span>
           </div>
-          <div className="stat-card aplyx-fade-rise">
-            <span className="stat-value">{state.registry.length}</span>
-            <span className="stat-label">Jobs seen</span>
+          <div className="home-metric">
+            <span className="home-metric-value">{state.registry.length}</span>
+            <span className="home-metric-label">Jobs seen</span>
           </div>
         </div>
       )}
 
       {loaded && source === "hosted" && hostedReadiness && (
-        <div className="stat-cards aplyx-fade-rise">
-          <div className="stat-card">
-            <span className="stat-value" style={{ color: hostedReadiness.inboxConnected ? "var(--good)" : "var(--warn)" }}>
+        <div className="home-metric-bar aplyx-fade-rise">
+          <div className="home-metric">
+            <span className="home-metric-value" style={{ color: hostedReadiness.inboxConnected ? "var(--good)" : "var(--warn)" }}>
               {hostedReadiness.inboxConnected ? "Connected" : "Action"}
             </span>
-            <span className="stat-label">Inbox: {hostedReadiness.inboxProvider ?? "not connected"}</span>
+            <span className="home-metric-label">Inbox: {hostedReadiness.inboxProvider ?? "not connected"}</span>
           </div>
-          <div className="stat-card">
-            <span className="stat-value">{verificationSessions?.length ?? 0}</span>
-            <span className="stat-label">Recent verification sessions</span>
+          <div className="home-metric">
+            <span className="home-metric-value">{verificationSessions?.length ?? 0}</span>
+            <span className="home-metric-label">Recent verification sessions</span>
           </div>
-          <div className="stat-card">
-            <span className="stat-value" style={{ color: hostedReadiness.resumeUploaded ? "var(--good)" : "var(--warn)" }}>
+          <div className="home-metric">
+            <span className="home-metric-value" style={{ color: hostedReadiness.resumeUploaded ? "var(--good)" : "var(--warn)" }}>
               {hostedReadiness.resumeUploaded ? "Ready" : "Missing"}
             </span>
-            <span className="stat-label">Hosted resume</span>
+            <span className="home-metric-label">Hosted resume</span>
           </div>
         </div>
       )}
@@ -410,25 +416,25 @@ export function HomeScreen() {
       {signedIn && onlineJobs.length > 0 && (
         <section className="aplyx-fade-in">
           <h2 className="section-label">Tracking</h2>
-          <div className="stat-cards">
-            <div className="stat-card aplyx-fade-rise">
-              <span className="stat-value">{onlineJobs.length}</span>
-              <span className="stat-label">Applications tracked</span>
+          <div className="home-metric-bar">
+            <div className="home-metric">
+              <span className="home-metric-value">{onlineJobs.length}</span>
+              <span className="home-metric-label">Applications tracked</span>
             </div>
-            <div className="stat-card aplyx-fade-rise">
-              <span className="stat-value" style={{ color: respondedCount > 0 ? "var(--good)" : "var(--text)" }}>
+            <div className="home-metric">
+              <span className="home-metric-value" style={{ color: respondedCount > 0 ? "var(--good)" : "var(--text)" }}>
                 {responseRate}%
               </span>
-              <span className="stat-label">Response rate</span>
-              <div className="stat-progress">
-                <div className="stat-progress-fill" style={{ width: `${responseRate}%` }} />
+              <span className="home-metric-label">Response rate</span>
+              <div className="home-metric-progress">
+                <div className="home-metric-progress-fill" style={{ width: `${responseRate}%` }} />
               </div>
             </div>
-            <div className="stat-card aplyx-fade-rise">
-              <span className="stat-value" style={{ color: pendingAssessments.length > 0 ? "var(--info)" : "var(--text)" }}>
+            <div className="home-metric">
+              <span className="home-metric-value" style={{ color: pendingAssessments.length > 0 ? "var(--info)" : "var(--text)" }}>
                 {pendingAssessments.length}
               </span>
-              <span className="stat-label">Assessments pending</span>
+              <span className="home-metric-label">Assessments pending</span>
             </div>
           </div>
         </section>
@@ -486,12 +492,17 @@ export function HomeScreen() {
       )}
 
       {next && (
-        <div className="home-next aplyx-fade-in">
-          <div className="home-next-copy">
+        <div className="home-guide aplyx-fade-in">
+          <div className="home-guide-icon" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 12h14M13 6l6 6-6 6" />
+            </svg>
+          </div>
+          <div className="home-guide-copy">
             <h2>{next.title}</h2>
             <p>{next.detail}</p>
           </div>
-          <button type="button" className="home-next-cta" onClick={() => navigate(next.to)}>
+          <button type="button" className="btn btn-primary home-guide-cta" onClick={() => navigate(next.to)}>
             {next.cta}
           </button>
         </div>

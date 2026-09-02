@@ -66,12 +66,6 @@
   --special: #7a5c8a;
   --special-soft: #eee7f0;
 
-  /* --- Glow: a scarce accent, not a texture. --glow-blur/--glow-opacity
-   *     tune the one ambient use: the blurred ::before behind the hero
-   *     "next action" card (HomeScreen.css's .home-next). --- */
-  --glow-blur: 20px;
-  --glow-opacity: 0.18;
-
   /* --- Type ---
    * Manrope (display) + Inter (body): Supabase's own pairing. The system
    * stack is an explicit opt-in via [data-font="system"] below rather than
@@ -200,8 +194,6 @@
     --info-soft: rgba(123, 175, 212, 0.13);
     --special: #b79ac7;
     --special-soft: rgba(183, 154, 199, 0.13);
-    --glow-blur: 42px;
-    --glow-opacity: 0.4;
     --shadow-lift: 0 20px 48px -16px rgb(0 0 0 / 0.6);
     --shadow-glow: 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent),
       0 14px 34px -10px color-mix(in srgb, var(--accent) 55%, transparent);
@@ -237,8 +229,6 @@
   --info-soft: rgba(123, 175, 212, 0.13);
   --special: #b79ac7;
   --special-soft: rgba(183, 154, 199, 0.13);
-  --glow-blur: 42px;
-  --glow-opacity: 0.4;
   --shadow-lift: 0 20px 48px -16px rgb(0 0 0 / 0.6);
   --shadow-glow: 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent),
     0 14px 34px -10px color-mix(in srgb, var(--accent) 55%, transparent);
@@ -278,8 +268,6 @@
   --info-soft: #e2ebf1;
   --special: #7a5c8a;
   --special-soft: #eee7f0;
-  --glow-blur: 20px;
-  --glow-opacity: 0.18;
   --shadow-lift: 0 16px 36px -14px rgb(40 32 20 / 0.18);
   --shadow-glow: 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent),
     0 10px 28px -10px color-mix(in srgb, var(--accent) 40%, transparent);
