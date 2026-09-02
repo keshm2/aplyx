@@ -27,3 +27,11 @@ tauri-plugin-dialog = "2.7.1"
 tauri-plugin-deep-link = "2.4.9"
 keyring = "3"
 sha2 = "0.10"
+
+[target.'cfg(any(target_os = "windows", target_os = "linux"))'.dependencies]
+# Windows/Linux route an aplyx:// deep-link click to a NEW process with the
+# URL as argv rather than into the running app. The single-instance plugin's
+# `deep-link` feature forwards that argv into the primary instance and
+# re-triggers the deep-link plugin's open-url event there, so the auth
+# callback completes in the window the user is actually looking at.
+tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }

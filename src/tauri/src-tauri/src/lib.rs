@@ -1413,17 +1413,50 @@ fn write_onboarding_completed(app: tauri::AppHandle, root: String, completed: bo
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    #[allow(unused_mut)]
+    let mut builder = tauri::Builder::default();
+
+    // Single-instance MUST be registered before every other plugin
+    // (tauri-plugin-single-instance docs). Its `deep-link` feature takes
+    // an aplyx:// URL that Windows/Linux delivered to a freshly-spawned
+    // second process, forwards it into this already-running instance, and
+    // re-fires the deep-link plugin's open-url event here, so the auth
+    // callback (src/tauri/src/lib/AuthContext.tsx) completes in the window
+    // the user is looking at instead of stranding them on a second copy of
+    // the entry screen. macOS routes the scheme to the running app itself,
+    // so it neither needs nor gets this plugin.
+    #[cfg(any(target_os = "windows", target_os = "linux"))]
+    {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            if let Some(win) = app.get_webview_window("main") {
+                let _ = win.unminimize();
+                let _ = win.show();
+                let _ = win.set_focus();
+            }
+        }));
+    }
+
+    builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         // Auth callback deep link (aplyx://auth-callback, see
-        // src/tauri/src/lib/AuthContext.tsx). Works out of the box on macOS
-        // once the app is bundled+installed. On Windows/Linux, a deep-link
-        // click spawns a NEW app instance with the URL as a CLI arg rather
-        // than routing into this one; combine with tauri-plugin-single-
-        // instance before shipping cross-platform; not added yet since
-        // this pass only needed macOS to work.
+        // src/tauri/src/lib/AuthContext.tsx). On macOS this works once the
+        // app is a bundled+installed .app. On Windows/Linux it relies on
+        // the single-instance plugin above to forward the URL into the
+        // running instance, plus the runtime register_all() in setup()
+        // below so a portable exe / `tauri dev` run owns the scheme too.
         .plugin(tauri_plugin_deep_link::init())
+        .setup(|_app| {
+            // Installed NSIS/MSI builds register the aplyx:// scheme from
+            // tauri.conf.json; a portable exe or a dev run does not.
+            // register_all() is idempotent, so doing it here covers both.
+            #[cfg(any(target_os = "windows", target_os = "linux"))]
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                let _ = _app.deep_link().register_all();
+            }
+            Ok(())
+        })
         .manage::<SearchDaemonState>(Mutex::new(None))
         .manage::<RunProcessState>(Mutex::new(None))
         .invoke_handler(tauri::generate_handler![

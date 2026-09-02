@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
-import { onOpenUrl } from "@tauri-apps/plugin-deep-link";
+import { getCurrent as getCurrentDeepLink, onOpenUrl } from "@tauri-apps/plugin-deep-link";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { SupabaseAdapter } from "@aplyx/core/adapters/supabase.js";
 import { getSupabaseClient } from "./supabaseClient";
@@ -150,7 +150,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!client) return;
     let cancelled = false;
-    const unlisten = onOpenUrl(async (urls) => {
+
+    async function completeFromCallbackUrls(urls: string[]) {
       const url = urls.find((u) => u.startsWith(AUTH_CALLBACK_URL));
       if (!url) return;
       // exchangeCodeForSession wants the bare PKCE auth code, not the full
@@ -161,11 +162,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Google/email confirmation.
       const code = new URL(url).searchParams.get("code");
       if (!code) return;
-      const { error } = await client.auth.exchangeCodeForSession(code);
+      const { error } = await client!.auth.exchangeCodeForSession(code);
       if (error && !cancelled) {
         setStatusError(errorMessage(error));
         setStatus("error");
       }
+    }
+
+    // Cold start: on Windows/Linux the OAuth redirect can launch the app
+    // fresh (user closed it during the browser round trip) with the
+    // callback URL as the sole CLI arg. onOpenUrl below only covers the
+    // already-running case, so check the startup args too.
+    getCurrentDeepLink()
+      .then((urls) => {
+        if (!cancelled && urls) void completeFromCallbackUrls(urls);
+      })
+      .catch(() => {});
+
+    const unlisten = onOpenUrl((urls) => {
+      void completeFromCallbackUrls(urls);
     });
     return () => {
       cancelled = true;

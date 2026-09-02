@@ -181,6 +181,20 @@ export function HomeScreen() {
     ? [...state.applied.map((j) => j.job_id), ...state.queue.map((j) => j.job_id)].sort().join(",")
     : "";
 
+  // A value-stable fingerprint of the registry itself, so the marquee
+  // refetches when a scheduled scrape adds new postings or the fit gate
+  // rules some out, not only when the user applies to something. Keyed on
+  // (job_id, latest_status) pairs rather than the `state` object identity:
+  // useAplyxState's 60s poll replaces `state` on every tick, but this
+  // string only changes when the registry's actual contents do, so a
+  // quiet poll still doesn't re-run the (expensive) batch fit evaluation.
+  const registrySignatureKey = state
+    ? state.registry
+        .map((r) => `${r.job_id}:${r.latest_status ?? ""}`)
+        .sort()
+        .join(",")
+    : "";
+
   // Recommended-jobs marquee: local-only, same reasoning as the profile-name
   // lookup above: a hosted-only session has no local job_registry.json or
   // Python fit gate to read from, so it simply doesn't render (see
@@ -202,9 +216,10 @@ export function HomeScreen() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately
-    // keyed on excludeJobIdsKey (value-stable) rather than `state` (a new
-    // object reference on every refresh): see the comment above.
-  }, [source, root, loaded, excludeJobIdsKey]);
+    // keyed on excludeJobIdsKey + registrySignatureKey (both value-stable)
+    // rather than `state` (a new object reference on every refresh): see
+    // the comments above.
+  }, [source, root, loaded, excludeJobIdsKey, registrySignatureKey]);
 
   // Scheduler status: local-only (the local 30-min schedule and its
   // heartbeat file live on this machine, same reasoning as the two
