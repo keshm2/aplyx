@@ -113,17 +113,96 @@
   gap: var(--space-2);
 }
 
+/* A selectable row (same border/hover/selected language as .option-card),
+ * not bare checkbox+label text: picking a level should feel like the rest
+ * of this app's choice controls, not a stock HTML form. */
 .checkbox-row {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   cursor: pointer;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: border-color var(--duration-quick) var(--ease-snap), background-color var(--duration-quick) var(--ease-snap);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  .checkbox-row:hover {
+    border-color: var(--border-strong);
+    background: var(--ground);
+  }
+}
+
+.checkbox-row:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* The checkbox itself: a custom square (appearance: none) instead of the
+ * OS-native control tinted via accent-color, so it actually reads as part
+ * of this app's own control language rather than the browser's. Checkmark
+ * is the classic border-clip "L" rotated 45deg, not an SVG/icon font, kept
+ * in proportion at this small a size. */
 .checkbox-row input[type="checkbox"] {
-  width: auto;
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex-shrink: 0;
+  width: 1.125rem;
+  height: 1.125rem;
   margin: 0;
-  accent-color: var(--accent);
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  cursor: pointer;
+  transition: background-color var(--duration-quick) var(--ease-snap), border-color var(--duration-quick) var(--ease-snap),
+    transform var(--duration-quick) var(--ease-snap);
+}
+
+.checkbox-row input[type="checkbox"]:active {
+  transform: scale(var(--scale-press));
+}
+
+.checkbox-row input[type="checkbox"]:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.checkbox-row input[type="checkbox"]:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.checkbox-row input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  left: 0.32rem;
+  top: 0.14rem;
+  width: 0.3rem;
+  height: 0.55rem;
+  border: solid var(--accent-ink);
+  border-width: 0 2px 2px 0;
+  opacity: 0;
+  transform: rotate(45deg) scale(0.5);
+  transition: opacity var(--duration-quick) var(--ease-snap), transform var(--duration-quick) var(--ease-snap);
+}
+
+.checkbox-row input[type="checkbox"]:checked::after {
+  opacity: 1;
+  transform: rotate(45deg) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .checkbox-row input[type="checkbox"],
+  .checkbox-row input[type="checkbox"]::after {
+    transition: none;
+  }
+}
+
+:root[data-reduced-motion="1"] .checkbox-row input[type="checkbox"],
+:root[data-reduced-motion="1"] .checkbox-row input[type="checkbox"]::after {
+  transition: none;
 }
 
 .checkbox-row .field-help {
