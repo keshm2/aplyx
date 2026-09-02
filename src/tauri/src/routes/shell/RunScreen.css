@@ -16,6 +16,100 @@
   font-size: var(--text-sm);
 }
 
+.run-start-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.run-start-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.run-start-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.run-start-header h2 {
+  font-size: var(--text-lg);
+}
+
+.run-start-header .field-help {
+  margin-top: var(--space-1);
+}
+
+.run-slider-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.run-slider-label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.run-slider-value {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--accent-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.run-slider-presets {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.run-preset-btn {
+  flex: 1;
+  border: 1px solid var(--border);
+  background: transparent;
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  transition: border-color var(--duration-quick) var(--ease-snap), background-color var(--duration-quick) var(--ease-snap),
+    color var(--duration-quick) var(--ease-snap), transform var(--duration-quick) var(--ease-snap);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .run-preset-btn:hover {
+    border-color: var(--border-strong);
+  }
+}
+
+.run-preset-btn:active {
+  transform: scale(var(--scale-press));
+}
+
+.run-preset-btn-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.run-start-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  align-self: flex-start;
+}
+
 .run-checklist {
   display: flex;
   flex-wrap: wrap;

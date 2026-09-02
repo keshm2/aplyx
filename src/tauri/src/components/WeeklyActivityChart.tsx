@@ -4,10 +4,13 @@ import "./WeeklyActivityChart.css";
 
 const DAYS = 14;
 const VIEW_W = 560;
-const VIEW_H = 160;
 const PAD_X = 8;
 const PAD_TOP = 16;
 const PAD_BOTTOM = 28;
+/** Left gutter reserved for y-axis tick labels: only allocated when
+ *  logScale is on, since the linear chart (Home) never drew them and
+ *  shouldn't suddenly gain a left margin. */
+const PAD_LEFT_AXIS = 20;
 
 interface DayPoint {
   date: string; // YYYY-MM-DD
@@ -15,14 +18,13 @@ interface DayPoint {
   count: number;
 }
 
-/** Applications sent per day for the last DAYS days (oldest first), derived
- *  entirely from state.applied: no bridge call needed, the data's already
- *  loaded. Days with zero applications are included (not skipped), so a
- *  quiet stretch reads as a real dip in the line, not a gap. */
-function computeDailyActivity(applied: AppliedJob[], days: number): DayPoint[] {
+/** Per-day counts for the last `days` days (oldest first) from a set of
+ *  ISO date strings, one per event. Days with zero events are included
+ *  (not skipped), so a quiet stretch reads as a real dip, not a gap. */
+function computeDailySeries(dates: string[], days: number): DayPoint[] {
   const counts = new Map<string, number>();
-  for (const job of applied) {
-    const date = (job.date_applied ?? "").slice(0, 10);
+  for (const raw of dates) {
+    const date = (raw ?? "").slice(0, 10);
     if (!date) continue;
     counts.set(date, (counts.get(date) ?? 0) + 1);
   }
@@ -64,42 +66,113 @@ function smoothPath(points: { x: number; y: number }[]): string {
   return d;
 }
 
-export function WeeklyActivityChart({ applied }: { applied: AppliedJob[] }) {
+/** "Nice" tick values for the y-axis, log or linear: a fixed candidate
+ *  ladder filtered to whatever actually fits under the current max,
+ *  always anchored at 0. Picking from a fixed ladder (rather than
+ *  computing evenly-spaced steps) keeps labels as whole, recognizable
+ *  numbers even after a log transform compresses the space between them. */
+function pickTicks(domainMax: number): number[] {
+  const ladder = [1, 2, 3, 5, 10, 15, 20, 30, 50, 75, 100];
+  const ticks = [0, ...ladder.filter((v) => v <= domainMax)];
+  if (ticks[ticks.length - 1] !== domainMax) ticks.push(domainMax);
+  return ticks;
+}
+
+export function WeeklyActivityChart({
+  applied,
+  responses,
+  compact = false,
+  logScale = false,
+}: {
+  applied: AppliedJob[];
+  /** A second series (e.g. hosted-tracked outcome updates) plotted
+   *  alongside applications sent, on the same axes. Only actually drawn
+   *  when it has at least one real data point, so a local-only session
+   *  with no hosted account silently stays single-series rather than
+   *  drawing an always-flat second line. */
+  responses?: AppliedJob[];
+  /** Shrinks the plot area (Run screen: room for a second series and a
+   *  y-axis without the chart dominating the page); Home keeps the
+   *  original larger size. */
+  compact?: boolean;
+  /** Logarithmic y-axis: lets a small "applications sent" series and a
+   *  much larger or smaller second series share one legible scale. Uses
+   *  log(count + 1) so a day with zero events still has a defined
+   *  position instead of -Infinity. */
+  logScale?: boolean;
+}) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   // Unique per mount so two instances of this chart on the same page (not
   // currently the case, but SVG gradient ids are global) never collide.
   const gradientId = useId();
 
-  const points = useMemo(() => computeDailyActivity(applied, DAYS), [applied]);
-  const maxCount = Math.max(1, ...points.map((p) => p.count));
+  const points = useMemo(() => computeDailySeries(applied.map((j) => j.date_applied), DAYS), [applied]);
+  const responsePoints = useMemo(
+    () =>
+      responses
+        ? computeDailySeries(
+            responses.filter((j) => j.outcome_status && j.outcome_status !== "applied").map((j) => j.outcome_updated_at ?? ""),
+            DAYS,
+          )
+        : [],
+    [responses],
+  );
+  const hasResponses = responsePoints.some((p) => p.count > 0);
 
-  const plotW = VIEW_W - PAD_X * 2;
+  const VIEW_H = compact ? 122 : 160;
+  const padLeft = logScale ? PAD_X + PAD_LEFT_AXIS : PAD_X;
+  const plotW = VIEW_W - padLeft - PAD_X;
   const plotH = VIEW_H - PAD_TOP - PAD_BOTTOM;
-  const coords = points.map((p, i) => ({
-    x: PAD_X + (i / (points.length - 1)) * plotW,
-    y: PAD_TOP + plotH - (p.count / maxCount) * plotH,
-  }));
+
+  const domainMax = Math.max(1, ...points.map((p) => p.count), ...(hasResponses ? responsePoints.map((p) => p.count) : []));
+  const logDomainMax = Math.log(domainMax + 1);
+
+  function scaleY(count: number): number {
+    const t = logScale ? Math.log(count + 1) / logDomainMax : count / domainMax;
+    return PAD_TOP + plotH - t * plotH;
+  }
+
+  const toCoords = (series: DayPoint[]) =>
+    series.map((p, i) => ({ x: padLeft + (i / (series.length - 1)) * plotW, y: scaleY(p.count) }));
+
+  const coords = toCoords(points);
+  const responseCoords = hasResponses ? toCoords(responsePoints) : [];
 
   const linePath = smoothPath(coords);
   const areaPath = `${linePath} L ${coords[coords.length - 1].x},${PAD_TOP + plotH} L ${coords[0].x},${PAD_TOP + plotH} Z`;
+  const responseLinePath = hasResponses ? smoothPath(responseCoords) : "";
 
   // Sparse x-axis labels: every ~3rd day plus the last, so 14 labels never
   // collide into an unreadable row.
   const labelStep = Math.ceil(points.length / 5);
 
   const total = points.reduce((sum, p) => sum + p.count, 0);
+  const ticks = logScale ? pickTicks(domainMax) : [];
 
   return (
-    <div className="activity-chart">
+    <div className={`activity-chart${compact ? " activity-chart-compact" : ""}`}>
       <div className="activity-chart-header">
         <h2 className="activity-chart-title">Weekly activity</h2>
-        <span className="activity-chart-total">{total} sent in the last {DAYS} days</span>
+        {hasResponses ? (
+          <div className="activity-chart-legend">
+            <span className="activity-chart-legend-item">
+              <span className="activity-chart-legend-swatch activity-chart-legend-swatch-a" aria-hidden="true" />
+              Sent
+            </span>
+            <span className="activity-chart-legend-item">
+              <span className="activity-chart-legend-swatch activity-chart-legend-swatch-b" aria-hidden="true" />
+              Responses
+            </span>
+          </div>
+        ) : (
+          <span className="activity-chart-total">{total} sent in the last {DAYS} days</span>
+        )}
       </div>
       <svg
         className="activity-chart-svg"
         viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
         role="img"
-        aria-label={`Applications sent per day over the last ${DAYS} days, totaling ${total}`}
+        aria-label={`Applications sent per day over the last ${DAYS} days, totaling ${total}${hasResponses ? ", plotted alongside responses received" : ""}`}
         onMouseLeave={() => setHoverIndex(null)}
       >
         {/* Moss's three-stop identity (moss → honey → clay), applied
@@ -116,20 +189,24 @@ export function WeeklyActivityChart({ applied }: { applied: AppliedJob[] }) {
           </linearGradient>
         </defs>
 
-        {/* Recessive reference lines: just enough to anchor the eye, not a full grid. */}
-        {[0, 0.5, 1].map((t) => (
-          <line
-            key={t}
-            className="activity-chart-gridline"
-            x1={PAD_X}
-            x2={VIEW_W - PAD_X}
-            y1={PAD_TOP + plotH * t}
-            y2={PAD_TOP + plotH * t}
-          />
+        {/* Recessive reference lines: plain thirds for the linear chart,
+           or one per real tick value (0, 1, 2, 5, 10, ...) once log-scaled,
+           since evenly-spaced fractions would no longer land on round
+           numbers. */}
+        {(logScale ? ticks.map((v) => scaleY(v)) : [PAD_TOP, PAD_TOP + plotH * 0.5, PAD_TOP + plotH]).map((y, i) => (
+          <line key={i} className="activity-chart-gridline" x1={padLeft} x2={VIEW_W - PAD_X} y1={y} y2={y} />
         ))}
+
+        {logScale &&
+          ticks.map((v) => (
+            <text key={v} className="activity-chart-axis-label activity-chart-axis-label-y" x={padLeft - 6} y={scaleY(v) + 3} textAnchor="end">
+              {v}
+            </text>
+          ))}
 
         <path className="activity-chart-area" d={areaPath} fill={`url(#${gradientId})`} />
         <path className="activity-chart-line" d={linePath} pathLength={1} stroke={`url(#${gradientId})`} />
+        {hasResponses && <path className="activity-chart-line-b" d={responseLinePath} pathLength={1} />}
 
         {hoverIndex !== null && (
           <line
@@ -150,6 +227,16 @@ export function WeeklyActivityChart({ applied }: { applied: AppliedJob[] }) {
             r={hoverIndex === i ? 4 : 2.5}
           />
         ))}
+        {hasResponses &&
+          responseCoords.map((c, i) => (
+            <circle
+              key={responsePoints[i].date}
+              className={`activity-chart-dot-b${hoverIndex === i ? " activity-chart-dot-b-active" : ""}`}
+              cx={c.x}
+              cy={c.y}
+              r={hoverIndex === i ? 4 : 2.5}
+            />
+          ))}
 
         {/* Hit targets bigger than the visible dots, one per day. */}
         {coords.map((c, i) => (
@@ -178,8 +265,14 @@ export function WeeklyActivityChart({ applied }: { applied: AppliedJob[] }) {
           className="activity-chart-tooltip"
           style={{ left: `${(coords[hoverIndex].x / VIEW_W) * 100}%` }}
         >
-          <strong>{points[hoverIndex].count}</strong> on{" "}
-          {new Date(points[hoverIndex].date + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+          <strong>{points[hoverIndex].count}</strong> sent
+          {hasResponses ? (
+            <>
+              {" "}
+              · <strong>{responsePoints[hoverIndex].count}</strong> responses
+            </>
+          ) : null}{" "}
+          on {new Date(points[hoverIndex].date + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}
         </div>
       )}
     </div>

@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import type { PhaseInfo } from "@aplyx/core/runProgress.js";
 import { todayIso } from "@aplyx/core/stateDerive.js";
+import { useAuth } from "../../lib/AuthContext";
 import { useAplyxState } from "../../lib/useAplyxState";
+import { useOnlineAppliedJobs } from "../../lib/useOnlineAppliedJobs";
 import { useRunState, deriveRunProgress, checkForeignRun, triggerRun, stopCurrentRun } from "../../lib/useRunState";
 import { WeeklyActivityChart } from "../../components/WeeklyActivityChart";
 import "../../components/formFields.css";
@@ -10,6 +12,7 @@ import "./RunScreen.css";
 
 const SESSION_CAP_MAX = 25;
 const EXTRA_PROMPT_MAX = 500;
+const SESSION_CAP_PRESETS = [5, 10, 15, SESSION_CAP_MAX];
 
 function formatElapsed(totalSeconds: number): string {
   const m = Math.floor(totalSeconds / 60);
@@ -40,10 +43,16 @@ function RunChecklist({ checklist }: { checklist: PhaseInfo | null }) {
  * if it was started before this screen was last mounted.
  */
 export function RunScreen() {
+  const { status: authStatus } = useAuth();
+  const signedIn = authStatus === "signed-in";
+  const { onlineJobs } = useOnlineAppliedJobs();
   const { root, source, state, loaded } = useAplyxState();
   const run = useRunState();
-  const [sessionCap, setSessionCap] = useState("");
-  const [sessionCapError, setSessionCapError] = useState<string | undefined>(undefined);
+  // 0 = no override (use the default cap from Settings); 1..SESSION_CAP_MAX
+  // is an explicit lower cap for this run only. A slider can't represent
+  // "leave blank" the way the old text input did, so 0 is its own position
+  // on the track rather than an empty string.
+  const [sessionCapValue, setSessionCapValue] = useState(0);
   const [extraPrompt, setExtraPrompt] = useState("");
   const [showRaw, setShowRaw] = useState(false);
   const [confirmStop, setConfirmStop] = useState(false);
@@ -82,16 +91,10 @@ export function RunScreen() {
   const todayLabel = new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
 
   async function handleRun() {
-    const trimmed = sessionCap.trim();
-    if (trimmed) {
-      const n = Number(trimmed);
-      if (!Number.isInteger(n) || n < 1 || n > SESSION_CAP_MAX) {
-        setSessionCapError(`Enter a whole number from 1 to ${SESSION_CAP_MAX}, or leave it blank.`);
-        return;
-      }
-    }
-    setSessionCapError(undefined);
-    await triggerRun(localRoot, { sessionCap: trimmed || undefined, extraPrompt: extraPrompt.trim() || undefined });
+    await triggerRun(localRoot, {
+      sessionCap: sessionCapValue > 0 ? String(sessionCapValue) : undefined,
+      extraPrompt: extraPrompt.trim() || undefined,
+    });
   }
 
   return (
@@ -147,47 +150,84 @@ export function RunScreen() {
         </div>
       )}
 
-      {loaded && state && state.applied.length > 0 && <WeeklyActivityChart applied={state.applied} />}
+      {loaded && state && state.applied.length > 0 && (
+        <WeeklyActivityChart applied={state.applied} responses={signedIn ? onlineJobs : undefined} compact logScale />
+      )}
 
       {(run.phase === "idle" || run.phase === "checking") && (
-        <section className="settings-section">
-          <h2 style={{ fontSize: "var(--text-lg)", marginBottom: "var(--space-3)" }}>Start a run</h2>
-          <p className="field-help">
-            Scrapes your configured boards, fit-gates, tailors a resume and cover letter, and applies:
-            up to {SESSION_CAP_MAX} applications this cycle.
-          </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)", margin: "var(--space-4) 0" }}>
-            <div className="field">
-              <label className="field-label" htmlFor="run-session-cap">
-                Session cap (optional)
-              </label>
-              <input
-                id="run-session-cap"
-                type="text"
-                inputMode="numeric"
-                placeholder={String(SESSION_CAP_MAX)}
-                value={sessionCap}
-                onChange={(e) => setSessionCap(e.currentTarget.value)}
-                style={{ maxWidth: "6rem" }}
-              />
-              <p className="field-help">Lowers this run's cap below your default in Settings. Never raises it.</p>
-              {sessionCapError ? <p className="field-help" style={{ color: "var(--danger)" }}>{sessionCapError}</p> : null}
-            </div>
-            <div className="field">
-              <label className="field-label" htmlFor="run-extra-prompt">
-                Extra instruction (optional)
-              </label>
-              <input
-                id="run-extra-prompt"
-                type="text"
-                maxLength={EXTRA_PROMPT_MAX}
-                placeholder="Focus this run without overriding the standard workflow"
-                value={extraPrompt}
-                onChange={(e) => setExtraPrompt(e.currentTarget.value)}
-              />
+        <section className="settings-section run-start-card">
+          <div className="run-start-header">
+            <span className="run-start-icon" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M6 4l14 8-14 8V4z" />
+              </svg>
+            </span>
+            <div>
+              <h2>Start a run</h2>
+              <p className="field-help">Scrapes your configured boards, fit-gates, tailors a resume and cover letter, and applies.</p>
             </div>
           </div>
-          <button type="button" className="settings-action-btn" disabled={run.phase === "checking"} onClick={() => void handleRun()}>
+
+          <div className="run-slider-block">
+            <div className="run-slider-label-row">
+              <span className="field-label">Session cap</span>
+              <span className="run-slider-value">{sessionCapValue === 0 ? "Default" : sessionCapValue}</span>
+            </div>
+            <input
+              type="range"
+              className="aplyx-slider"
+              min={0}
+              max={SESSION_CAP_MAX}
+              value={sessionCapValue}
+              aria-label="Session cap"
+              style={{ ["--slider-fill" as string]: `${(sessionCapValue / SESSION_CAP_MAX) * 100}%` }}
+              onChange={(e) => setSessionCapValue(Number(e.currentTarget.value))}
+            />
+            <div className="run-slider-presets">
+              <button
+                type="button"
+                className={sessionCapValue === 0 ? "run-preset-btn run-preset-btn-active" : "run-preset-btn"}
+                onClick={() => setSessionCapValue(0)}
+              >
+                Default
+              </button>
+              {SESSION_CAP_PRESETS.map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  className={sessionCapValue === n ? "run-preset-btn run-preset-btn-active" : "run-preset-btn"}
+                  onClick={() => setSessionCapValue(n)}
+                >
+                  {n === SESSION_CAP_MAX ? "Max" : n}
+                </button>
+              ))}
+            </div>
+            <p className="field-help">Lowers this run's cap below your default in Settings. Never raises it.</p>
+          </div>
+
+          <div className="field">
+            <label className="field-label" htmlFor="run-extra-prompt">
+              Extra instruction (optional)
+            </label>
+            <input
+              id="run-extra-prompt"
+              type="text"
+              maxLength={EXTRA_PROMPT_MAX}
+              placeholder="Focus this run without overriding the standard workflow"
+              value={extraPrompt}
+              onChange={(e) => setExtraPrompt(e.currentTarget.value)}
+            />
+          </div>
+
+          <button
+            type="button"
+            className="btn btn-primary run-start-cta"
+            disabled={run.phase === "checking"}
+            onClick={() => void handleRun()}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M6 4l14 8-14 8V4z" />
+            </svg>
             {run.phase === "checking" ? "Checking…" : "Run now"}
           </button>
         </section>
