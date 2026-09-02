@@ -67,9 +67,10 @@
   --special-soft: #eee7f0;
 
   /* --- Type ---
-   * Manrope (display) + Inter (body): Supabase's own pairing. The system
-   * stack is an explicit opt-in via [data-font="system"] below rather than
-   * the default (see uiPrefs.ts's applyUiPrefs). */
+   * Manrope (display) + Inter (body): Supabase's own pairing, and the
+   * app's only typeface now. The user-facing font picker (and its five
+   * alternate bundled faces) was removed 2026-09-02 — one deliberate
+   * pairing, not a preference. */
   --font-display: "Manrope", system-ui, -apple-system, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial,
     sans-serif;
   --font-body: "Inter", system-ui, -apple-system, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial,
@@ -272,42 +273,6 @@
   --shadow-glow: 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent),
     0 10px 28px -10px color-mix(in srgb, var(--accent) 40%, transparent);
   --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
-}
-
-/* Font preference (Settings → Appearance). Each option swaps the whole
- * UI, body, headlines, and (where the family ships one) mono, onto its
- * bundled variable face (see base.css @font-face); default is the
- * Manrope + Inter pairing above. The other four are the pre-existing
- * directions from docs/ui-development-plan.md's Priority 4: Inter
- * (dense/tabular product UI) and IBM Plex (enterprise/analytical tone)
- * keep the system mono stack except Plex, which pairs with its own IBM
- * Plex Mono; Atkinson Hyperlegible Next (accessibility/readability-first)
- * does the same. */
-:root[data-font="system"] {
-  --font-display: ui-serif, Georgia, "Iowan Old Style", "Palatino Linotype", "URW Palladio L", serif;
-  --font-body: ui-sans-serif, -apple-system, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-}
-
-:root[data-font="geist"] {
-  --font-display: "Geist", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-body: "Geist", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-mono: "Geist Mono", "SFMono-Regular", Consolas, monospace;
-}
-
-:root[data-font="inter"] {
-  --font-display: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-body: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
-
-:root[data-font="plex"] {
-  --font-display: "IBM Plex Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-body: "IBM Plex Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
-}
-
-:root[data-font="atkinson"] {
-  --font-display: "Atkinson Hyperlegible Next", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-body: "Atkinson Hyperlegible Next", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 @media (prefers-reduced-motion: reduce) {

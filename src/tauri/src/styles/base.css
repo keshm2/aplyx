@@ -1,85 +1,27 @@
 @import "./tokens.css";
 @import "./motion.css";
 
-/* Geist + Geist Mono (SIL OFL 1.1, bundled from the `geist` npm package,
- * no CDN fetch, works fully offline). Loaded lazily: nothing references
- * these families unless the user picks the Geist font option in Settings
- * (data-font="geist" on the root). */
-@font-face {
-  font-family: "Geist";
-  src: url("../assets/fonts/Geist-Variable.woff2") format("woff2");
-  font-weight: 100 900;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Geist Mono";
-  src: url("../assets/fonts/GeistMono-Variable.woff2") format("woff2");
-  font-weight: 100 900;
-  font-style: normal;
-  font-display: swap;
-}
-
-/* Inter, IBM Plex Sans/Mono, Atkinson Hyperlegible Next: the other font
- * directions from docs/ui-development-plan.md's Priority 4, each bundled
- * the same way as Geist above (OFL-licensed, self-hosted via @fontsource,
- * no CDN fetch, picked in Settings via data-font). Subset to the latin
- * unicode-range @fontsource ships for each family: smaller offline
- * bundle than Geist's unsubset file; anything outside that range falls
- * back to the next family in the stack, which only matters for non-Latin
- * text this app doesn't otherwise localize into. */
-@font-face {
-  font-family: "Inter";
-  src: url("../assets/fonts/Inter-Variable.woff2") format("woff2");
-  font-weight: 100 900;
-  font-style: normal;
-  font-display: swap;
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
-    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
-@font-face {
-  font-family: "IBM Plex Sans";
-  src: url("../assets/fonts/IBMPlexSans-Variable.woff2") format("woff2");
-  font-weight: 100 700;
-  font-style: normal;
-  font-display: swap;
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
-    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
-@font-face {
-  font-family: "IBM Plex Mono";
-  src: url("../assets/fonts/IBMPlexMono-Regular.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
-    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
-@font-face {
-  font-family: "Atkinson Hyperlegible Next";
-  src: url("../assets/fonts/AtkinsonHyperlegibleNext-Variable.woff2") format("woff2");
-  font-weight: 200 800;
-  font-style: normal;
-  font-display: swap;
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
-    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
-/* Manrope: the new default display/heading face (operator-directed,
- * 2026-08-10: "match the Supabase font"). Supabase's own marketing site
- * pairs Manrope (headings) with Inter (body), confirmed by inspecting
- * its shipped @font-face rules, not guessed. Inter above already covers
- * the body half of that pairing; this adds the missing display half.
- * Same bundling as every other face here: OFL-licensed, self-hosted via
- * @fontsource-variable/manrope, no CDN fetch. */
+/* The app's two faces: Manrope (display/headings) + Inter (body), Supabase's
+ * own pairing. Both OFL-licensed, self-hosted (via @fontsource), no CDN
+ * fetch, works fully offline. Subset to the latin unicode-range @fontsource
+ * ships; text outside that range falls back down the system stack, which
+ * only matters for scripts this app doesn't localize into. The five
+ * alternate bundled faces + the font picker were removed 2026-09-02 —
+ * one deliberate pairing, not a preference. */
 @font-face {
   font-family: "Manrope";
   src: url("../assets/fonts/Manrope-Variable.woff2") format("woff2");
   font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("../assets/fonts/Inter-Variable.woff2") format("woff2");
+  font-weight: 100 900;
   font-style: normal;
   font-display: swap;
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,

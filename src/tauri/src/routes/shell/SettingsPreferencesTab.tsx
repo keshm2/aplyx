@@ -12,11 +12,10 @@ import {
   readEnvOverride,
   writeEnvOverride,
 } from "../../lib/bridge";
-import { useUiPrefs, FONT_LABELS, type FontPref, type ThemePref } from "../../lib/uiPrefs";
+import { useUiPrefs, type ThemePref } from "../../lib/uiPrefs";
 import { useExecutionModePref } from "../../lib/executionModePref";
 import { useBoolEnvPref } from "../../lib/useEnvPref";
 import { applyReducedMotionAttr } from "../../lib/reducedMotion";
-import { Dropdown } from "../../components/Dropdown";
 import { Switch } from "../../components/Switch";
 import { HarnessPicker } from "../../components/HarnessPicker";
 import { DiscordSettings } from "../../components/DiscordSettings";
@@ -39,15 +38,6 @@ const THEME_OPTIONS: { value: ThemePref; label: string; detail: string }[] = [
   { value: "dark", label: "Dark", detail: "Always dark" },
 ];
 
-const FONT_OPTIONS: { value: FontPref; detail: string }[] = [
-  { value: "manrope", detail: "Bundled Manrope + Inter: the default; Supabase's own display + body pairing" },
-  { value: "system", detail: "Your OS's native UI font" },
-  { value: "geist", detail: "Bundled Geist + Geist Mono: modern, technical-product feel" },
-  { value: "inter", detail: "Bundled Inter: strong for dense, tabular product UI" },
-  { value: "plex", detail: "Bundled IBM Plex Sans + Plex Mono: enterprise, analytical tone" },
-  { value: "atkinson", detail: "Bundled Atkinson Hyperlegible Next: accessibility- and readability-first" },
-];
-
 /** Preferences tab: appearance, which coding agent runs your applies, run
  *  defaults, Discord notifications, and the background scheduler: every
  *  knob that shapes how a run behaves rather than who's signed in or
@@ -55,7 +45,7 @@ const FONT_OPTIONS: { value: FontPref; detail: string }[] = [
 export function SettingsPreferencesTab() {
   const { status } = useAuth();
   const { root } = useOutletContext<SettingsOutletContext>();
-  const { theme, font, setTheme, setFont } = useUiPrefs();
+  const { theme, setTheme } = useUiPrefs();
   const [schedulerStatus, setSchedulerStatus] = useState<SchedulerStatus | undefined>(undefined);
   const [schedulerBusy, setSchedulerBusy] = useState(false);
   // Which direction the in-flight toggle is headed: lets the busy-state
@@ -202,19 +192,6 @@ export function SettingsPreferencesTab() {
               ))}
             </div>
             <p className="field-help">System follows your OS and switches automatically; Light/Dark pin it.</p>
-          </div>
-          <div className="field">
-            <span className="field-label">Font</span>
-            <Dropdown
-              value={font}
-              onChange={setFont}
-              label="Font"
-              options={FONT_OPTIONS.map((opt) => ({ value: opt.value, label: FONT_LABELS[opt.value] }))}
-            />
-            <p className="field-help">
-              {FONT_OPTIONS.find((o) => o.value === font)?.detail} Bundled fonts apply to the
-              whole interface, including headlines and code: no download, works offline.
-            </p>
           </div>
           {root && (
             <div className="field">
