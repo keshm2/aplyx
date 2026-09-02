@@ -259,12 +259,17 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Letter-spacing is size-specific, never one flat value (The Details of
+   UI Typography, WWDC20): tight tracking that reads right on a 3.5rem
+   hero reads cramped on a 1.125rem card heading. No default here; every
+   concrete heading selector below sets its own tracking, tiered to its
+   own font-size (-0.02em at --text-4xl down to -0.002em at --text-lg;
+   normal/0 below that). */
 h1,
 h2,
 h3 {
   font-family: var(--font-display);
   font-weight: 750;
-  letter-spacing: -0.02em;
   line-height: var(--leading-tight);
   margin: 0;
 }
@@ -1464,6 +1469,7 @@ button {
 .showcase-copy h3 {
   font-size: var(--text-xl);
   font-family: var(--font-body);
+  letter-spacing: -0.006em;
 }
 
 .showcase-copy p {
@@ -1632,6 +1638,7 @@ button {
 
 .step h3 {
   font-size: var(--text-lg);
+  letter-spacing: -0.002em;
 }
 
 .step p {
@@ -1683,6 +1690,7 @@ button {
 
 .review-demo-copy h2 {
   font-size: var(--text-2xl);
+  letter-spacing: -0.01em;
 }
 
 .review-demo-copy p {
@@ -1947,6 +1955,7 @@ button {
 
 .faq-item h3 {
   font-size: var(--text-lg);
+  letter-spacing: -0.002em;
 }
 
 .faq-chevron {
@@ -2012,6 +2021,7 @@ button {
 
 .page-hero h1 {
   font-size: var(--text-3xl);
+  letter-spacing: -0.014em;
 }
 
 .page-hero p {
@@ -2032,6 +2042,7 @@ button {
 
 .prose h2 {
   font-size: var(--text-xl);
+  letter-spacing: -0.006em;
   margin-top: var(--space-8);
 }
 
@@ -2203,6 +2214,7 @@ button {
 
 .feature-row h3 {
   font-size: var(--text-lg);
+  letter-spacing: -0.002em;
 }
 
 .feature-row p {
@@ -2586,6 +2598,7 @@ button {
 
 .local-section-head h2 {
   font-size: var(--text-2xl);
+  letter-spacing: -0.01em;
 }
 
 .local-section-head p {
@@ -2652,6 +2665,7 @@ button {
 
 .usage-hook h2 {
   font-size: var(--text-xl);
+  letter-spacing: -0.006em;
 }
 
 .usage-hook p {
@@ -2666,6 +2680,7 @@ button {
 
 .pricing-hero h1 {
   font-size: var(--text-3xl);
+  letter-spacing: -0.014em;
 }
 
 .pricing-hero p {
@@ -2699,6 +2714,7 @@ button {
 
 .pricing-section-head h2 {
   font-size: var(--text-2xl);
+  letter-spacing: -0.01em;
 }
 
 .pricing-grid {
@@ -2770,6 +2786,7 @@ button {
 
 .price-card h3 {
   font-size: var(--text-lg);
+  letter-spacing: -0.002em;
 }
 
 .price-card-tagline {
@@ -3490,7 +3507,15 @@ button {
   font-weight: 650;
   font-size: var(--text-sm);
   cursor: pointer;
-  transition: background var(--duration-quick) var(--ease-out), color var(--duration-quick) var(--ease-out);
+  transition:
+    background var(--duration-quick) var(--ease-out),
+    color var(--duration-quick) var(--ease-out),
+    transform var(--duration-normal) var(--ease-press-release);
+}
+
+.account-tab:active {
+  transform: scale(0.96);
+  transition: transform var(--duration-press) var(--ease-press);
 }
 
 .account-tab.is-active {
@@ -3545,6 +3570,7 @@ button {
 .ats-account-form-section h2 {
   margin-bottom: var(--space-4);
   font-size: var(--text-lg);
+  letter-spacing: -0.002em;
 }
 
 .account-message {
@@ -3625,11 +3651,20 @@ button {
   font-size: var(--text-xs);
   font-weight: 600;
   cursor: pointer;
-  transition: border-color var(--duration-quick) var(--ease-out), color var(--duration-quick) var(--ease-out), background var(--duration-quick) var(--ease-out);
+  transition:
+    border-color var(--duration-quick) var(--ease-out),
+    color var(--duration-quick) var(--ease-out),
+    background var(--duration-quick) var(--ease-out),
+    transform var(--duration-normal) var(--ease-press-release);
 }
 
 .job-source-chip:hover {
   border-color: var(--accent);
+}
+
+.job-source-chip:active {
+  transform: scale(0.94);
+  transition: transform var(--duration-press) var(--ease-press);
 }
 
 .job-source-chip.is-active {
@@ -3811,7 +3846,10 @@ button {
   font-weight: 600;
   text-align: left;
   cursor: pointer;
-  transition: background var(--duration-quick) var(--ease-out), color var(--duration-quick) var(--ease-out);
+  transition:
+    background var(--duration-quick) var(--ease-out),
+    color var(--duration-quick) var(--ease-out),
+    transform var(--duration-normal) var(--ease-press-release);
 }
 
 .dashboard-nav-item svg {
@@ -3823,6 +3861,11 @@ button {
 .dashboard-nav-item:hover {
   background: var(--surface-raised);
   color: var(--text);
+}
+
+.dashboard-nav-item:active {
+  transform: scale(0.97);
+  transition: transform var(--duration-press) var(--ease-press);
 }
 
 .dashboard-nav-item.is-active {
@@ -3942,6 +3985,7 @@ button {
 .setup-step h2 {
   margin-bottom: var(--space-2);
   font-size: var(--text-xl);
+  letter-spacing: -0.006em;
 }
 
 /* Each step arrives with the same fade+rise .changelog-entry-in already
@@ -4113,6 +4157,7 @@ button {
 
 .activity-section h2 {
   font-size: var(--text-lg);
+  letter-spacing: -0.002em;
 }
 
 .activity-section-head {
@@ -4131,6 +4176,19 @@ button {
   font-size: var(--text-xs);
   font-weight: 600;
   cursor: pointer;
+  transition:
+    border-color var(--duration-quick) var(--ease-out),
+    color var(--duration-quick) var(--ease-out),
+    transform var(--duration-normal) var(--ease-press-release);
+}
+
+.activity-toggle:hover {
+  border-color: var(--border-strong);
+}
+
+.activity-toggle:active {
+  transform: scale(0.94);
+  transition: transform var(--duration-press) var(--ease-press);
 }
 
 .activity-toggle[aria-pressed="true"] {
@@ -4396,12 +4454,23 @@ button {
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  transition: color var(--duration-quick) var(--ease-out-expo), background var(--duration-quick) var(--ease-out-expo);
+  transition:
+    color var(--duration-quick) var(--ease-out-expo),
+    background var(--duration-quick) var(--ease-out-expo),
+    transform var(--duration-normal) var(--ease-press-release);
 }
 
 .datepicker-toggle:hover {
   color: var(--text);
   background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.datepicker-toggle:active {
+  /* Composes with the base rule's translateY(-50%) vertical centering:
+     without it, a plain transform: scale() here would override the
+     centering and the icon would jump to the box's top edge on press. */
+  transform: translateY(-50%) scale(0.88);
+  transition: transform var(--duration-press) var(--ease-press);
 }
 
 .datepicker-pop {
@@ -4743,6 +4812,7 @@ button {
 .ext-install h2 {
   text-align: center;
   font-size: var(--text-2xl);
+  letter-spacing: -0.01em;
 }
 
 .ext-boards {

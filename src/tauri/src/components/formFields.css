@@ -177,12 +177,16 @@
   background: transparent;
   color: var(--text-muted, var(--text));
   cursor: pointer;
-  transition: color 120ms ease, background 120ms ease;
+  transition: color 120ms ease, background 120ms ease, transform 90ms cubic-bezier(0.3, 0, 0.2, 1);
 }
 
 .datepicker-toggle:hover {
   color: var(--text);
   background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.datepicker-toggle:active {
+  transform: scale(0.88);
 }
 
 .datepicker-pop {
