@@ -6,8 +6,8 @@
   position: relative;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-5);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
 }
 
 /* Settings' own tab bar (SettingsShell.tsx), styled like AuthScreen's

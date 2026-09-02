@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { PhaseInfo } from "@aplyx/core/runProgress.js";
+import { todayIso } from "@aplyx/core/stateDerive.js";
 import { useAplyxState } from "../../lib/useAplyxState";
 import { useRunState, deriveRunProgress, checkForeignRun, triggerRun, stopCurrentRun } from "../../lib/useRunState";
+import { WeeklyActivityChart } from "../../components/WeeklyActivityChart";
 import "../../components/formFields.css";
-import "../../components/dataList.css"; // .status-badge*
+import "../../components/dataList.css"; // .status-badge*, .metric-bar*
 import "./RunScreen.css";
 
 const SESSION_CAP_MAX = 25;
@@ -38,7 +40,7 @@ function RunChecklist({ checklist }: { checklist: PhaseInfo | null }) {
  * if it was started before this screen was last mounted.
  */
 export function RunScreen() {
-  const { root, source } = useAplyxState();
+  const { root, source, state, loaded } = useAplyxState();
   const run = useRunState();
   const [sessionCap, setSessionCap] = useState("");
   const [sessionCapError, setSessionCapError] = useState<string | undefined>(undefined);
@@ -76,6 +78,8 @@ export function RunScreen() {
 
   const { checklist, currentApplication } = deriveRunProgress(run);
   const localRoot = root;
+  const appliedToday = state ? state.applied.filter((j) => j.date_applied === todayIso()).length : 0;
+  const todayLabel = new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
 
   async function handleRun() {
     const trimmed = sessionCap.trim();
@@ -91,8 +95,59 @@ export function RunScreen() {
   }
 
   return (
-    <div style={{ maxWidth: "48rem", margin: "0 auto", display: "flex", flexDirection: "column", gap: "var(--space-6)" }}>
-      <h1 style={{ fontSize: "var(--text-3xl)" }}>Run</h1>
+    <div style={{ maxWidth: "48rem", margin: "0 auto", display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
+      <header className="run-header">
+        <div className="run-header-text">
+          <h1>Run</h1>
+          <p>{todayLabel}</p>
+        </div>
+      </header>
+
+      {loaded && state && (
+        <div className="metric-bar aplyx-fade-rise">
+          <div className="metric">
+            <div className="metric-top">
+              <span className="metric-icon metric-icon-good" aria-hidden="true">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="22" y1="2" x2="11" y2="13" />
+                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                </svg>
+              </span>
+              <span className="metric-label">Applied today</span>
+            </div>
+            <span className="metric-value" style={{ color: "var(--good)" }}>
+              {appliedToday}
+            </span>
+          </div>
+          <div className="metric">
+            <div className="metric-top">
+              <span className="metric-icon metric-icon-neutral" aria-hidden="true">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 7v9M8 3h8" />
+                </svg>
+              </span>
+              <span className="metric-label">Session cap</span>
+            </div>
+            <span className="metric-value">{SESSION_CAP_MAX}</span>
+            <span className="metric-caption">Max applications per run</span>
+          </div>
+          <div className="metric">
+            <div className="metric-top">
+              <span className="metric-icon metric-icon-neutral" aria-hidden="true">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </span>
+              <span className="metric-label">All-time applications</span>
+            </div>
+            <span className="metric-value">{state.applied.length}</span>
+          </div>
+        </div>
+      )}
+
+      {loaded && state && state.applied.length > 0 && <WeeklyActivityChart applied={state.applied} />}
 
       {(run.phase === "idle" || run.phase === "checking") && (
         <section className="settings-section">

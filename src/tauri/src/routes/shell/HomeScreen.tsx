@@ -402,70 +402,70 @@ export function HomeScreen() {
       )}
 
       {loaded && state && (
-        <div className="home-metric-bar aplyx-fade-rise">
-          <div className="home-metric">
-            <div className="home-metric-top">
-              <span className="home-metric-icon home-metric-icon-good" aria-hidden="true">
+        <div className="metric-bar aplyx-fade-rise">
+          <div className="metric">
+            <div className="metric-top">
+              <span className="metric-icon metric-icon-good" aria-hidden="true">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="22" y1="2" x2="11" y2="13" />
                   <polygon points="22 2 15 22 11 13 2 9 22 2" />
                 </svg>
               </span>
-              <span className="home-metric-label">Applications sent</span>
+              <span className="metric-label">Applications sent</span>
             </div>
-            <span className="home-metric-value" style={{ color: "var(--good)" }}>
+            <span className="metric-value" style={{ color: "var(--good)" }}>
               {state.applied.length}
             </span>
-            {lastAppliedDate && <span className="home-metric-caption">Last sent {formatShortDate(lastAppliedDate)}</span>}
+            {lastAppliedDate && <span className="metric-caption">Last sent {formatShortDate(lastAppliedDate)}</span>}
           </div>
-          <div className="home-metric">
-            <div className="home-metric-top">
-              <span className={`home-metric-icon ${pendingQueueCount > 0 ? "home-metric-icon-warn" : "home-metric-icon-neutral"}`} aria-hidden="true">
+          <div className="metric">
+            <div className="metric-top">
+              <span className={`metric-icon ${pendingQueueCount > 0 ? "metric-icon-warn" : "metric-icon-neutral"}`} aria-hidden="true">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="9" />
                   <path d="M12 7v5l3 3" />
                 </svg>
               </span>
-              <span className="home-metric-label">Waiting in review queue</span>
+              <span className="metric-label">Waiting in review queue</span>
             </div>
-            <span className="home-metric-value" style={{ color: pendingQueueCount > 0 ? "var(--warn)" : "var(--text)" }}>
+            <span className="metric-value" style={{ color: pendingQueueCount > 0 ? "var(--warn)" : "var(--text)" }}>
               {pendingQueueCount}
             </span>
-            {avgPendingScore !== undefined && <span className="home-metric-caption">Avg fit score {avgPendingScore}</span>}
+            {avgPendingScore !== undefined && <span className="metric-caption">Avg fit score {avgPendingScore}</span>}
           </div>
-          <div className="home-metric">
-            <div className="home-metric-top">
-              <span className="home-metric-icon home-metric-icon-neutral" aria-hidden="true">
+          <div className="metric">
+            <div className="metric-top">
+              <span className="metric-icon metric-icon-neutral" aria-hidden="true">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                   <circle cx="12" cy="12" r="3" />
                 </svg>
               </span>
-              <span className="home-metric-label">Jobs seen</span>
+              <span className="metric-label">Jobs seen</span>
             </div>
-            <span className="home-metric-value">{state.registry.length}</span>
-            {state.registry.length > 0 && <span className="home-metric-caption">{candidateJobsSeen} still in play</span>}
+            <span className="metric-value">{state.registry.length}</span>
+            {state.registry.length > 0 && <span className="metric-caption">{candidateJobsSeen} still in play</span>}
           </div>
         </div>
       )}
 
       {loaded && source === "hosted" && hostedReadiness && (
-        <div className="home-metric-bar aplyx-fade-rise">
-          <div className="home-metric">
-            <span className="home-metric-value" style={{ color: hostedReadiness.inboxConnected ? "var(--good)" : "var(--warn)" }}>
+        <div className="metric-bar aplyx-fade-rise">
+          <div className="metric">
+            <span className="metric-value" style={{ color: hostedReadiness.inboxConnected ? "var(--good)" : "var(--warn)" }}>
               {hostedReadiness.inboxConnected ? "Connected" : "Action"}
             </span>
-            <span className="home-metric-label">Inbox: {hostedReadiness.inboxProvider ?? "not connected"}</span>
+            <span className="metric-label">Inbox: {hostedReadiness.inboxProvider ?? "not connected"}</span>
           </div>
-          <div className="home-metric">
-            <span className="home-metric-value">{verificationSessions?.length ?? 0}</span>
-            <span className="home-metric-label">Recent verification sessions</span>
+          <div className="metric">
+            <span className="metric-value">{verificationSessions?.length ?? 0}</span>
+            <span className="metric-label">Recent verification sessions</span>
           </div>
-          <div className="home-metric">
-            <span className="home-metric-value" style={{ color: hostedReadiness.resumeUploaded ? "var(--good)" : "var(--warn)" }}>
+          <div className="metric">
+            <span className="metric-value" style={{ color: hostedReadiness.resumeUploaded ? "var(--good)" : "var(--warn)" }}>
               {hostedReadiness.resumeUploaded ? "Ready" : "Missing"}
             </span>
-            <span className="home-metric-label">Hosted resume</span>
+            <span className="metric-label">Hosted resume</span>
           </div>
         </div>
       )}
@@ -473,25 +473,25 @@ export function HomeScreen() {
       {signedIn && onlineJobs.length > 0 && (
         <section className="aplyx-fade-in">
           <h2 className="section-label">Tracking</h2>
-          <div className="home-metric-bar">
-            <div className="home-metric">
-              <span className="home-metric-value">{onlineJobs.length}</span>
-              <span className="home-metric-label">Applications tracked</span>
+          <div className="metric-bar">
+            <div className="metric">
+              <span className="metric-value">{onlineJobs.length}</span>
+              <span className="metric-label">Applications tracked</span>
             </div>
-            <div className="home-metric">
-              <span className="home-metric-value" style={{ color: respondedCount > 0 ? "var(--good)" : "var(--text)" }}>
+            <div className="metric">
+              <span className="metric-value" style={{ color: respondedCount > 0 ? "var(--good)" : "var(--text)" }}>
                 {responseRate}%
               </span>
-              <span className="home-metric-label">Response rate</span>
-              <div className="home-metric-progress">
-                <div className="home-metric-progress-fill" style={{ width: `${responseRate}%` }} />
+              <span className="metric-label">Response rate</span>
+              <div className="metric-progress">
+                <div className="metric-progress-fill" style={{ width: `${responseRate}%` }} />
               </div>
             </div>
-            <div className="home-metric">
-              <span className="home-metric-value" style={{ color: pendingAssessments.length > 0 ? "var(--info)" : "var(--text)" }}>
+            <div className="metric">
+              <span className="metric-value" style={{ color: pendingAssessments.length > 0 ? "var(--info)" : "var(--text)" }}>
                 {pendingAssessments.length}
               </span>
-              <span className="home-metric-label">Assessments pending</span>
+              <span className="metric-label">Assessments pending</span>
             </div>
           </div>
         </section>

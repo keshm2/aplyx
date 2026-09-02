@@ -3,6 +3,7 @@ import { PAGES } from "@aplyx/core/onboarding/fields.js";
 import { findRoot, hasLocalInstall, readProfileFields, writeProfileFields } from "../../lib/bridge";
 import { FieldInput } from "../../components/FieldInput";
 import "../../components/formFields.css";
+import "./ProfileScreen.css";
 
 type FieldValue = string | string[];
 
@@ -20,6 +21,7 @@ export function ProfileScreen() {
   const [saving, setSaving] = useState<number | undefined>(undefined);
   const [savedAt, setSavedAt] = useState<Record<number, boolean>>({});
   const [error, setError] = useState<string | undefined>(undefined);
+  const [activeIndex, setActiveIndex] = useState(0);
 
   useEffect(() => {
     hasLocalInstall()
@@ -70,11 +72,13 @@ export function ProfileScreen() {
     );
   }
 
+  const activePage = PAGES[activeIndex];
+
   return (
-    <div style={{ maxWidth: "42rem", margin: "0 auto", display: "flex", flexDirection: "column", gap: "var(--space-6)" }}>
+    <div style={{ maxWidth: "58rem", margin: "0 auto", display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
       <div>
-        <h1 style={{ fontSize: "var(--text-3xl)", marginBottom: "var(--space-2)" }}>Profile</h1>
-        <p style={{ color: "var(--text-muted)" }}>
+        <h1 style={{ fontSize: "var(--text-2xl)", marginBottom: "var(--space-1)" }}>Profile</h1>
+        <p style={{ color: "var(--text-muted)", fontSize: "var(--text-sm)" }}>
           Everything you set up during onboarding, editable here. Nothing requires redoing setup.
         </p>
       </div>
@@ -84,11 +88,25 @@ export function ProfileScreen() {
       {!loaded ? (
         <p className="field-help">Loading&hellip;</p>
       ) : (
-        PAGES.map((page, pageIndex) => (
-          <section key={page.title} className="settings-section">
-            <h2 style={{ fontSize: "var(--text-lg)", marginBottom: "var(--space-3)" }}>{page.title}</h2>
+        <div className="profile-layout">
+          <nav className="profile-nav" aria-label="Profile sections">
+            {PAGES.map((page, pageIndex) => (
+              <button
+                key={page.title}
+                type="button"
+                className={pageIndex === activeIndex ? "profile-nav-item profile-nav-item-active" : "profile-nav-item"}
+                onClick={() => setActiveIndex(pageIndex)}
+              >
+                {page.title}
+                {savedAt[pageIndex] && <span className="profile-nav-saved" aria-hidden="true">✓</span>}
+              </button>
+            ))}
+          </nav>
+
+          <section className="settings-section profile-panel">
+            <h2 style={{ fontSize: "var(--text-lg)", marginBottom: "var(--space-3)" }}>{activePage.title}</h2>
             <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
-              {page.fields.map((field) => (
+              {activePage.fields.map((field) => (
                 <FieldInput
                   key={field.id}
                   field={field}
@@ -102,15 +120,15 @@ export function ProfileScreen() {
               <button
                 type="button"
                 className="btn btn-primary btn-sm"
-                disabled={saving === pageIndex}
-                onClick={() => void savePage(pageIndex)}
+                disabled={saving === activeIndex}
+                onClick={() => void savePage(activeIndex)}
               >
-                {saving === pageIndex ? "Saving…" : "Save"}
+                {saving === activeIndex ? "Saving…" : "Save"}
               </button>
-              {savedAt[pageIndex] ? <span className="field-help">Saved.</span> : null}
+              {savedAt[activeIndex] ? <span className="field-help">Saved.</span> : null}
             </div>
           </section>
-        ))
+        </div>
       )}
     </div>
   );

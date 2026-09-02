@@ -18,8 +18,8 @@
   isolation: isolate;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-5);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
@@ -94,6 +94,114 @@
 
 :root[data-reduced-motion="1"] .stat-card:hover {
   transform: none;
+}
+
+/* Segmented metrics bar: one bordered surface split by hairline dividers
+ * instead of N separate floating .stat-cards, matching Shopify's
+ * Analytics summary row. Shared across screens (Home, Run, ...) rather
+ * than scoped to one, since any screen with a handful of at-a-glance
+ * numbers wants the same treatment. */
+.metric-bar {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.metric {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border-right: 1px solid var(--border);
+}
+
+.metric:last-child {
+  border-right: none;
+}
+
+.metric-top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.metric-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: var(--radius-sm);
+}
+
+.metric-icon-good {
+  background: var(--good-soft);
+  color: var(--good);
+}
+
+.metric-icon-warn {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.metric-icon-neutral {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.metric-value {
+  font-family: var(--font-mono);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.metric-label {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.metric-caption {
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+}
+
+.metric-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+  margin-top: var(--space-1);
+}
+
+.metric-progress-fill {
+  height: 100%;
+  background: var(--good);
+  border-radius: 999px;
+  transition: width var(--duration-normal) var(--ease-out);
+}
+
+@media (max-width: 640px) {
+  .metric-bar {
+    flex-direction: column;
+  }
+  .metric {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .metric:last-child {
+    border-bottom: none;
+  }
 }
 
 /* Jobs screen search-in-flight indicator: a rotating ring + a phrase that
@@ -411,7 +519,7 @@
 }
 
 .data-empty {
-  padding: var(--space-5);
+  padding: var(--space-4);
   border: 1px dashed var(--border-strong);
   border-radius: var(--radius-md);
   color: var(--text-faint);

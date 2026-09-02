@@ -1,0 +1,82 @@
+/*
+ * Profile used to stack all 10 onboarding sections as full-height cards
+ * in one long column — the "it is a long scroll" complaint. A horizontal
+ * pill-tab bar (Settings' own .settings-tabs, built for its 3 tabs)
+ * doesn't scale to 10 section titles of very different lengths ("Basics"
+ * vs. "What are you looking for?"), so this instead uses a vertical
+ * section nav (Polaris/Shopify's own pattern for many-item settings
+ * navigation) beside a single active panel: one section visible at a
+ * time, jump between them instantly, no scrolling required to reach
+ * "Job targets" at the bottom.
+ */
+
+.profile-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.profile-nav {
+  flex-shrink: 0;
+  width: 12rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  position: sticky;
+  top: 0;
+}
+
+.profile-nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  text-align: left;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+  transition: background-color var(--duration-quick) var(--ease-standard), color var(--duration-quick) var(--ease-standard);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .profile-nav-item:hover {
+    background: var(--ground);
+    color: var(--text);
+  }
+}
+
+.profile-nav-item:active {
+  transform: scale(var(--scale-press));
+}
+
+.profile-nav-item-active {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.profile-nav-saved {
+  flex-shrink: 0;
+  color: var(--good);
+  font-weight: 700;
+}
+
+.profile-panel {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  .profile-layout {
+    flex-direction: column;
+  }
+  .profile-nav {
+    position: static;
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
