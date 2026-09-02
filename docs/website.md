@@ -891,6 +891,42 @@ numbers (now 10/17/25, and the free hosted tier that analysis assumed no
 longer exists — see the previous restructure's own note on this). That
 doc still hasn't been updated to match either pass.
 
+## Product screenshots now render in both themes, not just dark
+
+Superseded the earlier decision (above, in the `.feature-shot` capture
+notes) to leave every embedded product screenshot dark regardless of
+site theme "since it reads fine as a product shot sitting in a
+light-mode card" — a real user reported it didn't: the screenshot stayed
+visibly black against an otherwise-white page. Captured genuine
+light-mode counterparts of all four screenshots (`desktop-home`,
+`jobs-screen`, `resumes-screen`, `review-screen`) using the exact same
+technique as the originals (Vite dev server + Playwright +
+`window.__TAURI_INTERNALS__.invoke` stub), just with
+`localStorage.aplyx.theme = 'light'` instead of `'dark'` and equivalent
+mock data. Saved alongside the originals as `*-light.png`.
+
+Every embed site — both `hero-mockup` figures and the `showcase-media`
+feature-shots on `/`, all three `.feature-shot` rows plus the
+`.feature-row-peek` thumbnail on `/features` — now wraps its `<img>` in
+`.shot-stack`, a `display: grid` container holding both the dark and
+light PNG stacked in the same grid cell (`grid-area: 1 / 1`), crossfaded
+by `opacity` on the same `:root[data-theme="dark"]` /
+`@media (prefers-color-scheme: dark)` dual guard already used for the
+theme-toggle's sun/moon icon swap. A decorative `alt=""` on both stacked
+images plus `role="img" aria-label="..."` on the wrapper (where the
+original had real alt text) keeps screen readers from hearing the
+screenshot's description twice. The opacity transition rides
+`--duration-slow`/`--ease-standard`, so it also picks up a bit of extra
+smoothing from the page's own root view-transition on toggle
+(`site.js`'s `startViewTransition` call) without needing to coordinate
+the two.
+
+Verified live via Playwright: `color_scheme: "light"` renders 100%
+light-shot opacity / 0% dark; `color_scheme: "dark"` (no explicit
+toggle) renders the reverse; clicking `.theme-toggle` flips
+`data-theme` and the computed opacities to match, confirming both the
+OS-preference path and the explicit-choice path drive the same shots.
+
 ## Still open
 
 - GitHub Pages enablement + Name.com DNS records (see "Deferred" above).

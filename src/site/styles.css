@@ -2265,6 +2265,49 @@ button {
   background: var(--surface);
 }
 
+/* Product screenshots are genuine renders of the app in each mode, not
+   one dark image left to "read fine" on a light card: a dark and light
+   capture are stacked in the same grid cell (so they share size/position)
+   and crossfade by opacity, gated by the same data-theme/prefers-color-
+   scheme dual guard as the theme-toggle icon swap above, so the shot
+   always matches whatever mode the toggle (or the OS) currently has
+   the site in. */
+.shot-stack {
+  display: grid;
+}
+
+.shot-stack > img {
+  grid-area: 1 / 1;
+  transition: opacity var(--duration-slow) var(--ease-standard);
+}
+
+.shot-stack > .shot-dark {
+  opacity: 0;
+}
+.shot-stack > .shot-light {
+  opacity: 1;
+}
+:root[data-theme="dark"] .shot-stack > .shot-dark {
+  opacity: 1;
+}
+:root[data-theme="dark"] .shot-stack > .shot-light {
+  opacity: 0;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .shot-stack > .shot-dark {
+    opacity: 1;
+  }
+  :root:not([data-theme="light"]) .shot-stack > .shot-light {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shot-stack > img {
+    transition: none;
+  }
+}
+
 /* Not-yet-shipped feature marker: same honesty convention as the
    pricing page's "illustrative, not final" note and the privacy page's
    "no server exists today" line: a feature described here that isn't
