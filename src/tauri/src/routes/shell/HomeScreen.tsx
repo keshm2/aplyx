@@ -83,6 +83,14 @@ function nextAction(
   return undefined;
 }
 
+/** Short "Aug 28"-style label for a date-only ISO string (date_applied
+ *  has no time component); falls back to the raw string if unparseable. */
+function formatShortDate(iso: string): string {
+  const d = new Date(iso.length <= 10 ? `${iso}T00:00:00` : iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
 export function HomeScreen() {
   const { status, session } = useAuth();
   const navigate = useNavigate();
@@ -217,7 +225,25 @@ export function HomeScreen() {
   }, [source, root]);
 
   const next = loaded ? nextAction(source, state, hostedReadiness) : undefined;
-  const pendingQueueCount = state ? state.queue.filter((e) => !isResolved(state, e)).length : 0;
+  const pendingQueueEntries = state ? state.queue.filter((e) => !isResolved(state, e)) : [];
+  const pendingQueueCount = pendingQueueEntries.length;
+  // Real, derived captions for the metrics bar (no fabricated deltas):
+  // the most recent send date on hand, the average fit score of what's
+  // actually waiting on a decision, and how much of what's been scraped
+  // is still a live candidate rather than already ruled out.
+  const lastAppliedDate =
+    state && state.applied.length > 0
+      ? state.applied.reduce((latest, j) => (j.date_applied > latest ? j.date_applied : latest), state.applied[0].date_applied)
+      : undefined;
+  const pendingQueueScores = pendingQueueEntries
+    .map((e) => e.ats_score)
+    .filter((n): n is number => typeof n === "number");
+  const avgPendingScore =
+    pendingQueueScores.length > 0 ? Math.round(pendingQueueScores.reduce((a, b) => a + b, 0) / pendingQueueScores.length) : undefined;
+  const candidateJobsSeen = state
+    ? state.registry.filter((r) => r.latest_status !== "failed" && r.latest_status !== "skipped_unfit").length
+    : 0;
+  const todayLabel = new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
   // Name, not application count, decides "returning user" copy: a
   // preferred name is set once during onboarding, so anyone past their
   // first login has one; "You're set up" is now only for the genuine
@@ -282,6 +308,7 @@ export function HomeScreen() {
       timestamp: j.date_applied,
       title: `Applied to ${j.company} - ${j.title}`,
       sub: j.date_applied,
+      kind: "applied" as const,
       badge: undefined as { label: string; className: string } | undefined,
     })),
     ...onlineJobs
@@ -291,6 +318,7 @@ export function HomeScreen() {
         timestamp: j.outcome_updated_at!,
         title: `${j.company} - ${j.title}`,
         sub: `Updated ${j.outcome_updated_at!.slice(0, 10)}`,
+        kind: "outcome" as const,
         badge: {
           label: OUTCOME_LABEL[j.outcome_status!] ?? j.outcome_status!,
           className: outcomeDotClass(j.outcome_status),
@@ -303,12 +331,14 @@ export function HomeScreen() {
   return (
     <div
       className="home-page"
-      style={{ maxWidth: "68rem", margin: "0 auto", display: "flex", flexDirection: "column", gap: "var(--space-6)" }}
+      style={{ maxWidth: "68rem", margin: "0 auto", display: "flex", flexDirection: "column", gap: "var(--space-5)" }}
     >
       <header className="aplyx-fade-in home-header">
         <div className="home-header-text">
           <h1>{greeting}</h1>
           <p>
+            {todayLabel}{" "}
+            <span className="home-quick-links-sep" aria-hidden="true">·</span>{" "}
             {signedIn ? (
               <>
                 Signed in as <strong>{session?.user.email}</strong>.
@@ -374,20 +404,47 @@ export function HomeScreen() {
       {loaded && state && (
         <div className="home-metric-bar aplyx-fade-rise">
           <div className="home-metric">
+            <div className="home-metric-top">
+              <span className="home-metric-icon home-metric-icon-good" aria-hidden="true">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="22" y1="2" x2="11" y2="13" />
+                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                </svg>
+              </span>
+              <span className="home-metric-label">Applications sent</span>
+            </div>
             <span className="home-metric-value" style={{ color: "var(--good)" }}>
               {state.applied.length}
             </span>
-            <span className="home-metric-label">Applications sent</span>
+            {lastAppliedDate && <span className="home-metric-caption">Last sent {formatShortDate(lastAppliedDate)}</span>}
           </div>
           <div className="home-metric">
+            <div className="home-metric-top">
+              <span className={`home-metric-icon ${pendingQueueCount > 0 ? "home-metric-icon-warn" : "home-metric-icon-neutral"}`} aria-hidden="true">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 7v5l3 3" />
+                </svg>
+              </span>
+              <span className="home-metric-label">Waiting in review queue</span>
+            </div>
             <span className="home-metric-value" style={{ color: pendingQueueCount > 0 ? "var(--warn)" : "var(--text)" }}>
               {pendingQueueCount}
             </span>
-            <span className="home-metric-label">Waiting in review queue</span>
+            {avgPendingScore !== undefined && <span className="home-metric-caption">Avg fit score {avgPendingScore}</span>}
           </div>
           <div className="home-metric">
+            <div className="home-metric-top">
+              <span className="home-metric-icon home-metric-icon-neutral" aria-hidden="true">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </span>
+              <span className="home-metric-label">Jobs seen</span>
+            </div>
             <span className="home-metric-value">{state.registry.length}</span>
-            <span className="home-metric-label">Jobs seen</span>
+            {state.registry.length > 0 && <span className="home-metric-caption">{candidateJobsSeen} still in play</span>}
           </div>
         </div>
       )}
@@ -550,6 +607,19 @@ export function HomeScreen() {
           <div className="data-list">
             {activity.map((item) => (
               <div key={item.id} className="data-row">
+                <div className={`data-row-logo data-row-logo-fallback home-activity-icon home-activity-icon-${item.kind}`} aria-hidden="true">
+                  {item.kind === "applied" ? (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="22" y1="2" x2="11" y2="13" />
+                      <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                    </svg>
+                  ) : (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="9" />
+                      <path d="M12 7v5l3 3" />
+                    </svg>
+                  )}
+                </div>
                 <div className="data-row-main">
                   <span className="data-row-title">{item.title}</span>
                   <span className="data-row-sub">{item.sub}</span>
