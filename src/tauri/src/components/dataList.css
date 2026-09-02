@@ -272,6 +272,26 @@
   }
 }
 
+/* The row lifts on hover but was giving zero acknowledgment of the actual
+ * click before whatever it opens finishes loading - the exact kind of gap
+ * that reads as "nothing happened, did I actually click it?" Presses in
+ * past the hover lift rather than just scaling from rest, so it reads as
+ * the same object being pushed down, not two unrelated states. */
+.data-row:active {
+  transform: translateY(0) scale(var(--scale-press));
+  transition: transform 100ms var(--ease-standard);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .data-row:active {
+    transform: none;
+  }
+}
+
+:root[data-reduced-motion="1"] .data-row:active {
+  transform: none;
+}
+
 /* A single clean accent border + soft glow: border-color plus a
  * separate box-shadow: 0 0 0 1px var(--accent) used to draw two
  * slightly-offset rings on top of each other, which read as a harsh

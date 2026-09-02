@@ -117,6 +117,10 @@
   opacity: 1;
 }
 
+.tag-chip-remove:active {
+  transform: scale(0.8);
+}
+
 .tag-chip:hover {
   border-color: var(--accent);
 }

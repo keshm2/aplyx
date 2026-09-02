@@ -74,6 +74,11 @@
   }
 }
 
+.rec-job-card:active {
+  transform: scale(0.98);
+  transition: transform 100ms var(--ease-standard);
+}
+
 .rec-job-card-header {
   display: flex;
   align-items: center;

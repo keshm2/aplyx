@@ -81,8 +81,14 @@
   box-shadow: var(--shadow-lift);
 }
 
+/* A press should feel like the card is pushed IN, not just that the hover
+ * lift got cancelled back to resting height (the previous translateY(0)
+ * here read as "let go", not "pressed"). Composes past neutral with the
+ * app's own --scale-press, on the fast press curve so it lands the
+ * instant the pointer goes down, per Designing Fluid Interfaces. */
 .entry-card:active {
-  transform: translateY(0);
+  transform: translateY(0) scale(var(--scale-press));
+  transition: transform 100ms var(--ease-standard);
 }
 
 .entry-card-eyebrow {
