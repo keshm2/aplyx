@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { PAGES } from "@aplyx/core/onboarding/fields.js";
 import { findRoot, hasLocalInstall, readProfileFields, writeProfileFields } from "../../lib/bridge";
 import { FieldInput } from "../../components/FieldInput";
@@ -22,6 +22,29 @@ export function ProfileScreen() {
   const [savedAt, setSavedAt] = useState<Record<number, boolean>>({});
   const [error, setError] = useState<string | undefined>(undefined);
   const [activeIndex, setActiveIndex] = useState(0);
+  const navRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const [indicator, setIndicator] = useState<{ top: number; height: number } | undefined>(undefined);
+
+  // Measures the active nav button's real position/height (section titles
+  // wrap to different line counts, e.g. "What are you looking for?", so a
+  // fixed row-height calc would drift) and slides a highlight behind it,
+  // instead of each button's own background instantly swapping on click.
+  useLayoutEffect(() => {
+    function measure() {
+      const el = navRefs.current[activeIndex];
+      if (el) setIndicator({ top: el.offsetTop, height: el.offsetHeight });
+    }
+    measure();
+    // Section titles wrap differently at narrower widths (the nav itself
+    // switches to a wrapped horizontal row below 640px), so a resize can
+    // change the active button's real position without activeIndex
+    // changing at all.
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+    // `loaded` too: the nav (and its ref-bearing buttons) doesn't exist
+    // in the DOM until loading finishes, so the very first measurement
+    // has to wait for that flip rather than only re-running on activeIndex.
+  }, [activeIndex, loaded]);
 
   useEffect(() => {
     hasLocalInstall()
@@ -90,9 +113,19 @@ export function ProfileScreen() {
       ) : (
         <div className="profile-layout">
           <nav className="profile-nav" aria-label="Profile sections">
+            {indicator && (
+              <span
+                className="profile-nav-indicator"
+                aria-hidden="true"
+                style={{ transform: `translateY(${indicator.top}px)`, height: `${indicator.height}px` }}
+              />
+            )}
             {PAGES.map((page, pageIndex) => (
               <button
                 key={page.title}
+                ref={(el) => {
+                  navRefs.current[pageIndex] = el;
+                }}
                 type="button"
                 className={pageIndex === activeIndex ? "profile-nav-item profile-nav-item-active" : "profile-nav-item"}
                 onClick={() => setActiveIndex(pageIndex)}
@@ -103,7 +136,7 @@ export function ProfileScreen() {
             ))}
           </nav>
 
-          <section className="settings-section profile-panel">
+          <section className="settings-section profile-panel aplyx-fade-in" key={activePage.title}>
             <h2 style={{ fontSize: "var(--text-lg)", marginBottom: "var(--space-3)" }}>{activePage.title}</h2>
             <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
               {activePage.fields.map((field) => (

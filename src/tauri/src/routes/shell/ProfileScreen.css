@@ -17,16 +17,35 @@
 }
 
 .profile-nav {
+  position: sticky;
+  top: 0;
   flex-shrink: 0;
   width: 12rem;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  position: sticky;
-  top: 0;
+}
+
+/* Slides between rows (measured against the real active button's
+ * offsetTop/height in ProfileScreen.tsx, since section titles wrap to
+ * different line counts) instead of each row's own background
+ * instantly swapping on click — the same "moving highlight" language
+ * as a native macOS/iOS settings list. Sits behind the buttons
+ * (z-index 0 vs. 1) so hover/press feedback on any row still shows
+ * through above it. */
+.profile-nav-indicator {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 0;
+  background: var(--accent-soft);
+  border-radius: var(--radius-sm);
+  transition: transform var(--duration-normal) var(--ease-snap), height var(--duration-normal) var(--ease-snap);
 }
 
 .profile-nav-item {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -54,8 +73,17 @@
 }
 
 .profile-nav-item-active {
-  background: var(--accent-soft);
   color: var(--accent-strong);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-nav-indicator {
+    transition: none;
+  }
+}
+
+:root[data-reduced-motion="1"] .profile-nav-indicator {
+  transition: none;
 }
 
 .profile-nav-saved {
