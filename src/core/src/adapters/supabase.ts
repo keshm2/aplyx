@@ -413,6 +413,21 @@ export class SupabaseAdapter implements Adapter {
     if (error) throw error;
   }
 
+  /** Stamps profiles.app_last_seen_at = now() so aplyx.app knows this
+   *  account has a desktop-app install and can stop showing its "Install
+   *  aplyx" prompt (migration 0042). Called fire-and-forget from the auth
+   *  layer on every sign-in; a failure here must never block sign-in, so
+   *  callers should swallow the rejection. */
+  async touchAppLastSeen(): Promise<void> {
+    const { error } = await this.client
+      .from("profiles")
+      .upsert(
+        { user_id: this.userId, app_last_seen_at: new Date().toISOString() },
+        { onConflict: "user_id" },
+      );
+    if (error) throw error;
+  }
+
   async listMailConnections(): Promise<MailConnectionRow[]> {
     try {
       const { data, error } = await this.client

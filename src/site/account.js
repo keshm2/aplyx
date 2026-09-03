@@ -67,6 +67,31 @@ const dashboardTabPanels = {
   "ats-accounts": document.getElementById("dashboard-tab-ats-accounts"),
   search: document.getElementById("dashboard-tab-search"),
 };
+const dashboardTitle = document.getElementById("dashboard-title");
+const dashboardSubtitle = document.getElementById("dashboard-subtitle");
+const installCta = document.getElementById("install-cta");
+
+// Drives the top bar's heading per section. Keys match data-dashboard-tab.
+const DASH_TAB_META = {
+  activity: {
+    title: "Overview",
+    subtitle:
+      "Live from your aplyx install — anything applied, reviewed, or tracked from the desktop app shows up here as it happens, and actions you take here sync back the same way.",
+  },
+  search: {
+    title: "Browse jobs",
+    subtitle:
+      "A cached snapshot from Ashby, Lever, Greenhouse, and SmartRecruiters boards. Install aplyx for a live, full-board search plus tailoring and applying.",
+  },
+  profile: {
+    title: "Profile",
+    subtitle: "The application details every aplyx install signed into this account shares and keeps in sync.",
+  },
+  "ats-accounts": {
+    title: "ATS accounts",
+    subtitle: "Credentials kept in the online vault and synced to the desktop app. Passwords are never shown here.",
+  },
+};
 const usageBar = document.getElementById("usage-bar");
 const activityStats = document.getElementById("activity-stats");
 const reviewQueueList = document.getElementById("review-queue-list");
@@ -97,6 +122,11 @@ function activateDashboardTab(target) {
   Object.entries(dashboardTabPanels).forEach(([key, panel]) => {
     panel.hidden = key !== target;
   });
+  const meta = DASH_TAB_META[target];
+  if (meta) {
+    dashboardTitle.textContent = meta.title;
+    dashboardSubtitle.textContent = meta.subtitle;
+  }
 }
 
 dashboardTabs.forEach((tab) => {
@@ -124,10 +154,30 @@ authTabs.forEach((tab) => {
   tab.addEventListener("click", () => setAuthMode(tab.getAttribute("data-auth-tab")));
 });
 
+/* "Install aplyx" prompt in the top bar: shown until a desktop-app
+ * install has signed into this account at least once (it stamps
+ * profiles.app_last_seen_at, migration 0042). A missing profiles row or a
+ * failed read both mean "no known install", so both default to showing
+ * it. */
+async function refreshInstallCta(userId) {
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("app_last_seen_at")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (error) throw error;
+    installCta.hidden = Boolean(data && data.app_last_seen_at);
+  } catch {
+    installCta.hidden = false;
+  }
+}
+
 function showAuthed(session) {
   authPanel.hidden = true;
   dashboardPanel.hidden = false;
   dashboardEmail.textContent = session.user.email ?? "";
+  void refreshInstallCta(session.user.id);
   // Browse-all on arrival: an empty dashboard the first time you land is
   // a worse first impression than showing something, and Tier 0's whole
   // point is "real job browsing," not just a search box.
@@ -141,6 +191,7 @@ function showAuthed(session) {
 function showSignedOut() {
   authPanel.hidden = false;
   dashboardPanel.hidden = true;
+  installCta.hidden = true;
   searchResults.replaceChildren();
   searchStatus.textContent = "";
   lastRows = [];

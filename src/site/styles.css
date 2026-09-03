@@ -221,6 +221,61 @@
   --reveal-rise: 16px;
 }
 
+/* --- Dashboard workspace palette (account.html, signed-in only) ----------
+   The marketing site is warm (Moss / cream). The signed-in dashboard is a
+   product surface — an admin console — so it gets its own calm, low-chroma
+   workspace palette while keeping aplyx's green --accent for actions.
+   Every token here is consumed only under
+   `body:has(#dashboard-panel:not([hidden]))` further down; the rest of the
+   site never sees them. Defined in the same four places as the palette
+   above so the manual theme toggle wins in both directions. */
+:root {
+  --dash-canvas: #f6f6f7;
+  --dash-surface: #ffffff;
+  --dash-sunk: #fbfbfc;
+  --dash-border: #e4e4e7;
+  --dash-border-strong: #d3d3d8;
+  --dash-text: #1f1f23;
+  --dash-muted: #5f5f67;
+  --dash-faint: #8a8a92;
+  --dash-shadow: 0 1px 2px rgb(20 20 26 / 0.06), 0 1px 3px rgb(20 20 26 / 0.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --dash-canvas: #121215;
+    --dash-surface: #1c1c20;
+    --dash-sunk: #17171a;
+    --dash-border: #2c2c32;
+    --dash-border-strong: #3b3b43;
+    --dash-text: #ececee;
+    --dash-muted: #a1a1a9;
+    --dash-faint: #73737b;
+    --dash-shadow: 0 1px 2px rgb(0 0 0 / 0.44), 0 1px 3px rgb(0 0 0 / 0.32);
+  }
+}
+:root[data-theme="dark"] {
+  --dash-canvas: #121215;
+  --dash-surface: #1c1c20;
+  --dash-sunk: #17171a;
+  --dash-border: #2c2c32;
+  --dash-border-strong: #3b3b43;
+  --dash-text: #ececee;
+  --dash-muted: #a1a1a9;
+  --dash-faint: #73737b;
+  --dash-shadow: 0 1px 2px rgb(0 0 0 / 0.44), 0 1px 3px rgb(0 0 0 / 0.32);
+}
+:root[data-theme="light"] {
+  --dash-canvas: #f6f6f7;
+  --dash-surface: #ffffff;
+  --dash-sunk: #fbfbfc;
+  --dash-border: #e4e4e7;
+  --dash-border-strong: #d3d3d8;
+  --dash-text: #1f1f23;
+  --dash-muted: #5f5f67;
+  --dash-faint: #8a8a92;
+  --dash-shadow: 0 1px 2px rgb(20 20 26 / 0.06), 0 1px 3px rgb(20 20 26 / 0.04);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -229,7 +284,7 @@
    `[hidden] { display: none }`, regardless of specificity, so any
    element that both carries the `hidden` attribute AND matches an
    author `display:` rule (e.g. account.html's #dashboard-panel, which
-   also matches .account-dashboard { display: grid }) renders visible
+   also matches .dashboard-shell { display: grid }) renders visible
    despite being hidden, a real bug found live: the signed-out dashboard
    was showing empty stats under the sign-in form, worst on mobile's
    single-column stacking. `!important` here is the correct, narrow use
@@ -3511,11 +3566,37 @@ button {
   max-width: 46rem;
 }
 
-/* Widens once signed in: a job-listing dashboard wants real width, a
-   login form doesn't. #auth-panel keeps its own narrower cap below so
-   the form itself never stretches even while its wrap is wide. */
+/* Signed-in dashboard: break out of the centered marketing column
+   entirely and take over the viewport as an admin workspace. The warm
+   marketing chrome (hero, footer, top-nav links) steps aside; the canvas
+   goes cool grey; the shell itself (.dashboard-shell) owns its own
+   max-width and internal grid. Scoped by :has() so a signed-out visitor
+   and the setup wizard are completely unaffected. */
 .account-wrap:has(#dashboard-panel:not([hidden])) {
-  max-width: 68rem;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  transition: none;
+}
+
+body:has(#dashboard-panel:not([hidden])) {
+  background: var(--dash-canvas);
+}
+
+body:has(#dashboard-panel:not([hidden])) .page-hero,
+body:has(#dashboard-panel:not([hidden])) .site-footer,
+body:has(#dashboard-panel:not([hidden])) .site-nav .nav-links,
+body:has(#dashboard-panel:not([hidden])) .site-nav [data-nav-toggle] {
+  display: none;
+}
+
+body:has(#dashboard-panel:not([hidden])) .site-nav {
+  background: var(--dash-surface);
+  border-bottom: 1px solid var(--dash-border);
+}
+
+body:has(#dashboard-panel:not([hidden])) main .content {
+  padding: 0;
 }
 
 .account-panel {
@@ -3829,64 +3910,83 @@ button {
   }
 }
 
-/* --- "My activity": live read-write mirror of the desktop app's own
-   synced state (account.js's startActivitySync/loadMyState). --- */
+/* --- Signed-in dashboard: an admin workspace (account.js's
+   startActivitySync / loadMyState drive the live data inside it). Left
+   rail for navigation, a top bar carrying the page title + the "Install
+   aplyx" prompt, and a stack of cards in the content column. --- */
 
-.account-dashboard {
+.dashboard-shell {
   display: grid;
-  grid-template-columns: 14rem 1fr;
+  grid-template-columns: 15rem minmax(0, 1fr);
   align-items: start;
-  gap: var(--space-6);
+  align-content: start;
+  max-width: 84rem;
+  margin: 0 auto;
+  min-height: calc(100vh - 4rem);
+  overflow-x: clip;
+  background: var(--dash-canvas);
+  color: var(--dash-text);
+
+  /* Re-point the shared activity/job/form sub-components (.activity-*,
+     .job-*, .account-field, .usage-bar, .btn-secondary…) at the cool
+     workspace palette in one place, instead of re-styling each. --accent
+     and the semantic colors are deliberately left alone. */
+  --ground: var(--dash-sunk);
+  --surface: var(--dash-surface);
+  --surface-raised: color-mix(in srgb, var(--dash-text) 6%, transparent);
+  --border: var(--dash-border);
+  --border-strong: var(--dash-border-strong);
+  --text: var(--dash-text);
+  --text-muted: var(--dash-muted);
+  --text-faint: var(--dash-faint);
+  --shadow-lift: var(--dash-shadow);
 }
 
-.dashboard-sidebar {
+.dash-rail {
+  position: sticky;
+  top: 4rem;
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
-  padding-right: var(--space-5);
-  border-right: 1px solid var(--border);
+  min-width: 0;
+  height: calc(100vh - 4rem);
+  padding: var(--space-5) var(--space-4);
+  border-right: 1px solid var(--dash-border);
+  background: var(--dash-surface);
 }
 
-.dashboard-sidebar-identity {
+.dash-rail-nav {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+
+.dash-rail-group {
+  padding: var(--space-4) var(--space-3) var(--space-2);
+  color: var(--dash-faint);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.dash-rail-group:first-child {
+  padding-top: 0;
+}
+
+.dash-rail-item {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-}
-
-.dashboard-sidebar-avatar {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 2.75rem;
-  height: 2.75rem;
-  border-radius: 50%;
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
-.dashboard-sidebar-avatar svg {
-  width: 1.6rem;
-  height: 1.6rem;
-}
-
-.dashboard-nav {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.dashboard-nav-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
+  width: 100%;
+  padding: 0.5rem var(--space-3);
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--text-muted);
+  color: var(--dash-muted);
+  font-family: inherit;
   font-size: var(--text-sm);
-  font-weight: 600;
+  font-weight: 550;
   text-align: left;
   cursor: pointer;
   transition:
@@ -3895,88 +3995,287 @@ button {
     transform var(--duration-normal) var(--ease-press-release);
 }
 
-.dashboard-nav-item svg {
-  width: 1.1rem;
-  height: 1.1rem;
+.dash-rail-item svg {
+  width: 1.05rem;
+  height: 1.05rem;
   flex-shrink: 0;
 }
 
-.dashboard-nav-item:hover {
-  background: var(--surface-raised);
-  color: var(--text);
+.dash-rail-item:hover {
+  background: color-mix(in srgb, var(--dash-text) 6%, transparent);
+  color: var(--dash-text);
 }
 
-.dashboard-nav-item:active {
+.dash-rail-item:active {
+  transform: scale(0.98);
+  transition: transform var(--duration-press) var(--ease-press);
+}
+
+.dash-rail-item.is-active {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 650;
+}
+
+.dash-rail-foot {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: var(--space-3);
+  margin-top: auto;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--dash-border);
+}
+
+.dash-rail-identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.dash-rail-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.dash-rail-avatar svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.dash-rail-identity-text {
+  min-width: 0;
+}
+
+.dash-rail-identity-text .account-email {
+  overflow: hidden;
+  font-size: var(--text-sm);
+  color: var(--dash-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dash-rail-identity-text .account-tier-badge {
+  margin-top: var(--space-1);
+}
+
+.dash-rail-signout {
+  width: 100%;
+  justify-content: center;
+  font-size: var(--text-sm);
+}
+
+.dash-content {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-6) var(--space-6) var(--space-8);
+}
+
+.dash-panels,
+.dashboard-tab-panel {
+  min-width: 0;
+}
+
+.dash-topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.dash-topbar-heading {
+  min-width: 0;
+}
+
+.dash-title {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 750;
+  letter-spacing: -0.012em;
+  color: var(--dash-text);
+  text-wrap: balance;
+}
+
+.dash-subtitle {
+  margin-top: var(--space-2);
+  max-width: 62ch;
+  color: var(--dash-muted);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+}
+
+.dash-subtitle:empty {
+  display: none;
+}
+
+/* The "Install aplyx" prompt: a calm pill sitting in the top bar, just
+   outside and above the first content card. Shown by account.js only
+   when profiles.app_last_seen_at is null (no desktop-app install has
+   ever signed into this account). */
+.install-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  align-self: flex-start;
+  padding: 0.5rem 1.05rem 0.5rem 0.85rem;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: var(--dash-shadow);
+  transition:
+    background var(--duration-quick) var(--ease-out),
+    transform var(--duration-normal) var(--ease-press-release);
+}
+
+.install-cta svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.install-cta:hover {
+  background: var(--accent-strong);
+}
+
+.install-cta:active {
   transform: scale(0.97);
   transition: transform var(--duration-press) var(--ease-press);
 }
 
-.dashboard-nav-item.is-active {
-  background: var(--accent-soft);
-  color: var(--accent);
+.install-cta:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
-.dashboard-sidebar-signout {
-  margin-top: auto;
-  align-self: flex-start;
+.dashboard-tab-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
 }
 
-.dashboard-main {
-  min-width: 0;
+.dash-card {
+  padding: var(--space-5);
+  border: 1px solid var(--dash-border);
+  border-radius: var(--radius-lg);
+  background: var(--dash-surface);
+  box-shadow: var(--dash-shadow);
 }
 
-@media (max-width: 48rem) {
-  .account-dashboard {
+.dash-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.dash-card-head h2 {
+  font-size: var(--text-lg);
+  font-weight: 650;
+  letter-spacing: -0.003em;
+  color: var(--dash-text);
+}
+
+.dash-card-note {
+  margin: calc(-1 * var(--space-2)) 0 var(--space-4);
+  max-width: 68ch;
+  color: var(--dash-muted);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+
+/* Stat tiles and the usage bar read as proper cards on the workspace
+   canvas (matching .dash-card), not sunk panels; the metric numbers stay
+   neutral rather than accent-green so a "Failed" count doesn't read as
+   positive. Scoped to the shell so the marketing-side demo is untouched. */
+.dashboard-shell .activity-stats {
+  margin: 0;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+}
+
+.dashboard-shell .activity-stat {
+  background: var(--dash-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--dash-shadow);
+}
+
+.dashboard-shell .activity-stat-value {
+  color: var(--dash-text);
+  font-weight: 750;
+}
+
+.dashboard-shell .usage-bar {
+  margin: 0;
+}
+
+@media (max-width: 60rem) {
+  .dashboard-shell {
     grid-template-columns: 1fr;
   }
-  /* Row/wrap, not a stacked column: identity and Sign out share the top
-     line, and the nav becomes its own full-width horizontal scroll strip
-     below rather than wrapping into a cramped multi-line block alongside
-     the other two (a plain row+wrap of all three children in DOM order
-     used to do exactly that). Flex-wrap only wraps in *visual* (order-
-     adjusted) sequence, not DOM sequence; .dashboard-nav's source
-     position is between identity and sign-out, so explicit `order` here
-     is load-bearing, not decorative: without it, sign-out follows nav's
-     forced line break and drops to its own third line instead of sharing
-     line one with identity. */
-  .dashboard-sidebar {
+  .dash-rail {
+    position: static;
+    height: auto;
     flex-direction: row;
     flex-wrap: wrap;
     align-items: center;
-    justify-content: space-between;
     gap: var(--space-3) var(--space-4);
-    padding-right: 0;
-    padding-bottom: var(--space-4);
+    padding: var(--space-4) var(--space-5);
     border-right: none;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--dash-border);
   }
-  .dashboard-sidebar-identity {
+  .dash-rail-foot {
     order: 1;
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-  .dashboard-sidebar-identity .account-email {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .dashboard-sidebar-signout {
-    order: 2;
-    flex-shrink: 0;
-    margin-top: 0;
-  }
-  .dashboard-nav {
-    order: 3;
     flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    flex: 1 1 auto;
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+  }
+  .dash-rail-signout {
+    width: auto;
+    flex-shrink: 0;
+  }
+  .dash-rail-nav {
+    order: 2;
     flex-basis: 100%;
+    flex-direction: row;
     gap: var(--space-2);
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     padding-bottom: var(--space-1);
   }
-  .dashboard-nav-item {
+  .dash-rail-group {
+    display: none;
+  }
+  .dash-rail-item {
     flex-shrink: 0;
+    width: auto;
     white-space: nowrap;
+  }
+  .dash-content {
+    padding: var(--space-5) var(--space-4) var(--space-7);
+  }
+}
+
+@media (max-width: 34rem) {
+  .dash-topbar {
+    flex-direction: column;
   }
 }
 
@@ -4192,22 +4491,6 @@ button {
 .activity-stat-label {
   color: var(--text-muted);
   font-size: var(--text-xs);
-}
-
-.activity-section {
-  margin-top: var(--space-7);
-}
-
-.activity-section h2 {
-  font-size: var(--text-lg);
-  letter-spacing: -0.002em;
-}
-
-.activity-section-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
 }
 
 .activity-toggle {

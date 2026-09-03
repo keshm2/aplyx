@@ -93,6 +93,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       setOnboardingCompleted(undefined);
+      // Fire-and-forget: tells aplyx.app this account has a desktop-app
+      // install so the website stops prompting them to install it
+      // (SupabaseAdapter.touchAppLastSeen / migration 0042). Never allowed
+      // to block or fail sign-in, hence the bare .catch.
+      void new SupabaseAdapter(c, next.user.id).touchAppLastSeen().catch(() => {});
       try {
         const completed = await new SupabaseAdapter(c, next.user.id).readOnboardingCompleted();
         if (!cancelled) setOnboardingCompleted(completed);
