@@ -252,7 +252,7 @@ export function LocalWizard() {
       {step === "resumes" && <ResumesStep root={root} />}
       {step === "notifications" && <NotificationsStep root={root} />}
       {step === "extension" && <ExtensionStep root={root} />}
-      {step === "review" && <ReviewStep />}
+      {step === "review" && <ReviewStep root={root} />}
     </WizardShell>
   );
 }

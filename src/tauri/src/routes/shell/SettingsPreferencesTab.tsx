@@ -65,6 +65,11 @@ export function SettingsPreferencesTab() {
   const [sessionCapError, setSessionCapError] = useState<string | undefined>(undefined);
   const { value: hour24Clock, setValue: setHour24Clock } = useBoolEnvPref(root, "APLYX_24_HOUR_CLOCK", false);
   const { value: reducedMotion, setValue: setReducedMotionRaw } = useBoolEnvPref(root, "APLYX_REDUCED_MOTION", false);
+  const { value: scheduledAutoApply, setValue: setScheduledAutoApply } = useBoolEnvPref(
+    root,
+    "APLYX_SCHEDULED_AUTO_APPLY",
+    false,
+  );
   // This hook instance is component-local (see useEnvPref.ts), so other
   // mounted surfaces (AppShell applies the attribute on boot, see its own
   // effect) won't see this change reactively. Applying it directly here
@@ -373,32 +378,50 @@ export function SettingsPreferencesTab() {
                     ? "Starting…"
                     : "Stopping current run…"
                   : schedulerStatus.installed
-                    ? `Running every ${schedulerStatus.interval_min} min`
+                    ? `Scanning every ${schedulerStatus.interval_min} min`
                     : "Not running"}
               </div>
               <div className="check-detail">
                 {schedulerBusy
                   ? schedulerTarget
                     ? "Registering the background schedule."
-                    : "Waiting for a live scrape/apply session to finish exiting (can take a few seconds)."
+                    : "Waiting for a live run to finish exiting (can take a few seconds)."
                   : schedulerStatus.installed
-                    ? "Scrapes and applies automatically in the background, 24/7."
-                    : "Turn on to scrape and apply automatically every 30 minutes, in the background."}
+                    ? "aplyx checks the job boards for new postings every 30 minutes in the background, keeping your dashboard fresh."
+                    : "Recommended: keep this on so aplyx keeps finding new jobs for you every 30 minutes."}
               </div>
             </div>
             <Switch
               checked={schedulerStatus.installed}
               onChange={() => void toggleScheduler()}
               disabled={schedulerBusy}
-              label="Scheduler"
+              label="Background job scanning"
             />
           </div>
           {schedulerError ? <p className="field-help" style={{ color: "var(--danger)" }}>{schedulerError}</p> : null}
+
+          <div className="check-row" style={{ marginTop: "var(--space-3)" }}>
+            <div style={{ flex: 1 }}>
+              <div className="check-label">Auto-apply on a schedule</div>
+              <div className="check-detail">
+                {scheduledAutoApply
+                  ? "Scheduled runs also tailor a resume and submit applications, up to your session cap. Anything it can't fill confidently still goes to the review queue."
+                  : "Off: scheduled runs only find and rank jobs. You apply from the review queue, or with Run now. Turning this on lets the background schedule submit applications unattended."}
+              </div>
+            </div>
+            <Switch
+              checked={scheduledAutoApply}
+              onChange={setScheduledAutoApply}
+              label="Auto-apply on a schedule"
+            />
+          </div>
+
           <p className="field-help">
-            This toggle and the terminal control the same thing: you can also turn it on/off with{" "}
+            Run now (on the Run screen) always applies, regardless of this setting. The scheduler toggle
+            also works from the terminal:{" "}
             <code style={CODE_STYLE}>python3 src/scripts/runtime/scheduler.py install</code> /{" "}
-            <code style={CODE_STYLE}>uninstall</code> from your aplyx checkout, or check its status with{" "}
-            <code style={CODE_STYLE}>scheduler.py status</code>.
+            <code style={CODE_STYLE}>uninstall</code> /{" "}
+            <code style={CODE_STYLE}>status</code>.
           </p>
         </section>
       )}

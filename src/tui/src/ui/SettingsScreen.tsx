@@ -269,6 +269,17 @@ const SECTIONS: Section[] = [
       { kind: "env", key: "APLYX_LOCK_MAX_AGE_MIN", legacyKeys: ["FLUX_LOCK_MAX_AGE_MIN", "ARES_LOCK_MAX_AGE_MIN"], label: "Lock max age", explain: "Minutes before a hung run's lock is force-reclaimed by the next scheduled tick.", fallback: "60" },
       {
         kind: "env",
+        key: "APLYX_SCHEDULED_AUTO_APPLY",
+        label: "Auto-apply on a schedule",
+        explain: "No = the 30-minute scheduler only scrapes and fit-gates jobs (keeps the registry and recommendations fresh). Yes = scheduled runs also tailor and submit applications, up to the session cap. A manual run always applies regardless of this setting.",
+        fallback: "0",
+        options: [
+          { label: "No", value: "0" },
+          { label: "Yes", value: "1" },
+        ],
+      },
+      {
+        kind: "env",
         key: "APLYX_AUTO_UPDATE",
         legacyKeys: ["FLUX_AUTO_UPDATE", "ARES_AUTO_UPDATE"],
         label: "Auto-update",

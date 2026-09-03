@@ -402,7 +402,7 @@ def main() -> int:
             # files on disk are already correctly updated; only this
             # process's own re-exec of itself is what's stale.
             try:
-                os.execv(sys.executable, [sys.executable, os.path.abspath(__file__)])
+                os.execv(sys.executable, [sys.executable, os.path.abspath(__file__), *sys.argv[1:]])
             except OSError as exc:
                 log(run_log, f"WARNING: could not re-exec the updated runner ({exc}); "
                               "continuing this run with already-loaded code. If this "
@@ -613,6 +613,24 @@ def _run(logs_dir: str, run_log: str, run_start: datetime) -> int:
     # "Scrape-only mode" is the canonical instruction this line triggers.
     scrape_only_raw = os.environ.get("APLYX_SCRAPE_ONLY", "") or ""
     scrape_only = scrape_only_raw.strip().lower() not in ("", "0", "false", "no")
+
+    # A background-scheduler run (scheduler.py passes --scheduled, or an
+    # env override sets APLYX_SCHEDULED_RUN) only scrapes by default: the
+    # 30-minute cadence keeps the job registry and the dashboard's
+    # "Recommended next" pool fresh, but submitting applications unattended
+    # is opt-in via APLYX_SCHEDULED_AUTO_APPLY (the desktop app's
+    # "Auto-apply on a schedule" toggle). A manual run (the app's "Run
+    # now", `aplyx run`, or a direct invocation) has neither signal and is
+    # unaffected: it always tailors and applies up to the session cap.
+    scheduled_run = "--scheduled" in sys.argv[1:] or (
+        (os.environ.get("APLYX_SCHEDULED_RUN", "") or "").strip().lower() not in ("", "0", "false", "no")
+    )
+    scheduled_auto_apply = (
+        (os.environ.get("APLYX_SCHEDULED_AUTO_APPLY", "") or "").strip().lower() not in ("", "0", "false", "no")
+    )
+    if scheduled_run and not scheduled_auto_apply and not scrape_only:
+        scrape_only = True
+        log(run_log, "scheduled run with auto-apply off: scrape + fit-gate only, no applications this run")
 
     if scrape_only:
         run_prompt = (

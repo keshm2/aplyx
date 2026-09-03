@@ -233,6 +233,13 @@ mid-run logs `skipped_overlap` and exits 0; a dead holder's lock is
 reclaimed immediately; a hung run older than 60 minutes
 (`APLYX_LOCK_MAX_AGE_MIN`) is terminated and reclaimed.
 
+Scheduled runs pass `--scheduled` to the runner and **only scrape + fit-gate
+by default** (keeping `data/job_registry.json` and the desktop dashboard's
+"Recommended next" pool fresh). To let the schedule tailor and submit
+applications unattended, set `APLYX_SCHEDULED_AUTO_APPLY=1` (the desktop
+app's Settings › Preferences › "Auto-apply on a schedule" toggle). A manual
+run (`aplyx run`, the desktop "Run now" button) always applies regardless.
+
 ```bash
 bash src/scripts/runtime/scheduler.sh install     # write + load the plist (runs immediately)
 bash src/scripts/runtime/scheduler.sh status      # loaded? + heartbeat
@@ -242,7 +249,7 @@ bash src/scripts/runtime/scheduler.sh plist       # print the plist without inst
 
 On Linux, create the equivalent systemd user timer by hand
 (`OnUnitActiveSec=30min`, repo root as `WorkingDirectory=`, command
-`/bin/bash src/scripts/runtime/run_job_agent.sh`).
+`/bin/bash src/scripts/runtime/run_job_agent.sh --scheduled`).
 
 **What to check first:** `logs/heartbeat.json` (timestamp, exit code,
 outcome counts, restart-loop signal); `logs/run_job_agent.log` (one

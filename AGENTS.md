@@ -239,6 +239,16 @@ today:
   "Scrape-only mode" in src/agents/bodies/job-scraper.md for the
   orchestrator-facing rule. Lets an operator grow the recommended-jobs
   pool on demand without the scheduler's normal apply risk.
+- A scheduled run (scheduler.py passes `--scheduled` to run_job_agent.py,
+  or APLYX_SCHEDULED_RUN is set to a truthy value) is scrape-only by
+  default, exactly as APLYX_SCRAPE_ONLY above: the 30-minute cadence keeps
+  the registry and the dashboard's "Recommended next" pool fresh without
+  submitting anything unattended. Set APLYX_SCHEDULED_AUTO_APPLY (same
+  truthy rule) to let scheduled runs tailor and apply up to the session
+  cap; this is the desktop app's "Auto-apply on a schedule" toggle,
+  persisted in src/config/env.json. A manual run (the app's "Run now",
+  `aplyx run`, or a direct invocation) passes no such flag and always
+  applies; APLYX_SCHEDULED_AUTO_APPLY does not affect it.
 - PREFER `logs/tmp/` over `/tmp/` (or any path outside the repo) for every
   scratch file: raw JSON passed to a helper, ad-hoc verification scripts,
   intermediate canonicalization payloads, anything, not just board

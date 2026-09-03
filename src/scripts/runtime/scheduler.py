@@ -5,6 +5,12 @@ Ported from scheduler.sh. Manages an always-on ~30-minute schedule that runs
 the job agent 24/7. Overlap protection lives in the runner itself; the
 scheduler only supplies cadence.
 
+Every scheduled invocation passes `--scheduled` to the runner. That run
+scrapes and fit-gates by default (keeping the registry and the dashboard's
+"Recommended next" pool fresh) and only submits applications when
+APLYX_SCHEDULED_AUTO_APPLY is set. A manual run has no `--scheduled` flag
+and always applies.
+
   - macOS:   launchd user agent (label com.aplyx.job-agent)
   - Windows: Task Scheduler task (name aplyx-job-agent) via schtasks
   - Linux:   prints the systemd user timer to install by hand
@@ -71,6 +77,7 @@ def _plist_body() -> str:
   <array>
     <string>/bin/bash</string>
     <string>{runner}</string>
+    <string>--scheduled</string>
   </array>
   <key>WorkingDirectory</key><string>{PROJECT_ROOT}</string>
   <key>StartInterval</key><integer>{INTERVAL}</integer>
@@ -154,8 +161,9 @@ def _mac_install() -> int:
         # code lets the UI surface something a user can actually read.
         sys.stderr.write(f"scheduler: bootstrap failed: {r.stderr.strip()}\n")
         return 1
-    print(f"scheduler: installed {LABEL} (every {INTERVAL // 60} min, 24/7).")
-    print("scheduler: NOTE (RunAtLoad is true): a run starts now.")
+    print(f"scheduler: installed {LABEL} (scans for new jobs every {INTERVAL // 60} min, 24/7).")
+    print("scheduler: NOTE (RunAtLoad is true): a scan starts now.")
+    print("scheduler: scheduled runs only scrape unless APLYX_SCHEDULED_AUTO_APPLY is set.")
     return 0
 
 
@@ -198,7 +206,7 @@ def _mac_status(json_mode: bool) -> int:
 # -------------------------------------------------------------- Windows ------
 def _win_runner_cmd() -> str:
     runner = os.path.join(PROJECT_ROOT, "src", "scripts", "runtime", "run_job_agent.py")
-    return f'"{sys.executable}" "{runner}"'
+    return f'"{sys.executable}" "{runner}" --scheduled'
 
 
 def _win_install() -> int:
@@ -285,8 +293,9 @@ def _linux_note(json_mode: bool = False) -> int:
     minutes = INTERVAL // 60
     sys.stderr.write(
         "scheduler: no built-in Linux scheduler: install a systemd user timer "
-        f"running src/scripts/runtime/run_job_agent.sh every {minutes} min "
-        "(APLYX_SCHEDULE_INTERVAL_SEC). See docs/SETUP.md section 5.\n"
+        f"running 'src/scripts/runtime/run_job_agent.sh --scheduled' every {minutes} min "
+        "(APLYX_SCHEDULE_INTERVAL_SEC). Scheduled runs only scrape unless "
+        "APLYX_SCHEDULED_AUTO_APPLY is set. See docs/SETUP.md section 5.\n"
     )
     return 1
 

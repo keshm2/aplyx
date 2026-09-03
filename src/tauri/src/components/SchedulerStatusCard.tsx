@@ -22,7 +22,7 @@ export function SchedulerStatusCard({ status }: { status: SchedulerStatus }) {
       <div className="scheduler-status-header">
         <h2 className="scheduler-status-title">Scheduler</h2>
         <span className={`status-badge ${status.installed ? "status-badge-good" : "status-badge-muted"}`}>
-          {status.installed ? `Running every ${status.interval_min} min` : "Not running"}
+          {status.installed ? `Scanning every ${status.interval_min} min` : "Not running"}
         </span>
       </div>
 
@@ -55,7 +55,7 @@ export function SchedulerStatusCard({ status }: { status: SchedulerStatus }) {
 
       {!status.installed && (
         <p className="field-help scheduler-status-cta">
-          Run <code>aplyx</code> and choose "always-on schedule" to keep this running in the background.
+          Turn on background job scanning in Settings &rsaquo; Preferences so aplyx keeps finding new jobs every 30 minutes.
         </p>
       )}
     </div>
