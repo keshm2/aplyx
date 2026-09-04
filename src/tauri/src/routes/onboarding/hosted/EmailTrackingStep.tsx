@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { SupabaseAdapter } from "@aplyx/core/adapters/supabase.js";
 import { onOpenUrl } from "@tauri-apps/plugin-deep-link";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { useOauthBusyRecovery } from "../../../lib/useOauthBusyRecovery";
 import "../../../components/formFields.css";
 
 // Auto-fills imap_server from the email domain for common providers, so
@@ -63,6 +64,32 @@ export function EmailTrackingStep({ client, userId, onComplete }: { client: Supa
       .then(() => {})
       .catch(() => {});
   }, [client, userId]);
+
+  // If the consent window is closed / cancelled / the account isn't an
+  // approved tester, the aplyx://mail-callback deep link never fires and
+  // the button would stay stuck on "Opening consent…". Recover it when the
+  // app regains focus (or after a timeout).
+  const recheckConnected = useCallback(async () => {
+    try {
+      const c = await refreshConnection();
+      return c?.status === "connected";
+    } catch {
+      return false;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client, userId]);
+  useOauthBusyRecovery({
+    busy: saving,
+    recheck: recheckConnected,
+    onConnected: () => {
+      setSaving(false);
+      onComplete();
+    },
+    onGiveUp: () => {
+      setSaving(false);
+      setError((prev) => prev ?? "Consent wasn't completed. Click Connect to try again.");
+    },
+  });
 
   useEffect(() => {
     const unlisten = onOpenUrl(async (urls) => {

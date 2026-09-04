@@ -7,6 +7,7 @@ import { SupabaseAdapter, type HostedReadiness, type MailConnectionRow } from "@
 import { useAuth } from "../../lib/AuthContext";
 import { setLocalRoot, forgetLocalRoot, readProfileFields } from "../../lib/bridge";
 import { getSupabaseClient } from "../../lib/supabaseClient";
+import { useOauthBusyRecovery } from "../../lib/useOauthBusyRecovery";
 import {
   readHostedProfileSnapshot,
   writeProfileSnapshotLocally,
@@ -204,6 +205,32 @@ export function SettingsAccountTab() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, session]);
+
+  // Recover the "Opening consent…" button when the deep-link callback
+  // never comes (consent window closed, login failed, not an approved
+  // tester). Without this the only reset is leaving Settings and coming
+  // back.
+  useOauthBusyRecovery({
+    busy: mailOauthBusy,
+    recheck: async () => {
+      try {
+        if (status !== "signed-in" || !session) return false;
+        const client = await getSupabaseClient();
+        const c = await new SupabaseAdapter(client, session.user.id).getInboxConnection();
+        return c?.status === "connected";
+      } catch {
+        return false;
+      }
+    },
+    onConnected: () => {
+      setMailOauthBusy(false);
+      void refreshInbox();
+    },
+    onGiveUp: () => {
+      setMailOauthBusy(false);
+      setMailOauthError((prev) => prev ?? "Consent wasn't completed. Click Connect to try again.");
+    },
+  });
 
   async function startMailOauth(provider: "gmail" | "microsoft") {
     setMailOauthBusy(true);

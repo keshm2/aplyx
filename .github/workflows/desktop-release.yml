@@ -85,9 +85,33 @@ jobs:
       - run: npm ci
       - run: npm run build:core
 
+      # Windows code signing (Azure Trusted Signing) — only when the
+      # signing secrets are configured. See docs/windows-code-signing.md.
+      # Absent the secrets this is a no-op and the build ships unsigned,
+      # exactly as before.
+      - name: enable Windows installer signing
+        if: matrix.platform == 'windows-latest' && vars.WINDOWS_SIGN_ENABLED == 'true'
+        shell: pwsh
+        env:
+          TRUSTED_SIGNING_ENDPOINT: ${{ secrets.TRUSTED_SIGNING_ENDPOINT }}
+          TRUSTED_SIGNING_ACCOUNT_NAME: ${{ secrets.TRUSTED_SIGNING_ACCOUNT_NAME }}
+          TRUSTED_SIGNING_CERT_PROFILE: ${{ secrets.TRUSTED_SIGNING_CERT_PROFILE }}
+        run: |
+          dotnet tool install --global trusted-signing-cli
+          $cmd = "trusted-signing-cli -e $env:TRUSTED_SIGNING_ENDPOINT -a $env:TRUSTED_SIGNING_ACCOUNT_NAME -c $env:TRUSTED_SIGNING_CERT_PROFILE %1"
+          $conf = "src/tauri/src-tauri/tauri.windows.conf.json"
+          $json = Get-Content $conf -Raw | ConvertFrom-Json
+          if (-not $json.bundle.windows) { $json.bundle | Add-Member -NotePropertyName windows -NotePropertyValue (@{}) }
+          $json.bundle.windows | Add-Member -NotePropertyName signCommand -NotePropertyValue $cmd -Force
+          $json | ConvertTo-Json -Depth 10 | Set-Content $conf
+          Write-Host "signing enabled for the Windows bundle"
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
         with:
           projectPath: src/tauri
           tagName: ${{ github.event.inputs.tag || github.ref_name }}

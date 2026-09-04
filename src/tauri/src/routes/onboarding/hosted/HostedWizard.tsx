@@ -33,6 +33,7 @@ export function HostedWizard() {
   const [client, setClient] = useState<SupabaseClient | undefined>(undefined);
   const [stepIndex, setStepIndex] = useState(0);
   const [wizardError, setWizardError] = useState<string | undefined>(undefined);
+  const [resolving, setResolving] = useState(true);
 
   useEffect(() => {
     // A failed client must not strand this screen on "Loading…": bounce
@@ -42,7 +43,45 @@ export function HostedWizard() {
       .catch(() => navigate("/auth"));
   }, [navigate]);
 
-  if (status === "checking" || !client) {
+  // Skip past setup already done elsewhere (most often: the user did the
+  // website setup first). If everything's in place, finish immediately;
+  // otherwise start on the first step that still has work. This is what
+  // stops the app from re-running a full setup the user already completed.
+  useEffect(() => {
+    if (!client || status !== "signed-in" || !session) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const adapter = new SupabaseAdapter(client, session.user.id);
+        const [readiness, firstName] = await Promise.all([
+          adapter.readHostedReadiness(),
+          adapter.readProfileField("first_name").catch(() => ""),
+        ]);
+        if (cancelled) return;
+        const hasProfile = typeof firstName === "string" && firstName.trim().length > 0;
+        if (hasProfile && readiness.hasCandidateEmail && readiness.resumeUploaded && readiness.inboxConnected) {
+          await adapter.writeOnboardingCompleted(true);
+          markOnboardingCompleted();
+          navigate("/app");
+          return;
+        }
+        let start = 0;
+        if (hasProfile) start = STEPS.indexOf("candidate_email");
+        if (hasProfile && readiness.hasCandidateEmail) start = STEPS.indexOf("resume");
+        if (hasProfile && readiness.hasCandidateEmail && readiness.resumeUploaded) start = STEPS.indexOf("inbox");
+        if (start > 0) setStepIndex(start);
+      } catch {
+        // fall through to the full wizard from the top
+      } finally {
+        if (!cancelled) setResolving(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [client, status, session, navigate, markOnboardingCompleted]);
+
+  if (status === "checking" || !client || (resolving && status === "signed-in" && !!session)) {
     return (
       <main style={{ padding: "3rem", textAlign: "center" }}>
         <p className="wizard-subtitle">Loading&hellip;</p>
