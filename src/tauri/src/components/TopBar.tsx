@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { Logo } from "./Logo";
 import { NavMenu, type NavMenuItem } from "./NavMenu";
 import { NotificationBell, SettingsGearButton } from "./NotificationBell";
@@ -13,8 +14,22 @@ import "./TopBar.css";
  *  every screen's content gets the full window width instead of a fixed
  *  reserved column). */
 export function TopBar({ navItems, queueBadge }: { navItems: NavMenuItem[]; queueBadge?: { to: string; count: number } }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [scrolled, setScrolled] = useState(false);
+
+  // Toggle the scroll-edge floor shadow only once content is actually
+  // scrolled up behind the sticky bar.
+  useEffect(() => {
+    const scroller = ref.current?.closest(".shell-main");
+    if (!scroller) return;
+    const onScroll = () => setScrolled(scroller.scrollTop > 4);
+    onScroll();
+    scroller.addEventListener("scroll", onScroll, { passive: true });
+    return () => scroller.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
-    <div className="topbar">
+    <div className="topbar" ref={ref} data-scrolled={scrolled}>
       <div className="topbar-left">
         <Logo size={22} withWordmark={false} />
         <NavMenu items={navItems} queueBadge={queueBadge} />

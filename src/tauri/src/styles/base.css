@@ -118,6 +118,17 @@ a {
   color: var(--text);
 }
 
+/* Frostier / solid glass for viewers who ask for less transparency. */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --glass-tint: var(--surface);
+  }
+  .topbar {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+
 /* Digits that align in a column instead of each glyph claiming its own
  * proportional width, the same convention Supabase's dashboard uses for
  * row counts/metrics, so a stat that ticks up doesn't visibly reflow. */
