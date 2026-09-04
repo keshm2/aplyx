@@ -17,41 +17,118 @@ const AUTH_CONFIG = {
   anonKey: "sb_publishable_d3pJdWv70x7tYbDEWoGkFw_HCUpS1_i",
 };
 
-const SVG_NS = "http://www.w3.org/2000/svg";
+/* --- Identity avatar: a Google profile photo when one exists, else
+ * initials in a chip (never the generic person-outline icon every AI-
+ * generated auth UI ships). Shared between the site-wide nav link here
+ * and account.js's dashboard sidebar, so "who am I signed in as" reads
+ * the same way everywhere on the site. */
 
-function buildAvatarIcon() {
-  const svg = document.createElementNS(SVG_NS, "svg");
-  svg.setAttribute("viewBox", "0 0 24 24");
-  svg.setAttribute("fill", "none");
-  svg.setAttribute("stroke", "currentColor");
-  svg.setAttribute("stroke-width", "2");
-  svg.setAttribute("stroke-linecap", "round");
-  svg.setAttribute("stroke-linejoin", "round");
-  svg.setAttribute("aria-hidden", "true");
-
-  const head = document.createElementNS(SVG_NS, "circle");
-  head.setAttribute("cx", "12");
-  head.setAttribute("cy", "8");
-  head.setAttribute("r", "4");
-
-  const shoulders = document.createElementNS(SVG_NS, "path");
-  shoulders.setAttribute("d", "M4 20c0-4 3.5-6.5 8-6.5s8 2.5 8 6.5");
-
-  svg.append(head, shoulders);
-  return svg;
+/** "Kesh Muthu" -> "KM", "kesh" -> "KE", falls back to the email's local
+ *  part ("kesh.muthu04@…" -> "KM") when no display name is known yet. */
+export function initialsFrom(name, email) {
+  const source = (name || "").trim();
+  if (source) {
+    const parts = source.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    if (parts[0]) return parts[0].slice(0, 2).toUpperCase();
+  }
+  const local = (email || "").split("@")[0] || "";
+  const bits = local.split(/[._-]+/).filter(Boolean);
+  if (bits.length >= 2) return (bits[0][0] + bits[1][0]).toUpperCase();
+  return local.slice(0, 2).toUpperCase() || "?";
 }
 
-function showSignedInNav(email) {
-  document.querySelectorAll(".nav-link-account").forEach((link) => {
-    link.classList.add("nav-avatar-link");
-    link.setAttribute("aria-label", email ? `Account: signed in as ${email}` : "Account");
-    link.title = email ?? "";
-    link.replaceChildren();
-    const avatar = document.createElement("span");
-    avatar.className = "nav-avatar";
-    avatar.appendChild(buildAvatarIcon());
-    link.appendChild(avatar);
-  });
+/** Google OAuth populates both of these on user_metadata; other
+ *  providers (email/password) populate neither, which is the normal
+ *  case a caller falls back to profile-table names for. */
+export function displayNameFromMetadata(metadata) {
+  return (metadata && (metadata.full_name || metadata.name)) || "";
+}
+export function avatarUrlFromMetadata(metadata) {
+  return (metadata && (metadata.avatar_url || metadata.picture)) || "";
+}
+
+/** Builds the avatar node: an <img> for a real profile photo (falling
+ *  back to initials if it 404s, is revoked, or is blocked), otherwise
+ *  straight to an initials chip. `size` in px, defaults to the CSS's own
+ *  sizing when omitted (nav vs. dashboard-sidebar need different sizes). */
+export function buildAvatarNode({ name, email, avatarUrl, size } = {}) {
+  const wrap = document.createElement("span");
+  wrap.className = "avatar-chip";
+  if (size) wrap.style.setProperty("--avatar-size", `${size}px`);
+
+  function showInitials() {
+    wrap.replaceChildren();
+    wrap.classList.add("avatar-chip-initials");
+    wrap.textContent = initialsFrom(name, email);
+  }
+
+  if (avatarUrl) {
+    const img = document.createElement("img");
+    img.src = avatarUrl;
+    img.alt = "";
+    img.loading = "lazy";
+    img.referrerPolicy = "no-referrer";
+    img.onerror = showInitials;
+    wrap.appendChild(img);
+  } else {
+    showInitials();
+  }
+  return wrap;
+}
+
+// Cached per user id so a page with several signed-in nav links (there's
+// normally just one) or a later onAuthStateChange re-fire doesn't repeat
+// the profiles lookup; cleared implicitly by just keying on the new id.
+let cachedName;
+
+/** The nav avatar has no access to account.js's already-loaded profile
+ *  state (this module runs standalone on every page), so when there's no
+ *  Google display name it does its own minimal, RLS-scoped lookup of the
+ *  three name fields. Never blocks showing *an* avatar: falls back to
+ *  initials-from-email immediately, then swaps in the real name shortly
+ *  after if the lookup succeeds. */
+async function resolveDisplayName(session) {
+  const metaName = displayNameFromMetadata(session.user.user_metadata);
+  if (metaName) return metaName;
+  if (cachedName && cachedName.userId === session.user.id) return cachedName.name;
+  try {
+    const { data } = await supabase
+      .from("profiles")
+      .select("preferred_name, first_name, last_name")
+      .eq("user_id", session.user.id)
+      .maybeSingle();
+    const name = (data && (data.preferred_name || [data.first_name, data.last_name].filter(Boolean).join(" "))) || "";
+    cachedName = { userId: session.user.id, name };
+    return name;
+  } catch {
+    return "";
+  }
+}
+
+function showSignedInNav(session) {
+  const email = session.user.email;
+  const avatarUrl = avatarUrlFromMetadata(session.user.user_metadata);
+  const metaName = displayNameFromMetadata(session.user.user_metadata);
+
+  function render(name) {
+    document.querySelectorAll(".nav-link-account").forEach((link) => {
+      link.classList.add("nav-avatar-link");
+      link.setAttribute("aria-label", name || email ? `Account: signed in as ${name || email}` : "Account");
+      link.title = name || email || "";
+      link.replaceChildren(buildAvatarNode({ name, email, avatarUrl }));
+    });
+  }
+
+  render(metaName); // immediate, correct for every Google sign-in
+  if (!metaName) {
+    // Email/password accounts: the initials-from-email render above is
+    // already correct output, this just upgrades to the real name once
+    // the (cheap, cached) profiles lookup resolves.
+    resolveDisplayName(session).then((name) => {
+      if (name) render(name);
+    });
+  }
 }
 
 function showSignedOutNav() {
@@ -75,7 +152,7 @@ function showSignedOutNav() {
 export const supabase = createClient(AUTH_CONFIG.url, AUTH_CONFIG.anonKey);
 
 supabase.auth.getSession().then(({ data }) => {
-  if (data.session) showSignedInNav(data.session.user.email);
+  if (data.session) showSignedInNav(data.session);
 });
 
 supabase.auth.onAuthStateChange((_event, session) => {
@@ -87,7 +164,7 @@ supabase.auth.onAuthStateChange((_event, session) => {
   // already covered it; it didn't, which left the avatar showing after
   // sign-out until something else re-triggered a check.)
   if (session) {
-    showSignedInNav(session.user.email);
+    showSignedInNav(session);
   } else {
     showSignedOutNav();
   }

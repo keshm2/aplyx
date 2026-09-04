@@ -3745,34 +3745,45 @@ button {
   flex-shrink: 0;
 }
 
-/* Signed-in state, applied by nav-auth.js on every page: a generic
-   placeholder avatar (no photo-upload feature exists), not a "Sign in"
-   link a signed-in visitor has no reason to see. */
+/* Signed-in state, applied by nav-auth.js on every page: the real Google
+   profile photo when one exists, else an initials chip — never a generic
+   placeholder-person icon. .avatar-chip is fully self-contained (sized,
+   circular, colored), so the link here just clears the "Sign in" pill's
+   own padding/border and lets it show through. */
 .nav-avatar-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   padding: 0;
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: 50%;
-  border-color: var(--border);
-  overflow: hidden;
+  border-color: transparent;
 }
 
-.nav-avatar {
+/* Identity avatar: shared between this nav link and account.html's
+   dashboard sidebar (built by nav-auth.js's buildAvatarNode), so "who am
+   I signed in as" reads the same everywhere on the site. */
+.avatar-chip {
+  --avatar-size: 2.25rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+  width: var(--avatar-size);
+  height: var(--avatar-size);
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.avatar-chip img {
+  display: block;
   width: 100%;
   height: 100%;
-  background: var(--accent-soft);
-  color: var(--accent);
+  object-fit: cover;
 }
 
-.nav-avatar svg {
-  width: 1.4rem;
-  height: 1.4rem;
+.avatar-chip-initials {
+  font-family: var(--font-display);
+  font-size: calc(var(--avatar-size) * 0.36);
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 .account-wrap {
@@ -4254,23 +4265,6 @@ body:has(#dashboard-panel:not([hidden])) main .content {
   align-items: center;
   gap: var(--space-3);
   min-width: 0;
-}
-
-.dash-rail-avatar {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 50%;
-  background: var(--accent-soft);
-  color: var(--accent-strong);
-}
-
-.dash-rail-avatar svg {
-  width: 1.15rem;
-  height: 1.15rem;
 }
 
 .dash-rail-identity-text {

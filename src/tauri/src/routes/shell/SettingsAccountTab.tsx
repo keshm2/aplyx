@@ -8,6 +8,7 @@ import { useAuth } from "../../lib/AuthContext";
 import { setLocalRoot, forgetLocalRoot, readProfileFields } from "../../lib/bridge";
 import { getSupabaseClient } from "../../lib/supabaseClient";
 import { useOauthBusyRecovery } from "../../lib/useOauthBusyRecovery";
+import { Avatar } from "../../components/Avatar";
 import {
   readHostedProfileSnapshot,
   writeProfileSnapshotLocally,
@@ -43,6 +44,41 @@ export function SettingsAccountTab() {
   const [mailOauthError, setMailOauthError] = useState<string | undefined>(undefined);
   const [disconnecting, setDisconnecting] = useState(false);
   const resumeInputRef = useRef<HTMLInputElement>(null);
+  const [hostedName, setHostedName] = useState<string | undefined>(undefined);
+
+  // The identity avatar (below) prefers Google's own display name/photo,
+  // available immediately from the session's own metadata; email/password
+  // accounts have neither, so this fills in the real name from the
+  // hosted profile once it loads (falling back to initials-from-email
+  // until then).
+  useEffect(() => {
+    if (status !== "signed-in" || !session) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const client = await getSupabaseClient();
+        const fields = await new SupabaseAdapter(client, session.user.id).readProfileFields([
+          "preferred_name",
+          "first_name",
+          "last_name",
+        ]);
+        if (cancelled) return;
+        const preferred = typeof fields.preferred_name === "string" ? fields.preferred_name : "";
+        const first = typeof fields.first_name === "string" ? fields.first_name : "";
+        const last = typeof fields.last_name === "string" ? fields.last_name : "";
+        setHostedName(preferred || [first, last].filter(Boolean).join(" ") || undefined);
+      } catch {
+        // best effort — the avatar just falls back to initials-from-email
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [status, session]);
+
+  const sessionMetadata = session?.user.user_metadata as Record<string, unknown> | undefined;
+  const metaName = (sessionMetadata?.full_name || sessionMetadata?.name) as string | undefined;
+  const metaAvatarUrl = (sessionMetadata?.avatar_url || sessionMetadata?.picture) as string | undefined;
   const [resumeUploading, setResumeUploading] = useState(false);
   const [resumeUploadError, setResumeUploadError] = useState<string | undefined>(undefined);
   // Hosted-to-local profile pull (docs/web-onboarding-hosted-sync-plan.md
@@ -300,7 +336,7 @@ export function SettingsAccountTab() {
         <h2 style={{ fontSize: "var(--text-lg)", marginBottom: "var(--space-3)" }}>Account</h2>
         {status === "signed-in" ? (
           <div className="check-row">
-            <span className="check-icon check-icon-ok">✓</span>
+            <Avatar name={metaName || hostedName} email={session?.user.email} avatarUrl={metaAvatarUrl} size={36} />
             <div style={{ flex: 1 }}>
               <div className="check-label" style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
                 {session?.user.email}

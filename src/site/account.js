@@ -12,7 +12,7 @@
  * Supabase client; everything else on this site is plain script-tag JS
  * with no build step, so this stays isolated to the one page that needs it
  * rather than converting the whole site to a module graph. */
-import { supabase } from "./nav-auth.js";
+import { supabase, buildAvatarNode, displayNameFromMetadata, avatarUrlFromMetadata } from "./nav-auth.js";
 import { US_CITIES, rankCitiesByCoord, filterCities } from "./usCitiesData.js";
 
 // Deliberately separate project from the auth client above: same split as
@@ -173,10 +173,38 @@ async function refreshInstallCta(userId) {
   }
 }
 
+/* The dashboard sidebar's identity chip: a real Google profile photo when
+ * one exists, else initials (never the old generic person-outline icon).
+ * applyIdentityAvatar runs once on sign-in and captures the session's own
+ * inputs (Google metadata name/photo, or none for email/password);
+ * renderIdentityAvatar re-renders from those plus whatever profile name
+ * is known so far, called again once the profile row loads
+ * (loadAndRenderActivity) to upgrade an email/password account's
+ * initials from the email to the real name. */
+let currentAvatarInputs;
+
+function renderIdentityAvatar(profile) {
+  const slot = document.querySelector(".dash-rail-avatar");
+  if (!slot || !currentAvatarInputs) return;
+  const { email, avatarUrl, metaName } = currentAvatarInputs;
+  const profileName = profile && (profile.preferred_name || [profile.first_name, profile.last_name].filter(Boolean).join(" "));
+  slot.replaceChildren(buildAvatarNode({ name: metaName || profileName || "", email, avatarUrl, size: 32 }));
+}
+
+function applyIdentityAvatar(session) {
+  currentAvatarInputs = {
+    email: session.user.email,
+    avatarUrl: avatarUrlFromMetadata(session.user.user_metadata),
+    metaName: displayNameFromMetadata(session.user.user_metadata),
+  };
+  renderIdentityAvatar();
+}
+
 function showAuthed(session) {
   authPanel.hidden = true;
   dashboardPanel.hidden = false;
   dashboardEmail.textContent = session.user.email ?? "";
+  applyIdentityAvatar(session);
   void refreshInstallCta(session.user.id);
   // Browse-all on arrival: an empty dashboard the first time you land is
   // a worse first impression than showing something, and Tier 0's whole
@@ -484,6 +512,7 @@ function stopActivitySync() {
     supabase.removeChannel(realtimeChannel);
     realtimeChannel = undefined;
   }
+  currentAvatarInputs = undefined;
   clearTimeout(activitySyncDebounce);
   myState = undefined;
   currentUserId = undefined;
@@ -940,6 +969,7 @@ async function loadAndRenderActivity() {
   } catch {
     return; // transient fetch failure; next Realtime event or tab revisit retries
   }
+  renderIdentityAvatar(myState.profile);
   try {
     applicationAccounts = await loadApplicationAccounts();
   } catch {
