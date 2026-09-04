@@ -2,7 +2,7 @@
   "name": "@aplyx/desktop",
   "private": true,
   "license": "MIT",
-  "version": "1.0.8-beta.0",
+  "version": "1.0.9-beta.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

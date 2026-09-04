@@ -7,6 +7,18 @@ but trimmed to fit a small in-repo doc.
 > Per-`docs/RELEASE.md` is the canonical, deep-dive release
 > document for each tagged build. This file is the index.
 
+## [1.0.9b] - 2026-09-04
+
+### Changed
+
+- **Real identity avatars.** The generic person-outline placeholder (site
+  nav, account.html's dashboard sidebar) and the plain checkmark badge
+  (desktop app's Settings Account row) are now an actual avatar: the
+  Google profile photo when one exists, else initials in a chip
+  ("Kesh Muthu" → KM), falling back to the email's local part when no
+  name is known yet. A blocked/failed photo load falls back to initials
+  automatically.
+
 ## [1.0.8b] - 2026-09-04
 
 ### Fixed
