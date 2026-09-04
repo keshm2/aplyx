@@ -4191,11 +4191,23 @@ body:has(#dashboard-panel:not([hidden])) main .content {
 }
 
 .dash-card-note {
-  margin: calc(-1 * var(--space-2)) 0 var(--space-4);
+  margin: 0 0 var(--space-4);
   max-width: 68ch;
   color: var(--dash-muted);
   font-size: var(--text-sm);
   line-height: 1.6;
+}
+
+/* Directly under a card heading: tighten the gap the heading's own
+   margin-bottom would otherwise leave. Only applies where the note is the
+   adjacent sibling, so a note sitting below other content (the Browse
+   jobs card, where it follows the search form) keeps normal spacing. */
+.dash-card-head + .dash-card-note {
+  margin-top: calc(-1 * var(--space-2));
+}
+
+.dashboard-search + .dash-card-note {
+  margin-top: var(--space-4);
 }
 
 /* Stat tiles and the usage bar read as proper cards on the workspace
