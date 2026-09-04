@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { PAGES } from "@aplyx/core/onboarding/fields.js";
-import { findRoot, hasLocalInstall, readProfileFields, writeProfileFields } from "../../lib/bridge";
+import { SupabaseAdapter } from "@aplyx/core/adapters/supabase.js";
+import { readProfileFields, writeProfileFields } from "../../lib/bridge";
+import { useAplyxState } from "../../lib/useAplyxState";
 import { FieldInput } from "../../components/FieldInput";
 import "../../components/formFields.css";
 import "./ProfileScreen.css";
@@ -15,7 +17,10 @@ function emptyValueFor(kind: string): FieldValue {
  *  re-surfaced here as a plain settings page grouped into the same 8 sections,
  *  so changing a preference later never means re-running the whole setup wizard. */
 export function ProfileScreen() {
-  const [root, setRoot] = useState<string | undefined>(undefined);
+  // Local install wins; a hosted sign-in is the fallback so a user who set
+  // their profile up on aplyx.app sees and edits the same fields here
+  // instead of the old "connect a local install first" dead end.
+  const { source, root, hosted, loaded: sourceLoaded } = useAplyxState();
   const [values, setValues] = useState<Record<string, FieldValue>>({});
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState<number | undefined>(undefined);
@@ -46,35 +51,50 @@ export function ProfileScreen() {
     // has to wait for that flip rather than only re-running on activeIndex.
   }, [activeIndex, loaded]);
 
+  const allFieldIds = PAGES.flatMap((p) => p.fields).map((f) => f.id);
+
   useEffect(() => {
-    hasLocalInstall()
-      .then(async (has) => {
-        if (!has) return;
-        const r = await findRoot();
-        setRoot(r);
-        const allFields = PAGES.flatMap((p) => p.fields);
-        const values = await readProfileFields(
-          r,
-          allFields.map((f) => f.id),
-        );
-        setValues(values);
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
-      .finally(() => setLoaded(true));
-  }, []);
+    if (!sourceLoaded) return;
+    let cancelled = false;
+    setLoaded(false);
+    (async () => {
+      try {
+        if (source === "local" && root) {
+          const v = await readProfileFields(root, allFieldIds);
+          if (!cancelled) setValues(v);
+        } else if (source === "hosted" && hosted) {
+          const v = await new SupabaseAdapter(hosted.client, hosted.userId).readProfileFields(allFieldIds);
+          if (!cancelled) setValues(v as Record<string, FieldValue>);
+        }
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        if (!cancelled) setLoaded(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceLoaded, source, root, hosted]);
 
   function setField(id: string, value: FieldValue) {
     setValues((prev) => ({ ...prev, [id]: value }));
   }
 
   async function savePage(pageIndex: number) {
-    if (!root) return;
+    const page = PAGES[pageIndex];
+    const toWrite = Object.fromEntries(page.fields.map((f) => [f.id, values[f.id] ?? emptyValueFor(f.kind)]));
     setSaving(pageIndex);
     setError(undefined);
     try {
-      const page = PAGES[pageIndex];
-      const toWrite = Object.fromEntries(page.fields.map((f) => [f.id, values[f.id] ?? emptyValueFor(f.kind)]));
-      await writeProfileFields(root, toWrite);
+      if (source === "local" && root) {
+        await writeProfileFields(root, toWrite);
+      } else if (source === "hosted" && hosted) {
+        await new SupabaseAdapter(hosted.client, hosted.userId).writeProfileFields(toWrite);
+      } else {
+        return;
+      }
       setSavedAt((prev) => ({ ...prev, [pageIndex]: true }));
       window.setTimeout(() => setSavedAt((prev) => ({ ...prev, [pageIndex]: false })), 2000);
     } catch (err) {
@@ -84,12 +104,13 @@ export function ProfileScreen() {
     }
   }
 
-  if (loaded && !root) {
+  if (loaded && source === "none") {
     return (
       <div style={{ maxWidth: "42rem", margin: "0 auto", display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
         <h1 style={{ fontSize: "var(--text-3xl)" }}>Profile</h1>
         <p className="field-help">
-          Connect a local install in Settings first: profile fields live in your local aplyx checkout.
+          Sign in, or connect a local install in Settings, to edit your profile. Signed in, these
+          fields are the same ones you filled in on aplyx.app.
         </p>
       </div>
     );
@@ -102,7 +123,9 @@ export function ProfileScreen() {
       <div>
         <h1 style={{ fontSize: "var(--text-2xl)", marginBottom: "var(--space-1)" }}>Profile</h1>
         <p style={{ color: "var(--text-muted)", fontSize: "var(--text-sm)" }}>
-          Everything you set up during onboarding, editable here. Nothing requires redoing setup.
+          {source === "hosted"
+            ? "Your hosted profile, synced with aplyx.app. Edits here show up there and in any other aplyx install signed into this account."
+            : "Everything you set up during onboarding, editable here. Nothing requires redoing setup."}
         </p>
       </div>
 

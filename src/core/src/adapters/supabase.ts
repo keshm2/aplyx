@@ -389,6 +389,47 @@ export class SupabaseAdapter implements Adapter {
     if (error) throw error;
   }
 
+  /** Batch reads: one `select *` instead of one round trip per field.
+   *  Column-backed PII fields come straight off the row; the three
+   *  HOSTED_PREFERENCE_FIELD_IDS come out of the `preferences` jsonb.
+   *  Unknown ids are skipped (not thrown) so a caller passing the full
+   *  onboarding field list gets back only what hosted mode actually
+   *  stores. Mirrors the desktop bridge's readProfileFields. */
+  async readProfileFields(ids: string[]): Promise<Record<string, FieldValue>> {
+    const row = await this.readRow();
+    const prefs = (row?.preferences as Record<string, FieldValue> | undefined) ?? {};
+    const out: Record<string, FieldValue> = {};
+    for (const id of ids) {
+      if (HOSTED_PREFERENCE_FIELD_IDS.includes(id)) {
+        out[id] = prefs[id] ?? [];
+      } else if (HOSTED_PROFILE_FIELD_IDS.includes(id)) {
+        out[id] = String(row?.[id] ?? "");
+      }
+    }
+    return out;
+  }
+
+  /** Batch write: one upsert for every column-backed field plus a single
+   *  merge into the `preferences` jsonb, instead of writeProfileField's
+   *  one-upsert-per-field loop. Same end state, far fewer round trips.
+   *  Unknown ids are ignored. Mirrors the desktop bridge's
+   *  writeProfileFields and the website's own single-upsert save path. */
+  async writeProfileFields(values: Record<string, FieldValue>): Promise<void> {
+    const columnUpdates: Record<string, FieldValue> = {};
+    const prefUpdates: Record<string, FieldValue> = {};
+    for (const [id, value] of Object.entries(values)) {
+      if (HOSTED_PREFERENCE_FIELD_IDS.includes(id)) prefUpdates[id] = value;
+      else if (HOSTED_PROFILE_FIELD_IDS.includes(id)) columnUpdates[id] = value;
+    }
+    const payload: Row = { user_id: this.userId, ...columnUpdates };
+    if (Object.keys(prefUpdates).length > 0) {
+      const row = await this.readRow();
+      payload.preferences = { ...((row?.preferences as Record<string, FieldValue> | undefined) ?? {}), ...prefUpdates };
+    }
+    const { error } = await this.client.from("profiles").upsert(payload, { onConflict: "user_id" });
+    if (error) throw error;
+  }
+
   /** Whether this signed-in user has finished the hosted onboarding wizard
    *  before: drives the desktop app's post-sign-in landing (dashboard vs
    *  wizard) so a returning sign-in doesn't repeat it every time. */

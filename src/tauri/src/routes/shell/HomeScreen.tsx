@@ -58,10 +58,11 @@ function nextAction(
       };
     }
     return {
-      title: "Connect your local install",
-      detail: "Job search and applying run through a local install on this machine.",
-      cta: "Open settings",
-      to: "/app/settings",
+      title: "Browse cached jobs",
+      detail:
+        "Search the cached boards right here. Tailoring and applying need a local aplyx checkout — connect one in Settings.",
+      cta: "Open Jobs",
+      to: "/app/jobs",
     };
   }
   if (source === "local" && display && display.applied.length === 0) {

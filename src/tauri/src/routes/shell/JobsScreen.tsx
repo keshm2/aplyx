@@ -11,8 +11,10 @@ import {
 } from "@aplyx/core/jobsSort.js";
 import { findRoot, searchJobs, checkJobFit, checkJobFitBatch, fetchJobDescription, saveJobForReview, readProfileField, triggerSingleJobApply } from "../../lib/bridge";
 import { useAuth } from "../../lib/AuthContext";
+import { useAplyxState } from "../../lib/useAplyxState";
 import { getSupabaseClient } from "../../lib/supabaseClient";
 import { SupabaseAdapter } from "@aplyx/core/adapters/supabase.js";
+import { HostedJobsScreen } from "./HostedJobsScreen";
 import { SkeletonRows } from "../../components/Skeleton";
 import { ExternalLinkIcon } from "../../components/Icons";
 import { Modal } from "../../components/Modal";
@@ -169,7 +171,39 @@ function payTextSummary(payText: string): { primary: string; extraCount: number 
   return { primary: parts[0], extraCount: parts.length - 1 };
 }
 
+/**
+ * Route entry: a local aplyx checkout drives the full search (fit-scoring,
+ * tailoring, saving to review, applying); a hosted-only session (signed
+ * in, no checkout) falls back to the browse-only cached search, same as
+ * aplyx.app. Mirrors useAplyxState's local-wins-then-hosted precedence
+ * used by every other pipeline screen.
+ */
 export function JobsScreen() {
+  const { source, loaded } = useAplyxState();
+  if (!loaded) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+        <h1 style={{ fontSize: "var(--text-3xl)" }}>Jobs</h1>
+        <SkeletonRows count={6} />
+      </div>
+    );
+  }
+  if (source === "hosted") return <HostedJobsScreen />;
+  if (source === "none") {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", maxWidth: "42rem" }}>
+        <h1 style={{ fontSize: "var(--text-3xl)" }}>Jobs</h1>
+        <p className="field-help">
+          Sign in for a cached job search, or connect a local aplyx checkout in Settings for the full
+          live search plus tailoring and applying.
+        </p>
+      </div>
+    );
+  }
+  return <LocalJobsScreen />;
+}
+
+function LocalJobsScreen() {
   const location = useLocation();
   const [query, setQuery] = useState("");
   const [jobs, setJobs] = useState<SearchJob[]>([]);

@@ -1,5 +1,5 @@
 {
-  "_help": "Static copy of src/config/job_cache_targets.json for the marketing site's Tier 0 hosted job search (account.html/account.js) to fetch as a same-origin asset, since the site is a standalone Vercel deploy from src/site and can't reach outside that directory at build time. Keep in sync by hand when the source file changes; it's a small, infrequently-edited, already-public company list.",
+  "_help": "Static copy of src/config/job_cache_targets.json for the marketing site's Tier 0 hosted job search (account.html/account.js) to fetch as a same-origin asset, since the site is a standalone Vercel deploy from src/site and can't reach outside that directory at build time. Keep in sync by hand when the source file changes; it's a small, infrequently-edited, already-public company list. NOTE: src/core/src/jobCacheHosted.ts (JOB_CACHE_TARGET_SLUGS) holds a hand-synced copy of these slug arrays for the desktop app + marketing site hosted job search; keep all three in sync when editing.",
   "ashby_company_slugs": [
     "openai",
     "airwallex",

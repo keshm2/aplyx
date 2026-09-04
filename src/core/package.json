@@ -26,6 +26,10 @@
       "types": "./dist/jobsSort.d.ts",
       "default": "./dist/jobsSort.js"
     },
+    "./jobCacheHosted.js": {
+      "types": "./dist/jobCacheHosted.d.ts",
+      "default": "./dist/jobCacheHosted.js"
+    },
     "./resumes.js": {
       "types": "./dist/resumes.d.ts",
       "default": "./dist/resumes.js"
