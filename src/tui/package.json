@@ -1,6 +1,6 @@
 {
   "name": "@keshm/aplyx",
-  "version": "1.0.6-beta.0",
+  "version": "1.0.7-beta.0",
   "description": "Terminal UI overlay for aplyx: manual job search, automatic runs, review triage, status, and history over the Python core.",
   "publishConfig": {
     "tag": "latest",

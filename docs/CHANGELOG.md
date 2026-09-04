@@ -7,6 +7,41 @@ but trimmed to fit a small in-repo doc.
 > Per-`docs/RELEASE.md` is the canonical, deep-dive release
 > document for each tagged build. This file is the index.
 
+## [1.0.7b] - 2026-09-04
+
+### Fixed
+
+- **Stuck "Opening consent…" button.** Connecting a Gmail inbox left the
+  button disabled forever if the consent window was closed, the login
+  failed, or the account isn't an approved tester (the OAuth callback
+  never fires in those cases). It now recovers when the app regains focus
+  and resets to "Connect" with a retry hint.
+- **Résumé looked lost on wizard back/forward.** The hosted résumé step
+  didn't check for an already-uploaded file, so stepping away and back
+  showed "Choose a PDF…" as if nothing was there — even though the upload
+  had succeeded. It's now idempotent and keeps exactly one résumé per
+  account.
+- **Duplicate hosted setup.** Doing setup on the website then opening the
+  app re-ran the whole hosted wizard. The app now detects what's already
+  done (profile, candidate email, résumé, inbox) and skips to the first
+  unfinished step, or straight to the dashboard.
+
+### Changed
+
+- **Liquid-glass pass.** The marketing site's nav, secondary buttons, and
+  feature cards, and the desktop app's top bar, now use one tuned
+  translucent glass material. The app's top bar is a sticky glass toolbar
+  instead of a row that scrolls away. Falls back to solid under
+  `prefers-reduced-transparency`.
+
+### Infrastructure
+
+- **Windows code signing wired** (Azure Trusted Signing). The build signs
+  the installer when the signing secrets are set; publisher/copyright
+  metadata added. See `docs/windows-code-signing.md` — the "unknown
+  publisher" warning still needs a real certificate (a separate,
+  identity-verified setup step).
+
 ## [1.0.6b] - 2026-09-04
 
 ### Added
