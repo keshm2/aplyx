@@ -7,6 +7,23 @@ but trimmed to fit a small in-repo doc.
 > Per-`docs/RELEASE.md` is the canonical, deep-dive release
 > document for each tagged build. This file is the index.
 
+## [1.0.8b] - 2026-09-04
+
+### Fixed
+
+- **Drifting glass top bar.** The negative-margin trick used to bleed the
+  sticky top bar into the scroll container's padding fought the sticky
+  positioning: instead of staying pinned, it visually detached from the
+  top and drifted with scroll. Padding moved off `.shell-main` onto
+  `.shell-route-frame` instead, so the bar owns a clean top edge.
+
+### Changed
+
+- **`features.html` redesigned.** Was one repeated shape top to bottom;
+  now three numbered spotlight features (Find/Tailor/Decide) alternating
+  left/right with the real product screenshot, followed by a distinct
+  compact grid for the supporting features.
+
 ## [1.0.7b] - 2026-09-04
 
 ### Fixed
