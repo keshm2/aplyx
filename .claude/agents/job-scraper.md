@@ -954,6 +954,29 @@ For each job with ats_score >= 60:
    `fill_record_path` on this job's applied_jobs.json/review_queue.json
    entry. Skip this step only when step 6 never ran because no field was
    ever filled for this job (there is nothing to record).
+6b. **Try the official API before the browser submit (Ashby / Lever /
+   Greenhouse only; never Workday, whose runtime owns its own flow).**
+   Only when step 6 passed cleanly (not aborted to needs_review). The
+   pre-submit verification in step 6 is the safety gate; this step just
+   changes the transport for the final submit from a browser click to an
+   official API call where one exists:
+   `python3 src/scripts/runtime/ats_api_submit.py --family <ashby|lever|greenhouse> --apply-url '<apply_url>' --resume '<tailored-resume-pdf-path from step 4, or the master resume PDF>' --fields-file '<fill_record_path from step 6a>'`
+   Parse its one-line JSON:
+   - `{"status": "submitted", ...}` → the application was accepted by the
+     API. Skip step 7's browser submit entirely; go straight to step 8
+     with status "applied", reasoning naming the API path, and carry
+     `application_id` (from `extra`) into the entry as `confirmation_url`
+     context if present.
+   - `{"status": "fallback", ...}` or `"skipped"` or `"error"` → the API
+     path did not apply anything (no keyless API for this family, a
+     custom-question posting, an anti-bot challenge, an ambiguous
+     response, the path disabled). Proceed to step 7 and submit through
+     the browser exactly as normal. This is the expected common case for
+     Greenhouse (needs the employer key) and Ashby (browser-only); it is
+     not an error and never routes the job to needs_review by itself.
+   This step is a no-op when `APLYX_ATS_API_SUBMIT=0`. It never bypasses a
+   CAPTCHA: a challenge in the API response is a `fallback`, same red line
+   as the browser path.
 7. Submit, then verify the outcome before recording anything: a click event
    is not proof of a successful application, and this is the one action that
    cannot be undone. Capture the resulting page and classify it:

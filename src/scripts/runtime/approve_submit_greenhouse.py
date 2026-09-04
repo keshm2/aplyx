@@ -170,7 +170,14 @@ def _fail(page, message: str, code: int, job_id: str) -> int:
     return code
 
 
-def run(job_id: str, review_queue_path: str, fill_records_dir: str) -> int:
+def _resume_path_from_fields(fields) -> str | None:
+    for field in fields:
+        if field.get("source") == "resume_upload":
+            return resolve_resume_path(field.get("filled_value", ""))
+    return None
+
+
+def run(job_id: str, review_queue_path: str, fill_records_dir: str, use_api: bool = True) -> int:
     entry = find_queue_entry(job_id, review_queue_path)
     apply_url = entry.get("apply_url") or entry.get("url")
     if not apply_url:
@@ -185,6 +192,26 @@ def run(job_id: str, review_queue_path: str, fill_records_dir: str) -> int:
         return 1
 
     fields = load_fill_record(entry, fill_records_dir)
+
+    # Official Job Board API first when the employer's board key is
+    # available (APLYX_GREENHOUSE_BOARD_KEY or greenhouse_board_keys in
+    # targets.json); otherwise this returns "fallback" and the browser
+    # replay below runs unchanged. --no-api / APLYX_ATS_API_SUBMIT=0 skips it.
+    api_note = ""
+    if use_api:
+        try:
+            from ats_api_submit import try_api_submit
+
+            api = try_api_submit("greenhouse", str(apply_url), fields, _resume_path_from_fields(fields))
+            if api.get("status") == "submitted":
+                out = {"ok": True, "message": api["message"], "via": "greenhouse_api"}
+                out.update(api.get("extra") or {})
+                print(json.dumps(out))
+                return 0
+            if api.get("status") != "skipped":
+                api_note = api.get("reason") or ""
+        except Exception as exc:  # noqa: BLE001
+            api_note = f"API path errored ({exc})"
 
     try:
         from playwright.sync_api import sync_playwright
@@ -274,7 +301,10 @@ def run(job_id: str, review_queue_path: str, fill_records_dir: str) -> int:
             while time.monotonic() < deadline:
                 ok, last_reason = _looks_successful(page)
                 if ok:
-                    print(json.dumps({"ok": True, "message": last_reason, "confirmation_url": page.url}))
+                    out = {"ok": True, "message": last_reason, "confirmation_url": page.url, "via": "browser"}
+                    if api_note:
+                        out["api_fallback"] = api_note
+                    print(json.dumps(out))
                     return 0
                 _pause(400, 100)
 
@@ -294,8 +324,9 @@ def main(argv=None) -> int:
     parser.add_argument("job_id")
     parser.add_argument("--review-queue", default=DEFAULT_REVIEW_QUEUE)
     parser.add_argument("--fill-records-dir", default=DEFAULT_FILL_RECORDS_DIR)
+    parser.add_argument("--no-api", action="store_true", help="skip the official-API submit path, use the browser only")
     args = parser.parse_args(argv)
-    return run(args.job_id, args.review_queue, args.fill_records_dir)
+    return run(args.job_id, args.review_queue, args.fill_records_dir, use_api=not args.no_api)
 
 
 if __name__ == "__main__":

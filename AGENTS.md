@@ -249,6 +249,20 @@ today:
   persisted in src/config/env.json. A manual run (the app's "Run now",
   `aplyx run`, or a direct invocation) passes no such flag and always
   applies; APLYX_SCHEDULED_AUTO_APPLY does not affect it.
+- Official-API submission (`src/scripts/runtime/ats_api_submit.py`): the
+  Ashby/Lever/Greenhouse apply path tries the official API before driving
+  the browser. Lever's public apply endpoint needs no key and is fully
+  supported; Greenhouse needs the employer's Job Board API key
+  (APLYX_GREENHOUSE_BOARD_KEY, or a `greenhouse_board_keys` map in
+  src/config/targets.json) or it returns "fallback"; Ashby has no keyless
+  API and always falls back. Any non-"submitted" result (no API, custom
+  questions, an anti-bot challenge, an ambiguous response) falls back to
+  the existing Playwright replay/flow with nothing lost — set
+  APLYX_ATS_API_SUBMIT=0 to skip the API path entirely. Same red line as
+  the browser runtimes: a challenge in an API response is a fallback,
+  never a programmatic bypass. Used by job-scraper.md Phase 3 step 6b,
+  the `approve_submit_{lever,greenhouse}.py` replay runtimes, and (via its
+  `--stdin` / `--fields-file` CLI) a future hosted auto-apply worker.
 - PREFER `logs/tmp/` over `/tmp/` (or any path outside the repo) for every
   scratch file: raw JSON passed to a helper, ad-hoc verification scripts,
   intermediate canonicalization payloads, anything, not just board
