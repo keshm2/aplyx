@@ -7,6 +7,24 @@ but trimmed to fit a small in-repo doc.
 > Per-`docs/RELEASE.md` is the canonical, deep-dive release
 > document for each tagged build. This file is the index.
 
+## [1.0.6b] - 2026-09-04
+
+### Added
+
+- **Official-API application submission** (`src/scripts/runtime/ats_api_submit.py`).
+  The Ashby / Lever / Greenhouse apply path now tries the ATS's official
+  API before driving a browser. **Lever** posts to its public apply
+  endpoint (no key, fully supported). **Greenhouse** uses the documented
+  Job Board API when the employer's board key is available
+  (`APLYX_GREENHOUSE_BOARD_KEY` or a `greenhouse_board_keys` map in
+  `targets.json`), else falls back. **Ashby** has no keyless API and
+  always falls back. Any non-success — no API, a custom-question posting,
+  an anti-bot challenge, an ambiguous response, or `APLYX_ATS_API_SUBMIT=0`
+  — drops through to the existing Playwright replay with nothing lost. A
+  challenge in an API response is a fallback, never a bypass. Pure
+  `urllib`, no new dependency; the `--stdin` / `--fields-file` CLI is what
+  a future hosted auto-apply worker calls. 24 new unit tests.
+
 ## [1.0.5b] - 2026-09-04
 
 Seventh/eighth beta (1.0.4b's own tag also carried the first three items
