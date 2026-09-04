@@ -10,10 +10,12 @@
   flex: 1;
   min-width: 0;
   overflow-y: auto;
-  /* space-7 (3rem) top clearance still covers the macOS traffic lights:
-   * same reasoning the old sidebar's own top padding had (transparent
-   * title bar, tauri.conf.json, reserves no space of its own). */
-  padding: var(--space-7) var(--space-6);
+  /* No padding here: TopBar (its first child) is a sticky, full-bleed
+   * glass toolbar that owns the top edge and the traffic-light clearance
+   * itself; .shell-route-frame below owns the content's own padding. A
+   * padded scroll container previously fought the sticky positioning
+   * (fixed via negative margins that made the bar appear to detach and
+   * drift with scroll instead of staying pinned). */
 }
 
 /* Content itself still centers on a sensible reading/working width rather
@@ -27,6 +29,7 @@
   min-height: 60vh;
   max-width: 90rem;
   margin: 0 auto;
+  padding: var(--space-5) var(--space-6) var(--space-6);
 }
 
 @keyframes shell-route-out {

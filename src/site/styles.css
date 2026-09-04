@@ -2449,6 +2449,142 @@ button {
   }
 }
 
+/* --- features.html: three numbered spotlight features (a real sequence —
+   find, tailor, decide — hence the numbering) alternating side-by-side
+   with a real screenshot, followed by a tighter compact grid for the
+   supporting features. Two different shapes on purpose: the spotlight
+   rhythm signals "this is the product," the grid signals "and this comes
+   with it," instead of every feature getting identical visual weight. --- */
+
+.feature-spotlight-section {
+  padding-bottom: var(--space-7);
+}
+
+.feature-spotlights {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-9);
+}
+
+.feature-spotlight {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.feature-spotlight-reverse {
+  flex-direction: row-reverse;
+}
+
+.feature-spotlight-text {
+  flex: 1 1 42%;
+  min-width: 0;
+}
+
+.feature-spotlight-kicker {
+  display: inline-block;
+  margin-bottom: var(--space-3);
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.feature-spotlight-text h2 {
+  font-size: var(--text-2xl);
+  letter-spacing: -0.012em;
+  text-wrap: balance;
+}
+
+.feature-spotlight-text p {
+  margin-top: var(--space-4);
+  color: var(--text-muted);
+  font-size: var(--text-base);
+  line-height: 1.65;
+}
+
+.feature-spotlight-shot {
+  flex: 1 1 58%;
+  min-width: 0;
+  margin-top: 0;
+}
+
+.feature-spotlight-shot img {
+  max-height: 22rem;
+}
+
+@media (max-width: 56rem) {
+  .feature-spotlight,
+  .feature-spotlight-reverse {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-5);
+  }
+}
+
+.feature-compact-section {
+  padding-top: var(--space-7);
+  border-top: 1px solid var(--border);
+}
+
+.feature-compact-kicker {
+  margin-bottom: var(--space-5);
+  color: var(--text-faint);
+  font-size: var(--text-xs);
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.feature-compact-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-5);
+}
+
+@media (max-width: 46rem) {
+  .feature-compact-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.feature-compact-card {
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in srgb, var(--glass-edge) 45%, var(--border));
+  background: var(--glass-tint);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  box-shadow: var(--glass-inner);
+  transition:
+    transform var(--duration-quick) var(--ease-out-expo),
+    border-color var(--duration-quick) var(--ease-out-expo);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .feature-compact-card:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  }
+}
+
+.feature-compact-card .feature-row-icon {
+  margin-bottom: var(--space-4);
+}
+
+.feature-compact-card h3 {
+  font-size: var(--text-base);
+  letter-spacing: -0.002em;
+}
+
+.feature-compact-card p {
+  margin-top: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
 /* Not-yet-shipped feature marker: same honesty convention as the
    pricing page's "illustrative, not final" note and the privacy page's
    "no server exists today" line: a feature described here that isn't

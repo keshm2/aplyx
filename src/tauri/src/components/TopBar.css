@@ -15,9 +15,13 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  margin: calc(-1 * var(--space-7)) calc(-1 * var(--space-6)) var(--space-5);
+  /* .shell-main (the scroll container) carries no padding of its own —
+     this bar owns the full top edge, and .shell-route-frame owns the
+     content's padding below it. No negative margins: those previously
+     fought the sticky math and made the bar appear to detach from the
+     top and drift with scroll instead of staying pinned. */
   padding: var(--space-4) var(--space-6);
-  padding-top: var(--space-5); /* clears the macOS traffic lights */
+  padding-top: var(--space-7); /* clears the macOS traffic lights */
   background: var(--glass-tint);
   backdrop-filter: blur(22px) saturate(180%);
   -webkit-backdrop-filter: blur(22px) saturate(180%);
