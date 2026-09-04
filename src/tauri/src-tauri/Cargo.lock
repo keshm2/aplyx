@@ -719,7 +719,7 @@ dependencies = [
 
 [[package]]
 name = "desktop"
-version = "1.0.4-beta.0"
+version = "1.0.5-beta.0"
 dependencies = [
  "keyring",
  "serde",

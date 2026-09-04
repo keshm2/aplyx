@@ -7,6 +7,44 @@ but trimmed to fit a small in-repo doc.
 > Per-`docs/RELEASE.md` is the canonical, deep-dive release
 > document for each tagged build. This file is the index.
 
+## [1.0.5b] - 2026-09-04
+
+Seventh/eighth beta (1.0.4b's own tag also carried the first three items
+below; 1.0.5b adds the hosted-app work). Focus: making a hosted account
+actually usable, on Windows and without a local checkout.
+
+### Fixed
+
+- **Windows/Linux OAuth sign-in.** The `aplyx://` auth callback spawned a
+  second app window that never completed sign-in, leaving the user back on
+  the entry screen. Wired up `tauri-plugin-single-instance` (deep-link
+  feature) so the callback routes into the running instance, plus a
+  cold-start `getCurrent()` check.
+
+### Added
+
+- **Cached job search in the desktop app for hosted-only sessions.** A
+  signed-in user with no local aplyx checkout previously hit "Could not
+  locate the aplyx project root" on the Jobs screen. Jobs now falls back
+  to the same cached Tier-0 search aplyx.app uses (Ashby/Lever/Greenhouse/
+  SmartRecruiters, browse-only — results open in the browser; fit-scoring,
+  tailoring and applying still need a local checkout).
+- **Hosted profile editing in the desktop app.** The Profile screen reads
+  and writes the hosted `profiles` row via Supabase when there's no local
+  checkout, instead of showing "connect a local install first" — the same
+  fields you filled in on aplyx.app.
+- **Split scheduled scraping from auto-apply.** The 30-minute background
+  scheduler now only scrapes + fit-gates by default (keeping the
+  dashboard's "Recommended next" fresh); submitting on a schedule is a
+  separate opt-in toggle. A manual run always applies.
+
+### Changed
+
+- **Web dashboard rebuilt as an admin workspace** (cool workspace palette,
+  left rail, top bar, card sections) with an "Install aplyx" prompt for
+  signed-in users who haven't opened the desktop app
+  (`profiles.app_last_seen_at`, migration 0042).
+
 ## [1.0.4b] - 2026-09-01
 
 Sixth beta. Two themes: the Greenhouse/Ashby/Lever submit path, which had
