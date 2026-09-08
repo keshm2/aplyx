@@ -44,11 +44,6 @@
       "src/tauri": {
         "packageJson": {
           "dependencies": [
-            "npm:@fontsource-variable/atkinson-hyperlegible-next@^5.3.0",
-            "npm:@fontsource-variable/ibm-plex-sans@^5.3.0",
-            "npm:@fontsource-variable/inter@^5.3.0",
-            "npm:@fontsource-variable/manrope@^5.3.0",
-            "npm:@fontsource/ibm-plex-mono@^5.3.0",
             "npm:@supabase/supabase-js@^2.45.0",
             "npm:@tauri-apps/api@2",
             "npm:@tauri-apps/cli@2",
@@ -58,7 +53,6 @@
             "npm:@types/react-dom@^19.1.6",
             "npm:@types/react@^19.1.8",
             "npm:@vitejs/plugin-react@^4.6.0",
-            "npm:geist@^1.7.2",
             "npm:react-dom@^19.1.0",
             "npm:react-router-dom@^7.18.0",
             "npm:react@^19.1.0",

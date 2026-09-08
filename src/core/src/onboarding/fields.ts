@@ -21,7 +21,8 @@ export type FieldKind =
   | "multi-company"
   | "roles"
   | "levels"
-  | "date";
+  | "date"
+  | "month";
 
 export interface SelectOption {
   value: string;
@@ -146,9 +147,9 @@ export const PAGES: PageDef[] = [
       {
         id: "graduation_date",
         label: "Graduation date",
-        kind: "text",
-        placeholder: "June 2027",
-        help: "Optional in general, but required to apply to internships; most intern postings ask for it.",
+        kind: "month",
+        placeholder: "05/2027",
+        help: "Month and year only. Optional in general, but required to apply to internships; most intern postings ask for it.",
       },
       { id: "gpa", label: "GPA (optional)", kind: "text", placeholder: "3.8" },
       { id: "currently_enrolled", label: "Currently enrolled in school? (y/n)", kind: "yesno" },

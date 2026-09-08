@@ -4,9 +4,10 @@ import "./formFields.css";
 /**
  * A themed MM/DD/YYYY date field: a text input you can still type into,
  * plus a calendar popover that fits aplyx's own tokens rather than the
- * OS's native picker. The year selector spans 1920 through eight years
- * out, so the same control works for a birthdate and for a future
- * graduation date.
+ * OS's native picker. Used for date_of_birth (the only kind "date" field);
+ * the year selector spans 1920 through eight years out. Month-only fields
+ * (graduation_date) use a native <input type="month"> instead — see
+ * FieldInput.tsx and monthYear.ts.
  *
  * Stored value is always the "MM/DD/YYYY" string the rest of aplyx
  * expects (dateInput.ts in the TUI produces the same shape); an empty or

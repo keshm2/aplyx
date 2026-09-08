@@ -94,6 +94,10 @@
       "types": "./dist/onboarding/fields.d.ts",
       "default": "./dist/onboarding/fields.js"
     },
+    "./onboarding/monthYear.js": {
+      "types": "./dist/onboarding/monthYear.d.ts",
+      "default": "./dist/onboarding/monthYear.js"
+    },
     "./onboarding/profile.js": {
       "types": "./dist/onboarding/profile.d.ts",
       "default": "./dist/onboarding/profile.js"
@@ -170,7 +174,8 @@
   },
   "scripts": {
     "build": "tsc",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsc && node dist/onboarding/monthYear.selfcheck.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0"

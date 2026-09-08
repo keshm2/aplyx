@@ -2,12 +2,12 @@
 @import "./motion.css";
 
 /* The app's two faces: Manrope (display/headings) + Inter (body), Supabase's
- * own pairing. Both OFL-licensed, self-hosted (via @fontsource), no CDN
- * fetch, works fully offline. Subset to the latin unicode-range @fontsource
- * ships; text outside that range falls back down the system stack, which
- * only matters for scripts this app doesn't localize into. The five
- * alternate bundled faces + the font picker were removed 2026-09-02 —
- * one deliberate pairing, not a preference. */
+ * own pairing. Both OFL-licensed, vendored as .woff2 in assets/fonts/, no CDN
+ * fetch, works fully offline. Subset to the latin unicode-range below; text
+ * outside that range falls back down the system stack, which only matters for
+ * scripts this app doesn't localize into. The five alternate bundled faces +
+ * the font picker were removed 2026-09-02 (and the unused @fontsource/geist
+ * packages 2026-09-06) — one deliberate pairing, not a preference. */
 @font-face {
   font-family: "Manrope";
   src: url("../assets/fonts/Manrope-Variable.woff2") format("woff2");

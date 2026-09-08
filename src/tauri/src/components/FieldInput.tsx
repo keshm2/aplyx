@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { FieldDef } from "@aplyx/core/onboarding/fields.js";
 import { US_CITIES, rankCitiesByProximity } from "@aplyx/core/data/usCities.js";
 import { LEVEL_CATEGORIES } from "@aplyx/core/data/levelCategories.js";
+import { inputToMonthYear, monthYearToInput } from "@aplyx/core/onboarding/monthYear.js";
 import { DatePickerField } from "./DatePickerField";
 import { findRoot, listCompanies } from "../lib/bridge";
 import { TagSearchInput } from "./TagSearchInput";
@@ -209,6 +210,18 @@ function FieldControl({
           value={String(value ?? "")}
           onChange={onChange}
           placeholder={field.placeholder}
+        />
+      );
+
+    case "month":
+      // Stored as "Month YYYY" (see monthYear.ts); the native control
+      // speaks ISO "YYYY-MM" and gives a real month picker for free.
+      return (
+        <input
+          id={field.id}
+          type="month"
+          value={monthYearToInput(String(value ?? ""))}
+          onChange={(e) => onChange(inputToMonthYear(e.currentTarget.value))}
         />
       );
 

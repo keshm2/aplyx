@@ -25,6 +25,7 @@ import { acceptDobDigit, deleteDobDigit, dobDigits, dobError, formatDob } from "
 import { addDaysClamped, addMonthsClamped, addYearsClamped, clampToRange, formatMDY, parseMDY as parseCalendarDate } from "./dateCalendar.js";
 import { DateCalendarField } from "./DateCalendarField.js";
 import { PAGES, TOTAL_FIELDS, RESUME_PAGE_INDEX, COMPLETION_PAGE_INDEX, type FieldDef } from "@aplyx/core/onboarding/fields.js";
+import { normalizeMonthYear } from "@aplyx/core/onboarding/monthYear.js";
 import { useFieldFocus } from "./useFieldFocus.js";
 import { useSkipDefaultFlow } from "./useSkipDefaultFlow.js";
 import { QuestionFrame } from "./QuestionFrame.js";
@@ -325,8 +326,13 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
     const text = draftText.trim();
     if (!text) return undefined;
     if (field.kind === "date" && dobError(dobDigits(text))) return undefined; // never persist an invalid date
+    if (field.kind === "month" && normalizeMonthYear(text) === null) return undefined; // never persist an unparseable month
     const value: string | string[] =
-      field.kind === "roles" ? text.split(",").map((s) => s.trim()).filter(Boolean) : text;
+      field.kind === "roles"
+        ? text.split(",").map((s) => s.trim()).filter(Boolean)
+        : field.kind === "month"
+          ? normalizeMonthYear(text) ?? text
+          : text;
     const existing = values[field.id];
     if (typeof existing === "string" && existing === text) return undefined;
     persistFieldValue(root, field.id, value, directory);
@@ -572,6 +578,16 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
       case "text":
         if (key.return) return commitAndAdvance(field.id, draftText.trim());
         return editText(input, key, false);
+      case "month":
+        if (key.return) {
+          const raw = draftText.trim();
+          const normalized = normalizeMonthYear(raw);
+          if (normalized === null) return setEntryHint("Enter a month and year, e.g. 05/2027");
+          if (normalized && normalized !== raw) setDraftText(normalized);
+          return commitAndAdvance(field.id, normalized);
+        }
+        setEntryHint("");
+        return editText(input, key, false);
       case "date":
         if (input === "c") {
           const parsed = clampToRange(parseCalendarDate(draftText.trim()) ?? new Date());
@@ -812,6 +828,19 @@ export function OnboardingWizard({ root, onDone }: { root: string; onDone: () =>
             focused={isFocused}
             placeholder={field.placeholder}
             help={field.help}
+          />
+        );
+      case "month":
+        return (
+          <TextField
+            key={field.id}
+            label={field.label}
+            value={isFocused ? draftText : committedText}
+            cursor={isFocused ? draftCursor : committedText.length}
+            focused={isFocused}
+            placeholder={field.placeholder}
+            help={field.help}
+            warning={isFocused && entryHint ? entryHint : undefined}
           />
         );
       case "date":
