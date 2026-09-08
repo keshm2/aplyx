@@ -11,6 +11,53 @@
  * that's read as a dashboard, not landed on as a pitch.
  */
 
+/* One contained panel for the whole dashboard (operator request,
+ * 2026-09-08) instead of every section floating directly on the bare
+ * --ground canvas: a real card boundary, closer to how Shopify's own
+ * admin reads even though its content is several separate cards rather
+ * than one — a single frame is the more direct match for what was asked,
+ * and keeps this page's own internal spacing decisions (the gap below)
+ * from having to double as the page's only structure.
+ *
+ * Border only, no box-shadow: tokens.css is explicit that --shadow-lift
+ * is for something actively lifted (a modal, a dragged card), never
+ * default card styling, and this element in particular is the wrong
+ * place to break that rule even briefly — it's the exact node
+ * .shell-route-in/-out (AppShell.css) animates transform+opacity on for
+ * every single route switch, and WKWebView visibly janks re-rasterizing
+ * a blurred shadow through that animated transform on every navigation
+ * (confirmed live, 2026-09-08: this box-shadow was the whole cause of a
+ * "lag between screen switches" report). A border costs nothing to
+ * animate and still reads as fully contained, per the screenshots taken
+ * when this was built. */
+.home-page {
+  max-width: 68rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+}
+
+@media (max-width: 640px) {
+  .home-page {
+    padding: var(--space-4);
+  }
+}
+
+/* Direct children of .home-page get its flex gap for free; this wrapper
+ * (Skeleton.tsx's stand-ins, shown while data or the route-in transition
+ * is still settling) sits one level deeper so it fades in as one unit,
+ * and needs the same gap repeated so its rows don't lose their spacing. */
+.home-skeleton-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
 .home-page .section-label {
   text-transform: none;
   letter-spacing: 0;

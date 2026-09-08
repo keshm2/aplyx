@@ -2,7 +2,7 @@ import type { SchedulerStatus } from "../lib/bridge";
 import "./dataList.css"; // .status-badge* classes, used below
 import "./SchedulerStatusCard.css";
 
-function timeAgo(iso: string): string {
+export function timeAgo(iso: string): string {
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return iso;
   const minutes = Math.max(0, Math.round((Date.now() - then) / 60000));

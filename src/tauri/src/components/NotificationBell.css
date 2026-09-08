@@ -35,34 +35,6 @@
   transform: scale(var(--scale-press));
 }
 
-/* Settings gear: a slow, satisfying partial turn on hover, its own
- * distinct "nice transition" companion to the bell dropdown's, rather
- * than reusing the same motion (a gear turning reads as settings in a
- * way a generic hover state doesn't). Reduced-motion users still get the
- * color/background hover feedback above; just no rotation. */
-.settings-gear-icon {
-  transition: transform var(--duration-slow) var(--ease-out);
-}
-
-.settings-gear-btn:hover .settings-gear-icon {
-  transform: rotate(75deg);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .settings-gear-icon {
-    transition: none;
-  }
-  .settings-gear-btn:hover .settings-gear-icon {
-    transform: none;
-  }
-}
-
-:root[data-reduced-motion="1"] .settings-gear-icon {
-  transition: none;
-}
-:root[data-reduced-motion="1"] .settings-gear-btn:hover .settings-gear-icon {
-  transform: none;
-}
 
 .notif-badge {
   position: absolute;

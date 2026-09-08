@@ -3184,6 +3184,16 @@ button {
   }
 }
 
+/* auto-fit + minmax(min(...)) collapses to one column below 44rem on its
+ * own, no separate breakpoint needed (and no fight with .pricing-grid's
+ * own 40rem rule, which this same element also carries). */
+.pricing-grid-teaser {
+  grid-template-columns: repeat(auto-fit, minmax(min(22rem, 100%), 1fr));
+  max-width: 48rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
 /* --- Company marquee ---
    Text wordmarks, not real brand logos/SVGs: using an unrelated
    product's exact stylized logo without any actual relationship to the

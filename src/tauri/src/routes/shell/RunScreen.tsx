@@ -2,10 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import type { PhaseInfo } from "@aplyx/core/runProgress.js";
 import { todayIso } from "@aplyx/core/stateDerive.js";
 import { useAplyxState } from "../../lib/useAplyxState";
+import { useDeferredReady } from "../../lib/useDeferredReady";
 import { useRunState, deriveRunProgress, checkForeignRun, triggerRun, stopCurrentRun } from "../../lib/useRunState";
 import { WeeklyActivityChart } from "../../components/WeeklyActivityChart";
+import { SkeletonStatCards, SkeletonRows } from "../../components/Skeleton";
 import "../../components/formFields.css";
 import "../../components/dataList.css"; // .status-badge*, .metric-bar*
+import "../../components/Skeleton.css";
 import "./RunScreen.css";
 
 const SESSION_CAP_MAX = 25;
@@ -43,6 +46,13 @@ function RunChecklist({ checklist }: { checklist: PhaseInfo | null }) {
 export function RunScreen() {
   const { root, source, state, loaded } = useAplyxState();
   const run = useRunState();
+  // See useDeferredReady: keeps the first frame on every mount/remount to
+  // a cheap skeleton so this screen's two WeeklyActivityChart instances
+  // (the heaviest DOM on this page) never lay out in the same frame as
+  // AppShell.css's route-transition animation -- confirmed live
+  // (2026-09-08) as the actual cause of Run's own "lag between screen
+  // switches", same root cause as Home's.
+  const deferredReady = useDeferredReady();
   // 0 = no override (use the default cap from Settings); 1..SESSION_CAP_MAX
   // is an explicit lower cap for this run only. A slider can't represent
   // "leave blank" the way the old text input did, so 0 is its own position
@@ -93,7 +103,7 @@ export function RunScreen() {
   }
 
   return (
-    <div style={{ maxWidth: "54rem", margin: "0 auto", display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
+    <div className="run-page">
       <header className="run-header">
         <div className="run-header-text">
           <h1>Run</h1>
@@ -101,6 +111,19 @@ export function RunScreen() {
         </div>
       </header>
 
+      {!deferredReady && (
+        <div className="run-skeleton-wrap aplyx-fade-in">
+          <SkeletonStatCards />
+          <SkeletonRows count={2} />
+        </div>
+      )}
+
+      {/* Everything below is real, potentially chart-heavy content --
+       *  gated on deferredReady (see useDeferredReady/RunScreen's own
+       *  comment above) so it never mounts in the same frame as the
+       *  route-transition animation. */}
+      {deferredReady && (
+      <>
       {/* A live run is the one thing you watch moment-to-moment, so it sits
           right under the header; the history metrics + charts + the
           start-a-run "menu" only render when a run isn't actively going. */}
@@ -359,6 +382,8 @@ export function RunScreen() {
             </div>
           )}
         </section>
+      )}
+      </>
       )}
     </div>
   );

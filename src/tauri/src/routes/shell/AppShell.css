@@ -3,28 +3,26 @@
   display: flex;
 }
 
-/* Only child now: the old persistent sidebar rail was replaced with
- * TopBar's NavMenu dropdown, so every screen gets the window's full width
- * instead of a fixed reserved column. */
+/* Sidebar (Sidebar.tsx) is .shell's other flex child, a fixed-width
+ * column; this is the remaining flexible one, so every screen gets the
+ * rest of the window's width. */
 .shell-main {
   flex: 1;
   min-width: 0;
   overflow-y: auto;
   /* No padding here: TopBar (its first child) is a sticky, full-bleed
-   * glass toolbar that owns the top edge and the traffic-light clearance
-   * itself; .shell-route-frame below owns the content's own padding. A
-   * padded scroll container previously fought the sticky positioning
-   * (fixed via negative margins that made the bar appear to detach and
-   * drift with scroll instead of staying pinned). */
+   * glass toolbar that owns the top edge itself; .shell-route-frame below
+   * owns the content's own padding. A padded scroll container previously
+   * fought the sticky positioning (fixed via negative margins that made
+   * the bar appear to detach and drift with scroll instead of staying
+   * pinned). */
 }
 
 /* Content itself still centers on a sensible reading/working width rather
- * than stretching edge-to-edge on a wide window: the space the sidebar
- * used to occupy is given back to whichever screen wants it (Jobs/Review/
- * Status/Documents' list+detail layouts have no max-width and use it),
- * not turned into empty margin either side of a narrow column on every
- * other screen (Home/Settings/Profile/Resumes center within this, each
- * with their own narrower max-width, see those files). */
+ * than stretching edge-to-edge on a wide window (Jobs/Review/Status/
+ * Documents' list+detail layouts have no max-width and use what's given;
+ * Home/Settings/Profile/Resumes center within this, each with their own
+ * narrower max-width, see those files). */
 .shell-route-frame {
   min-height: 60vh;
   max-width: 90rem;
@@ -56,8 +54,19 @@
   }
 }
 
+/* will-change on both phases: hints the browser to promote this frame to
+ * its own compositor layer BEFORE the animation starts, so transform +
+ * opacity animate as a cached bitmap instead of re-rasterizing the
+ * subtree every frame. Content-heavy screens (Home/Run, the only two
+ * rendering WeeklyActivityChart's ~60-120 SVG nodes) visibly janked on
+ * every navigation without this (reported live, 2026-09-08) — WKWebView
+ * is markedly worse than Chromium at promoting a complex subtree on its
+ * own. Scoped to these transient classes only (not .shell-route-frame at
+ * rest): a resident compositor layer for content that's rarely animating
+ * is pure cost with no upside. */
 .shell-route-out {
   animation: shell-route-out var(--duration-quick) var(--ease-out) both;
+  will-change: transform, opacity;
 }
 
 /* The "in" phase uses --ease-glide (a longer deceleration tail than
@@ -66,6 +75,7 @@
  * --ease-out since leaving should feel immediate. */
 .shell-route-in {
   animation: shell-route-in var(--duration-normal) var(--ease-glide) both;
+  will-change: transform, opacity;
 }
 
 /* Holds the main column's height while a lazy route chunk loads so the

@@ -1,10 +1,14 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Route, Routes, useLocation } from "react-router-dom";
 import { TopBar } from "../../components/TopBar";
-import { NavHomeIcon, NavRunIcon, NavJobsIcon, NavReviewIcon, NavDocumentsIcon, NavStatusIcon, NavResumesIcon, NavProfileIcon } from "../../components/Icons";
+import { Sidebar, type ActivityStatus } from "../../components/Sidebar";
+import { NavHomeIcon, NavRunIcon, NavJobsIcon, NavReviewIcon, NavDocumentsIcon, NavStatusIcon, NavResumesIcon, NavProfileIcon, NavSettingsIcon } from "../../components/Icons";
 import { useAplyxState } from "../../lib/useAplyxState";
+import { useRunState } from "../../lib/useRunState";
+import { useSchedulerStatus } from "../../lib/useSchedulerStatus";
 import { isResolved } from "@aplyx/core/stateDerive.js";
 import { readEnvOverride } from "../../lib/bridge";
+import { timeAgo } from "../../components/SchedulerStatusCard";
 import { applyReducedMotionAttr } from "../../lib/reducedMotion";
 import "./AppShell.css";
 
@@ -38,8 +42,7 @@ const AccountCenterScreen = lazy(() => import("./AccountCenterScreen").then((m) 
 // Settings used to be a nav entry here too; it's the gear icon in TopBar
 // now instead (next to the bell), so the /app/settings route stays wired
 // up below but isn't listed as a nav destination anymore. Consumed by
-// TopBar's NavMenu (the dropdown that replaced the old persistent sidebar
-// rail) rather than rendered directly here.
+// the persistent Sidebar (Sidebar.tsx) rather than a dropdown.
 const NAV = [
   { to: "/app", label: "Home", end: true, Icon: NavHomeIcon },
   { to: "/app/run", label: "Run", Icon: NavRunIcon },
@@ -50,6 +53,8 @@ const NAV = [
   { to: "/app/resumes", label: "Resumes", Icon: NavResumesIcon },
   { to: "/app/profile", label: "Profile", Icon: NavProfileIcon },
 ];
+
+const SETTINGS_ITEM = { to: "/app/settings", label: "Settings", Icon: NavSettingsIcon };
 
 // Route chunks are lazy (see the imports above) so a fresh launch only
 // pays for Home's JS, not all six screens', but that meant the FIRST
@@ -86,7 +91,12 @@ export function AppShell() {
   // a manual decision). useAplyxState already polls every 60s for exactly
   // this reason (background scheduler activity while the window is open),
   // so this rides that existing refresh rather than adding a second one.
-  const { state, root } = useAplyxState();
+  const { state, root, source } = useAplyxState();
+  const run = useRunState();
+  // Sidebar's Activity group: the scheduler/run state that otherwise only
+  // surfaces on Home (SchedulerStatusCard) or Run itself, kept visible
+  // from any screen so "is it actually working" doesn't require a detour.
+  const schedulerStatus = useSchedulerStatus(source, root);
   // Not state?.queue.length: the queue array is append-only and never
   // shrinks on its own (AGENTS.md), so a raw length counts entries that
   // were already applied/dismissed/failed after being queued. isResolved
@@ -94,6 +104,28 @@ export function AppShell() {
   // this badge needs to agree with it or the nav menu and the actual queue
   // list would disagree about how many items are still pending.
   const queueCount = state ? state.queue.filter((e) => !isResolved(state, e)).length : 0;
+
+  const activity: ActivityStatus[] =
+    source !== "local"
+      ? []
+      : [
+          run.phase === "running"
+            ? { label: "Run in progress", detail: "Applying now", tone: "info" as const, to: "/app/run" }
+            : run.phase === "foreign"
+              ? { label: "Run active elsewhere", detail: "Started outside this window", tone: "warn" as const, to: "/app/run" }
+              : {
+                  label: "Last run",
+                  detail: schedulerStatus?.heartbeat ? timeAgo(schedulerStatus.heartbeat.last_run_completed_at) : "No runs yet",
+                  tone: schedulerStatus?.heartbeat && schedulerStatus.heartbeat.last_run_exit_code !== 0 ? ("warn" as const) : ("good" as const),
+                  to: "/app/run",
+                },
+          {
+            label: "Scheduler",
+            detail: schedulerStatus?.installed ? `Every ${schedulerStatus.interval_min} min` : "Off",
+            tone: schedulerStatus?.installed ? ("good" as const) : ("muted" as const),
+            to: "/app/settings",
+          },
+        ];
 
   // Applies whatever was last saved in Settings. Settings' own toggle
   // applies the attribute directly the instant it's flipped too (see
@@ -145,8 +177,14 @@ export function AppShell() {
 
   return (
     <div className="shell">
+      <Sidebar
+        items={NAV}
+        queueBadge={{ to: "/app/review", count: queueCount }}
+        activity={activity}
+        settingsItem={SETTINGS_ITEM}
+      />
       <main className="shell-main">
-        <TopBar navItems={NAV} queueBadge={{ to: "/app/review", count: queueCount }} />
+        <TopBar />
         <div
           className={`shell-route-frame${transition === "out" ? " shell-route-out" : transition === "in" ? " shell-route-in" : ""}`}
           onAnimationEnd={(e) => {

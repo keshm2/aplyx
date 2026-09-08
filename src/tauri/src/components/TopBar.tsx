@@ -1,19 +1,16 @@
 import { useEffect, useRef, useState } from "react";
-import { Logo } from "./Logo";
-import { NavMenu, type NavMenuItem } from "./NavMenu";
-import { NotificationBell, SettingsGearButton } from "./NotificationBell";
+import { NotificationBell } from "./NotificationBell";
 import "./TopBar.css";
 
-/** Persistent header row above every screen's own content: the bell and
- *  gear both need to be reachable from anywhere, not just Home, so this
- *  lives in AppShell rather than any individual screen. Settings used to
- *  be its own sidebar nav entry; it's the gear here now instead, next to
- *  the bell, per the operator's explicit call; nothing about what
- *  Settings shows changed, only how it's reached. Logo + NavMenu moved
- *  here from the old persistent sidebar rail (replaced with a dropdown so
- *  every screen's content gets the full window width instead of a fixed
- *  reserved column). */
-export function TopBar({ navItems, queueBadge }: { navItems: NavMenuItem[]; queueBadge?: { to: string; count: number } }) {
+/** Sticky glass strip above every screen's own content: the bell needs to
+ *  be reachable from anywhere, not just Home, so this lives in AppShell
+ *  rather than any individual screen. Logo + primary nav + Settings all
+ *  moved out to the persistent Sidebar (2026-09-08, Settings pinned at its
+ *  bottom like Shopify/Slack/Linear); this bar is now scroll-edge chrome
+ *  and the bell only, entirely to the right of the sidebar, so it no
+ *  longer needs the macOS traffic-light clearance it used to own (the
+ *  sidebar sits under those buttons now, this bar doesn't). */
+export function TopBar() {
   const ref = useRef<HTMLDivElement>(null);
   const [scrolled, setScrolled] = useState(false);
 
@@ -30,13 +27,8 @@ export function TopBar({ navItems, queueBadge }: { navItems: NavMenuItem[]; queu
 
   return (
     <div className="topbar" ref={ref} data-scrolled={scrolled}>
-      <div className="topbar-left">
-        <Logo size={22} withWordmark={false} />
-        <NavMenu items={navItems} queueBadge={queueBadge} />
-      </div>
       <div className="topbar-right">
         <NotificationBell />
-        <SettingsGearButton />
       </div>
     </div>
   );

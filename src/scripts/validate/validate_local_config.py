@@ -30,9 +30,13 @@ WEBHOOK_RE = re.compile(
 
 SAFE_KEYS = [
     "first_name", "last_name", "email", "phone",
-    "graduation_date", "gpa", "authorized_to_work", "require_sponsorship",
-    "citizenship_status", "currently_enrolled",
+    "graduation_date", "authorized_to_work", "require_sponsorship",
+    "currently_enrolled",
 ]
+
+# gpa and citizenship_status are labeled "(optional)" in the onboarding
+# wizard (src/core/src/onboarding/fields.ts); requiring them here fails
+# every scheduled run for anyone who left them blank as invited to.
 
 # linkedin/github moved to a username-or-legacy-url OR-check (see
 # check_safe_field_either below): either the new `<kind>_username` or the

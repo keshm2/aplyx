@@ -1,5 +1,5 @@
-/* The app's only persistent chrome (the old sidebar rail is gone): brand
- * mark + nav switcher on the left, notifications / settings on the right.
+/* Notifications / settings, right-aligned; the persistent Sidebar
+ * (Sidebar.tsx) owns the brand mark and nav now.
  *
  * A sticky liquid-glass toolbar, not a row that scrolls away with the
  * content: this is what makes the window read as an app rather than a
@@ -13,15 +13,17 @@
   z-index: 20;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: var(--space-2);
   /* .shell-main (the scroll container) carries no padding of its own —
      this bar owns the full top edge, and .shell-route-frame owns the
      content's padding below it. No negative margins: those previously
      fought the sticky math and made the bar appear to detach from the
      top and drift with scroll instead of staying pinned. */
-  padding: var(--space-4) var(--space-6);
-  padding-top: var(--space-7); /* clears the macOS traffic lights */
+  padding: var(--space-3) var(--space-6);
+  /* No traffic-light padding-top here: this bar sits entirely to the
+   * right of the Sidebar, which is the column actually under the
+   * overlay title bar's top-left buttons. */
   background: var(--glass-tint);
   backdrop-filter: blur(22px) saturate(180%);
   -webkit-backdrop-filter: blur(22px) saturate(180%);
@@ -33,12 +35,6 @@
  * content scrolled up behind the bar, not as a permanent divider. */
 .topbar[data-scrolled="true"] {
   box-shadow: var(--glass-inner), var(--glass-scroll-shadow);
-}
-
-.topbar-left {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
 }
 
 .topbar-right {

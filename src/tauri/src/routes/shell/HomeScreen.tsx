@@ -1,11 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { AplyxState } from "@aplyx/core/state.js";
 import { SupabaseAdapter, type HostedReadiness, type VerificationSessionRow } from "@aplyx/core/adapters/supabase.js";
 import { useAuth } from "../../lib/AuthContext";
-import { readProfileField, getRecommendedJobs, getSchedulerStatus, type RecommendedJob, type SchedulerStatus } from "../../lib/bridge";
+import { readProfileField, getRecommendedJobs, type RecommendedJob } from "../../lib/bridge";
 import { useAplyxState, type StateSource } from "../../lib/useAplyxState";
+import { useDeferredReady } from "../../lib/useDeferredReady";
+import { useSchedulerStatus } from "../../lib/useSchedulerStatus";
 import { useBoolEnvPref } from "../../lib/useEnvPref";
 import { useRunState, checkForeignRun, triggerRun } from "../../lib/useRunState";
 import { useOnlineAppliedJobs } from "../../lib/useOnlineAppliedJobs";
@@ -96,9 +98,10 @@ export function HomeScreen() {
   const { status, session } = useAuth();
   const navigate = useNavigate();
   const { state, loaded, source, root, hosted } = useAplyxState();
+  const deferredReady = useDeferredReady();
   const [preferredName, setPreferredName] = useState<string | undefined>(undefined);
   const [recommended, setRecommended] = useState<RecommendedJob[] | undefined>(undefined);
-  const [schedulerStatus, setSchedulerStatus] = useState<SchedulerStatus | undefined>(undefined);
+  const schedulerStatus = useSchedulerStatus(source, root);
   const [hostedReadiness, setHostedReadiness] = useState<HostedReadiness | undefined>(undefined);
   const [verificationSessions, setVerificationSessions] = useState<VerificationSessionRow[] | undefined>(undefined);
   const [quickQuery, setQuickQuery] = useState("");
@@ -178,9 +181,10 @@ export function HomeScreen() {
   // effect still fires on the one real transition a same-valued key
   // wouldn't catch: state going from not-yet-loaded to loaded-but-empty
   // (a fresh install with no applied/queue jobs yet).
-  const excludeJobIdsKey = state
-    ? [...state.applied.map((j) => j.job_id), ...state.queue.map((j) => j.job_id)].sort().join(",")
-    : "";
+  const excludeJobIdsKey = useMemo(
+    () => (state ? [...state.applied.map((j) => j.job_id), ...state.queue.map((j) => j.job_id)].sort().join(",") : ""),
+    [state],
+  );
 
   // A value-stable fingerprint of the registry itself, so the marquee
   // refetches when a scheduled scrape adds new postings or the fit gate
@@ -189,12 +193,16 @@ export function HomeScreen() {
   // useAplyxState's 60s poll replaces `state` on every tick, but this
   // string only changes when the registry's actual contents do, so a
   // quiet poll still doesn't re-run the (expensive) batch fit evaluation.
-  const registrySignatureKey = state
-    ? state.registry
-        .map((r) => `${r.job_id}:${r.latest_status ?? ""}`)
-        .sort()
-        .join(",")
-    : "";
+  const registrySignatureKey = useMemo(
+    () =>
+      state
+        ? state.registry
+            .map((r) => `${r.job_id}:${r.latest_status ?? ""}`)
+            .sort()
+            .join(",")
+        : "",
+    [state],
+  );
 
   // Recommended-jobs marquee: local-only, same reasoning as the profile-name
   // lookup above: a hosted-only session has no local job_registry.json or
@@ -221,24 +229,6 @@ export function HomeScreen() {
     // rather than `state` (a new object reference on every refresh): see
     // the comments above.
   }, [source, root, loaded, excludeJobIdsKey, registrySignatureKey]);
-
-  // Scheduler status: local-only (the local 30-min schedule and its
-  // heartbeat file live on this machine, same reasoning as the two
-  // effects above).
-  useEffect(() => {
-    if (source !== "local" || !root) return;
-    let cancelled = false;
-    getSchedulerStatus(root)
-      .then((s) => {
-        if (!cancelled) setSchedulerStatus(s);
-      })
-      .catch(() => {
-        // A bridge failure just leaves the card absent below.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [source, root]);
 
   const next = loaded ? nextAction(source, state, hostedReadiness) : undefined;
   const pendingQueueEntries = state ? state.queue.filter((e) => !isResolved(state, e)) : [];
@@ -318,37 +308,38 @@ export function HomeScreen() {
     navigate("/app/run");
   }
 
-  const activity = [
-    ...(state?.applied ?? []).map((j) => ({
-      id: `applied:${j.job_id}`,
-      timestamp: j.date_applied,
-      title: `Applied to ${j.company} - ${j.title}`,
-      sub: j.date_applied,
-      kind: "applied" as const,
-      badge: undefined as { label: string; className: string } | undefined,
-    })),
-    ...onlineJobs
-      .filter((j) => j.outcome_status && j.outcome_status !== "applied" && j.outcome_updated_at)
-      .map((j) => ({
-        id: `outcome:${j.job_id}`,
-        timestamp: j.outcome_updated_at!,
-        title: `${j.company} - ${j.title}`,
-        sub: `Updated ${j.outcome_updated_at!.slice(0, 10)}`,
-        kind: "outcome" as const,
-        badge: {
-          label: OUTCOME_LABEL[j.outcome_status!] ?? j.outcome_status!,
-          className: outcomeDotClass(j.outcome_status),
-        },
-      })),
-  ]
-    .sort((a, b) => (a.timestamp < b.timestamp ? 1 : a.timestamp > b.timestamp ? -1 : 0))
-    .slice(0, 8);
+  const activity = useMemo(
+    () =>
+      [
+        ...(state?.applied ?? []).map((j) => ({
+          id: `applied:${j.job_id}`,
+          timestamp: j.date_applied,
+          title: `Applied to ${j.company} - ${j.title}`,
+          sub: j.date_applied,
+          kind: "applied" as const,
+          badge: undefined as { label: string; className: string } | undefined,
+        })),
+        ...onlineJobs
+          .filter((j) => j.outcome_status && j.outcome_status !== "applied" && j.outcome_updated_at)
+          .map((j) => ({
+            id: `outcome:${j.job_id}`,
+            timestamp: j.outcome_updated_at!,
+            title: `${j.company} - ${j.title}`,
+            sub: `Updated ${j.outcome_updated_at!.slice(0, 10)}`,
+            kind: "outcome" as const,
+            badge: {
+              label: OUTCOME_LABEL[j.outcome_status!] ?? j.outcome_status!,
+              className: outcomeDotClass(j.outcome_status),
+            },
+          })),
+      ]
+        .sort((a, b) => (a.timestamp < b.timestamp ? 1 : a.timestamp > b.timestamp ? -1 : 0))
+        .slice(0, 8),
+    [state?.applied, onlineJobs],
+  );
 
   return (
-    <div
-      className="home-page"
-      style={{ maxWidth: "68rem", margin: "0 auto", display: "flex", flexDirection: "column", gap: "var(--space-5)" }}
-    >
+    <div className="home-page">
       <header className="aplyx-fade-in home-header">
         <div className="home-header-text">
           <h1>{greeting}</h1>
@@ -409,15 +400,20 @@ export function HomeScreen() {
         </nav>
       </section>
 
-      {!loaded && (
-        <>
+      {(!loaded || !deferredReady) && (
+        <div className="home-skeleton-wrap aplyx-fade-in">
           <SkeletonStatCards />
           <SkeletonNextCard />
           <SkeletonRows count={3} />
-        </>
+        </div>
       )}
 
-      {loaded && state && (
+      {/* Everything below is real, potentially chart-heavy content --
+       *  gated on deferredReady too (see useDeferredReady) so it never
+       *  mounts in the same frame as the route-transition animation. */}
+      {loaded && deferredReady && (
+      <>
+      {state && (
         <div className="metric-bar aplyx-fade-rise">
           <div className="metric">
             <div className="metric-top">
@@ -465,7 +461,7 @@ export function HomeScreen() {
         </div>
       )}
 
-      {loaded && source === "hosted" && hostedReadiness && (
+      {source === "hosted" && hostedReadiness && (
         <div className="metric-bar aplyx-fade-rise">
           <div className="metric">
             <span className="metric-value" style={{ color: hostedReadiness.inboxConnected ? "var(--good)" : "var(--warn)" }}>
@@ -547,7 +543,7 @@ export function HomeScreen() {
         </section>
       )}
 
-      {loaded && source === "hosted" && verificationSessions && verificationSessions.length > 0 && (
+      {source === "hosted" && verificationSessions && verificationSessions.length > 0 && (
         <div className="aplyx-fade-in">
           <h2 className="section-label">Verification sessions</h2>
           <div className="data-list">
@@ -581,7 +577,7 @@ export function HomeScreen() {
         </div>
       )}
 
-      {loaded && state && source === "local" && (
+      {state && source === "local" && (
         <div className="home-widget-grid aplyx-fade-in">
           <WeeklyActivityChart applied={state.applied} />
           <div className="home-widget-stack">
@@ -591,7 +587,7 @@ export function HomeScreen() {
         </div>
       )}
 
-      {loaded && source === "local" && recommended === undefined && (
+      {source === "local" && recommended === undefined && (
         <div className="aplyx-fade-in">
           <h2 className="section-label">Recommended next</h2>
           <SkeletonRows count={3} />
@@ -609,7 +605,7 @@ export function HomeScreen() {
         <p className="field-help aplyx-fade-in">No new matches right now. Check back after your next scheduled run.</p>
       )}
 
-      {loaded && source === "none" && (
+      {source === "none" && (
         <p className="field-help aplyx-fade-in">No activity yet. Head to Jobs to start searching.</p>
       )}
 
@@ -645,6 +641,8 @@ export function HomeScreen() {
             ))}
           </div>
         </section>
+      )}
+      </>
       )}
     </div>
   );

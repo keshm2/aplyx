@@ -133,11 +133,13 @@ check_array_or_absent "$TARGETS" workday_tenants
 check_array_or_absent "$TARGETS" oracle_tenants
 check_object        "$TARGETS" safe_fields
 
-# Required safe_fields keys for form filling.
+# Required safe_fields keys for form filling. gpa and citizenship_status
+# are labeled "(optional)" in the onboarding wizard
+# (src/core/src/onboarding/fields.ts) and deliberately excluded here.
 SAFE_KEYS=(
   first_name last_name email phone
-  graduation_date gpa authorized_to_work require_sponsorship
-  citizenship_status currently_enrolled
+  graduation_date authorized_to_work require_sponsorship
+  currently_enrolled
 )
 for k in "${SAFE_KEYS[@]}"; do
   check_safe_field "$TARGETS" "$k"

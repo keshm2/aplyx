@@ -1,3 +1,33 @@
+/* Same contained-panel treatment as .home-page (HomeScreen.css) — border
+ * only, no box-shadow, for the same reason: this is the node
+ * .shell-route-in/-out (AppShell.css) animates on every route switch, and
+ * a resting shadow re-rasterizes visibly through that animation. */
+.run-page {
+  max-width: 54rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+}
+
+@media (max-width: 640px) {
+  .run-page {
+    padding: var(--space-4);
+  }
+}
+
+/* Same reasoning as HomeScreen.css's .home-skeleton-wrap: repeats .run-page's
+ * gap for this one-level-deeper wrapper (Skeleton.tsx's stand-ins). */
+.run-skeleton-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
 .run-header {
   display: flex;
   align-items: center;
