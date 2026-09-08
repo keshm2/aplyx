@@ -35,15 +35,19 @@ export function SkeletonRows({ count = 4 }: { count?: number }) {
   );
 }
 
-/** Stand-in for Home's `.home-metric-bar` while state is still loading:
- *  same segmented-bar shape (count matches Home's real 3 metrics) so
- *  nothing jumps once real data arrives. */
+/** Stand-in for Home/Run's `.metric-bar` (dataList.css) while state is
+ *  still loading: same segmented-bar shape, icon + label row, big value,
+ *  and caption line, so nothing jumps once real data arrives. */
 export function SkeletonStatCards({ count = 3 }: { count?: number }) {
   return (
-    <div className="home-metric-bar" aria-hidden="true">
+    <div className="metric-bar" aria-hidden="true">
       {Array.from({ length: count }, (_, i) => (
-        <div key={i} className="home-metric skeleton-row">
-          <span className="skeleton skeleton-line" style={{ width: "2.5rem", height: "1.8rem" }} />
+        <div key={i} className="metric">
+          <div className="metric-top">
+            <span className="skeleton" style={{ width: "1.25rem", height: "1.25rem", borderRadius: "var(--radius-sm)" }} />
+            <span className="skeleton skeleton-line skeleton-line-sm" style={{ width: "60%" }} />
+          </div>
+          <span className="skeleton skeleton-line" style={{ width: "2.5rem", height: "1.5rem" }} />
           <span className="skeleton skeleton-line skeleton-line-sm" style={{ width: "70%" }} />
         </div>
       ))}

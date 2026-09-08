@@ -182,6 +182,7 @@ interface RegistryFitCandidate extends SearchJob {
   role_type?: string;
   normalized_apply_url?: string;
   closed?: boolean;
+  latest_status?: string;
 }
 
 export interface Targets {
@@ -1346,7 +1347,22 @@ export async function getRecommendedJobs(root: string, excludeJobIds: string[]):
   // Recommending a job the scraper itself has already flagged as gone
   // would be a straightforwardly wrong recommendation, not a fit-quality
   // question, so this filters before the fit gate ever runs, not after.
-  const candidates = registry.filter((job) => job.job_id && !job.closed && !exclude.has(job.job_id));
+  // latest_status filters out everything the fit gate already has a final
+  // answer for: skipped_unfit (rejected), needs_review/applied (already
+  // surfaced elsewhere). Re-running the batch gate over those every
+  // marquee refresh was the actual cause of a live report (2026-09-08)
+  // that this went slow and stopped showing fresh jobs once the registry
+  // grew past a few thousand entries -- most of it was re-evaluating
+  // postings this function had already conclusively ruled out.
+  // latest_status undefined is a defensive fallback for any legacy/
+  // malformed record missing the field, not the expected common case.
+  const candidates = registry.filter(
+    (job) =>
+      job.job_id &&
+      !job.closed &&
+      !exclude.has(job.job_id) &&
+      (job.latest_status === "new" || job.latest_status === "candidate" || job.latest_status === undefined),
+  );
   if (candidates.length === 0) return [];
 
   const p = py(["src/scripts/jobs/evaluate_job_fit.py", "--batch", "-"]);

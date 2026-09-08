@@ -1,6 +1,6 @@
 /* Shimmering placeholder shapes: shown while a screen's real data is
  * still loading, in the same box each real row/card will occupy (reuses
- * .data-row / .home-metric / .home-guide directly), so the layout
+ * .data-row / .metric / .home-guide directly), so the layout
  * doesn't jump when the real content swaps in. The swap itself needs no
  * special transition: the incoming real content already plays its own
  * mount animation (aplyx-fade-rise, .data-list's aplyx-fade-in); the
