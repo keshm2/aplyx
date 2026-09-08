@@ -67,7 +67,7 @@ function nextAction(
       to: "/app/jobs",
     };
   }
-  if (source === "local" && display && display.applied.length === 0) {
+  if (source === "local" && display && display.applied.filter((j) => j.status === "applied").length === 0) {
     return {
       title: "Start your first search",
       detail: "Browse live postings and fit-check them against your profile.",
@@ -181,6 +181,16 @@ export function HomeScreen() {
   // effect still fires on the one real transition a same-valued key
   // wouldn't catch: state going from not-yet-loaded to loaded-but-empty
   // (a fresh install with no applied/queue jobs yet).
+  // state.applied.json holds every fit-gate outcome that isn't a clean
+  // reject, not just genuine sends: needs_review entries land there too
+  // (persist_fit_results.py's documented dual-write, so review-queue
+  // context survives a resolve). Anything the UI states as "applications
+  // sent" has to filter to status === "applied" or a heavy review-queue
+  // day reads as a heavy apply day, which it isn't (confirmed live,
+  // 2026-09-08: a scrape-only catch-up run added 144 needs_review entries
+  // and the stat card reported them as 144 sent applications).
+  const sentJobs = useMemo(() => (state ? state.applied.filter((j) => j.status === "applied") : []), [state]);
+
   const excludeJobIdsKey = useMemo(
     () => (state ? [...state.applied.map((j) => j.job_id), ...state.queue.map((j) => j.job_id)].sort().join(",") : ""),
     [state],
@@ -238,8 +248,8 @@ export function HomeScreen() {
   // actually waiting on a decision, and how much of what's been scraped
   // is still a live candidate rather than already ruled out.
   const lastAppliedDate =
-    state && state.applied.length > 0
-      ? state.applied.reduce((latest, j) => (j.date_applied > latest ? j.date_applied : latest), state.applied[0].date_applied)
+    sentJobs.length > 0
+      ? sentJobs.reduce((latest, j) => (j.date_applied > latest ? j.date_applied : latest), sentJobs[0].date_applied)
       : undefined;
   const pendingQueueScores = pendingQueueEntries
     .map((e) => e.ats_score)
@@ -256,7 +266,7 @@ export function HomeScreen() {
   // first-ever visit (no name on file yet AND no applications sent).
   const greeting = preferredName
     ? `Welcome back, ${preferredName}`
-    : state?.applied?.length
+    : sentJobs.length > 0
       ? "Welcome back"
       : "You're set up";
 
@@ -311,7 +321,7 @@ export function HomeScreen() {
   const activity = useMemo(
     () =>
       [
-        ...(state?.applied ?? []).map((j) => ({
+        ...sentJobs.map((j) => ({
           id: `applied:${j.job_id}`,
           timestamp: j.date_applied,
           title: `Applied to ${j.company} - ${j.title}`,
@@ -335,7 +345,7 @@ export function HomeScreen() {
       ]
         .sort((a, b) => (a.timestamp < b.timestamp ? 1 : a.timestamp > b.timestamp ? -1 : 0))
         .slice(0, 8),
-    [state?.applied, onlineJobs],
+    [sentJobs, onlineJobs],
   );
 
   return (
@@ -426,7 +436,7 @@ export function HomeScreen() {
               <span className="metric-label">Applications sent</span>
             </div>
             <span className="metric-value" style={{ color: "var(--good)" }}>
-              {state.applied.length}
+              {sentJobs.length}
             </span>
             {lastAppliedDate && <span className="metric-caption">Last sent {formatShortDate(lastAppliedDate)}</span>}
           </div>
@@ -579,7 +589,7 @@ export function HomeScreen() {
 
       {state && source === "local" && (
         <div className="home-widget-grid aplyx-fade-in">
-          <WeeklyActivityChart applied={state.applied} />
+          <WeeklyActivityChart applied={sentJobs} />
           <div className="home-widget-stack">
             {schedulerStatus && <SchedulerStatusCard status={schedulerStatus} />}
             <PipelineBreakdown registry={state.registry} />

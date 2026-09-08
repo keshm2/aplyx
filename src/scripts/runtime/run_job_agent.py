@@ -764,6 +764,9 @@ def _run(logs_dir: str, run_log: str, run_start: datetime) -> int:
             "--applied", str(d_applied), "--needs-review", str(d_review),
             "--failed", str(d_failed), "--skipped-unfit", str(d_skipped)])
 
+    # --- Registry storage cap ------------------------------------------------
+    py_run([os.path.join("src", "scripts", "state", "job_state.py"), "prune-jd-text"])
+
     # --- Session-log retention ----------------------------------------------
     keep = int(os.environ.get("APLYX_KEEP_SESSION_LOGS",
                os.environ.get("FLUX_KEEP_SESSION_LOGS",

@@ -92,7 +92,13 @@ export function RunScreen() {
 
   const { checklist, currentApplication } = deriveRunProgress(run);
   const localRoot = root;
-  const appliedToday = state ? state.applied.filter((j) => j.date_applied === todayIso()).length : 0;
+  // See HomeScreen.tsx's sentJobs comment: applied_jobs.json also holds
+  // needs_review entries (persist_fit_results.py's documented dual-write),
+  // so every "applications sent" figure here has to filter to
+  // status === "applied" or a heavy review-queue day reads as a heavy
+  // apply day, which it isn't.
+  const sentJobs = state ? state.applied.filter((j) => j.status === "applied") : [];
+  const appliedToday = sentJobs.filter((j) => j.date_applied === todayIso()).length;
   const todayLabel = new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
 
   async function handleRun() {
@@ -220,15 +226,15 @@ export function RunScreen() {
               </span>
               <span className="metric-label">All-time applications</span>
             </div>
-            <span className="metric-value">{state.applied.length}</span>
+            <span className="metric-value">{sentJobs.length}</span>
           </div>
         </div>
       )}
 
-      {loaded && state && state.applied.length > 0 && run.phase !== "running" && run.phase !== "stopping" && (
+      {loaded && state && sentJobs.length > 0 && run.phase !== "running" && run.phase !== "stopping" && (
         <div className="run-charts">
-          <WeeklyActivityChart applied={state.applied} metric="sent" title="Applications per day" compact logScale />
-          <WeeklyActivityChart applied={state.applied} metric="cumulative" title="Cumulative total" compact logScale />
+          <WeeklyActivityChart applied={sentJobs} metric="sent" title="Applications per day" compact logScale />
+          <WeeklyActivityChart applied={sentJobs} metric="cumulative" title="Cumulative total" compact logScale />
         </div>
       )}
 

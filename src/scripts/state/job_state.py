@@ -693,6 +693,30 @@ def record_check_results(checked_job_keys, closed_job_keys, registry_path):
     return {"ok": True, "touched": touched, "newly_closed": newly_closed}
 
 
+# --- Registry storage cap ---------------------------------------------------
+
+
+def prune_jd_text(registry_path):
+    """Drop jd_text from registry entries whose fit-gate outcome is final
+    (skipped_unfit, failed): the description text was only ever needed for
+    that evaluation, which already happened, so keeping it is dead weight.
+    Entries still awaiting a decision (new, candidate, needs_review) or
+    genuinely applied keep their jd_text untouched. Run after every scrape
+    (run_job_agent.py) so the registry doesn't grow unbounded across
+    scheduled runs the way it did before this existed (2026-09-08: one
+    catch-up run alone pushed the registry to 28MB, almost all jd_text on
+    entries that would never be read again)."""
+    registry = load_json_array(registry_path)
+    stripped = 0
+    for record in registry:
+        if record.get("latest_status") in ("skipped_unfit", "failed") and record.get("jd_text"):
+            record["jd_text"] = ""
+            stripped += 1
+    if stripped:
+        save_json_array(registry_path, registry)
+    return {"ok": True, "stripped": stripped, "total": len(registry)}
+
+
 # --- Daily application cap ------------------------------------------------
 
 
@@ -960,6 +984,12 @@ def main(argv=None):
     )
     p_mark.add_argument("--registry", default=DEFAULT_REGISTRY)
 
+    p_prune_jd = sub.add_parser(
+        "prune-jd-text",
+        help="drop jd_text from registry entries with a final fit-gate outcome (skipped_unfit, failed)",
+    )
+    p_prune_jd.add_argument("--registry", default=DEFAULT_REGISTRY)
+
     p_check_results = sub.add_parser(
         "record-check-results",
         help="stamp last_checked_at on every checked job_key and closed=true on "
@@ -1045,6 +1075,11 @@ def main(argv=None):
             die("mark-seen-batch: --sources must be a JSON array")
         result = mark_seen_batch(job_keys, sources, args.registry)
         print(json.dumps(result, ensure_ascii=False))
+        return 0
+
+    if args.command == "prune-jd-text":
+        result = prune_jd_text(args.registry)
+        print(json.dumps(result))
         return 0
 
     if args.command == "record-check-results":
