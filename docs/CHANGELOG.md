@@ -9,6 +9,21 @@ but trimmed to fit a small in-repo doc.
 
 ## [1.0.9b] - 2026-09-04
 
+### Fixed
+
+- **Workday field-mislabeling** (the "Email Address" field getting a
+  street address on at least one real tenant). Root cause: the bare
+  `"Address"` label in `SAFE_FIELD_LABELS` is a substring of "Email
+  Address"; removed it. Added a general fill-target guard in
+  `replay_fill.py` (`_target_mismatch`) that refuses a fill when the
+  matched element's type/accessible-name doesn't fit the value (email/
+  phone/URL shape, or a demographic/EEO field — `ethnicity` is a literal
+  substring of `"City"`'s search, same collision class — getting a value
+  that wasn't asked for one). Applies to every ATS family, not just
+  Workday; a rejected fill goes `unmatched` → `needs_review`, never a
+  silent wrong-field submit. `docs/NEXT_STEPS.md`'s "Known bugs" entry
+  closed; new `test_replay_fill.py` (14 cases) wired into CI.
+
 ### Changed
 
 - **Job cache: hard 45-day age cap + growth guards.** A posting older than

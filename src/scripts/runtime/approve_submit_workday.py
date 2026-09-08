@@ -89,7 +89,15 @@ SAFE_FIELD_LABELS = {
     "preferred_name": ["Preferred Name", "Preferred First Name"],
     "email": ["Email", "Email Address", "Primary Email", "E-mail"],
     "phone": ["Phone", "Phone Number", "Mobile Phone", "Mobile", "Mobile Number", "Telephone"],
-    "address_line1": ["Address Line 1", "Street Address", "Address", "Address 1", "Mailing Address", "Street"],
+    # "Address" (bare) deliberately removed 2026-09-08: it fuzzy-matches
+    # "Email Address" and, when the email input was pre-filled during
+    # account creation (never routed through this loop's own "already
+    # filled" guard), the street value has landed in the email field on
+    # at least one real tenant. A tenant using a genuinely bare "Address"
+    # label now goes unmatched -> needs_review instead of risking that
+    # collision; _target_mismatch (replay_fill.py) is the second,
+    # independent guard against the same failure class.
+    "address_line1": ["Address Line 1", "Street Address", "Address 1", "Mailing Address", "Street"],
     "address_line2": ["Address Line 2", "Apartment", "Suite", "Unit", "Address 2", "Apt"],
     "location": ["City", "Location", "Current Location", "City/Town", "Municipality"],
     "state": ["State", "State/Province", "Region", "Province"],

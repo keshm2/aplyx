@@ -29,15 +29,29 @@ built and shipped, hosted-only. The marketing site (aplyx.app) is built
 and content-complete across all six pages, pending DNS. Current release:
 `1.0.2b`.
 
-## Known bugs (real, unfixed)
+## Fixed bugs
 
-- **Workday field-mislabeling**: the "Email Address" field on at least
-  one real Workday tenant gets filled with a street address instead of
-  an email value. Needs a real repro + fix in
-  `src/scripts/runtime/approve_submit_workday.py`'s field-mapping logic
-  (`SAFE_FIELD_LABELS`-style label matching): check whether the label
-  match is too loose (matching "Address" fields against something meant
-  for "Email Address") before assuming it's a one-off tenant quirk.
+- **Workday field-mislabeling (fixed 2026-09-08).** Root cause confirmed:
+  `SAFE_FIELD_LABELS["address_line1"]` included the bare label `"Address"`,
+  a substring of `"Email Address"` — Workday's own email input is
+  pre-filled during account creation and never routed through the fill
+  loop's own "already filled" guard, so on the tenant where this hit, the
+  fuzzy `"Address"` match resolved to the untouched email field and the
+  street value landed there. Fixed two ways: (1) removed the bare
+  `"Address"` label (the other four address aliases are unambiguous), and
+  (2) added a general fill-target guard in `replay_fill.py`
+  (`_target_mismatch`) that refuses a fill when the resolved element's
+  input type or accessible name doesn't match the value's shape (an
+  email-typed/named field getting a non-email value, a tel field getting
+  non-digits, a URL field getting a non-URL) or category (a demographic/
+  EEO-named field — `ethnicity`/`race`/`gender`/`veteran`/`disability`/
+  `citizenship`-labeled — getting a value that wasn't asked for one; found
+  live in the same audit that `"City"` is a literal substring of
+  `"Ethnicity"`, the same collision class). A rejected fill goes
+  `unmatched` → `needs_review`, never a silent wrong-field submit. Both
+  guards are in `replay_fill.py` so they protect every ATS family, not
+  just Workday. New test suite: `src/scripts/runtime/test_replay_fill.py`
+  (14 cases), wired into `python-tests.yml`.
 - **Google OAuth refresh-token 7-day expiry risk** on the
   `workday-verification-worker`'s Gmail connection
   (`src/supabase/functions/mail-oauth-start/`,

@@ -358,6 +358,65 @@ def select_workday_listbox(page, selector, value, option_page=None):
     return try_combobox(option_page or page, loc.first, value)
 
 
+def _value_shape(value):
+    v = value.strip()
+    return {
+        "email": "@" in v and "." in v.split("@")[-1],
+        "url": v.startswith(("http://", "https://")),
+        "digits": sum(c.isdigit() for c in v),
+    }
+
+
+# Any of these appearing in the resolved element's accessible name marks
+# it as an EEO/demographic field. Bare, common labels elsewhere in
+# SAFE_FIELD_LABELS can be substrings of an unrelated demographic label
+# purely by coincidence (real case: "City" is a literal substring of
+# "Ethnicity"), so a fuzzy match on a short label can resolve to one of
+# these instead of the field actually being searched for. Mis-filling a
+# demographic field is a worse outcome than mis-filling a generic one —
+# these are legally sensitive and AGENTS.md already treats them specially
+# (never defaulted, only ever filled when explicitly supplied) — so this
+# direction is guarded unconditionally, not just by value shape.
+DEMOGRAPHIC_ACCNAME_MARKERS = (
+    "ethnicity", "race", "hispanic", "latino", "gender", "veteran",
+    "disability", "citizenship", "sexual orientation", "self-identif",
+)
+
+
+def _target_mismatch(locator, field_name, value):
+    """Refuse a fill when the element the label matched is clearly the
+    wrong kind of field for this value — the guard against a label
+    collision. Two known real cases: 'Address' fuzzy-matching an 'Email
+    Address' input (the street value landing in it), and 'City' being a
+    literal substring of 'Ethnicity' (a location value landing in a
+    demographic field). Returns a note string to reject with, or None to
+    proceed. Better to leave a field unmatched (-> needs_review) than to
+    submit the wrong data."""
+    try:
+        input_type = (locator.get_attribute("type") or "").lower()
+    except Exception:
+        input_type = ""
+    try:
+        accname = (locator.evaluate(
+            "el => (el.getAttribute('aria-label') || (el.labels && el.labels[0] && el.labels[0].innerText)"
+            " || el.getAttribute('placeholder') || el.getAttribute('name') || el.id || '').trim()"
+        ) or "").lower()
+    except Exception:
+        accname = ""
+    shape = _value_shape(value)
+    asked = field_name.strip().lower()
+
+    if (input_type == "email" or "email" in accname or "e-mail" in accname) and not shape["email"] and "email" not in asked and "e-mail" not in asked:
+        return "target field is an email field but the value is not an email address"
+    if (input_type == "tel" or "phone" in accname) and shape["digits"] < 7 and "phone" not in asked and "mobile" not in asked and "telephone" not in asked:
+        return "target field is a phone field but the value is not a phone number"
+    if input_type == "url" and not shape["url"] and "." not in value:
+        return "target field is a URL field but the value is not a URL"
+    if any(marker in accname for marker in DEMOGRAPHIC_ACCNAME_MARKERS) and not any(marker in asked for marker in DEMOGRAPHIC_ACCNAME_MARKERS):
+        return "target field is a demographic/EEO field but this value was not asked for one"
+    return None
+
+
 def fill_field(page, field_name, value):
     """Returns (status, note) where status is 'filled', 'skipped', or
     'unmatched'. Never raises: a replay failure for one field must not
@@ -367,6 +426,9 @@ def fill_field(page, field_name, value):
     locator = locate_field(page, field_name)
     if locator is None:
         return "unmatched", "no element found for this label"
+    mismatch = _target_mismatch(locator, field_name, value)
+    if mismatch is not None:
+        return "unmatched", mismatch
     try:
         tag = (locator.evaluate("el => el.tagName") or "").lower()
     except Exception:
