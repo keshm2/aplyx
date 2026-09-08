@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import functools
 import json
 import os
 import re
@@ -381,17 +382,34 @@ def normalize_text(text: str) -> str:
     return re.sub(r"\s+", " ", text or "").strip()
 
 
-def contains_token(text: str, token: str) -> bool:
-    text_lower = text.lower()
-    token_lower = token.lower().strip()
-    if not token_lower:
-        return False
+@functools.lru_cache(maxsize=None)
+def _token_pattern(token_lower: str) -> "re.Pattern[str]":
+    """Compiled pattern for one lowercased token, cached for the life of
+    the process. --batch runs this fit gate over every posting in one
+    call, so the same handful of role/level/skill/location tokens get
+    checked thousands of times; re.search's own internal compile cache
+    was thrashing under that load (confirmed via profiling, 2026-09-08:
+    303k .search() calls across ~1800 postings, most of the fit gate's
+    wall time), since it's sized for a general Python program, not one
+    process running the same fixed vocabulary in a tight loop. Same
+    pattern shape as before, just compiled once per token instead of
+    every call."""
     pattern = re.escape(token_lower).replace(r"\ ", r"\s+")
     if re.match(r"[a-z0-9]", token_lower[0]):
         pattern = r"\b" + pattern
     if re.match(r".*[a-z0-9]$", token_lower):
         pattern = pattern + r"\b"
-    return re.search(pattern, text_lower) is not None
+    return re.compile(pattern)
+
+
+def contains_token(text: str, token: str) -> bool:
+    """text is expected already lowercased (every call site does this
+    itself, once, before looping over candidate tokens) so this doesn't
+    repeat that scan per token."""
+    token_lower = token.lower().strip()
+    if not token_lower:
+        return False
+    return _token_pattern(token_lower).search(text) is not None
 
 
 def find_first_keyword(text: str, keywords: Iterable[str]) -> str:
