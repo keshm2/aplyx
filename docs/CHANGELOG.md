@@ -11,6 +11,13 @@ but trimmed to fit a small in-repo doc.
 
 ### Changed
 
+- **Credential-reveal re-auth is server-enforced.** Revealing or rotating
+  a stored ATS credential now requires a recent `verify_credential_reauth`
+  (password checked against `auth.users`) or `stamp_credential_reauth_oauth`
+  (fresh post-OAuth session), gated inside the SQL functions (migration
+  0045) — the old in-memory "recent auth" flag could be skipped by a
+  modified client. The site's Supabase client is pinned to an exact
+  version on jsDelivr instead of a mutable `esm.sh` URL.
 - **Local build integrity is verified and tracked.** The daily cap and
   the hosted-only feature removals ship as plain-text scripts, so they
   can't be made un-bypassable on the user's machine — but tampering is

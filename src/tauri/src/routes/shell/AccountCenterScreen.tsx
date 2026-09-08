@@ -207,9 +207,14 @@ export function AccountCenterScreen() {
     setReauthError(undefined);
     try {
       const client = await getSupabaseClient();
-      const { error } = await client.auth.signInWithPassword({ email: session.user.email, password: reauthPassword });
-      if (error) {
-        setReauthError(error.message);
+      // Server-verified (migration 0045): checks the password against
+      // auth.users and stamps the reveal window in the DB. The old
+      // in-memory-flag-only gate could be skipped by a modified client.
+      const ok = await new SupabaseAdapter(client, session.user.id)
+        .verifyCredentialReauth(reauthPassword)
+        .catch(() => false);
+      if (!ok) {
+        setReauthError("Incorrect password.");
         return;
       }
       completeReauth(pendingAction);
@@ -245,7 +250,21 @@ export function AccountCenterScreen() {
   // signInWithPassword success branch above.
   useEffect(() => {
     if (!googleReauthPending || !pendingAction || !session) return;
-    completeReauth(pendingAction);
+    const action = pendingAction;
+    // Stamp the server-side reveal window from the fresh post-OAuth
+    // session (migration 0045); if it isn't fresh enough, don't proceed.
+    void (async () => {
+      const client = await getSupabaseClient();
+      const ok = await new SupabaseAdapter(client, session.user.id)
+        .stampCredentialReauthOauth()
+        .catch(() => false);
+      if (ok) {
+        completeReauth(action);
+      } else {
+        setGoogleReauthPending(false);
+        setReauthError("Re-authentication didn't complete. Try again.");
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, googleReauthPending]);
 

@@ -9,8 +9,15 @@
  * Deliberately its own module, not folded into site.js: site.js is a
  * plain non-module script included on every page; this needs `import`
  * for the Supabase client, so it stays isolated the same way
- * account.js already is. */
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+ * account.js already is.
+ *
+ * CDN: jsDelivr, pinned to the EXACT version the app bundles
+ * (@supabase/supabase-js in package-lock.json — keep these in sync on a
+ * bump). jsDelivr serves immutable versioned paths; an unpinned or
+ * mutable URL in the auth path is a supply-chain risk (a compromised
+ * build could read session tokens). ESM imports can't carry SRI, so the
+ * version pin + a reputable immutable CDN is the mitigation. */
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.111.0/+esm";
 
 const AUTH_CONFIG = {
   url: "https://aedejjesqcbndphkldfs.supabase.co",

@@ -1396,13 +1396,31 @@ export class SupabaseAdapter implements Adapter {
     }));
   }
 
+  /** Password re-auth for the reveal/rotate flow (migration 0045):
+   *  verify_credential_reauth checks the password against
+   *  auth.users server-side and stamps a 10-minute window. Returns
+   *  false on a wrong password. */
+  async verifyCredentialReauth(password: string): Promise<boolean> {
+    const { data, error } = await this.client.rpc("verify_credential_reauth", { p_password: password });
+    if (error) throw error;
+    return data === true;
+  }
+
+  /** OAuth re-auth counterpart: call right after a completed Google
+   *  re-auth round-trip. stamp_credential_reauth_oauth stamps the same
+   *  window only if the JWT is freshly issued. Returns false if the
+   *  session isn't fresh enough. */
+  async stampCredentialReauthOauth(): Promise<boolean> {
+    const { data, error } = await this.client.rpc("stamp_credential_reauth_oauth");
+    if (error) throw error;
+    return data === true;
+  }
+
   /** Reveals the caller's own username/password for one account
    *  (reveal_own_account_credential RPC: authenticated-only,
-   *  ownership-checked server-side, logs a login_succeeded/reveal
-   *  event on every call). The caller is responsible for gating this
-   *  behind recent re-authentication before calling it; the plan's
-   *  own comment on the RPC notes that timing is enforced at the
-   *  client/session layer, not inside the SQL function. */
+   *  ownership-checked, and — since migration 0045 — gated server-side
+   *  on a recent verify_credential_reauth / stamp_credential_reauth_oauth
+   *  call). Logs a login_succeeded/reveal event every call. */
   async revealApplicationAccountCredential(accountId: string): Promise<{ username: string; password: string }> {
     const { data, error } = await this.client.rpc("reveal_own_account_credential", { p_account_id: accountId });
     if (error) throw error;
