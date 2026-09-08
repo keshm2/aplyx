@@ -104,3 +104,25 @@ jobs:
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
           UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
           UPSTASH_REDIS_WRITE_TOKEN: ${{ secrets.UPSTASH_REDIS_WRITE_TOKEN }}
+
+      # DB-growth alert. refreshJobCache.js already prunes (cleanup_job_cache,
+      # migration 0008) and logs the remaining count; this turns "too big"
+      # into a visible GitHub annotation regardless of where it landed in
+      # the log. Runs even if the refresh step failed a source.
+      - name: job_cache size check
+        if: always()
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: |
+          set -eu
+          RANGE=$(curl -sS -I -X HEAD \
+            -H "apikey: $SUPABASE_SECRET_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SECRET_KEY" \
+            -H "Prefer: count=exact" \
+            "$SUPABASE_URL/rest/v1/job_cache?select=id&limit=1" \
+            | tr -d '\r' | awk -F'[ /]' 'tolower($1)=="content-range:"{print $NF}')
+          echo "job_cache rows: ${RANGE:-unknown}"
+          if [ -n "${RANGE:-}" ] && [ "$RANGE" -gt 100000 ]; then
+            echo "::warning title=job_cache growth::${RANGE} rows after prune (threshold 100000)"
+          fi

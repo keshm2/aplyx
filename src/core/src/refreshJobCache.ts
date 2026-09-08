@@ -112,6 +112,23 @@ import type { SearchJob, JobSource } from "./jobsSort.js";
 //    fetch hiccups.
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
+// Operator rule (2026-09-07, migration 0008): a posting older than 45 days
+// is never cached and never served. This filters at fetch time on the
+// posting's own posted_at; a null posted_at can't be aged out here, so
+// cleanup_job_cache() falls back to fetched_at (first-sighting) for those.
+const JOB_CACHE_MAX_AGE_MS = 45 * 24 * 60 * 60 * 1000;
+
+// Bound the worst case: a pathological board response (Dominos-style 24k+
+// store-level postings, or a source that briefly returns its whole
+// history) must not upsert unbounded rows in one run. Well above any
+// legitimate single-source volume observed (~16.6k was the largest).
+const MAX_ROWS_PER_SOURCE = 25_000;
+
+// After the prune, warn (in the CI log, and the workflow's own alert
+// step) if the table is still larger than this. With the 45-day cap and
+// the four cached sources, a healthy steady state is well under 60k.
+const JOB_CACHE_ROW_ALERT_THRESHOLD = 100_000;
+
 // 73 hours: just past the LONGEST refresh gap the Mon/Wed/Fri schedule
 // actually produces: Friday to Monday is 3 days (72h), not 2, unlike a
 // true every-other-day cadence, with 1h grace so one slow/late CI run
@@ -438,7 +455,17 @@ async function main(): Promise<void> {
       continue;
     }
     try {
-      const { jobs } = await fetch();
+      const { jobs: fetched } = await fetch();
+      const ageCutoff = now.getTime() - JOB_CACHE_MAX_AGE_MS;
+      let jobs = fetched.filter((j) => !j.posted_at || Date.parse(j.posted_at) > ageCutoff);
+      const droppedOld = fetched.length - jobs.length;
+      if (droppedOld > 0) {
+        console.log(`${source}: skipped ${droppedOld} posting(s) older than 45 days`);
+      }
+      if (jobs.length > MAX_ROWS_PER_SOURCE) {
+        console.warn(`${source}: ${jobs.length} postings exceeds the ${MAX_ROWS_PER_SOURCE}/run cap; keeping the first ${MAX_ROWS_PER_SOURCE}`);
+        jobs = jobs.slice(0, MAX_ROWS_PER_SOURCE);
+      }
       // job.company is the slug itself for these four sources (see jobs.ts's
       // fetchAshby/fetchLever/fetchGreenhouse/fetchSmartRecruiters), so this
       // groups fetched postings back by the slug they actually came from.
@@ -457,10 +484,59 @@ async function main(): Promise<void> {
     }
   }
 
+  // Prune per the 45-day rule (migration 0008). This project has no
+  // pg_cron, so this Mon/Wed/Fri job is the trigger. Runs regardless of
+  // per-source fetch failures — the postings that need retiring don't
+  // depend on this run succeeding — and never fails the run itself.
+  await pruneJobCache(url, secretKey);
+
   if (failures.length > 0) {
     throw new Error(`${failures.length}/${sources.length} source(s) failed:\n  - ${failures.join("\n  - ")}`);
   }
   console.log(`all ${sources.length} sources refreshed successfully`);
+}
+
+async function pruneJobCache(url: string, secretKey: string): Promise<void> {
+  try {
+    const resp = await fetch(`${url}/rest/v1/rpc/cleanup_job_cache`, {
+      method: "POST",
+      headers: {
+        apikey: secretKey,
+        Authorization: `Bearer ${secretKey}`,
+        "Content-Type": "application/json",
+      },
+      body: "{}",
+    });
+    if (!resp.ok) {
+      console.warn(`job_cache prune skipped: HTTP ${resp.status}`);
+      return;
+    }
+    const deleted = await resp.json();
+    console.log(`job_cache: pruned ${deleted} row(s) (>45d old, or expired >14d)`);
+    const count = await jobCacheRowCount(url, secretKey);
+    if (count !== null) {
+      console.log(`job_cache: ${count} row(s) remain`);
+      if (count > JOB_CACHE_ROW_ALERT_THRESHOLD) {
+        console.warn(`job_cache: row count ${count} exceeds the ${JOB_CACHE_ROW_ALERT_THRESHOLD} alert threshold`);
+      }
+    }
+  } catch (err) {
+    console.warn(`job_cache prune skipped: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+async function jobCacheRowCount(url: string, secretKey: string): Promise<number | null> {
+  try {
+    const resp = await fetch(`${url}/rest/v1/job_cache?select=id&limit=1`, {
+      method: "HEAD",
+      headers: { apikey: secretKey, Authorization: `Bearer ${secretKey}`, Prefer: "count=exact" },
+    });
+    const range = resp.headers.get("content-range"); // "0-0/48056"
+    const total = range?.split("/")[1];
+    return total ? Number(total) : null;
+  } catch {
+    return null;
+  }
 }
 
 main().catch((err) => {

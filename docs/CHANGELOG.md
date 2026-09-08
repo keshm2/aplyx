@@ -11,6 +11,16 @@ but trimmed to fit a small in-repo doc.
 
 ### Changed
 
+- **Job cache: hard 45-day age cap + growth guards.** A posting older than
+  45 days (`posted_at`, else first-sighting `fetched_at`) is now dropped
+  from the DB and never returned in a cached search result — enforced in
+  the RLS policy, the `job_cache_search` RPC, and a new `cleanup_job_cache()`
+  the Mon/Wed/Fri refresh calls (job-cache project has no pg_cron;
+  migration `0008`). The refresh also skips >45-day postings at fetch
+  time, caps upserts at 25k rows/source, and a workflow step annotates
+  the build if the table stays over 100k after the prune. First run
+  cleared 25k of 48k rows. Verified the auth-project's own daily
+  `jobs-retention-cleanup` cron is live and succeeding.
 - **Credential-reveal re-auth is server-enforced.** Revealing or rotating
   a stored ATS credential now requires a recent `verify_credential_reauth`
   (password checked against `auth.users`) or `stamp_credential_reauth_oauth`
