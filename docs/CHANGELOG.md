@@ -11,6 +11,50 @@ but trimmed to fit a small in-repo doc.
 
 ### Changed
 
+- **Local build integrity is verified and tracked.** The daily cap and
+  the hosted-only feature removals ship as plain-text scripts, so they
+  can't be made un-bypassable on the user's machine — but tampering is
+  now detected and consequential. `verify_integrity.py` checks the
+  enforcement-critical files against a per-release manifest
+  (`src/integrity/manifest.json`; canonical copy in the new
+  service-role-only `release_manifests` table, migration 0044) and flags
+  any re-created cover-letter / interest-letter agent def. Violations are
+  logged to `data/integrity_events.jsonl` and synced to the account's
+  INSERT-only `integrity_events` table on sign-in; `profiles.integrity_status`
+  is stamped each check. The desktop app also enforces the 25/day ceiling
+  in compiled Rust (`start_run`) as a second gate. CI fails on manifest
+  or agent-def drift.
+- **Server-side runs are paid-only; every tier has a real per-day
+  application cap.** Migration `0043`: `hosted_runs` inserts now require
+  an active subscription (RLS `WITH CHECK` + a re-check in the worker's
+  claim query), so a free hosted account can't get a server-side
+  resume/cover-letter pipeline run by inserting a queue row directly.
+  A client can no longer insert an `apply_runs` row that already claims a
+  terminal status. `get_own_usage()` now reports applications submitted
+  today vs the tier cap (basic 5 / intern 10 / pro 17 / premier 25),
+  counted from a worker-only status the client can't deflate. Local
+  builds enforce the 25-applications-per-day ceiling in code
+  (`run_job_agent.py` + `job_state.py applied-today`), not just via the
+  prompt — a run at the cap degrades to scrape-only.
+- **Free-text writing fields are a hosted Basic+ feature.** The local
+  build no longer generates any prose for an application — no cover
+  letters, no "why do you want to work here?" essays. `@cover-letter-tailor`
+  and `@interest-letter` are hosted-only and dropped from every local
+  harness agent set; the apply loop routes a required free-text writing
+  field to `needs_review` (`writing_field_requires_plan`) and leaves
+  optional ones blank. The TUI **Letters** tab is removed. Hosted
+  generation is unchanged and stays behind a server-side subscription
+  check.
+- **Graduation date is a month/year field.** Onboarding and the desktop
+  Profile screen now take graduation date as a real month picker (stored
+  as "May 2027", the shape the fit gate already reads); the TUI accepts
+  `05/2027`, `5/2027`, or `May 2027` and normalizes.
+- **Error responses never leak internals.** Every Supabase edge function
+  now returns opaque bodies with a strict status class (2xx success, 4xx
+  client/auth, 5xx our side, 3xx redirect only); the real cause is logged
+  server-side, never sent to a caller. The desktop app and account site
+  show one friendly line instead of raw provider/DB error text.
+
 - **Real identity avatars.** The generic person-outline placeholder (site
   nav, account.html's dashboard sidebar) and the plain checkmark badge
   (desktop app's Settings Account row) are now an actual avatar: the

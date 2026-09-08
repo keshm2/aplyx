@@ -137,6 +137,18 @@ in each phase's own `docs/PLAN.md` §3.x section, not here.
   the runtime can create an account at all; a missing/placeholder
   alias routes the job to needs_review with a clear configuration
   message, not a Workday-specific rejection.
+- **Free-text writing fields gated to hosted Basic+ (2026-09-06).** The
+  local build no longer generates any prose for an application: no cover
+  letter, no motivation/essay answers. `@cover-letter-tailor` and
+  `@interest-letter` are tagged hosted-only in
+  `generate_agent_definitions.py` and no longer emitted into any local
+  harness agent set; `job-scraper.md` routes a required free-text writing
+  field to needs_review (`writing_field_requires_plan`), optional ones stay
+  blank. The TUI Letters tab is removed. Hosted generation
+  (`tailor_cover_letter_hosted.py`, `generate_interest_letter.py`) is
+  unchanged and stays behind a server-side subscription check. Marketing
+  copy updated to match. A `writing_assist` hosted endpoint + the apply
+  loop's call into it is the follow-up unit, not built.
 - **Queued up**, each needing its own explicit go-ahead: the rest of
   Phase 17 itself (real hosted onboarding, quotas/abuse controls,
   encryption-at-rest + deletion path, wiring the GitHub Actions
@@ -217,19 +229,38 @@ today:
   during tailoring): append a needs_review entry so future runs do not
   re-tailor the same job forever. skipped_unfit is local-only and must
   never be written to applied_jobs.json.
-- Max 25 applications per session (rate limit protection). The TUI's
-  automatic mode may lower this per run via APLYX_SESSION_CAP (1–25;
-  the legacy ARES_SESSION_CAP name is honored as a fallback);
-  the cap can never exceed 25. src/scripts/runtime/run_job_agent.sh reads
-  APLYX_SESSION_CAP (default 25), clamps values above 25 down to 25,
-  and falls back to 25 on invalid or below-1 input, then injects the
-  effective cap into the run prompt so the orchestrator is explicitly
-  told the per-session limit. The runner may also append an optional
+- Max 25 applications per **day** (rate limit / abuse protection),
+  never raised. This is enforced in code, not by the agent honoring the
+  prompt: `run_job_agent.py` reads today's real `status='applied'` count
+  (`job_state.py applied-today`) and lowers this run's cap to whatever is
+  left of 25; at zero, the run degrades to scrape-only. On top of the
+  daily ceiling, the TUI's automatic mode may lower a single run further
+  via APLYX_SESSION_CAP (1–25; legacy ARES_SESSION_CAP honored as a
+  fallback); the effective cap for a run is
+  `min(APLYX_SESSION_CAP, 25 − applied_today)`. `run_job_agent.py`
+  clamps APLYX_SESSION_CAP above 25 down to 25 and falls back to 25 on
+  invalid or below-1 input, then injects the effective cap into the run
+  prompt so the orchestrator is explicitly told the limit. The runner may also append an optional
   operator instruction (APLYX_EXTRA_PROMPT, truncated to 500 chars,
   set from the TUI's automatic-mode prompt field) to the run prompt.
   That instruction can narrow or focus a run but NEVER overrides this
   file, the session cap, or the state-write discipline; if it
   conflicts with a rule here, the rule wins.
+- **Client integrity.** The daily cap and the hosted-only feature
+  removals (no local cover-letter / essay generation) are shipped as
+  plain-text Python + markdown, so they cannot be made un-bypassable on
+  the user's own machine. What the build does instead: `run_job_agent.py`
+  runs `src/scripts/state/verify_integrity.py` at startup, which compares
+  the enforcement-critical files (this file, `job-scraper.md`,
+  `run_job_agent.py`, `job_state.py`, the generated agent defs) against
+  `src/integrity/manifest.json` (canonical copy in the `release_manifests`
+  Supabase table, which a client can't forge) and flags any re-created
+  hosted-only agent def. Every violation is appended to
+  `data/integrity_events.jsonl` and synced to the account's INSERT-only
+  `integrity_events` table on the next sign-in. Do not weaken these
+  checks; a change to `TRACKED`/`FORBIDDEN` in
+  `src/scripts/validate/build_integrity_manifest.py` must be a deliberate,
+  reviewed decision, and CI (`python-tests.yml`) fails on manifest drift.
 - APLYX_SCRAPE_ONLY (any value other than unset/""/"0"/"false"/"no")
   switches a run to scrape-only mode: Phase 1 (scrape + dedupe +
   deterministic fit-gate) runs and data/job_registry.json is refreshed,
@@ -290,23 +321,20 @@ today:
   acquired a value; on any mismatch, do not submit; needs_review instead.
   A wrong answer on a submitted application is irreversible. See
   job-scraper.md Phase 3 steps 3 and 6 for the full protocol.
-- NEVER write a free-text motivation answer ("Why do you want to work at
-  X?", "Why this role?") yourself, and never leave it blank when required.
-  Ask `src/scripts/state/interest_letter.py approved-text '<job_key>'`: exit 0
-  means the user approved an answer: paste stdout verbatim and apply. Exit
-  2 means park the job via `interest_letter.py request '<json>'`, print
-  `[parked] <title> @ <company>: awaiting interest letter`, and move on.
-  A parked job records NOTHING: no record-event, no applied_jobs.json row,
-  no review_queue row, no Discord. Parking is not an outcome; the job is
-  unfinished. This is the one deliberate exception to "record every job you
-  touch", and it is load-bearing: a needs_review entry would make
-  `can-apply` block the job permanently, so the user's answer could never
-  be used. `interest_letter.py pending` is read once at the start of
-  tailoring so parked jobs aren't re-tailored every run. An invented reason
-  is a claim the applicant gets asked to defend in an interview; that
-  asymmetry is why drafting is a user-reviewed TUI action
-  (`generate_interest_letter.py` saves a DRAFT, never an approval), not
-  something the apply loop does.
+- NEVER write prose into an application: a cover-letter field, a free-text
+  motivation/essay question ("Why do you want to work at X?", "Why this
+  role?", "Describe a project you're proud of"), or any other required
+  field wanting written prose `safe_fields` can't answer. Generated cover
+  letters and application essays are a hosted Basic+ capability, produced
+  server-side after a subscription check; this local build never fills such
+  a field and never invents an answer. If the field is optional, leave it
+  blank and continue; if it is required (or you can't tell), route the job
+  to needs_review with doubt_signal `writing_field_requires_plan` and move
+  on. An invented reason is a claim the applicant gets asked to defend in
+  an interview; that asymmetry is why the local build does not attempt one
+  at all. (When hosted writing assist ships, the apply loop will first try
+  the hosted endpoint for a signed-in Basic+ account and only fall through
+  to needs_review if it declines.)
 - Never store passwords, SSNs, or payment info anywhere. If a form requests
   these and they aren't in src/config/targets.json under "safe_fields", skip the
   job, log it to data/review_queue.json via the state helper (see File
@@ -318,9 +346,10 @@ today:
   equivalent, try the conservative-default fill policy (see "Conservative-
   default fill policy" below) before routing to needs_review; it names the
   narrow set of cases where a specific safe default applies and is the
-  authority on when NOT to guess. This never applies to the free-text
-  motivation-question flow above (still always park) or to credential/
-  payment fields (still always needs_review); both remain unconditional.
+  authority on when NOT to guess. This never applies to a free-text writing
+  field (cover letter, essay, motivation question: always blank-or-
+  needs_review per the rule above) or to credential/payment fields (still
+  always needs_review); both remain unconditional.
 - After every applied, needs_review, or failed outcome, call the
   @discord-reporter subagent to send a per-outcome notification (success,
   needs_review, or failed webhook respectively). After every batch, call
@@ -397,18 +426,17 @@ the helpers or prompts.
 
 | Capability | opencode | Claude Code | Codex CLI | Copilot CLI |
 | --- | --- | --- | --- | --- |
-| Subagent registry (`@resume-tailor`, `@cover-letter-tailor`, `@discord-reporter`, `@interest-letter`) | yes (`.opencode/agents/`) | yes (`.claude/agents/`) | no → inline fallback (`.codex/agents/*.toml` generated for forward-compat, but `codex exec` cannot spawn a named subagent from it: [openai/codex#15250](https://github.com/openai/codex/issues/15250)) | conditional (`.github/agents/`, `copilot --agent <name>`); probed at runtime (`_copilot_has_agent_flag`); an older CLI without `--agent` falls back to inline the same as Codex |
-| Interest-letter drafting (pure text, no browser) | yes | yes | yes (inline) | yes (registry or inline, per the probe above) |
+| Subagent registry (`@resume-tailor`, `@discord-reporter`) | yes (`.opencode/agents/`) | yes (`.claude/agents/`) | no → inline fallback (`.codex/agents/*.toml` generated for forward-compat, but `codex exec` cannot spawn a named subagent from it: [openai/codex#15250](https://github.com/openai/codex/issues/15250)) | conditional (`.github/agents/`, `copilot --agent <name>`); probed at runtime (`_copilot_has_agent_flag`); an older CLI without `--agent` falls back to inline the same as Codex |
 | Browser automation (Playwright MCP) | yes (`opencode.jsonc`) | yes (`.mcp.json`) | no by default → API-boards path | no by default → API-boards path |
 | Shell / helper execution | yes | yes | yes (user's sandbox/approval config) | yes (`--allow-all-tools`) |
 | File read/write | yes | yes | yes | yes |
 | Project instructions | `AGENTS.md` (native) | `CLAUDE.md` → `AGENTS.md` | `AGENTS.md` (native) | prompt-passed; read `AGENTS.md` |
 
 **All harness-specific argv lives in `src/scripts/runtime/harness_adapter.py`**
-(`agent_command`): the only module allowed to branch per harness. Both
-`run_job_agent.py` and `generate_interest_letter.py` go through it, so a new
-agent works on all four harnesses by construction rather than by remembering
-four call sites. Do not add a harness branch anywhere else.
+(`agent_command`): the only module allowed to branch per harness.
+`run_job_agent.py` goes through it, so a new agent works on all four
+harnesses by construction rather than by remembering four call sites. Do
+not add a harness branch anywhere else.
 
 **On the subagent-registry gap (2026-07-24 update):** Codex CLI and
 Copilot CLI both gained real custom-agent/subagent support after this
@@ -427,9 +455,9 @@ has just because the TOML files exist.
 **Degraded paths (mandatory when the capability is missing):**
 
 - **No subagent registry**: when the workflow delegates to
-  `@resume-tailor`, `@cover-letter-tailor`, `@discord-reporter` or
-  `@interest-letter`, read `src/agents/bodies/<name>.md` and perform that
-  role inline, following it exactly. Helper calls, routing rules, and
+  `@resume-tailor` or `@discord-reporter`, read
+  `src/agents/bodies/<name>.md` and perform that role inline, following it
+  exactly. Helper calls, routing rules, and
   state writes are unchanged. `harness_adapter.agent_command` builds this
   preamble automatically for Codex, and for Copilot when the `--agent`
   probe fails.
@@ -525,10 +553,9 @@ has just because the TOML files exist.
      a Workday job with empty jd_text.
    - **Workday candidates proceed through tailoring and application
      (phase 7D, 2026-08-28).** A Workday job whose fit gate returns
-     "candidate" is kept for @resume-tailor and @cover-letter-tailor
-     like any other family, then applied via the deterministic local
-     Workday runtime in Phase 3 step 2W (see src/agents/bodies/job-
-     scraper.md). The runtime owns account creation, verification
+     "candidate" is kept for @resume-tailor like any other family, then
+     applied via the deterministic local Workday runtime in Phase 3 step
+     2W (see src/agents/bodies/job-scraper.md). The runtime owns account creation, verification
      continuation, multi-step page-fill, and the final submit with
      fail-closed safety. The verification boundary is real: the local
       harness has no inbox/alias service, so the scheduled path
@@ -706,23 +733,21 @@ has just because the TOML files exist.
     verification found a filled value that didn't match its intended source
     (Phase 3 step 6).
   - `unrecognized_field`: the form contains a field with no mapping in
-    `safe_fields` and no constructed equivalent (resume, cover letter, essay
-    answer), AND the conservative-default fill policy below doesn't cover it
-    either. Never skip this silently; a required field could be left
+    `safe_fields` and no constructed equivalent (resume upload), AND the
+    conservative-default fill policy below doesn't cover it either, AND it
+    isn't a free-text writing field (those use `writing_field_requires_plan`).
+    Never skip this silently; a required field could be left
     unfilled with no record of it.
   - `unmapped_required_field`: a required field maps to an empty
     `safe_fields` value (the user declined to answer), AND the
     conservative-default fill policy below doesn't cover it either.
   - `low_ats_score`: @resume-tailor's ats_score fell below the Phase 2
     threshold (60).
-  - `unapproved_essay_answer`: a free-text motivation question has no
-    user-approved interest letter yet (Phase 3 step 3, interest_letter.py).
-  - `cover_letter_over_limit`: the application form stated a word/
-    character limit on its cover-letter field and @cover-letter-tailor's
-    output still exceeds it even after being re-invoked with that limit
-    (Phase 3 step 5e), or a pre-submit recheck of the live field found it
-    over the limit despite the pre-paste word_count looking compliant
-    (Phase 3 step 6).
+  - `writing_field_requires_plan`: the form has a required free-text
+    writing field (cover letter, motivation/essay question, "describe a
+    project" prompt) that `safe_fields` can't answer. The local build
+    generates no prose for applications; generated cover letters and
+    essays are a hosted Basic+ capability (Phase 3 step 3).
   - `captcha`: a CAPTCHA was detected on the board.
   - `credential_or_payment_request`: the form asks for a password, SSN, or
     payment info not present in `safe_fields`.
@@ -745,9 +770,10 @@ has just because the TOML files exist.
   (`unrecognized_field` or `unmapped_required_field`); this policy narrows
   when needs_review fires, it does not remove it.
 - **This policy never applies to:**
-  - The free-text motivation/essay question flow ("Why do you want to work
-    at X?"), always park via `interest_letter.py`, never auto-answer. See
-    the free-text motivation rule above; that rule is unconditional.
+  - Any free-text writing field (cover letter, "Why do you want to work
+    at X?", essay/motivation questions): always blank-if-optional or
+    needs_review-if-required (`writing_field_requires_plan`), never
+    auto-answered. See the writing-field rule above; it is unconditional.
   - Passwords, SSNs, payment info: always needs_review
     (`credential_or_payment_request`); unconditional, never a default.
   - Any field asking about legal work authorization, visa/sponsorship
@@ -869,9 +895,11 @@ has just because the TOML files exist.
   `{field_name, filled_value, source, verified}` objects; `source` is one
   of `safe_fields:<key>` (naming the config key it came from), `constructed`
   (e.g. a linkedin/github URL built from a username), `resume_upload`,
-  `cover_letter`, or `conservative_default` (see "Conservative-default fill
+  or `conservative_default` (see "Conservative-default fill
   policy", requires an additional non-empty `note` key); `verified` is the
-  boolean result of the Phase 3 step 6 check for that field.
+  boolean result of the Phase 3 step 6 check for that field. The local
+  build never fills a free-text writing field, so `cover_letter` is not a
+  valid source here.
   Writes `data/fill_records/<job_id>.json` and prints its path; pass that
   path as `fill_record_path` in the applied_jobs.json/review_queue.json
   entry (see "File write discipline").
@@ -891,7 +919,7 @@ has just because the TOML files exist.
   protection (skip-on-overlap, dead-lock reclaim, 60-min hung-run
   threshold), writes the machine-parseable
   "run_job_agent: complete ..." health marker, and updates
-  logs/heartbeat.json after every run. The 25-per-session cap is
+  logs/heartbeat.json after every run. The 25-per-day application cap is
   unchanged by the cadence.
 
 ## Inbox status detection (hosted-only, optional)

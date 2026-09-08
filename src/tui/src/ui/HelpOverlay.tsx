@@ -28,12 +28,11 @@ function Section({ title, children }: { title: string; children: React.ReactNode
  *  the sectioned reference (an overflowing frame corrupts Ink's repaint). */
 function CompactHelp() {
   const lines: Array<[string, string]> = [
-    ["Everywhere", "1-8/←→/tab screens · esc/w menu · m mode · R reload · q quit"],
+    ["Everywhere", "1-7/←→/tab screens · esc/w menu · m mode · R reload · q quit"],
     ["Jobs MANUAL", "/ query · ↑↓ select · enter/o open · f fit · s save"],
     ["Jobs AUTO", "e cap (25=MAX) · p prompt · s start"],
     ["Review", "↑↓ · enter/o open · a applied · d dismiss · x resolved"],
     ["Documents", "↑↓ · enter/o open · x resolved (view-only)"],
-    ["Letters", "↑↓ · e write · g draft it for me · a approve · d discard"],
     ["History", "↑↓ · enter/o open"],
     ["Resumes", "↑↓ · o open folder · c convert PDF"],
     ["Config", "↑↓ · enter open/edit/toggle · esc back"],
@@ -56,10 +55,9 @@ function CompactHelp() {
 }
 
 /** Full key reference, opened with `?` from anywhere in the app.
- *  Needs ~52 rows (raised 36 -> 52 when the Documents and Letters sections
- *  landed); shorter terminals get the compact variant. */
+ *  Needs ~46 rows; shorter terminals get the compact variant. */
 export function HelpOverlay({ contentRows = 40 }: { contentRows?: number }) {
-  if (contentRows < 52) return <CompactHelp />;
+  if (contentRows < 46) return <CompactHelp />;
   return (
     <Box flexDirection="column">
       <Text bold color={theme.accent}>
@@ -67,7 +65,7 @@ export function HelpOverlay({ contentRows = 40 }: { contentRows?: number }) {
       </Text>
       <Box marginTop={1} flexDirection="column">
         <Section title="Everywhere">
-          <Key k="1-8 / tab / ←→" desc="switch screen (Status · Jobs · Review · Documents · Letters · History · Resumes · Config)" />
+          <Key k="1-7 / tab / ←→" desc="switch screen (Status · Jobs · Review · Documents · History · Resumes · Config)" />
           <Key k="m" desc="toggle MANUAL / AUTO mode (changes the Jobs screen)" />
           <Key k="R" desc="reload state from disk" />
           <Key k="esc / w" desc="back to the welcome menu (esc never quits; locked mid-run)" />
@@ -96,13 +94,6 @@ export function HelpOverlay({ contentRows = 40 }: { contentRows?: number }) {
           <Key k="↑↓ or j/k" desc="select a queued posting" />
           <Key k="enter / o" desc="open the posting" />
           <Key k="x" desc="show / hide resolved items" />
-        </Section>
-        <Section title="Interest letters">
-          <Key k="↑↓ or j/k" desc="select a parked question" />
-          <Key k="e" desc="write your own answer" />
-          <Key k="g" desc="have aplyx draft one for you to edit" />
-          <Key k="a" desc="approve (lets the next run apply)" />
-          <Key k="d" desc="discard" />
         </Section>
         <Section title="History">
           <Key k="enter / o" desc="open the posting" />

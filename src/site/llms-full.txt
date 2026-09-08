@@ -2,8 +2,9 @@
 
 > aplyx is a local-first job-application agent. It searches job boards in one pass,
 > deduplicates against your local history, checks each posting against your
-> preferences with deterministic rule-based logic (not a model's guess), tailors a
-> resume and cover letter grounded in your real resume, and applies through a
+> preferences with deterministic rule-based logic (not a model's guess), tailors your
+> resume per posting grounded in your real resume (cover letters and application
+> essays are a hosted-plan feature), and applies through a
 > browser or public APIs. Every application is reviewable before it goes out.
 
 This file inlines the text of every page on https://aplyx.app/ so a crawler can
@@ -31,8 +32,9 @@ Core capabilities:
 
 - **Multi-board search** — Ashby, Lever, Greenhouse, Workday, and more, searched
   in one pass and deduplicated automatically.
-- **Resume tailoring** — bullets and cover letters rewritten per job description,
-  grounded in your actual resume.
+- **Resume tailoring** — bullets rewritten and reordered per job description,
+  grounded in your actual resume. Cover letters and application essays are
+  written per posting on a hosted plan.
 - **Review before it goes out** — every application is reviewable; nothing goes
   out without a decision you control.
 - **TUI + desktop** — a terminal app and a native desktop app, both driven by the
@@ -44,8 +46,9 @@ How it works — four steps, the same every time:
    automatically against what you've already seen.
 2. **Fit-check** — each posting is checked against your role, level, and location
    preferences with plain deterministic logic, not a model's guess.
-3. **Tailor** — bullets are rewritten and a cover letter drafted for that specific
-   posting, grounded strictly in your real resume.
+3. **Tailor** — your resume bullets are rewritten and reordered for that specific
+   posting, grounded strictly in your real resume. Hosted plans also draft the
+   cover letter and any application essays.
 4. **Review & apply** — anything ready lands in your review queue; you decide
    before anything is submitted on your behalf.
 
@@ -66,10 +69,11 @@ application.
 - **A deterministic fit gate** — every posting is checked against your role, level,
   and location preferences with plain rule-based logic before anything reaches a
   resume-tailoring step. Not a model guessing whether a job is a fit.
-- **Resume & cover letter tailoring** — keep one resume in aplyx (jobs, projects,
+- **Resume tailoring** — keep one resume in aplyx (jobs, projects,
   skills, education, entered once). Bullets are rewritten and reordered per job
-  description, and a short cover letter is drafted grounded strictly in your actual
-  resume and the posting, never invented experience.
+  description, grounded strictly in your actual resume and the posting, never
+  invented experience. Per-posting cover letters and application essays are
+  written for you on a hosted plan.
 - **Review before it goes out** — anything uncertain lands in a review queue. Each
   entry shows its ATS score, the resume picked for it, and the fit-gate reasoning.
   Nothing is applied to on your behalf without a decision you control.
@@ -114,8 +118,8 @@ on and online for auto-apply.
 
 - **Basic — $5/month** — full TUI & desktop app; guided setup with no local install
   or coding agent; up to 5 auto-applications/day; internship postings; hosted
-  resume & cover-letter tailoring with review; one resume profile stored in a
-  Supabase-backed database; community support.
+  per-posting resume, cover-letter & application-essay tailoring with review; one
+  resume profile stored in a Supabase-backed database; community support.
 - **Intern — $9/month** — as Basic, plus up to 10 auto-applications/day; email
   support; SMS & iMessage status tracking (planned); Discord communication
   (planned).
@@ -221,9 +225,10 @@ Other points:
   those still happen on your own machine via your own coding agent, exactly like
   local mode. A fully server-run version is planned and would get its own explicit
   consent step first.
-- **Model provider** — resume tailoring and cover-letter drafting send the
-  relevant job description and your resume content to your coding agent's model
-  provider API, the same as using that agent directly.
+- **Model provider** — resume tailoring sends the relevant job description and your
+  resume content to your coding agent's model provider API, the same as using that
+  agent directly. Cover-letter and essay drafting (hosted plans) runs on aplyx's
+  own servers.
 - A separate non-personal cache of public job postings speeds up search for all
   users, refreshes on the order of hours, and is never linked to your identity.
 - Data in transit is encrypted (HTTPS/TLS). Hosted data at rest has per-account

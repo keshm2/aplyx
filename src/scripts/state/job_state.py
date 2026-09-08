@@ -693,6 +693,23 @@ def record_check_results(checked_job_keys, closed_job_keys, registry_path):
     return {"ok": True, "touched": touched, "newly_closed": newly_closed}
 
 
+# --- Daily application cap ------------------------------------------------
+
+
+def applied_today(applied_path):
+    """Count of real, submitted applications recorded today (local date).
+    Only status == "applied" counts — a needs_review or failed entry is not
+    an application. Used by run_job_agent.py to hold the local build to the
+    25-applications-per-day ceiling (CLAUDE.md / job-scraper.md), which is
+    never raised regardless of the per-run session cap."""
+    today = datetime.date.today().isoformat()
+    count = 0
+    for entry in load_json_array(applied_path):
+        if entry.get("status") == "applied" and str(entry.get("date_applied", "")).startswith(today):
+            count += 1
+    return {"date": today, "applied_today": count, "daily_cap": 25, "remaining": max(0, 25 - count)}
+
+
 # --- Pre-apply dedupe recheck ----------------------------------------------
 
 
@@ -917,6 +934,12 @@ def main(argv=None):
     p_can.add_argument("--registry", default=DEFAULT_REGISTRY)
     p_can.add_argument("--applied", default=DEFAULT_APPLIED)
 
+    p_applied_today = sub.add_parser(
+        "applied-today",
+        help="count of status='applied' entries recorded today, vs the 25/day ceiling",
+    )
+    p_applied_today.add_argument("--applied", default=DEFAULT_APPLIED)
+
     p_record = sub.add_parser(
         "record-event", help="append an event to the log and update registry status"
     )
@@ -996,6 +1019,10 @@ def main(argv=None):
         result = can_apply(canonical, args.registry, args.applied)
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0 if result["can_apply"] else 2
+
+    if args.command == "applied-today":
+        print(json.dumps(applied_today(args.applied), ensure_ascii=False))
+        return 0
 
     if args.command == "record-event":
         event = parse_json_arg(args.event_json, "record-event")

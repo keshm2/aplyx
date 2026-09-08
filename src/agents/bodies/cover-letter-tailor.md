@@ -1,3 +1,10 @@
+<!-- HOSTED-ONLY (Basic+). This body is run server-side by
+     src/scripts/runtime/tailor_cover_letter_hosted.py after a subscription
+     check. It is NOT generated into any local harness agent set (see
+     HOSTED_ONLY in src/scripts/validate/generate_agent_definitions.py):
+     the local build generates no cover letter. Do not re-add a local
+     invocation of this agent. -->
+
 You write one tailored cover letter for a specific job application, to be
 pasted directly into the application's cover-letter field.
 

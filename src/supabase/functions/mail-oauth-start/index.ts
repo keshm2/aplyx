@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { type MailOAuthProvider, authUrlForProvider, callbackUrl, providerEnabled, signState } from "../_shared/mail_oauth.ts";
+import { badRequest, methodNotAllowed, noContent, ok, serverError, serviceUnavailable, unauthorized } from "../_shared/http.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -18,32 +19,41 @@ const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", ...CORS_HEADERS },
-  });
-}
-
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS_HEADERS });
-  if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
-  if (!MAIL_OAUTH_STATE_SECRET) return json({ error: "MAIL_OAUTH_STATE_SECRET is not configured" }, 500);
+  if (req.method === "OPTIONS") return noContent(CORS_HEADERS);
+  if (req.method !== "POST") return methodNotAllowed(CORS_HEADERS);
+  if (!MAIL_OAUTH_STATE_SECRET) {
+    // Our misconfiguration, not the caller's problem: opaque 5xx, real
+    // reason ("MAIL_OAUTH_STATE_SECRET unset") only in the function log.
+    return serviceUnavailable("mail-oauth-start:config", "MAIL_OAUTH_STATE_SECRET unset", CORS_HEADERS);
+  }
 
   const authHeader = req.headers.get("Authorization") ?? "";
   const jwt = authHeader.replace(/^Bearer\s+/i, "").trim();
-  if (!jwt) return json({ error: "missing bearer token" }, 401);
+  if (!jwt) return unauthorized(CORS_HEADERS);
 
   const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   const { data: userResp, error: userError } = await admin.auth.getUser(jwt);
-  if (userError || !userResp.user) return json({ error: userError?.message ?? "not authenticated" }, 401);
+  if (userError || !userResp.user) return unauthorized(CORS_HEADERS);
 
-  const payload = await req.json().catch(() => ({}));
+  const payload = await req.json().catch(() => null);
+  if (payload === null || typeof payload !== "object") return badRequest("invalid request body", CORS_HEADERS);
   const provider = String((payload as { provider?: string }).provider ?? "").trim() as MailOAuthProvider;
-  if (provider !== "microsoft" && provider !== "gmail") return json({ error: "provider must be microsoft or gmail" }, 400);
-  if (!providerEnabled(provider)) return json({ error: `${provider} inbox OAuth is not enabled on this build yet` }, 501);
+  if (provider !== "microsoft" && provider !== "gmail") {
+    return badRequest("provider must be microsoft or gmail", CORS_HEADERS);
+  }
+  if (!providerEnabled(provider)) {
+    // The provider's client credentials aren't configured on this deploy:
+    // our side, nothing the caller can fix. 5xx, opaque body; the app
+    // shows its own "not available yet" copy.
+    return serviceUnavailable("mail-oauth-start:provider-disabled", `${provider} not configured`, CORS_HEADERS);
+  }
 
-  const state = await signState({ user_id: userResp.user.id, provider, ts: Date.now() }, MAIL_OAUTH_STATE_SECRET);
-  const redirectUri = callbackUrl();
-  return json({ provider, auth_url: authUrlForProvider(provider, redirectUri, state) });
+  try {
+    const state = await signState({ user_id: userResp.user.id, provider, ts: Date.now() }, MAIL_OAUTH_STATE_SECRET);
+    const redirectUri = callbackUrl();
+    return ok({ provider, auth_url: authUrlForProvider(provider, redirectUri, state) }, CORS_HEADERS);
+  } catch (err) {
+    return serverError("mail-oauth-start:sign-state", err, CORS_HEADERS);
+  }
 });

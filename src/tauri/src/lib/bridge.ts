@@ -127,6 +127,32 @@ export async function readSupabaseConfig(root: string): Promise<SupabaseConfig> 
   return invoke<SupabaseConfig>("read_supabase_config", { root });
 }
 
+export interface IntegrityResult {
+  ok: boolean;
+  violations: Array<{ kind: string; path: string; detail?: Record<string, unknown> }>;
+  version: string | null;
+}
+export interface LocalIntegrityEvent {
+  id: string;
+  kind: string;
+  detail: Record<string, unknown>;
+  client_version: string | null;
+  source: string;
+  detected_at: string;
+}
+
+export async function verifyIntegrity(root: string, manifest?: string): Promise<IntegrityResult> {
+  return invoke<IntegrityResult>("verify_integrity", { root, manifest: manifest ?? null });
+}
+export async function readUnreportedIntegrityEvents(root: string): Promise<LocalIntegrityEvent[]> {
+  const r = await invoke<{ events: LocalIntegrityEvent[] }>("read_unreported_integrity_events", { root });
+  return r.events ?? [];
+}
+export async function markIntegrityEventsReported(root: string, ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  await invoke("mark_integrity_events_reported", { root, ids });
+}
+
 /** True when a local aplyx installation was found, i.e. findRoot()
  *  resolved instead of throwing. Used to decide whether "Run locally" can
  *  proceed straight to onboarding or needs an install-location step first. */

@@ -1,0 +1,42 @@
+{
+  "files": {
+    ".claude/agents/job-scraper.md": "16a9ad9d02fae979d304d0c6345521c2cd23354b5f5110dc70b29802fb6f4f89",
+    ".claude/agents/resume-tailor.md": "f4a29a57ed94e81431f7ef949a8cbc7f4f931a87124b3014cceeea26ff2648ef",
+    ".codex/agents/job-scraper.toml": "3054c325fd5438168fb724a2b1d7165ea81f9210be5ae12eac6749067122cfd1",
+    ".codex/agents/resume-tailor.toml": "d1f9bf88326c658e5397046c8501f3a962bd7cbc8af0981a47390562d9bddb33",
+    ".github/agents/job-scraper.md": "faf048b622a84bdbc429986ce9f5d0ce16d43842df63021d5bcd1e4290cf1fe5",
+    ".github/agents/resume-tailor.md": "46ad8a94c55f0cc1a6e8d122ac01361d750d2ad1d17d92ff13e837411084b021",
+    ".opencode/agents/job-scraper.md": "4dd3db984f0d71a43f66f663dd17f940a4ddacf1d40604fea81493d10be2d188",
+    ".opencode/agents/resume-tailor.md": "1c1f739cc630a246d7006f31d5a56f358f3d66143657664136f4e5a80a1b8db2",
+    "AGENTS.md": "5ac2a47e85959c24d159018376a44923bce4bad6bb3a4fd32870880e461cc5f1",
+    "src/agents/bodies/discord-reporter.md": "be602a03f45be4b4e3d790544b047dc3123de6ac8f3dd17896d24cc830f356f1",
+    "src/agents/bodies/job-scraper.md": "08bc24b91ce8b59c9809d2c30e4ae8d0821e6268a354e6f206bce28dae6d9327",
+    "src/agents/bodies/resume-tailor.md": "a371e156293b18d9964be2ab454278f26137b251c95e4f572d1c988b8eedbff9",
+    "src/scripts/runtime/run_job_agent.py": "d3ce2aa485a16b4a0c8636e6057014c4fe9174128ca67304d129ebcc5b239509",
+    "src/scripts/state/integrity_events.py": "05345a361888011197e4a68324cf3c0afcc79ef2a502b00d1bf11e2f368a1fba",
+    "src/scripts/state/job_state.py": "45408ccd75df0fe140db810a4b09ab5a2fc173e1257530e33b9f0848a1993949",
+    "src/scripts/state/verify_integrity.py": "6a7f2ea6d9546aff09dc3d6b2893b51caa820056fb098cf0710a333301a45546",
+    "src/scripts/validate/generate_agent_definitions.py": "c985a53673a379e3a5af078ce39bede0d2cd88a7b1d8e0453bb1e992fe86159a"
+  },
+  "forbidden": [
+    ".claude/agents/cover-letter-tailor.md",
+    ".claude/agents/interest-letter.md",
+    ".codex/agents/cover-letter-tailor.toml",
+    ".codex/agents/interest-letter.toml",
+    ".github/agents/cover-letter-tailor.md",
+    ".github/agents/interest-letter.md",
+    ".opencode/agents/cover-letter-tailor.md",
+    ".opencode/agents/interest-letter.md",
+    "src/agents/frontmatter/claude/cover-letter-tailor.yaml",
+    "src/agents/frontmatter/claude/interest-letter.yaml",
+    "src/agents/frontmatter/codex/cover-letter-tailor.toml",
+    "src/agents/frontmatter/codex/interest-letter.toml",
+    "src/agents/frontmatter/copilot/cover-letter-tailor.yaml",
+    "src/agents/frontmatter/copilot/interest-letter.yaml",
+    "src/agents/frontmatter/opencode/cover-letter-tailor.yaml",
+    "src/agents/frontmatter/opencode/interest-letter.yaml",
+    "src/tui/src/letters.ts",
+    "src/tui/src/ui/LettersScreen.tsx"
+  ],
+  "version": "1.0.9b"
+}

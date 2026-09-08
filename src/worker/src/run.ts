@@ -6,6 +6,14 @@
  * convention) and runs, per row: fetch -> canonicalize -> fit-gate ->
  * tailor -> land in review_queue, for one signed-in hosted user.
  *
+ * Server-side runs are PAID-ONLY (migration 0043): the claim query below
+ * skips any row whose owner has no active subscription, re-verifying the
+ * plan here rather than trusting the DB WITH CHECK alone (this process
+ * runs as service_role and bypasses RLS). When `auto_apply` mode is
+ * built, its submit step must ALSO enforce `tier_daily_apply_cap()` — no
+ * more than that many `apply_runs.status='submitted'` rows for the user
+ * in the trailing 24h — before every real submission.
+ *
  * Invocation mirrors refreshJobCache.js (see .github/workflows/
  * hosted-worker.yml): `node src/worker/dist/run.js`, run from the repo
  * root, holding SUPABASE_SECRET_KEY (service-role: bypasses RLS,
@@ -348,14 +356,22 @@ async function buildScratchTargets(root: string, preferences: Record<string, str
   };
 }
 
-/** Claims the oldest queued, review_only hosted_runs row. Checks a
- *  handful of candidates in created_at order rather than exactly one, so
- *  a lost race on the conditional UPDATE (only possible if two worker
- *  processes somehow overlap despite the workflow's own concurrency
- *  group) falls through to the next-oldest row instead of returning
- *  nothing. mode='review_only' is a hard filter here, not a default;
- *  this is what actually keeps an auto_apply row untouched, independent
- *  of the migration's own check constraint. */
+/** Claims the oldest queued, review_only hosted_runs row whose owner has
+ *  an ACTIVE subscription. Checks a handful of candidates in created_at
+ *  order rather than exactly one, so a lost race on the conditional
+ *  UPDATE (only possible if two worker processes somehow overlap despite
+ *  the workflow's own concurrency group) falls through to the next-oldest
+ *  row instead of returning nothing.
+ *
+ *  Two independent gates, on purpose:
+ *   - mode='review_only' keeps an auto_apply row untouched (that path is
+ *     not built yet), independent of the DB check constraint.
+ *   - the subscriptions join makes server-side runs paid-only. This
+ *     client runs as service_role and bypasses RLS, so migration 0043's
+ *     WITH CHECK on hosted_runs INSERT is not enough on its own — the
+ *     worker must re-verify the plan itself before spending an Anthropic
+ *     call on the run. A row queued by a user who has since canceled is
+ *     skipped, not run. */
 async function claimNextReviewOnlyRun(adminClient: SupabaseClient): Promise<HostedRunRow | null> {
   const { data: candidates, error } = await adminClient
     .from("hosted_runs")
@@ -365,8 +381,29 @@ async function claimNextReviewOnlyRun(adminClient: SupabaseClient): Promise<Host
     .order("created_at", { ascending: true })
     .limit(5);
   if (error) throw error;
+  const rows = (candidates ?? []) as HostedRunRow[];
+  if (rows.length === 0) return null;
+
+  const { data: activeSubs, error: subError } = await adminClient
+    .from("subscriptions")
+    .select("user_id")
+    .eq("status", "active")
+    .in("user_id", rows.map((r) => r.user_id));
+  if (subError) throw subError;
+  const paid = new Set((activeSubs ?? []).map((s) => (s as { user_id: string }).user_id));
+
   const now = new Date().toISOString();
-  for (const candidate of (candidates ?? []) as HostedRunRow[]) {
+  for (const candidate of rows) {
+    if (!paid.has(candidate.user_id)) {
+      // No active plan: cancel the row so it stops being re-scanned every
+      // tick, and move on. The user gets nothing charged and nothing run.
+      await adminClient
+        .from("hosted_runs")
+        .update({ status: "canceled", finished_at: now, error: "no active subscription" })
+        .eq("id", candidate.id)
+        .eq("status", "queued");
+      continue;
+    }
     const { data: claimed, error: claimError } = await adminClient
       .from("hosted_runs")
       .update({ status: "running", claimed_at: now, started_at: now })

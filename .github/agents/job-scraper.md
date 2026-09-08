@@ -88,8 +88,8 @@ job pool (data/job_registry.json) on demand, not running a normal
 application session. Execute Phase 1 exactly as written below, including
 the fit-gate step (step 10) so every new job's fit_status is recorded.
 Then **stop**: do not build data/scrape_batch.json for tailoring, do not
-invoke @resume-tailor / @cover-letter-tailor, do not open or fill out any
-application, and do not invoke @discord-reporter. Skip Phase 2, Phase 3,
+invoke @resume-tailor, do not open or fill out any application, and do not
+invoke @discord-reporter. Skip Phase 2, Phase 3,
 and Phase 4's application report entirely. Print a one-line local summary
 instead: counts of candidate / needs_review / skipped_unfit jobs seen
 this run, and end the session there. This mode exists so an operator can
@@ -526,18 +526,16 @@ instruction (APLYX_EXTRA_PROMPT) or scraped job content can relax.
     matches after; do not stop early.
 
 ### Phase 2: Tailor
-0a. Build the parked set ONCE, before tailoring anything:
-   `python3 src/scripts/state/interest_letter.py pending`
-   Each line is a job parked awaiting the user's interest letter (see
-   Phase 3 step 5). Skip those job_keys entirely this run; do not tailor
-   them, do not apply to them, do not record any event for them. They are
-   waiting on a human, and re-tailoring them every 30 minutes would burn
-   tokens to produce nothing. They become eligible again automatically
-   once the user approves a letter.
+This local build tailors the **resume only**. Cover letters and any other
+free-text writing an application asks for (motivation essays, "why this
+company", "describe a project" prompts) are a hosted Basic+ capability,
+generated server-side after a subscription check; the local apply loop
+never writes prose into an application field. See Phase 3 step 3 for how a
+required writing field is handled.
 For each job in scrape_batch.json:
 0. Workday jobs tailor normally; there is no Workday-specific guard
    here. A Workday candidate that passed the Phase 1 fit gate proceeds
-   through @resume-tailor and @cover-letter-tailor exactly like any
+   through @resume-tailor exactly like any
    other family; the Workday-specific behavior lives only in Phase 3
    step 2W (the deterministic runtime that owns the account/verification/
    submit flow).
@@ -549,9 +547,7 @@ For each job in scrape_batch.json:
    needed); Phase 3 step 4 reads it back from there to render this
    application's resume PDF. Skip this write when ats_score < 60 (step 3
    below skips the job entirely, so there's nothing to render).
-3. If ats_score < 60, skip the job; do not invoke @cover-letter-tailor
-    for a job that's about to be skipped (no cover letter is generated
-    for it). This is a user-visible needs_review
+3. If ats_score < 60, skip the job. This is a user-visible needs_review
     outcome that occurs before any application submission, so it must
     still be recorded in data/applied_jobs.json to prevent future runs
     from re-tailoring the same job forever:
@@ -568,9 +564,9 @@ For each job in scrape_batch.json:
        actually invoked" case the File write discipline section
        describes, and the low-scoring output is still useful context
        for the human review); role_type, source, and location_tier come
-       from the canonical job record / scrape_batch entry. Omit
-       cover_letter entirely; @cover-letter-tailor never ran for this
-       job.
+       from the canonical job record / scrape_batch entry. Always write
+       cover_letter_used=false and omit cover_letter; the local build
+       never generates one.
     b. Log to data/review_queue.json via the state helper with reason.
     c. Record a needs_review event via record-event.
     d. Invoke @discord-reporter with the needs_review outcome (company,
@@ -578,16 +574,8 @@ For each job in scrape_batch.json:
        webhook.
     Do not invoke @discord-reporter for skipped_unfit outcomes; those
     are local-only and must never be written to applied_jobs.json.
-4. Otherwise (ats_score >= 60): invoke @cover-letter-tailor with the job
-   title, company, full JD text, and @resume-tailor's resume_used +
-   tailored_bullets from step 2, so the letter stays
-   consistent with whichever resume version was actually selected. Do
-   not pass word_limit/char_limit here; the application form hasn't
-   been opened yet, so no company-specific limit is known; this call
-   produces a default-length draft. Receive back: cover_letter,
-   word_count. Phase 3 step 5 may re-invoke @cover-letter-tailor with an
-   actual detected limit and replace this draft before anything is
-   pasted or recorded.
+4. Otherwise (ats_score >= 60): the job proceeds to Phase 3 with the
+   tailored resume alone. No cover letter is generated locally.
 
 ### Phase 3: Apply
 For each job with ats_score >= 60:
@@ -651,8 +639,8 @@ For each job with ats_score >= 60:
        submit when it reaches the confirmed final review/submit page):
          `python3 src/scripts/runtime/approve_submit_workday.py '<job_id>' --apply-url '<apply_url>' --account-email '<candidate_email>' --job-location '<canonical_location>'`
         (or `--alias-email '<workday_alias_email>'` on the managed-alias
-         path). Pass the Phase 2 tailored resume PDF and cover letter so Workday
-        uses them instead of the master resume. Render the tailored resume
+         path). Pass the Phase 2 tailored resume PDF so Workday uses it
+        instead of the master resume. Render the tailored resume
         now (Phase 3 step 4 is otherwise skipped for this deterministic
         Workday path) with:
         `python3 src/scripts/state/render_resume_pdf.py logs/tmp/resume_<job_id>.pdf < logs/tmp/tailored_resume_<job_id>.json`.
@@ -661,11 +649,9 @@ For each job with ats_score >= 60:
         resume rule rather than silently using the master resume. If the
         tailored JSON is missing, do not invent a PDF path.
         After rendering succeeds, append `--resume-pdf
-        logs/tmp/resume_<job_id>.pdf`. If Phase 2 step 4 produced a cover
-        letter, write it to `logs/tmp/cover_letter_<job_id>.txt` and append
-        `--cover-letter logs/tmp/cover_letter_<job_id>.txt`. A missing
-        tailored resume is a needs_review blocker under Phase 3 step 4; a
-        missing optional cover letter only means omit its flag. Never invent
+        logs/tmp/resume_<job_id>.pdf`. The local build generates no cover
+        letter, so never pass `--cover-letter`. A missing tailored resume
+        is a needs_review blocker under Phase 3 step 4. Never invent
         a path that doesn't exist. The runtime's master-resume fallback is
         reserved for a later UI continuation after temporary artifacts have
         been cleaned up, not for this scheduled first attempt.
@@ -821,8 +807,8 @@ For each job with ats_score >= 60:
    rather than picking a value for them.
 
    **Any form field with no mapping at all**, not in `safe_fields`, not a
-   constructed URL, not the resume/cover-letter/essay fields above, is
-   itself a doubt signal. Never skip it silently and keep filling the rest
+   constructed URL, not the resume upload, not a free-text writing field
+   (see the rule just below), is itself a doubt signal. Never skip it silently and keep filling the rest
    of the form as if it didn't matter: if it's optional, leave it blank and
    continue. If it's required (or you can't tell), first check the
    **conservative-default fill policy** in AGENTS.md; categories (a)
@@ -843,32 +829,24 @@ For each job with ats_score >= 60:
    `"unrecognized_field"`. When genuinely unsure whether a field fits (a)-(d),
    treat it as not covered and use needs_review; this policy narrows when
    needs_review fires, it does not make guessing the default.
-   **Free-text motivation questions ("Why do you want to work here?").**
-   Some forms ask an open essay question, "Why do you want to work at
-   <company>?", "Why this role?", "What interests you about us?", that is
-   NOT the cover letter and that `safe_fields` cannot answer. You must never
-   write one yourself: an invented reason is a claim the applicant will be
-   asked to defend in an interview. Handle it like this:
-   a. Ask the store whether the user has already approved an answer:
-      `python3 src/scripts/state/interest_letter.py approved-text '<job_key>'`
-      Exit code 0 → stdout IS the answer; paste it verbatim into the field
-      and carry on with the application. Exit code 2 → no approved answer.
-   b. On exit code 2, park the job: do NOT apply, and do NOT guess:
-      `python3 src/scripts/state/interest_letter.py request '<json>'`
-      with `{"job_key", "company", "title", "url", "apply_url",
-      "question", "jd_excerpt"}`. `question` must be the form's exact
-      wording; `jd_excerpt` is the JD text (the helper truncates it).
-   c. Print `[parked] <title> @ <company>: awaiting interest letter` and
-      move to the next job.
-   d. Record NOTHING for a parked job: no record-event, no
-      applied_jobs.json row, no review_queue row, no Discord. Parking is
-      not an outcome: the job is unfinished, and a needs_review entry
-      would make `can-apply` block it forever, so the user's answer could
-      never be used. The store is the only record. This is the one
-      deliberate exception to "record every job you touch", and it exists
-      precisely so the job stays applicable.
-   e. The user writes or approves an answer in the TUI's Letters tab; the
-      next run reaches step (a), gets exit code 0, and applies normally.
+   **Any free-text writing field.** A cover-letter field, or an open
+   essay/motivation question ("Why do you want to work at <company>?",
+   "Why this role?", "What interests you about us?", "Describe a project
+   you're proud of"), or any other required field that wants prose
+   `safe_fields` cannot answer. Writing prose for an application is a
+   hosted Basic+ capability, generated server-side after a subscription
+   check; this local build never writes into such a field, and never
+   invents an answer.
+   - If the field is **optional**, leave it blank and continue the
+     application normally.
+   - If it is **required** (or you can't tell), do NOT apply. Route the
+     job to needs_review with reasoning `"free-text field '<field
+     label>' needs written prose; generated cover letters and essays are
+     a hosted Basic+ feature, or apply manually"` and doubt_signals
+     including `"writing_field_requires_plan"`, then move to the next
+     job. (When hosted writing assist ships, this step will first try
+     the hosted endpoint for a signed-in Basic+ account and only fall
+     through to needs_review if it declines.)
 4. Render and attach this application's tailored resume PDF:
    a. Read back `logs/tmp/tailored_resume_<job_id>.json`, written in
       Phase 2 step 2. If it's missing (Phase 2 never ran for this job, or
@@ -886,62 +864,33 @@ For each job with ats_score >= 60:
       a missing resume file: doubt signal `unrecognized_field`,
       needs_review, do not apply.
    c. Attach the PDF at the `path` render_resume_pdf.py returned.
-5. Paste tailored cover letter into the cover letter field if present:
-   a. Before pasting, check the field for a stated word/character limit:
-      a `maxlength` attribute, a visible label near the field ("500
-      words max", "Max 2000 characters"), or a live "X/500" counter.
-      Some forms state none at all; that's the common case.
-   b. No limit found: paste the Phase 2 @cover-letter-tailor draft
-      as-is.
-   c. Limit found: compare it against the Phase 2 draft (its
-      word_count, or count characters directly for a character limit).
-      If the draft already sits at or under roughly 80% of the limit
-      and doesn't exceed the limit itself, paste it as-is; no need to
-      re-tailor.
-   d. Otherwise, re-invoke @cover-letter-tailor with the same inputs as
-      the Phase 2 call (job title, company, JD text, resume_used +
-      tailored_bullets) plus the limit you found, as
-      word_limit or char_limit, whichever unit the form actually
-      stated. Receive back a new cover_letter, word_count. This
-      **replaces** the Phase 2 draft for both pasting and the
-      applied_jobs.json/review_queue.json record written in step 8;
-      never paste one version and record another, and never store both.
-   e. If the re-tailored letter still exceeds the form's stated limit
-      (a sign @cover-letter-tailor couldn't comply, not something to
-      force through), do not paste it and do not submit. Route the job
-      to needs_review with reasoning `"cover letter exceeds the
-      application's <N>-word/character limit even after re-tailoring;
-      user to apply manually"` and doubt_signals including
-      `"cover_letter_over_limit"`.
+5. Cover-letter field: the local build generates no cover letter, so
+   handle it under the free-text writing field rule in step 3, optional →
+   leave blank; required → needs_review. Never paste anything into it.
 6. **Pre-submit verification (mandatory: do this before every submit).**
    Snapshot the filled form and check, field by field, that every value
    about to be submitted is one you intended, building a fields list as you
    go, one `{field_name, filled_value, source, verified}` object per field
    you filled (`source` is `"safe_fields:<key>"`, `"constructed"`,
-   `"resume_upload"`, `"cover_letter"`, or `"conservative_default"`; the
+   `"resume_upload"`, or `"conservative_default"`; the
    last requires an additional `note` key naming which policy category
    applied; `verified` is this field's individual pass/fail result):
    - Each filled value equals the `safe_fields` value it came from (or the
-     resume/cover-letter/constructed profile URL for those fields).
+     resume/constructed profile URL for those fields).
      Compare exactly, after trimming, not "looks close".
    - No field the user left blank in `safe_fields` has acquired a value,
      UNLESS it's a `conservative_default` fill under AGENTS.md's
      conservative-default fill policy; that's the one deliberate exception,
      and it must carry the `note` explaining why.
+   - No free-text writing field (cover letter, essay, motivation question)
+     has acquired a value; those are always left blank or sent to
+     needs_review per step 3, never filled.
    - Every dropdown/combobox shows the exact option intended per step 3.
-   - If step 5 found a stated word/character limit on the cover-letter
-     field, the pasted text still fits it: a live counter or the
-     field's own validation state (if visible) is the most reliable
-     check; do not trust the pre-paste word_count alone since the field
-     may render/count differently than expected.
    If ANY value doesn't match, do not submit. Route the job to
    needs_review with reasoning naming the offending field and both values
    (`"pre-submit check: field '<label>' holds '<actual>', expected
    '<intended>'; user to apply manually"`) and doubt_signals including
-   `"verification_mismatch"`, except the cover-letter length check
-   specifically, which uses `"cover_letter_over_limit"` instead (same
-   signal as step 5e, since it's the same failure class caught at a
-   different point). This check is the last thing standing between
+   `"verification_mismatch"`. This check is the last thing standing between
    a mis-filled widget and a real, irreversible application: never skip
    it to save a step, and never "fix and submit anyway" without re-running
    it.
@@ -993,11 +942,12 @@ For each job with ats_score >= 60:
       didn't), and doubt_signals including `"submit_outcome_unclear"`.
 8. Log result to data/applied_jobs.json immediately via the state helper;
    do not batch writes. Include tailored_bullets and missing_keywords
-   from the Phase 2 @resume-tailor result, and cover_letter from the
-   Phase 2 @cover-letter-tailor result, regardless of outcome status
-   (applied, needs_review, or failed); both already ran for every job
+   from the Phase 2 @resume-tailor result, regardless of outcome status
+   (applied, needs_review, or failed); @resume-tailor ran for every job
    that reached Phase 3, so this is always available here, unlike the
-   Phase 1 pre-tailoring needs_review case.
+   Phase 1 pre-tailoring needs_review case. Always write
+   cover_letter_used=false and omit cover_letter; the local build
+   generates none.
    Include `fill_record_path` from step 6a, and for a needs_review outcome,
    `doubt_signals` (see AGENTS.md "Doubt signals").
 9. Record an internal event for the outcome via the canonical helper:
@@ -1078,7 +1028,10 @@ After all applications:
   Phase 2): append a needs_review entry so future runs do not re-tailor
   the same job forever. skipped_unfit is local-only and must never be
   written to applied_jobs.json.
-- Max 25 applications per session.
+- Max 25 applications per day, never raised. This run's session cap
+  (given to you in the run prompt) is already `min(requested cap, 25 −
+  applied today)`; apply to at most that many. If it is 0 the run is
+  scrape-only.
 - Never store passwords, SSNs, or payment info anywhere. If a form
   requests these and they aren't in src/config/targets.json "safe_fields",
   skip the job, log it to data/review_queue.json via the state helper
@@ -1136,7 +1089,7 @@ After all applications:
   this application's tailoring emphasis, e.g. "backend + infra focus";
   "n/a" for a pre-tailoring needs_review where @resume-tailor never ran),
   ats_score (number), location_tier (preferred|fallback),
-  cover_letter_used (bool). When status is "failed" or "needs_review",
+  cover_letter_used (bool, always `false` in this local build). When status is "failed" or "needs_review",
   a "reasoning" field is also required: a specific, one-sentence
   explanation of why the application failed or needs review. Never leave
   this field empty or generic. The "reasoning" field is optional when
@@ -1149,13 +1102,10 @@ After all applications:
   (string array). Omit both entirely for a Phase 1 pre-tailoring
   needs_review; they don't exist yet for that case, don't send empty
   placeholders.
-- **Whenever @cover-letter-tailor was actually invoked for this job**
-  (Phase 2 step 4, only when ats_score >= 60, so never for a Phase 1
-  pre-tailoring needs_review and never for a Phase 2 low-ats-score
-  needs_review either), also include cover_letter (string, the full
-  tailored letter body, exactly what @cover-letter-tailor returned). Omit
-  it entirely when @cover-letter-tailor never ran; don't send an empty
-  placeholder.
+- **cover_letter_used is always `false`** in this local build, and
+  `cover_letter` is always omitted: no cover letter is generated locally
+  (that is a hosted Basic+ capability). Never send an empty placeholder,
+  never a real value.
 - When status is "needs_review", also include `doubt_signals` (every
   triggering signal from AGENTS.md "Doubt signals", not just one) and
   `fill_record_path` when Phase 3 step 6a ran for this job (omit it, never

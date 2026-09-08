@@ -12,7 +12,7 @@ import {
   writeEnvOverride,
   logDir,
 } from "./settings.js";
-import { runValidator, convertResumePdf, setResumeDescription, openPath, reopenApplicationFilled, triggerSingleJobApply, approveReadyToSubmit, syncGraduationFromResume } from "./helpers.js";
+import { runValidator, convertResumePdf, setResumeDescription, openPath, reopenApplicationFilled, triggerSingleJobApply, approveReadyToSubmit, syncGraduationFromResume, verifyIntegrity, readUnreportedIntegrityEvents, markIntegrityEventsReported } from "./helpers.js";
 import { readHeartbeat, latestSessionLog, activeRunPid } from "./state.js";
 import { pythonCmd } from "./platform.js";
 import { LocalAdapter } from "./adapters/local.js";
@@ -385,6 +385,19 @@ async function dispatch(command: string, args: Args): Promise<unknown> {
       const jobId = String(args.jobId ?? "");
       if (!jobId) throw new Error("reopenApplicationFilled requires { jobId }");
       return reopenApplicationFilled(root, jobId);
+    }
+
+    case "verifyIntegrity": {
+      const manifest = typeof args.manifest === "string" && args.manifest ? args.manifest : undefined;
+      return verifyIntegrity(resolveRoot(args), manifest);
+    }
+    case "readUnreportedIntegrityEvents": {
+      return { events: readUnreportedIntegrityEvents(resolveRoot(args)) };
+    }
+    case "markIntegrityEventsReported": {
+      const ids = Array.isArray(args.ids) ? args.ids.map(String) : [];
+      markIntegrityEventsReported(resolveRoot(args), ids);
+      return { ok: true, marked: ids.length };
     }
 
     // Confirm-before-submit "Approve" action (docs/hosted-auto-apply-plan.md

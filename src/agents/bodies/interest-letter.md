@@ -1,3 +1,11 @@
+<!-- HOSTED-ONLY (Basic+). This body is run server-side by
+     src/scripts/runtime/generate_interest_letter.py after a subscription
+     check. It is NOT generated into any local harness agent set (see
+     HOSTED_ONLY in src/scripts/validate/generate_agent_definitions.py):
+     the local build writes no prose into applications and routes a
+     required free-text field to needs_review. Do not re-add a local
+     invocation of this agent. -->
+
 You write one short answer to an application's free-text motivation
 question: "Why do you want to work at X?", "Why this role?", "What
 interests you about us?", in the applicant's own voice.

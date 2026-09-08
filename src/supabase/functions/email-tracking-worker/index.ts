@@ -37,6 +37,28 @@ const CRON_SECRET = Deno.env.get("CRON_SECRET") ?? "";
 import { ImapFlow, type FetchMessageObject } from "npm:imapflow@1";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { timingSafeEqual } from "../_shared/timingSafeEqual.ts";
+import { methodNotAllowed, ok, serverError, unauthorized } from "../_shared/http.ts";
+
+// One account failing (a bad IMAP login, a token refresh 400, a transient
+// DB error) never aborts the scan and never travels in the HTTP response:
+// the true cause is logged here with the user id for ops, the response
+// only ever reports `errored: true` for that entry.
+interface AccountResult {
+  user_id: string;
+  messages_seen: number;
+  events_written: number;
+  errored?: true;
+}
+
+function accountError(label: string, userId: string, cause: unknown, partial?: Partial<AccountResult>): AccountResult {
+  console.error(`[email-tracking-worker:${label}] user=${userId}`, cause instanceof Error ? (cause.stack ?? cause.message) : cause);
+  return {
+    user_id: userId,
+    messages_seen: partial?.messages_seen ?? 0,
+    events_written: partial?.events_written ?? 0,
+    errored: true,
+  };
+}
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -164,13 +186,13 @@ interface EnabledConfig {
 async function processAccount(
   supabase: ReturnType<typeof createClient>,
   cfg: EnabledConfig,
-): Promise<{ user_id: string; messages_seen: number; events_written: number; error?: string }> {
+): Promise<AccountResult> {
   const { data: appliedRows, error: appliedErr } = await supabase
     .from("applied_jobs")
     .select("job_id, company")
     .eq("user_id", cfg.user_id);
   if (appliedErr) {
-    return { user_id: cfg.user_id, messages_seen: 0, events_written: 0, error: appliedErr.message };
+    return accountError("imap:applied-jobs", cfg.user_id, appliedErr);
   }
   const companies = (appliedRows ?? []).filter((r) => (r.company as string ?? "").trim().length >= 3);
   if (companies.length === 0) {
@@ -250,7 +272,7 @@ async function processAccount(
     } catch {
       // already disconnected
     }
-    return { user_id: cfg.user_id, messages_seen: messagesSeen, events_written: eventsWritten, error: String(err) };
+    return accountError("imap:scan", cfg.user_id, err, { messages_seen: messagesSeen, events_written: eventsWritten });
   }
 
   if (highestUid > cfg.last_uid) {
@@ -334,13 +356,13 @@ function extractPlainText(payload: GmailPart | undefined): string {
 async function processOAuthGmailAccount(
   supabase: ReturnType<typeof createClient>,
   cfg: OAuthGmailConfig,
-): Promise<{ user_id: string; messages_seen: number; events_written: number; error?: string }> {
+): Promise<AccountResult> {
   const { data: appliedRows, error: appliedErr } = await supabase
     .from("applied_jobs")
     .select("job_id, company")
     .eq("user_id", cfg.user_id);
   if (appliedErr) {
-    return { user_id: cfg.user_id, messages_seen: 0, events_written: 0, error: appliedErr.message };
+    return accountError("oauth:applied-jobs", cfg.user_id, appliedErr);
   }
   const companies = (appliedRows ?? []).filter((r) => (r.company as string ?? "").trim().length >= 3);
   if (companies.length === 0) {
@@ -355,12 +377,7 @@ async function processOAuthGmailAccount(
       p_access_token: accessToken,
     });
   } catch (err) {
-    return {
-      user_id: cfg.user_id,
-      messages_seen: 0,
-      events_written: 0,
-      error: `token refresh failed: ${err instanceof Error ? err.message : String(err)}`,
-    };
+    return accountError("oauth:token-refresh", cfg.user_id, err);
   }
 
   // Unlike IMAP's uid-based cursor, Gmail's search API is timestamp-based
@@ -424,12 +441,7 @@ async function processOAuthGmailAccount(
       }
     }
   } catch (err) {
-    return {
-      user_id: cfg.user_id,
-      messages_seen: messagesSeen,
-      events_written: eventsWritten,
-      error: err instanceof Error ? err.message : String(err),
-    };
+    return accountError("oauth:scan", cfg.user_id, err, { messages_seen: messagesSeen, events_written: eventsWritten });
   }
 
   await supabase.rpc("service_update_mail_connection_watch_state", {
@@ -441,21 +453,19 @@ async function processOAuthGmailAccount(
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method !== "POST") {
-    return new Response("method not allowed", { status: 405 });
-  }
+  if (req.method !== "POST") return methodNotAllowed();
   const providedSecret = req.headers.get("x-cron-secret");
   if (!CRON_SECRET || !providedSecret || !(await timingSafeEqual(providedSecret, CRON_SECRET))) {
-    return new Response("unauthorized", { status: 401 });
+    return unauthorized();
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   const { data: configs, error } = await supabase.rpc("get_enabled_email_tracking_configs");
   if (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    return serverError("email-tracking-worker:list-configs", error);
   }
 
-  const results = [];
+  const results: AccountResult[] = [];
   for (const cfg of (configs ?? []) as EnabledConfig[]) {
     results.push(await processAccount(supabase, cfg));
   }
@@ -464,22 +474,20 @@ Deno.serve(async (req: Request) => {
   // they're a different table with a different decrypted-secret shape
   // than email_tracking_config's app-password rows above. A failure here
   // (e.g. the RPC not existing yet on an older deploy) doesn't block the
-  // app-password accounts that already worked.
+  // app-password accounts that already worked — logged, not surfaced.
   const { data: oauthConfigs, error: oauthError } = await supabase.rpc("get_enabled_oauth_mail_connections");
-  const oauthResults = [];
+  if (oauthError) console.error("[email-tracking-worker:list-oauth-configs]", oauthError.message ?? oauthError);
+  const oauthResults: AccountResult[] = [];
   if (!oauthError) {
     for (const cfg of (oauthConfigs ?? []) as OAuthGmailConfig[]) {
       oauthResults.push(await processOAuthGmailAccount(supabase, cfg));
     }
   }
 
-  return new Response(
-    JSON.stringify({
-      accounts_processed: results.length + oauthResults.length,
-      results,
-      oauth_results: oauthResults,
-      oauth_error: oauthError?.message,
-    }),
-    { status: 200, headers: { "Content-Type": "application/json" } },
-  );
+  const all = [...results, ...oauthResults];
+  return ok({
+    accounts_processed: all.length,
+    accounts_errored: all.filter((r) => r.errored).length,
+    events_written: all.reduce((n, r) => n + r.events_written, 0),
+  });
 });

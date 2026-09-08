@@ -125,12 +125,14 @@ export function EmailTrackingStep({ client, userId, onComplete }: { client: Supa
   async function startOauth() {
     setSaving(true);
     setError(undefined);
-    const { data, error: invokeError } = await client.functions.invoke<{ auth_url?: string; error?: string }>("mail-oauth-start", {
+    const { data, error: invokeError } = await client.functions.invoke<{ auth_url?: string }>("mail-oauth-start", {
       body: { provider },
     });
     if (invokeError || !data?.auth_url) {
       setSaving(false);
-      setError(invokeError?.message ?? data?.error ?? `${provider} inbox OAuth is not available yet.`);
+      // Opaque status codes only from the function now — show one
+      // friendly line, never supabase-js's raw "non-2xx" message.
+      setError("Couldn't start the inbox connection. Try again in a moment.");
       return;
     }
     await openUrl(data.auth_url);

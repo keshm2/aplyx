@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { badRequest, methodNotAllowed, ok, serverError, unauthorized } from "../_shared/http.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -16,10 +17,6 @@ interface InboundPayload {
     text?: string;
     html?: string;
   };
-}
-
-function unauthorized(): Response {
-  return new Response("unauthorized", { status: 401 });
 }
 
 function extractFirstTo(value: string | string[] | undefined): string {
@@ -62,20 +59,21 @@ async function forwardEmail(to: string, subject: string, text: string, aliasAddr
 }
 
 Deno.serve(async (req) => {
-  if (req.method !== "POST") return new Response("method not allowed", { status: 405 });
+  if (req.method !== "POST") return methodNotAllowed();
   if (INBOUND_WEBHOOK_SECRET) {
     const header = req.headers.get("x-aplyx-inbound-secret") ?? req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
     if (header !== INBOUND_WEBHOOK_SECRET) return unauthorized();
   }
 
-  const payload = (await req.json()) as InboundPayload;
+  const payload = (await req.json().catch(() => null)) as InboundPayload | null;
+  if (payload === null || typeof payload !== "object") return badRequest("invalid webhook body");
   if (payload.type && payload.type !== "email.received") {
-    return new Response(JSON.stringify({ ok: true, ignored: true }), { headers: { "Content-Type": "application/json" } });
+    return ok({ ignored: true });
   }
 
   const toAddress = extractFirstTo(payload.data?.to);
   const alias = localPart(toAddress);
-  if (!alias) return new Response(JSON.stringify({ ok: true, ignored: true, reason: "missing to address" }), { headers: { "Content-Type": "application/json" } });
+  if (!alias) return ok({ ignored: true, reason: "missing to address" });
 
   const subject = String(payload.data?.subject ?? "").trim();
   const bodyText = String(payload.data?.text ?? payload.data?.html ?? "").trim();
@@ -91,10 +89,10 @@ Deno.serve(async (req) => {
     .eq("status", "active")
     .maybeSingle();
   if (aliasError) {
-    return new Response(JSON.stringify({ ok: false, error: aliasError.message }), { status: 500, headers: { "Content-Type": "application/json" } });
+    return serverError("inbound-email:alias-lookup", aliasError);
   }
   if (!aliasRow) {
-    return new Response(JSON.stringify({ ok: true, ignored: true, reason: "unknown alias" }), { headers: { "Content-Type": "application/json" } });
+    return ok({ ignored: true, reason: "unknown alias" });
   }
 
   const { data: pendingRun } = await supabase
@@ -126,7 +124,7 @@ Deno.serve(async (req) => {
     expires_at: expiresAt,
   });
   if (insertError) {
-    return new Response(JSON.stringify({ ok: false, error: insertError.message }), { status: 500, headers: { "Content-Type": "application/json" } });
+    return serverError("inbound-email:insert", insertError);
   }
 
   try {
@@ -146,8 +144,7 @@ Deno.serve(async (req) => {
   // credentials-plan.md: "Never print OTPs in logs or events," and a
   // webhook response is exactly the kind of thing that ends up in
   // Resend's delivery log and/or this function's own invocation logs.
-  return new Response(JSON.stringify({ ok: true, alias, apply_run_id: pendingRun?.id ?? null }), {
-    status: 200,
-    headers: { "Content-Type": "application/json" },
-  });
+  // The alias/run id stay out too — the sender already knows the alias,
+  // and there's nothing for a webhook caller to do with either.
+  return ok({ received: true });
 });

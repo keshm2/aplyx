@@ -94,8 +94,10 @@ npm run typecheck && npm run smoke         # TUI CI checks
   `data/applied_jobs.json`, or the Google Sheet.
 - The review-queue file is append-only; "resolved" is derived from
   later outcomes, never by deleting entries.
-- Max 25 applications per session; the TUI can lower this per run via
-  `APLYX_SESSION_CAP`, never raise it.
+- Max 25 applications per day, never raised (`run_job_agent.py` reads
+  today's applied count via `job_state.py applied-today` and lowers the
+  run cap to what's left). The TUI can lower a single run further via
+  `APLYX_SESSION_CAP`.
 - Workday candidates tailor and apply like every other family
   (phase 7D): the deterministic local runtime
   `src/scripts/runtime/approve_submit_workday.py` owns the

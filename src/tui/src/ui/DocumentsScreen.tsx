@@ -286,7 +286,7 @@ export function DocumentsScreen({ root, active, refreshNonce, contentRows = 20, 
             <Box flexDirection="column">
               <Text dimColor>{statusGlyph.needs_review} No tailored documents yet.</Text>
               <Text dimColor>
-                Bullets and cover letters appear here once resume-tailor runs on a queued posting.
+                Tailored resume bullets appear here once resume-tailor runs on a queued posting.
               </Text>
             </Box>
           ) : (
@@ -322,7 +322,7 @@ export function DocumentsScreen({ root, active, refreshNonce, contentRows = 20, 
               <>
                 <Text dimColor>No selection</Text>
                 <Text dimColor wrap="wrap">
-                  Tailored bullets and cover letters land here once resume-tailor runs on a queued posting.
+                  Tailored resume bullets land here once resume-tailor runs on a queued posting.
                 </Text>
               </>
             )}

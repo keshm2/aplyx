@@ -273,21 +273,24 @@ export function SettingsAccountTab() {
     setMailOauthError(undefined);
     try {
       const client = await getSupabaseClient();
-      const { data, error } = await client.functions.invoke<{ auth_url?: string; error?: string }>("mail-oauth-start", {
+      const { data, error } = await client.functions.invoke<{ auth_url?: string }>("mail-oauth-start", {
         body: { provider },
       });
       if (error || !data?.auth_url) {
         setMailOauthBusy(false);
-        setMailOauthError(error?.message ?? data?.error ?? `${provider} inbox OAuth isn't available yet.`);
+        // The function returns only opaque status codes now; don't relay
+        // supabase-js's raw "non-2xx" string. One friendly line covers
+        // both "provider not enabled yet" and a transient failure.
+        setMailOauthError("Couldn't start the inbox connection. Try again in a moment.");
         return;
       }
       await openUrl(data.auth_url);
       // Left busy: the button reads "Opening consent…" until the deep-link
       // listener above resolves it one way or the other, same pattern as
       // EmailTrackingStep's startOauth.
-    } catch (err) {
+    } catch {
       setMailOauthBusy(false);
-      setMailOauthError(err instanceof Error ? err.message : String(err));
+      setMailOauthError("Couldn't start the inbox connection. Try again in a moment.");
     }
   }
 

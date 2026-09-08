@@ -58,9 +58,10 @@ gets rendered straight into this application's resume PDF
 (`src/scripts/state/render_resume_pdf.py`), so it must be complete and
 self-contained, not a diff. `tailored_bullets` is a flat, human-readable
 summary array (the union of the bullets you kept across `experience` and
-`projects`, front-loaded by relevance), kept for the cover-letter
-grounding step and the applied-jobs record; it should read as a plain
-list of what `tailored_resume` actually contains, not new content.
+`projects`, front-loaded by relevance), kept for the applied-jobs record
+and, on hosted plans, as grounding for the cover-letter/essay step; it
+should read as a plain list of what `tailored_resume` actually contains,
+not new content.
 
 Every bullet in `tailored_resume` should keep its original `id` from the
 master, even when you reword its `text`, so the result stays traceable

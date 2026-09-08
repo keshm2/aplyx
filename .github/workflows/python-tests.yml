@@ -15,11 +15,27 @@ on:
   push:
     paths:
       - "src/scripts/**"
+      - "src/agents/**"
+      - ".claude/agents/**"
+      - ".opencode/agents/**"
+      - ".codex/agents/**"
+      - ".github/agents/**"
+      - "AGENTS.md"
+      - "src/integrity/**"
+      - "VERSION"
       - "requirements.txt"
       - ".github/workflows/python-tests.yml"
   pull_request:
     paths:
       - "src/scripts/**"
+      - "src/agents/**"
+      - ".claude/agents/**"
+      - ".opencode/agents/**"
+      - ".codex/agents/**"
+      - ".github/agents/**"
+      - "AGENTS.md"
+      - "src/integrity/**"
+      - "VERSION"
       - "requirements.txt"
       - ".github/workflows/python-tests.yml"
 jobs:
@@ -32,6 +48,11 @@ jobs:
           python-version: "3.13"
           cache: "pip"
       - run: pip install pypdf playwright
+      # Generated agent defs must match their sources, and the integrity
+      # manifest must match the enforcement-critical files it protects.
+      - run: python3 src/scripts/validate/generate_agent_definitions.py --check
+      - run: python3 src/scripts/validate/build_integrity_manifest.py --check
+      - run: python3 src/scripts/state/verify_integrity.py
       - run: python3 src/scripts/validate/test_validate_local_config.py
       - run: python3 src/scripts/jobs/test_evaluate_job_fit.py
       - run: python3 src/scripts/state/test_resume_graduation.py

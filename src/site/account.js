@@ -695,16 +695,16 @@ toggleResolvedButton.addEventListener("click", () => {
   renderReviewQueue();
 });
 
-/* Hosted daily-run quota, per docs/hosted-paid-tier-plan.md's
- * "Usage-limit tracking" section: get_own_usage() (migration 0035)
- * returns a real count against hosted_runs and a cap derived from
- * subscriptions.status = 'active', or plan = 'free_hosted' / cap = null
- * when there's no active subscription, which is every account today (no
- * Stripe integration exists yet). Only ever called from
- * loadAndRenderActivity(), itself only reachable once signed in
- * (startActivitySync); never runs for a signed-out visitor, and this
- * whole dashboard is unreachable without a hosted account in the first
- * place, so a local-only install never sees it either. */
+/* Hosted daily application quota, per docs/hosted-paid-tier-plan.md's
+ * "Usage-limit tracking" section: get_own_usage() (migrations 0035 +
+ * 0043) returns today's submitted-application count (apply_runs where
+ * status='submitted', a status only the worker can set — the client
+ * cannot deflate it) and the per-tier cap (basic 5 / intern 10 / pro 17
+ * / premier 25), or plan='free_hosted' / cap=null when there is no
+ * active subscription (every account today, no Stripe integration yet).
+ * Only ever called from loadAndRenderActivity(), itself only reachable
+ * once signed in; a signed-out visitor and a local-only install never
+ * see it. */
 async function renderUsageBar() {
   usageBar.replaceChildren();
   const { data, error } = await supabase.rpc("get_own_usage");
@@ -721,7 +721,7 @@ async function renderUsageBar() {
     const badge = document.createElement("span");
     badge.className = "account-tier-badge";
     badge.textContent = "Free account";
-    note.append(badge, document.createTextNode(": search and autofill included, no daily cap."));
+    note.append(badge, document.createTextNode(": cached search and one-click autofill included. Automatic applying is a paid plan."));
     usageBar.appendChild(note);
     return;
   }
@@ -730,7 +730,7 @@ async function renderUsageBar() {
   const head = document.createElement("div");
   head.className = "usage-bar-head";
   const label = document.createElement("span");
-  label.textContent = `${plan[0].toUpperCase()}${plan.slice(1)} plan: hosted runs today`;
+  label.textContent = `${plan[0].toUpperCase()}${plan.slice(1)} plan: applications today`;
   const count = document.createElement("span");
   count.className = "usage-bar-count";
   count.textContent = `${used_today} / ${cap}`;
@@ -848,7 +848,8 @@ function renderReviewQueue() {
                 try {
                   await markQueueEntryApplied(userId, entry);
                 } catch (err) {
-                  alert(err?.message ?? "Couldn't mark this applied.");
+                  console.error("mark applied failed", err);
+                  alert("Couldn't mark this applied. Try again.");
                   e.currentTarget.disabled = false;
                 }
               },
@@ -860,7 +861,8 @@ function renderReviewQueue() {
                 try {
                   await dismissQueueEntry(userId, entry);
                 } catch (err) {
-                  alert(err?.message ?? "Couldn't dismiss this.");
+                  console.error("dismiss queue entry failed", err);
+                  alert("Couldn't dismiss this. Try again.");
                   e.currentTarget.disabled = false;
                 }
               },
@@ -1020,7 +1022,8 @@ atsAccountForm.addEventListener("submit", async (event) => {
     applicationAccounts = await loadApplicationAccounts();
     renderApplicationAccounts();
   } catch (err) {
-    atsAccountMessage.textContent = err?.message ?? "Couldn't save the ATS credential.";
+    console.error("save ATS credential failed", err);
+    atsAccountMessage.textContent = "Couldn't save the ATS credential. Try again.";
     atsAccountMessage.classList.add("is-error");
   } finally {
     atsAccountSave.disabled = false;
@@ -1557,7 +1560,8 @@ profileForm.addEventListener("submit", async (e) => {
     profileMessage.textContent = "Saved.";
     void loadAndRenderActivity();
   } catch (err) {
-    profileMessage.textContent = err?.message ?? "Couldn't save. Try again.";
+    console.error("save profile failed", err);
+    profileMessage.textContent = "Couldn't save. Try again.";
     profileMessage.classList.add("is-error");
   } finally {
     saveButton.disabled = false;
@@ -1647,7 +1651,8 @@ document.getElementById("setup-profile-continue").addEventListener("click", asyn
     setupProfileMessage.textContent = "";
     showSetupStep("email");
   } catch (err) {
-    setupProfileMessage.textContent = err?.message ?? "Couldn't save. Try again.";
+    console.error("setup: save profile failed", err);
+    setupProfileMessage.textContent = "Couldn't save. Try again.";
     setupProfileMessage.classList.add("is-error");
   } finally {
     this.disabled = false;
@@ -1666,7 +1671,8 @@ document.getElementById("setup-email-continue").addEventListener("click", async 
     setupEmailMessage.textContent = "";
     showSetupStep("resume");
   } catch (err) {
-    setupEmailMessage.textContent = err?.message ?? "Couldn't save. Try again.";
+    console.error("setup: save email failed", err);
+    setupEmailMessage.textContent = "Couldn't save. Try again.";
     setupEmailMessage.classList.add("is-error");
   } finally {
     this.disabled = false;
@@ -1689,7 +1695,8 @@ setupResumeInput.addEventListener("change", async () => {
     setupResumeMessage.textContent = `Uploaded ${file.name}.`;
     setupResumeChoose.textContent = `Replace ${file.name}…`;
   } catch (err) {
-    setupResumeMessage.textContent = err?.message ?? "Upload failed. Try again.";
+    console.error("setup: resume upload failed", err);
+    setupResumeMessage.textContent = "Upload failed. Try again.";
     setupResumeMessage.classList.add("is-error");
   } finally {
     setupResumeChoose.disabled = false;

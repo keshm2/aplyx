@@ -139,11 +139,11 @@ section (↑↓, enter), add/edit/delete/reorder entries and bullets (`a`/
 enter/`x`/`[`/`]`), same **Import from an existing resume** and
 **Export PDF** actions. Both surfaces read and write the exact same
 `data/resumes/resume.json`, so editing in one is immediately visible in
-the other. The one thing still resolved dynamically by name/description
-(`src/scripts/state/resolve_resume.py`) is the optional cover-letter
-voice/structure reference file (`base_cover_letter.md` by convention);
-`cover-letter-tailor.md` reads whichever file matches, and simply writes
-without a reference if none exists.
+the other. You can also keep an optional cover-letter voice/structure
+reference file (`base_cover_letter.md` by convention), resolved
+dynamically by name/description (`src/scripts/state/resolve_resume.py`);
+it is used only when you tailor cover letters on a hosted plan. The local
+build does not generate cover letters or application essays.
 
 **Discord is optional.** The installer asks whether you want status
 updates; declining leaves every outcome local. Opting in, choose one
@@ -438,7 +438,7 @@ Every `needs_review` application that reached the form-fill step (see
 AGENTS.md "Fill records") gets a durable `data/fill_records/<job_id>.json`
 snapshot of exactly what was typed/attached. `src/scripts/runtime/replay_fill.py`
 replays that snapshot into your real, already-installed Google Chrome —
-fields, resume, cover letter — and stops without ever submitting, so you
+fields and resume — and stops without ever submitting, so you
 can review it as a normal filled-in form instead of a blank one:
 
 ```bash

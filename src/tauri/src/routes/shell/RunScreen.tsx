@@ -219,7 +219,7 @@ export function RunScreen() {
             </span>
             <div>
               <h2>Start a run</h2>
-              <p className="field-help">Scrapes your configured boards, fit-gates, tailors a resume and cover letter, and applies.</p>
+              <p className="field-help">Scrapes your configured boards, fit-gates, tailors your resume per posting, and applies.</p>
             </div>
           </div>
 

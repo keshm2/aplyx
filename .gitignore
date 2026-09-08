@@ -57,6 +57,10 @@
 # check_postings_open.py's own throttle stamp (last_run_at) — not PII, but
 # still a new state file, so it follows the same explicit-list rule above.
 /data/postings_check_state.json
+# verify_integrity.py's local violation log (integrity_events.py). Not PII,
+# but machine-specific and append-only; the account's integrity_events
+# table is the record of record.
+/data/integrity_events.jsonl
 # approve_submit_workday.py's per-job checkpoints — real PII (alias email,
 # fill history) and, before a 2026-08-23 fix, could carry a plaintext
 # account password (now split into workday_apply_runs/.secrets/, which

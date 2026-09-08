@@ -120,3 +120,30 @@ jobs:
           releaseDraft: false
           prerelease: true
           args: ${{ matrix.args }}
+
+  # Publish this release's canonical integrity manifest to the
+  # `release_manifests` Supabase table (migration 0044) so a local client
+  # can verify its own files against a copy it cannot forge (the client
+  # holds only the anon key; this table has no authenticated write
+  # policy). Runs once, not per platform, and is a no-op unless the repo
+  # variable is set — absent it, clients fall back to the bundled
+  # src/integrity/manifest.json, exactly as before. See
+  # docs/PLAN.md's "Local-build integrity tracking" pointer entry.
+  publish-manifest:
+    if: vars.RELEASE_MANIFEST_PUBLISH == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      # The committed manifest must already be current for this tag
+      # (regenerated as part of release prep); fail loudly if it drifted.
+      - run: python3 src/scripts/validate/build_integrity_manifest.py --check
+      - name: publish to release_manifests
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: python3 src/scripts/validate/publish_release_manifest.py

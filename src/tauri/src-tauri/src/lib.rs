@@ -648,6 +648,38 @@ fn start_run(app: tauri::AppHandle, root: String, session_cap: Option<String>, e
     let info = resolve_run_launch_info(&app, &root)?;
     let before = latest_session_log(&info.log_dir);
 
+    // Compiled enforcement of the 25-applications-per-day ceiling. This is
+    // deliberately a second gate on top of run_job_agent.py's own check
+    // (which is plain-text Python and could be patched out): a release
+    // binary is harder to modify, and blocking here gives a clear message
+    // instead of a run that silently degrades to scrape-only. The count
+    // comes from job_state.py, which reads the same data/applied_jobs.json
+    // the run itself writes through.
+    {
+        let mut probe = Command::new(&info.py_cmd);
+        for a in &info.py_prefix {
+            probe.arg(a);
+        }
+        probe.arg("src/scripts/state/job_state.py").arg("applied-today");
+        probe.current_dir(&root);
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            probe.creation_flags(0x08000000);
+        }
+        if let Ok(out) = probe.output() {
+            if let Ok(v) = serde_json::from_slice::<Value>(&out.stdout) {
+                if v.get("remaining").and_then(Value::as_i64) == Some(0) {
+                    let n = v.get("applied_today").and_then(Value::as_i64).unwrap_or(25);
+                    return Err(format!(
+                        "Daily limit reached: {n} of 25 applications submitted today. \
+                         Applying resumes automatically tomorrow."
+                    ));
+                }
+            }
+        }
+    }
+
     let mut cmd = Command::new(&info.py_cmd);
     for a in &info.py_prefix {
         cmd.arg(a);
@@ -731,6 +763,25 @@ fn read_active_run_pid(app: tauri::AppHandle, root: String) -> Result<Value, Str
 #[tauri::command]
 fn find_root(app: tauri::AppHandle) -> Result<Value, String> {
     run_bridge(&app, "findRoot", None)
+}
+
+#[tauri::command]
+fn verify_integrity(app: tauri::AppHandle, root: String, manifest: Option<String>) -> Result<Value, String> {
+    run_bridge(
+        &app,
+        "verifyIntegrity",
+        Some(serde_json::json!({ "root": root, "manifest": manifest })),
+    )
+}
+
+#[tauri::command]
+fn read_unreported_integrity_events(app: tauri::AppHandle, root: String) -> Result<Value, String> {
+    run_bridge(&app, "readUnreportedIntegrityEvents", Some(serde_json::json!({ "root": root })))
+}
+
+#[tauri::command]
+fn mark_integrity_events_reported(app: tauri::AppHandle, root: String, ids: Vec<String>) -> Result<Value, String> {
+    run_bridge(&app, "markIntegrityEventsReported", Some(serde_json::json!({ "root": root, "ids": ids })))
 }
 
 #[tauri::command]
@@ -1461,6 +1512,9 @@ pub fn run() {
         .manage::<RunProcessState>(Mutex::new(None))
         .invoke_handler(tauri::generate_handler![
             find_root,
+            verify_integrity,
+            read_unreported_integrity_events,
+            mark_integrity_events_reported,
             start_run,
             stop_run,
             get_run_status,

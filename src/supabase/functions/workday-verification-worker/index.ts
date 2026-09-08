@@ -31,6 +31,7 @@ const GOOGLE_CLIENT_SECRET = Deno.env.get("GOOGLE_CLIENT_SECRET") ?? "";
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { timingSafeEqual } from "../_shared/timingSafeEqual.ts";
+import { methodNotAllowed, ok, serverError, unauthorized } from "../_shared/http.ts";
 import {
   correlate,
   detectManualRequired,
@@ -246,45 +247,37 @@ async function processSession(
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method !== "POST") {
-    return new Response("method not allowed", { status: 405 });
-  }
+  if (req.method !== "POST") return methodNotAllowed();
   const providedSecret = req.headers.get("x-cron-secret");
   if (!CRON_SECRET || !providedSecret || !(await timingSafeEqual(providedSecret, CRON_SECRET))) {
-    return new Response("unauthorized", { status: 401 });
+    return unauthorized();
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   const { error: cleanupError } = await supabase.rpc("service_cleanup_expired_verification_secrets");
   if (cleanupError) {
-    return new Response(JSON.stringify({ error: "verification secret cleanup failed" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
+    return serverError("workday-verification-worker:cleanup", cleanupError);
   }
   const { data: sessions, error } = await supabase.rpc("service_list_active_workday_sessions");
   if (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    return serverError("workday-verification-worker:list-sessions", error);
   }
 
-  const results = [];
+  let sessionsErrored = 0;
   for (const session of (sessions ?? []) as ActiveSession[]) {
-    // Best-effort per session: one bad refresh/search shouldn't abort
-    // the whole scan, same posture as email-tracking-worker.
+    // Best-effort per session: one bad refresh/search shouldn't abort the
+    // whole scan, same posture as email-tracking-worker. The cause is
+    // logged with the session id; it never travels in the response.
     try {
-      results.push(await processSession(supabase, session));
+      await processSession(supabase, session);
     } catch (err) {
-      results.push({
-        session_id: session.session_id,
-        messages_scanned: 0,
-        outcome: "error",
-        error: err instanceof Error ? err.message : String(err),
-      });
+      sessionsErrored++;
+      console.error(
+        `[workday-verification-worker:session] session=${session.session_id}`,
+        err instanceof Error ? (err.stack ?? err.message) : err,
+      );
     }
   }
 
-  return new Response(
-    JSON.stringify({ sessions_processed: results.length, results }),
-    { status: 200, headers: { "Content-Type": "application/json" } },
-  );
+  return ok({ sessions_processed: (sessions ?? []).length, sessions_errored: sessionsErrored });
 });

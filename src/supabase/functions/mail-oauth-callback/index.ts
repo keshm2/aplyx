@@ -5,21 +5,22 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const MAIL_OAUTH_STATE_SECRET = Deno.env.get("MAIL_OAUTH_STATE_SECRET") ?? "";
 
-// Not just `error instanceof Error ? error.message : String(error)`: a
-// PostgrestError from admin.rpc() (service_upsert_mail_connection_oauth)
-// extends Error in the postgrest-js source, but Deno's npm: compat layer
-// can hand back an object that fails instanceof across that boundary even
-// when it has a real .message. String()'ing a plain object gives the
-// literal text "[object Object]", caught live 2026-08-21: that string
-// went out through redirectWithResult's message param and rendered
-// verbatim in the desktop app's error banner, hiding whatever actually
-// went wrong. Checking for a .message property directly works regardless
-// of which path produced the error.
-function errorMessage(error: unknown): string {
-  if (error && typeof error === "object" && "message" in error && typeof (error as { message: unknown }).message === "string") {
-    return (error as { message: string }).message;
-  }
-  return error instanceof Error ? error.message : String(error);
+// This endpoint can only ever redirect (the browser lands here from the
+// provider's consent screen and must bounce back into the app), so every
+// path returns a 302 — 3xx is exactly right here. What it must NOT do is
+// carry an internal error into the `message` param: that string renders
+// verbatim in the desktop app's error banner. So every failure maps to
+// one of a few fixed, user-safe messages; the real cause (a token
+// exchange HTTP status, a Postgrest error, a "[object Object]" from the
+// npm: compat boundary) is logged and never leaves this function.
+const SAFE_MESSAGES = {
+  declined: "Authorization was declined or cancelled.",
+  badLink: "The sign-in link was invalid or expired. Start the connection again.",
+  failed: "Couldn't finish connecting your inbox. Try again in a moment.",
+} as const;
+
+function logCause(label: string, cause: unknown): void {
+  console.error(`[mail-oauth-callback:${label}]`, cause instanceof Error ? (cause.stack ?? cause.message) : cause);
 }
 
 async function exchangeMicrosoft(code: string, redirectUri: string) {
@@ -85,25 +86,31 @@ async function exchangeGoogle(code: string, redirectUri: string) {
 
 Deno.serve(async (req) => {
   const url = new URL(req.url);
-  if (!MAIL_OAUTH_STATE_SECRET) return redirectWithResult("unknown", { status: "error", message: "mail oauth secret is not configured" });
+  if (!MAIL_OAUTH_STATE_SECRET) {
+    logCause("config", "MAIL_OAUTH_STATE_SECRET unset");
+    return redirectWithResult("unknown", { status: "error", message: SAFE_MESSAGES.failed });
+  }
 
   const providerError = url.searchParams.get("error");
   const rawState = url.searchParams.get("state") ?? "";
   const parsedState = await verifyState(rawState, MAIL_OAUTH_STATE_SECRET);
   const provider = String(parsedState?.provider ?? "unknown");
   if (providerError) {
-    return redirectWithResult(provider, { status: "error", message: providerError });
+    // access_denied / consent_required / etc. — the user's own choice at
+    // the consent screen, not our failure. Logged raw, shown as generic.
+    logCause("provider-error", providerError);
+    return redirectWithResult(provider, { status: "error", message: SAFE_MESSAGES.declined });
   }
   if (!parsedState) {
-    return redirectWithResult(provider, { status: "error", message: "invalid oauth state" });
+    return redirectWithResult(provider, { status: "error", message: SAFE_MESSAGES.badLink });
   }
   const code = url.searchParams.get("code");
   if (!code) {
-    return redirectWithResult(provider, { status: "error", message: "missing authorization code" });
+    return redirectWithResult(provider, { status: "error", message: SAFE_MESSAGES.badLink });
   }
   const userId = String(parsedState.user_id ?? "").trim();
   if (!userId) {
-    return redirectWithResult(provider, { status: "error", message: "missing user context" });
+    return redirectWithResult(provider, { status: "error", message: SAFE_MESSAGES.badLink });
   }
 
   try {
@@ -125,6 +132,7 @@ Deno.serve(async (req) => {
     if (error) throw error;
     return redirectWithResult(provider, { status: "connected", email: tokens.email, callback: appCallbackUrl() });
   } catch (error) {
-    return redirectWithResult(provider, { status: "error", message: errorMessage(error) });
+    logCause("exchange", error);
+    return redirectWithResult(provider, { status: "error", message: SAFE_MESSAGES.failed });
   }
 });

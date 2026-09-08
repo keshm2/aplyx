@@ -44,6 +44,14 @@ MD_HARNESSES = ("opencode", "claude", "copilot")
 TOML_HARNESSES = ("codex",)
 HARNESSES = MD_HARNESSES + TOML_HARNESSES
 
+# Agents whose body lives in src/agents/bodies/ but which must NEVER be
+# generated into a local harness agent set: they run server-side only,
+# after a subscription check, and shipping a working local def would hand
+# a paid capability to the free tier. The hosted scripts
+# (tailor_cover_letter_hosted.py, generate_interest_letter.py) read the
+# body files directly and don't need a composed harness definition.
+HOSTED_ONLY = frozenset({"cover-letter-tailor", "interest-letter"})
+
 MD_MARKER = (
     "<!-- GENERATED from src/agents/bodies/{name}.md + "
     "src/agents/frontmatter/{harness}/{name}.yaml: edit those sources and run "
@@ -108,7 +116,9 @@ def compose(root: str, harness: str, name: str) -> str:
 def agent_names(root: str) -> list:
     bodies_dir = os.path.join(root, "src", "agents", "bodies")
     return sorted(
-        f[:-3] for f in os.listdir(bodies_dir) if f.endswith(".md")
+        f[:-3]
+        for f in os.listdir(bodies_dir)
+        if f.endswith(".md") and f[:-3] not in HOSTED_ONLY
     )
 
 

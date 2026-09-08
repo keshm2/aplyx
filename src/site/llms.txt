@@ -2,8 +2,9 @@
 
 > aplyx is a local-first job-application agent. It searches job boards in one pass,
 > deduplicates against your local history, checks each posting against your
-> preferences with deterministic rule-based logic (not a model's guess), tailors a
-> resume and cover letter grounded in your real resume, and applies through a
+> preferences with deterministic rule-based logic (not a model's guess), tailors your
+> resume per posting grounded in your real resume (cover letters and application
+> essays are a hosted-plan feature), and applies through a
 > browser or public APIs. Every application is reviewable before it goes out, and
 > the browser extension never clicks submit for you.
 
@@ -20,8 +21,9 @@ text of every page in a single request, fetch **https://aplyx.app/llms-full.txt*
 - **Extension coverage:** Greenhouse, Lever, Ashby, and Workday. It detects a real
   application form, asks before acting, fills only fields it can answer honestly,
   and never submits — you click submit.
-- **Pipeline:** search -> deterministic fit-gate -> resume & cover-letter tailoring
-  -> review queue -> you approve every send. Post-apply status tracking (rejection,
+- **Pipeline:** search -> deterministic fit-gate -> per-posting resume tailoring
+  (cover letters & essays on hosted plans) -> review queue -> you approve every
+  send. Post-apply status tracking (rejection,
   assessment, interview, offer) is read-only, opt-in, and off by default.
 - **License & cost:** free and open source (MIT) for local use. No account, no
   waitlist, no card.
@@ -42,9 +44,9 @@ text of every page in a single request, fetch **https://aplyx.app/llms-full.txt*
 - A hosted account stores your profile and resume file(s) in a Supabase-backed
   cloud database, scoped to your account by row-level access rules. ATS account
   credentials are stored in Supabase Vault, encrypted at rest.
-- Resume tailoring and cover-letter drafting send the relevant job description and
-  resume text to whichever coding agent's model provider you use, the same as
-  using that agent directly.
+- Resume tailoring sends the relevant job description and resume text to whichever
+  coding agent's model provider you use, the same as using that agent directly.
+  Cover-letter and essay drafting (hosted plans) runs on aplyx's servers.
 - Gender, ethnicity, and date of birth are always optional.
 - Discord status updates and Google Sheets tracking sync are opt-in and off by
   default.
@@ -54,8 +56,8 @@ text of every page in a single request, fetch **https://aplyx.app/llms-full.txt*
 
 - [Homepage](https://aplyx.app/): what aplyx is and how the four-step pipeline works.
 - [Features](https://aplyx.app/features.html): multi-board search, the deterministic
-  fit gate, resume and cover-letter tailoring, the review queue, inbox status
-  tracking, TUI and desktop parity, optional Discord updates.
+  fit gate, per-posting resume tailoring (cover letters and essays on hosted plans),
+  the review queue, inbox status tracking, TUI and desktop parity, optional Discord updates.
 - [Pricing](https://aplyx.app/pricing.html): the free local tier in full, plus
   previews of the planned hosted plans.
 - [Install](https://aplyx.app/install.html): install commands per OS, the coding-agent

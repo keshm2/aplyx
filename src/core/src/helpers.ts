@@ -586,6 +586,70 @@ export function syncGraduationFromResume(root: string): GraduationSyncResult {
   return { updated: true, value, confidence, note: `graduation date set to ${value} from your resume` };
 }
 
+export interface IntegrityViolation {
+  kind: string;
+  path: string;
+  detail?: Record<string, unknown>;
+}
+export interface IntegrityResult {
+  ok: boolean;
+  violations: IntegrityViolation[];
+  version: string | null;
+}
+export interface IntegrityEvent {
+  id: string;
+  kind: string;
+  detail: Record<string, unknown>;
+  client_version: string | null;
+  source: string;
+  detected_at: string;
+  reported: boolean;
+}
+
+/** Run verify_integrity.py against this install. When `canonicalManifest`
+ *  is given (the JSON the app fetched from the service-role-only
+ *  `release_manifests` table), it's the root of trust — piped in so a
+ *  swapped local `src/integrity/manifest.json` is bypassed. Without it,
+ *  the bundled offline manifest is used. Never throws. */
+export function verifyIntegrity(root: string, canonicalManifest?: string): IntegrityResult {
+  const args = canonicalManifest ? ["src/scripts/state/verify_integrity.py", "--manifest", "-"] : ["src/scripts/state/verify_integrity.py"];
+  const v = py(args);
+  const res = spawnSync(v.cmd, v.args, {
+    cwd: root,
+    encoding: "utf8",
+    input: canonicalManifest,
+  });
+  try {
+    const parsed = JSON.parse((res.stdout ?? "").trim() || "{}");
+    return {
+      ok: Boolean(parsed.ok),
+      violations: Array.isArray(parsed.violations) ? parsed.violations : [],
+      version: parsed.version ?? null,
+    };
+  } catch {
+    return { ok: false, violations: [{ kind: "manifest_unavailable", path: "src/integrity/manifest.json" }], version: null };
+  }
+}
+
+/** Integrity events recorded locally but not yet synced to the account. */
+export function readUnreportedIntegrityEvents(root: string): IntegrityEvent[] {
+  const v = py(["src/scripts/state/integrity_events.py", "unreported"]);
+  const res = spawnSync(v.cmd, v.args, { cwd: root, encoding: "utf8" });
+  try {
+    const parsed = JSON.parse((res.stdout ?? "").trim() || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Mark local integrity events as synced, by id. */
+export function markIntegrityEventsReported(root: string, ids: string[]): void {
+  if (ids.length === 0) return;
+  const v = py(["src/scripts/state/integrity_events.py", "mark-reported", JSON.stringify(ids)]);
+  spawnSync(v.cmd, v.args, { cwd: root, encoding: "utf8" });
+}
+
 /** Message from a failed helper invocation, trimmed for display. */
 export function helperError(err: unknown): string {
   if (err && typeof err === "object" && "stderr" in err) {

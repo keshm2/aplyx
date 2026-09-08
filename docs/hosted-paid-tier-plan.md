@@ -1,8 +1,18 @@
 # aplyx accounts: free hosted tier, paid hosted tiers, and usage tracking
 
-> **Status: planned, not started.** A design document, not a phase in
-> progress: nothing in the free/paid-tier or usage-tracking sections below
-> has been built. This supersedes the previous, narrower version of this
+> **Status: planned, mostly not started.** A design document, not a phase
+> in progress. **Exception (2026-09-06):** the enforcement skeleton for
+> "server-side runs are paid-only" and "every tier caps applications per
+> day" is now built ahead of the rest, at the operator's direction —
+> migration `0043` (`active_subscription_plan()`, `tier_daily_apply_cap()`,
+> `hosted_runs` INSERT gated on an active subscription, `apply_runs` INSERT
+> constrained to pre-submit statuses, `get_own_usage()` rewritten),
+> `src/worker/src/run.ts`'s claim query re-verifying the plan, and
+> `run_job_agent.py` holding the local build to 25 applications/day. Still
+> unbuilt: Stripe itself (so `subscriptions` is empty and every account is
+> `free_hosted` today), the `auto_apply` worker and its per-submission cap
+> check, Tier 1's autofill backend, and everything in the usage-tracking
+> and paid-front-door sections below. This supersedes the previous, narrower version of this
 > same file (titled "Hosted, paid agent tier"), which covered paid hosted
 > plans only. Everything from that version that's still true is folded
 > forward here (Stripe choice, worker-host bake-off findings, reliability

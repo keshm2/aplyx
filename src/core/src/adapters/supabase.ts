@@ -469,6 +469,44 @@ export class SupabaseAdapter implements Adapter {
     if (error) throw error;
   }
 
+  /** Push locally-detected integrity violations to the account
+   *  (migration 0044, integrity_events is INSERT-only) and stamp
+   *  profiles.integrity_status. `clean` is verify_integrity.py's overall
+   *  verdict for THIS check; `events` are the not-yet-synced local rows.
+   *  Returns the ids that were accepted, so the caller can mark them
+   *  reported locally. */
+  async syncIntegrityEvents(
+    events: Array<{ id: string; kind: string; detail: Record<string, unknown>; client_version: string | null; source: string; detected_at: string }>,
+    clean: boolean,
+  ): Promise<string[]> {
+    let synced: string[] = [];
+    if (events.length > 0) {
+      const rows = events.map((e) => ({
+        user_id: this.userId,
+        kind: e.kind,
+        detail: e.detail ?? {},
+        client_version: e.client_version,
+        source: e.source === "tui" || e.source === "desktop" ? e.source : "local",
+        detected_at: e.detected_at,
+      }));
+      const { error } = await this.client.from("integrity_events").insert(rows);
+      if (error) throw error;
+      synced = events.map((e) => e.id);
+    }
+    const { error: profileError } = await this.client
+      .from("profiles")
+      .upsert(
+        {
+          user_id: this.userId,
+          integrity_status: clean && events.length === 0 ? "ok" : "violation",
+          integrity_checked_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" },
+      );
+    if (profileError) throw profileError;
+    return synced;
+  }
+
   async listMailConnections(): Promise<MailConnectionRow[]> {
     try {
       const { data, error } = await this.client

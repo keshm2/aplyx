@@ -525,12 +525,36 @@ def _run(logs_dir: str, run_log: str, run_start: datetime) -> int:
         log(run_log, "ABORTED: failed to ensure canonical registry/event files. Run manually to fix.")
         return 1
 
-    # Interest-letter store. A warning, not an abort: a run that can't read it
-    # simply never parks a job for an essay question, which is degraded but
-    # safe: the apply loop's own rule still forbids inventing an answer.
-    if py_run([os.path.join("src", "scripts", "state", "interest_letter.py"), "ensure-file"]).returncode != 0:
-        log(run_log, "WARNING: could not ensure data/interest_letters.json; "
-                     "interest-letter parking will be unavailable this run.")
+    # --- Client integrity check --------------------------------------------
+    # Detect a tampered local build (a removed cap, a re-enabled hosted-only
+    # agent). Not an abort: this is the user's machine and a false positive
+    # must not brick their tool. Every violation is recorded to
+    # data/integrity_events.jsonl; the desktop app / TUI sync those to the
+    # account on the next sign-in and a flagged account loses its hosted
+    # standing. See src/scripts/state/verify_integrity.py's own header for
+    # the honest limits of shipping plain-text enforcement.
+    try:
+        vp = py_run(
+            [os.path.join("src", "scripts", "state", "verify_integrity.py")],
+            stdout=subprocess.PIPE, text=True,
+        )
+        vres = json.loads(vp.stdout or "{}")
+        version = vres.get("version")
+        for v in vres.get("violations", []):
+            log(run_log, f"INTEGRITY VIOLATION: {v.get('kind')} @ {v.get('path')}")
+            py_run([
+                os.path.join("src", "scripts", "state", "integrity_events.py"), "record",
+                json.dumps({
+                    "kind": v.get("kind"),
+                    "detail": {"path": v.get("path"), **(v.get("detail") or {})},
+                    "client_version": version,
+                    "source": "local",
+                }),
+            ])
+        if not vres.get("violations"):
+            debug_log(logs_dir, "integrity check: clean")
+    except (ValueError, json.JSONDecodeError, OSError) as exc:
+        log(run_log, f"WARNING: integrity check could not run ({exc})")
 
     # Lightweight direct closed/expired posting check: deterministic,
     # non-LLM, self-throttled to roughly once/day internally (see
@@ -605,6 +629,29 @@ def _run(logs_dir: str, run_log: str, run_start: datetime) -> int:
             session_cap = 25
     debug_log(logs_dir, f"session cap resolved: raw={raw_cap!r} -> {session_cap}")
 
+    # --- Daily application ceiling (25/day, never raised) -------------------
+    # The session cap above bounds ONE run; this bounds the day. CLAUDE.md /
+    # job-scraper.md: "Max 25 applications per day." Enforced here in code,
+    # not left to the agent honoring the prompt: read today's real applied
+    # count and shrink this run's cap to whatever is left. At zero, the run
+    # degrades to scrape-only (registry still refreshes) rather than
+    # applying a 26th job. Manual and scheduled runs alike.
+    applied_today = 0
+    try:
+        p = py_run(
+            [os.path.join("src", "scripts", "state", "job_state.py"), "applied-today"],
+            stdout=subprocess.PIPE, text=True,
+        )
+        if p.returncode == 0:
+            applied_today = int(json.loads(p.stdout or "{}").get("applied_today", 0))
+    except (ValueError, json.JSONDecodeError):
+        applied_today = 0  # unreadable count: fall back to the per-run cap alone
+    daily_remaining = max(0, 25 - applied_today)
+    if daily_remaining < session_cap:
+        log(run_log, f"daily cap: {applied_today}/25 applied today, {daily_remaining} left; "
+                     f"lowering this run's cap {session_cap} -> {daily_remaining}")
+        session_cap = daily_remaining
+
     # --- Scrape-only mode -----------------------------------------------------
     # Grows data/job_registry.json (scrape + dedupe + deterministic fit-gate)
     # without risking a real application going out; useful for refreshing the
@@ -631,6 +678,10 @@ def _run(logs_dir: str, run_log: str, run_start: datetime) -> int:
     if scheduled_run and not scheduled_auto_apply and not scrape_only:
         scrape_only = True
         log(run_log, "scheduled run with auto-apply off: scrape + fit-gate only, no applications this run")
+
+    if session_cap < 1 and not scrape_only:
+        scrape_only = True
+        log(run_log, "daily 25-application cap reached: scrape + fit-gate only, no applications this run")
 
     if scrape_only:
         run_prompt = (
@@ -675,14 +726,11 @@ def _run(logs_dir: str, run_log: str, run_start: datetime) -> int:
     exe = harness_adapter.resolve_harness_exe(harness)
     # The harness-specific argv shapes live in harness_adapter.agent_command:
     # the one place allowed to branch per harness (AGENTS.md "Harness
-    # capability matrix"). They were inline here until interest-letter
-    # generation needed to launch an agent too; extracting them beat keeping
-    # two copies in sync. The extraction was verified argv-identical for all
-    # four harnesses before the swap.
+    # capability matrix").
     with open(session_log, "a", encoding="utf-8") as out:
         cmd = harness_adapter.agent_command(
             exe, harness, "job-scraper", run_prompt,
-            delegates=("resume-tailor", "cover-letter-tailor", "discord-reporter"),
+            delegates=("resume-tailor", "discord-reporter"),
             extra_preamble=(
                 "Unless browser-automation tools are actually available to you, apply the degraded "
                 "harness path from AGENTS.md 'Harness capability matrix': fetch API-fed boards only, "

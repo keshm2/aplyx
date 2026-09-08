@@ -4,6 +4,7 @@ import { getCurrent as getCurrentDeepLink, onOpenUrl } from "@tauri-apps/plugin-
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { SupabaseAdapter } from "@aplyx/core/adapters/supabase.js";
 import { getSupabaseClient } from "./supabaseClient";
+import { runIntegritySync } from "./integritySync";
 
 type AuthStatus = "checking" | "error" | "signed-out" | "signed-in";
 
@@ -98,6 +99,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // (SupabaseAdapter.touchAppLastSeen / migration 0042). Never allowed
       // to block or fail sign-in, hence the bare .catch.
       void new SupabaseAdapter(c, next.user.id).touchAppLastSeen().catch(() => {});
+      // Also fire-and-forget: verify the local build and sync any
+      // integrity violations to the account (see integritySync.ts).
+      void runIntegritySync(c, next.user.id).catch(() => {});
       try {
         const completed = await new SupabaseAdapter(c, next.user.id).readOnboardingCompleted();
         if (!cancelled) setOnboardingCompleted(completed);

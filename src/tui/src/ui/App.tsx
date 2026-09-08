@@ -6,7 +6,6 @@ import { ReviewScreen, REVIEW_HINTS } from "./ReviewScreen.js";
 import { DocumentsScreen, DOCUMENTS_HINTS } from "./DocumentsScreen.js";
 import { HistoryScreen, HISTORY_HINTS } from "./HistoryScreen.js";
 import { RunScreen, RUN_HINTS, RUN_LIVE_HINTS, RUN_EDIT_HINTS } from "./RunScreen.js";
-import { LettersScreen, LETTERS_HINTS, LETTERS_EDIT_HINTS } from "./LettersScreen.js";
 import { SearchScreen, SEARCH_HINTS, SEARCH_EDIT_HINTS } from "./SearchScreen.js";
 import { SettingsScreen, SETTINGS_HINTS, SETTINGS_SECTION_HINTS } from "./SettingsScreen.js";
 import { ResumesScreen, RESUMES_HINTS, RESUMES_PROMPT_HINTS } from "./ResumesScreen.js";
@@ -35,15 +34,14 @@ import {
   bannerGradient,
 } from "../theme.js";
 
-export type Tab = "status" | "jobs" | "review" | "documents" | "letters" | "history" | "resumes" | "settings";
+export type Tab = "status" | "jobs" | "review" | "documents" | "history" | "resumes" | "settings";
 export type Mode = "manual" | "automatic";
-const TABS: Tab[] = ["status", "jobs", "review", "documents", "letters", "history", "resumes", "settings"];
+const TABS: Tab[] = ["status", "jobs", "review", "documents", "history", "resumes", "settings"];
 const TAB_LABEL: Record<Tab, string> = {
   status: "Status",
   jobs: "Jobs",
   review: "Review",
   documents: "Documents",
-  letters: "Letters",
   history: "History",
   resumes: "Resumes",
   settings: "Config",
@@ -52,7 +50,6 @@ const TAB_HINTS: Omit<Record<Tab, string>, "jobs"> = {
   status: "",
   review: REVIEW_HINTS,
   documents: DOCUMENTS_HINTS,
-  letters: LETTERS_HINTS,
   history: HISTORY_HINTS,
   resumes: RESUMES_HINTS,
   settings: SETTINGS_HINTS,
@@ -78,14 +75,8 @@ const WELCOME_OPTIONS: Array<WelcomeOption & { tab: Tab; mode?: Mode }> = [
   },
   {
     label: "Documents",
-    description: "Read the tailored resume bullets and cover letter aplyx produced for a queued posting: view-only, so nothing here can be mistakenly changed.",
+    description: "Read the tailored resume bullets aplyx produced for a queued posting: view-only, so nothing here can be mistakenly changed.",
     tab: "documents",
-  },
-  {
-    label: "Interest letters",
-    description:
-      "Answer the \"why do you want to work here?\" questions aplyx parked instead of guessing. Write your own, or have aplyx draft one for you to edit and approve.",
-    tab: "letters",
   },
   {
     label: "Status overview",
@@ -113,11 +104,10 @@ function welcomeIndexFor(tab: Tab, mode: Mode): number {
   if (tab === "jobs") return mode === "automatic" ? 1 : 0;
   if (tab === "review") return 2;
   if (tab === "documents") return 3;
-  if (tab === "letters") return 4;
-  if (tab === "history") return 6;
-  if (tab === "resumes") return 7;
-  if (tab === "settings") return 8;
-  return 5;
+  if (tab === "history") return 5;
+  if (tab === "resumes") return 6;
+  if (tab === "settings") return 7;
+  return 4;
 }
 
 /** stdout size with an NaN-proof fallback (Number(undefined) is NaN,
@@ -416,8 +406,6 @@ export function App({
     else tabHints = mode === "manual" ? SEARCH_HINTS : RUN_HINTS;
   } else if (tab === "settings" && childInputActive) {
     tabHints = SETTINGS_SECTION_HINTS;
-  } else if (tab === "letters" && childInputActive) {
-    tabHints = LETTERS_EDIT_HINTS;
   } else if (tab === "resumes" && childInputActive) {
     tabHints = RESUMES_PROMPT_HINTS;
   } else {
@@ -429,7 +417,7 @@ export function App({
       // Spelled out because quitting does NOT stop the run: users reached
       // for q expecting it to, then had no way to end the run at all.
       ? "q quit (run keeps going)"
-      : "1-8/←→ tabs · esc/w menu · m mode · R reload · ? help · q quit";
+      : "1-7/←→ tabs · esc/w menu · m mode · R reload · ? help · q quit";
   const allHints = [tabHints, globalHints].filter(Boolean).join(" · ");
 
   // The frame is pinned to exactly the viewport height with overflow
@@ -588,15 +576,6 @@ export function App({
                     refreshNonce={refreshNonce}
                     contentRows={contentRows}
                     columns={contentCols}
-                  />
-                ) : tab === "letters" ? (
-                  <LettersScreen
-                    root={root}
-                    active={tab === "letters" && !helpOpen}
-                    onInputActiveChange={setChildInputActive}
-                    contentRows={contentRows}
-                    contentColumns={contentCols}
-                    nonce={refreshNonce}
                   />
                 ) : tab === "history" ? (
                   <HistoryScreen

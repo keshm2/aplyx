@@ -1,20 +1,24 @@
 #!/usr/bin/env python3
 """Interest-letter store: the deterministic owner of data/interest_letters.json.
 
+HOSTED-ONLY as of 2026-09-06. The local build no longer writes prose into
+applications: a required free-text motivation question routes straight to
+needs_review (`writing_field_requires_plan`), and the TUI Letters tab is
+gone. This store and `generate_interest_letter.py` are kept for the hosted
+Basic+ path, which drafts these answers server-side after a subscription
+check. Do not re-wire a local parking flow through here.
+
 Some applications ask a free-text motivation question ("Why do you want to
-work at X?"). The agent must never invent that answer, and a run is a
-headless subprocess that cannot stop and ask: the scheduler fires every 30
-minutes and a wedged run is killed at APLYX_LOCK_MAX_AGE_MIN. So the
-interaction is asynchronous: the run *parks* the job here and moves on, the
-user answers later in the TUI, and the next run applies with the approved
+work at X?"). The agent must never invent that answer. In the hosted flow
+the interaction is asynchronous: the run *parks* the job here and moves on,
+the answer is drafted/approved later, and a later run applies the approved
 text.
 
 Why parking is not `needs_review`: `job_state.py can-apply` blocks on
 needs_review, so a job routed there can never be retried, but retrying is
-the whole point once the user supplies text. Parking therefore records no
+the whole point once an answer exists. Parking therefore records no
 registry event and no applied_jobs.json row; the job simply stays eligible.
-job-scraper.md reads `pending` before tailoring so a parked job isn't
-re-tailored every run. job_state.py's interface stays frozen (PLAN §5.2).
+job_state.py's interface stays frozen (PLAN §5.2).
 
 Statuses: pending (asked, unanswered) -> approved (text ready to paste).
 A draft may be saved without approving; only `approve` unblocks applying.
