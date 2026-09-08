@@ -717,6 +717,40 @@ def prune_jd_text(registry_path):
     return {"ok": True, "stripped": stripped, "total": len(registry)}
 
 
+# --- Dashboard fit-result cache ---------------------------------------------
+
+
+def cache_fit_results(registry_path, config_hash, results):
+    """Stamps a computed fit result (score/status/matched_skills) onto each
+    matching registry record, keyed to the targets.json content hash it was
+    computed under. Purely a dashboard read-path cache: does NOT touch
+    latest_status (still "new" for a candidate, exactly as
+    persist_fit_results.py already deliberately leaves it -- an apply run
+    still re-evaluates fit fresh at apply time, never trusts this).
+    getRecommendedJobs (jobs.ts) reads cached_fit_config_hash back and
+    only trusts a cached row when it matches the CURRENT hash; a
+    profile/targets.json edit invalidates every cached row for free, no
+    separate cache-clear step needed. One load/save for the whole batch,
+    same reasoning as record_check_results."""
+    registry = load_json_array(registry_path)
+    by_key = {r.get("job_key"): r for r in registry if r.get("job_key")}
+    now = now_iso()
+    updated = 0
+    for result in results:
+        rec = by_key.get(result.get("job_key"))
+        if not rec:
+            continue
+        rec["cached_fit_score"] = result.get("fit_score")
+        rec["cached_fit_status"] = result.get("fit_status")
+        rec["cached_matched_skills"] = result.get("matched_skills") or []
+        rec["cached_fit_config_hash"] = config_hash
+        rec["cached_fit_checked_at"] = now
+        updated += 1
+    if updated:
+        save_json_array(registry_path, registry)
+    return {"ok": True, "updated": updated}
+
+
 # --- Daily application cap ------------------------------------------------
 
 
@@ -990,6 +1024,14 @@ def main(argv=None):
     )
     p_prune_jd.add_argument("--registry", default=DEFAULT_REGISTRY)
 
+    p_cache_fit = sub.add_parser(
+        "cache-fit-results",
+        help="stamp computed fit results (dashboard read-path cache only) onto matching registry records",
+    )
+    p_cache_fit.add_argument("config_hash")
+    p_cache_fit.add_argument("results_json", help="JSON array of {job_key, fit_score, fit_status, matched_skills}")
+    p_cache_fit.add_argument("--registry", default=DEFAULT_REGISTRY)
+
     p_check_results = sub.add_parser(
         "record-check-results",
         help="stamp last_checked_at on every checked job_key and closed=true on "
@@ -1079,6 +1121,12 @@ def main(argv=None):
 
     if args.command == "prune-jd-text":
         result = prune_jd_text(args.registry)
+        print(json.dumps(result))
+        return 0
+
+    if args.command == "cache-fit-results":
+        results = parse_json_array_arg(args.results_json, "cache-fit-results")
+        result = cache_fit_results(args.registry, args.config_hash, results)
         print(json.dumps(result))
         return 0
 

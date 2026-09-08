@@ -604,10 +604,10 @@ export function HomeScreen() {
         </div>
       )}
 
-      {recommended && recommended.length > 0 && (
+      {recommended && recommended.length > 0 && root && (
         <div className="aplyx-fade-in">
           <h2 className="section-label">Recommended next</h2>
-          <RecommendedJobsMarquee jobs={recommended} />
+          <RecommendedJobsMarquee jobs={recommended} root={root} />
         </div>
       )}
 

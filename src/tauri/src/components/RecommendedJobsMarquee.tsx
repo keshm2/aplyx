@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import type { RecommendedJob } from "../lib/bridge";
+import { triggerSingleJobApply, type RecommendedJob } from "../lib/bridge";
+import { Modal } from "./Modal";
+import "./dataList.css"; // .message-banner*, used by the quick-apply confirm dialog
 import "./RecommendedJobsMarquee.css";
 
 // Always animates, at a duration scaled to card count rather than one
@@ -82,14 +84,14 @@ function CompanyLogo({ company }: { company: string }) {
   );
 }
 
-function RecommendedJobCard({ job, hidden }: { job: RecommendedJob; hidden?: boolean }) {
+function RecommendedJobCard({ job, hidden, onSelect }: { job: RecommendedJob; hidden?: boolean; onSelect: (job: RecommendedJob) => void }) {
   return (
     <button
       type="button"
       className="rec-job-card"
       aria-hidden={hidden || undefined}
       tabIndex={hidden ? -1 : 0}
-      onClick={() => void openUrl(job.apply_url || job.url)}
+      onClick={() => onSelect(job)}
     >
       <div className="rec-job-card-header">
         <div className="rec-job-card-identity">
@@ -118,10 +120,80 @@ function RecommendedJobCard({ job, hidden }: { job: RecommendedJob; hidden?: boo
   );
 }
 
-export function RecommendedJobsMarquee({ jobs }: { jobs: RecommendedJob[] }) {
-  if (jobs.length === 0) return null;
+/** Confirm-before-submit dialog for one card's "Apply with aplyx": the
+ *  same real, agent-driven apply run triggerSingleJobApply kicks off for
+ *  a manual Jobs-screen search result (tailoring, browser automation,
+ *  every AGENTS.md safety rule), so it gets the same click-to-confirm
+ *  guard rather than firing straight off a marquee tap. */
+function QuickApplyModal({
+  job,
+  root,
+  onClose,
+  onApplied,
+}: {
+  job: RecommendedJob | undefined;
+  root: string;
+  onClose: () => void;
+  onApplied: (jobId: string) => void;
+}) {
+  const [applying, setApplying] = useState(false);
+  const [message, setMessage] = useState<{ text: string; error: boolean } | undefined>(undefined);
 
-  const paddedJobs = padJobs(jobs, MIN_GROUP_SIZE);
+  async function handleApply() {
+    if (!job) return;
+    setApplying(true);
+    setMessage(undefined);
+    try {
+      const result = await triggerSingleJobApply(root, {
+        company: job.company,
+        title: job.title,
+        url: job.apply_url || job.url,
+        source: job.source ?? "",
+      });
+      setMessage({ text: result.message, error: !result.ok });
+      if (result.ok) onApplied(job.job_id);
+    } catch (err) {
+      setMessage({ text: `Couldn't start: ${err instanceof Error ? err.message : String(err)}`, error: true });
+    } finally {
+      setApplying(false);
+    }
+  }
+
+  return (
+    <Modal open={job !== undefined} onClose={onClose} title={job ? `${job.company} — ${job.title}` : ""}>
+      {job && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+          <p className="field-help">
+            {job.fit_score}% match. Starts the same tailor-and-apply run a scheduled search does, for this one
+            posting — check Status or the review queue afterward for the outcome.
+          </p>
+          {message && <div className={message.error ? "message-banner message-banner-error" : "message-banner"}>{message.text}</div>}
+          <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
+            <button type="button" className="btn btn-primary" disabled={applying} onClick={() => void handleApply()}>
+              {applying ? "Starting…" : "Apply with aplyx"}
+            </button>
+            <button type="button" className="btn btn-secondary" onClick={() => void openUrl(job.apply_url || job.url)}>
+              View posting instead
+            </button>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+export function RecommendedJobsMarquee({ jobs, root }: { jobs: RecommendedJob[]; root: string }) {
+  const [selected, setSelected] = useState<RecommendedJob | undefined>(undefined);
+  // Cards for a job just sent to an apply run drop out of the marquee
+  // immediately rather than waiting on the next state.applied/registry
+  // poll (up to 60s) to naturally exclude it: a card you just acted on
+  // sitting there unchanged reads as "did that actually do anything?".
+  const [justApplied, setJustApplied] = useState<Set<string>>(new Set());
+
+  const visibleJobs = jobs.filter((j) => !justApplied.has(j.job_id));
+  if (visibleJobs.length === 0) return null;
+
+  const paddedJobs = padJobs(visibleJobs, MIN_GROUP_SIZE);
   const durationS = Math.max(MIN_DURATION_S, paddedJobs.length * SECONDS_PER_CARD);
 
   return (
@@ -129,15 +201,21 @@ export function RecommendedJobsMarquee({ jobs }: { jobs: RecommendedJob[] }) {
       <div className="rec-jobs-track" style={{ animationDuration: `${durationS}s` }}>
         <div className="rec-jobs-group">
           {paddedJobs.map((job, i) => (
-            <RecommendedJobCard key={`${job.job_id}-${i}`} job={job} />
+            <RecommendedJobCard key={`${job.job_id}-${i}`} job={job} onSelect={setSelected} />
           ))}
         </div>
         <div className="rec-jobs-group" aria-hidden="true">
           {paddedJobs.map((job, i) => (
-            <RecommendedJobCard key={`${job.job_id}-dup-${i}`} job={job} hidden />
+            <RecommendedJobCard key={`${job.job_id}-dup-${i}`} job={job} hidden onSelect={setSelected} />
           ))}
         </div>
       </div>
+      <QuickApplyModal
+        job={selected}
+        root={root}
+        onClose={() => setSelected(undefined)}
+        onApplied={(jobId) => setJustApplied((prev) => new Set(prev).add(jobId))}
+      />
     </section>
   );
 }

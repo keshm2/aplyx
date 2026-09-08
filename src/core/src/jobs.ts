@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -183,6 +184,14 @@ interface RegistryFitCandidate extends SearchJob {
   normalized_apply_url?: string;
   closed?: boolean;
   latest_status?: string;
+  // Dashboard-only fit-result cache (job_state.py's cache_fit_results):
+  // never read by the apply pipeline, which always re-evaluates fit fresh
+  // at apply time regardless of what's cached here. See getRecommendedJobs.
+  cached_fit_score?: number;
+  cached_fit_status?: string;
+  cached_matched_skills?: string[];
+  cached_fit_config_hash?: string;
+  cached_fit_checked_at?: string;
 }
 
 export interface Targets {
@@ -1365,38 +1374,95 @@ export async function getRecommendedJobs(root: string, excludeJobIds: string[]):
   );
   if (candidates.length === 0) return [];
 
-  const p = py(["src/scripts/jobs/evaluate_job_fit.py", "--batch", "-"]);
-  const { stdout } = await execFileWithStdin(p.cmd, p.args, JSON.stringify(candidates), {
-    cwd: root,
-    maxBuffer: 20 * 1024 * 1024,
-    timeout: 60_000,
+  const toRecommended = (job: RegistryFitCandidate, fit_score: number, matched_skills: string[]): RecommendedJob => ({
+    job_id: job.job_id,
+    company: job.company,
+    title: job.title,
+    url: job.url,
+    apply_url: job.normalized_apply_url || job.apply_url || job.url,
+    source: job.source,
+    role_type: job.role_type,
+    location_tier: job.location_tier,
+    fit_score,
+    matched_skills,
   });
-  // --batch emits JSONL (one result per line, input order preserved, one
-  // line even for a malformed item), not a single JSON value, so this
-  // can't go through the runPyJson/runJson single-parse helper; mirrors
-  // the same split("\n")/per-line JSON.parse already used for
-  // fetchWorkday/fetchAmazon's JSONL output above.
-  const results = stdout.split("\n").filter(Boolean)
-    .map((line) => JSON.parse(line) as FitResult);
 
-  const recommended: RecommendedJob[] = [];
-  for (let i = 0; i < candidates.length && i < results.length; i++) {
-    const fit = results[i];
-    if (!fit || fit.fit_status !== "candidate") continue;
-    const job = candidates[i];
-    recommended.push({
-      job_id: job.job_id,
-      company: job.company,
-      title: job.title,
-      url: job.url,
-      apply_url: job.normalized_apply_url || job.apply_url || job.url,
-      source: job.source,
-      role_type: job.role_type,
-      location_tier: job.location_tier,
-      fit_score: fit.fit_score,
-      matched_skills: fit.matched_skills ?? [],
-    });
+  // The fit gate is deterministic (same job + same targets.json -> same
+  // answer), so a job already scored under today's exact config doesn't
+  // need re-running just because the dashboard refreshed again -- hashing
+  // the raw config file is what decides "same config": any edit to it
+  // (role/level keywords, locations, safe_fields, ...) changes the hash
+  // and invalidates every cached row for free, no separate cache-clear
+  // step. Confirmed live (2026-09-08) as the actual cause of a slow,
+  // CPU-heavy marquee: every refresh re-ran the batch gate over every
+  // "new"/"candidate" job, including ones already scored minutes earlier.
+  // Doesn't account for a resume edit changing a resume-derived input
+  // (e.g. graduation date inferred from the resume, see
+  // ResumeGraduationSourceOfTruthTests): a real but narrower gap than the
+  // one this closes, left for later.
+  let configHash = "";
+  try {
+    const raw = await fs.readFile(path.join(root, "src", "config", "targets.json"), "utf8");
+    configHash = createHash("sha256").update(raw).digest("hex");
+  } catch {
+    // No targets.json to hash: every row below misses the cache and
+    // re-evaluates, same as if caching didn't exist.
   }
+
+  const cached: RecommendedJob[] = [];
+  const toEvaluate: RegistryFitCandidate[] = [];
+  for (const job of candidates) {
+    if (configHash && job.cached_fit_config_hash === configHash && job.cached_fit_checked_at) {
+      if (job.cached_fit_status === "candidate") {
+        cached.push(toRecommended(job, job.cached_fit_score ?? 0, job.cached_matched_skills ?? []));
+      }
+      // else: cached as skipped_unfit/needs_review under this same
+      // config; nothing to recommend, and no need to re-check.
+      continue;
+    }
+    toEvaluate.push(job);
+  }
+
+  const freshlyComputed: RecommendedJob[] = [];
+  if (toEvaluate.length > 0) {
+    const p = py(["src/scripts/jobs/evaluate_job_fit.py", "--batch", "-"]);
+    const { stdout } = await execFileWithStdin(p.cmd, p.args, JSON.stringify(toEvaluate), {
+      cwd: root,
+      maxBuffer: 20 * 1024 * 1024,
+      timeout: 60_000,
+    });
+    // --batch emits JSONL (one result per line, input order preserved, one
+    // line even for a malformed item), not a single JSON value, so this
+    // can't go through the runPyJson/runJson single-parse helper; mirrors
+    // the same split("\n")/per-line JSON.parse already used for
+    // fetchWorkday/fetchAmazon's JSONL output above.
+    const results = stdout.split("\n").filter(Boolean)
+      .map((line) => JSON.parse(line) as FitResult);
+
+    const toCache: Array<{ job_key: string; fit_score: number; fit_status: string; matched_skills: string[] }> = [];
+    for (let i = 0; i < toEvaluate.length && i < results.length; i++) {
+      const fit = results[i];
+      const job = toEvaluate[i];
+      if (!fit) continue;
+      const matchedSkills = fit.matched_skills ?? [];
+      toCache.push({ job_key: job.job_key, fit_score: fit.fit_score ?? 0, fit_status: fit.fit_status, matched_skills: matchedSkills });
+      if (fit.fit_status !== "candidate") continue;
+      freshlyComputed.push(toRecommended(job, fit.fit_score, matchedSkills));
+    }
+    // Best-effort: persisted so the NEXT read (this dashboard, or any
+    // other screen) doesn't redo this same work. A failure here just
+    // means the next refresh recomputes, same behavior as before this
+    // cache existed.
+    if (configHash && toCache.length > 0) {
+      try {
+        await runPyJson(root, ["src/scripts/state/job_state.py", "cache-fit-results", configHash, JSON.stringify(toCache)]);
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  const recommended = [...cached, ...freshlyComputed];
   recommended.sort((a, b) => b.fit_score - a.fit_score);
   return recommended.slice(0, RECOMMENDED_JOBS_LIMIT);
 }
