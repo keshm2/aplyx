@@ -80,7 +80,10 @@ fn strip_verbatim_prefix(path: PathBuf) -> PathBuf {
 }
 
 fn bridge_script_path_uncached(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    if let Ok(resource_path) = app.path().resolve("core/bridge.js", BaseDirectory::Resource) {
+    if let Ok(resource_path) = app
+        .path()
+        .resolve("core/bridge.js", BaseDirectory::Resource)
+    {
         if resource_path.exists() {
             // Canonicalize before handing this to Command: on Windows a
             // GUI-launched app's resolved resource path can come back non-
@@ -189,7 +192,10 @@ fn node_binary_uncached() -> PathBuf {
         if volta.exists() {
             return volta;
         }
-        let nvm_versions = PathBuf::from(&home).join(".nvm").join("versions").join("node");
+        let nvm_versions = PathBuf::from(&home)
+            .join(".nvm")
+            .join("versions")
+            .join("node");
         if let Ok(entries) = std::fs::read_dir(&nvm_versions) {
             let mut nodes: Vec<PathBuf> = entries
                 .flatten()
@@ -392,7 +398,15 @@ fn get_or_spawn_daemon(app: &tauri::AppHandle) -> Result<Arc<SearchDaemon>, Stri
         // the reader thread's cleanup above) still lives in this Option
         // until replaced; detect that and respawn rather than handing
         // back a daemon nothing will ever respond through.
-        if daemon.child.lock().unwrap().try_wait().ok().flatten().is_none() {
+        if daemon
+            .child
+            .lock()
+            .unwrap()
+            .try_wait()
+            .ok()
+            .flatten()
+            .is_none()
+        {
             return Ok(Arc::clone(daemon));
         }
     }
@@ -407,7 +421,11 @@ fn get_or_spawn_daemon(app: &tauri::AppHandle) -> Result<Arc<SearchDaemon>, Stri
 /// one-shot run_bridge path when this returns Err, so a daemon bug can
 /// only ever make a search as slow as it already was before this
 /// existed, never slower or broken.
-fn send_daemon_request(app: &tauri::AppHandle, command: &str, args: Value) -> Result<Value, String> {
+fn send_daemon_request(
+    app: &tauri::AppHandle,
+    command: &str,
+    args: Value,
+) -> Result<Value, String> {
     let daemon = get_or_spawn_daemon(app)?;
     let id = daemon.next_id.fetch_add(1, Ordering::SeqCst);
     let (tx, rx) = mpsc::channel();
@@ -485,17 +503,29 @@ fn resolve_run_launch_info(app: &tauri::AppHandle, root: &str) -> Result<RunLaun
     let py_prefix: Vec<String> = python
         .get("args")
         .and_then(Value::as_array)
-        .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+        .map(|a| {
+            a.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
         .unwrap_or_default();
 
-    let log = run_bridge(app, "resolveLogDir", Some(serde_json::json!({ "root": root })))?;
+    let log = run_bridge(
+        app,
+        "resolveLogDir",
+        Some(serde_json::json!({ "root": root })),
+    )?;
     let log_dir = log
         .get("dir")
         .and_then(Value::as_str)
         .map(PathBuf::from)
         .ok_or("could not resolve the log directory")?;
 
-    Ok(RunLaunchInfo { py_cmd, py_prefix, log_dir })
+    Ok(RunLaunchInfo {
+        py_cmd,
+        py_prefix,
+        log_dir,
+    })
 }
 
 /// Newest `session_<timestamp>.log` in `dir`. Matches
@@ -524,12 +554,16 @@ fn latest_session_log(dir: &Path) -> Option<PathBuf> {
 /// mid-character while the agent is still writing, and this is a live
 /// cosmetic tail, not something downstream parses byte-exactly.
 fn drain_tail(app: &tauri::AppHandle, path: &Path, offset: &mut u64) {
-    let Ok(meta) = std::fs::metadata(path) else { return };
+    let Ok(meta) = std::fs::metadata(path) else {
+        return;
+    };
     let size = meta.len();
     if size <= *offset {
         return;
     }
-    let Ok(mut f) = std::fs::File::open(path) else { return };
+    let Ok(mut f) = std::fs::File::open(path) else {
+        return;
+    };
     use std::io::{Read, Seek, SeekFrom};
     if f.seek(SeekFrom::Start(*offset)).is_err() {
         return;
@@ -617,7 +651,9 @@ fn terminate_pid(pid: u32) {
     }
     #[cfg(not(target_os = "windows"))]
     {
-        let _ = Command::new("kill").args(["-TERM", &pid.to_string()]).output();
+        let _ = Command::new("kill")
+            .args(["-TERM", &pid.to_string()])
+            .output();
     }
 }
 
@@ -636,7 +672,12 @@ fn terminate_active_run(app: &tauri::AppHandle) {
 }
 
 #[tauri::command]
-fn start_run(app: tauri::AppHandle, root: String, session_cap: Option<String>, extra_prompt: Option<String>) -> Result<Value, String> {
+fn start_run(
+    app: tauri::AppHandle,
+    root: String,
+    session_cap: Option<String>,
+    extra_prompt: Option<String>,
+) -> Result<Value, String> {
     {
         let state = app.state::<RunProcessState>();
         let guard = state.lock().unwrap();
@@ -660,7 +701,9 @@ fn start_run(app: tauri::AppHandle, root: String, session_cap: Option<String>, e
         for a in &info.py_prefix {
             probe.arg(a);
         }
-        probe.arg("src/scripts/state/job_state.py").arg("applied-today");
+        probe
+            .arg("src/scripts/state/job_state.py")
+            .arg("applied-today");
         probe.current_dir(&root);
         #[cfg(target_os = "windows")]
         {
@@ -686,7 +729,11 @@ fn start_run(app: tauri::AppHandle, root: String, session_cap: Option<String>, e
     }
     cmd.arg("src/scripts/runtime/run_job_agent.py");
     cmd.current_dir(&root);
-    if let Some(cap) = session_cap.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+    if let Some(cap) = session_cap
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
         cmd.env("APLYX_SESSION_CAP", cap);
     }
     if let Some(prompt) = extra_prompt.as_deref().filter(|s| !s.trim().is_empty()) {
@@ -698,7 +745,9 @@ fn start_run(app: tauri::AppHandle, root: String, session_cap: Option<String>, e
         const CREATE_NO_WINDOW: u32 = 0x08000000;
         cmd.creation_flags(CREATE_NO_WINDOW);
     }
-    cmd.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::piped());
+    cmd.stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped());
 
     let mut child = cmd
         .spawn()
@@ -756,60 +805,138 @@ fn get_run_status(app: tauri::AppHandle) -> Result<Value, String> {
 /// deliberately not cached here either, matching that function's own doc
 /// comment.
 #[tauri::command]
-fn read_active_run_pid(app: tauri::AppHandle, root: String) -> Result<Value, String> {
-    run_bridge(&app, "activeRunPid", Some(serde_json::json!({ "root": root })))
+async fn read_active_run_pid(app: tauri::AppHandle, root: String) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "activeRunPid",
+            Some(serde_json::json!({ "root": root })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("read_active_run_pid task panicked: {e}")))
 }
 
 #[tauri::command]
-fn find_root(app: tauri::AppHandle) -> Result<Value, String> {
-    run_bridge(&app, "findRoot", None)
+async fn find_root(app: tauri::AppHandle) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || run_bridge(&app, "findRoot", None))
+        .await
+        .unwrap_or_else(|e| Err(format!("find_root task panicked: {e}")))
 }
 
 #[tauri::command]
-fn verify_integrity(app: tauri::AppHandle, root: String, manifest: Option<String>) -> Result<Value, String> {
-    run_bridge(
-        &app,
-        "verifyIntegrity",
-        Some(serde_json::json!({ "root": root, "manifest": manifest })),
-    )
+async fn verify_integrity(
+    app: tauri::AppHandle,
+    root: String,
+    manifest: Option<String>,
+) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "verifyIntegrity",
+            Some(serde_json::json!({ "root": root, "manifest": manifest })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("verify_integrity task panicked: {e}")))
 }
 
 #[tauri::command]
-fn read_unreported_integrity_events(app: tauri::AppHandle, root: String) -> Result<Value, String> {
-    run_bridge(&app, "readUnreportedIntegrityEvents", Some(serde_json::json!({ "root": root })))
+async fn read_unreported_integrity_events(
+    app: tauri::AppHandle,
+    root: String,
+) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "readUnreportedIntegrityEvents",
+            Some(serde_json::json!({ "root": root })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| {
+        Err(format!(
+            "read_unreported_integrity_events task panicked: {e}"
+        ))
+    })
 }
 
 #[tauri::command]
-fn mark_integrity_events_reported(app: tauri::AppHandle, root: String, ids: Vec<String>) -> Result<Value, String> {
-    run_bridge(&app, "markIntegrityEventsReported", Some(serde_json::json!({ "root": root, "ids": ids })))
+async fn mark_integrity_events_reported(
+    app: tauri::AppHandle,
+    root: String,
+    ids: Vec<String>,
+) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "markIntegrityEventsReported",
+            Some(serde_json::json!({ "root": root, "ids": ids })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("mark_integrity_events_reported task panicked: {e}")))
 }
 
 #[tauri::command]
-fn validate_root(app: tauri::AppHandle, dir: String) -> Result<Value, String> {
-    run_bridge(&app, "validateRoot", Some(serde_json::json!({ "dir": dir })))
+async fn validate_root(app: tauri::AppHandle, dir: String) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "validateRoot",
+            Some(serde_json::json!({ "dir": dir })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("validate_root task panicked: {e}")))
 }
 
 #[tauri::command]
-fn ensure_targets_file(app: tauri::AppHandle, root: String) -> Result<Value, String> {
-    run_bridge(&app, "ensureTargetsFile", Some(serde_json::json!({ "root": root })))
+async fn ensure_targets_file(app: tauri::AppHandle, root: String) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "ensureTargetsFile",
+            Some(serde_json::json!({ "root": root })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("ensure_targets_file task panicked: {e}")))
 }
 
 #[tauri::command]
-fn read_profile_field(app: tauri::AppHandle, root: String, id: String) -> Result<Value, String> {
-    run_bridge(
-        &app,
-        "readProfileField",
-        Some(serde_json::json!({ "root": root, "id": id })),
-    )
+async fn read_profile_field(
+    app: tauri::AppHandle,
+    root: String,
+    id: String,
+) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "readProfileField",
+            Some(serde_json::json!({ "root": root, "id": id })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("read_profile_field task panicked: {e}")))
 }
 
 #[tauri::command]
-fn write_profile_field(app: tauri::AppHandle, root: String, id: String, value: Value) -> Result<Value, String> {
-    run_bridge(
-        &app,
-        "writeProfileField",
-        Some(serde_json::json!({ "root": root, "id": id, "value": value })),
-    )
+async fn write_profile_field(
+    app: tauri::AppHandle,
+    root: String,
+    id: String,
+    value: Value,
+) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "writeProfileField",
+            Some(serde_json::json!({ "root": root, "id": id, "value": value })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("write_profile_field task panicked: {e}")))
 }
 
 /// Batched siblings of read/write_profile_field: one bridge spawn (one
@@ -822,181 +949,409 @@ fn write_profile_field(app: tauri::AppHandle, root: String, id: String, value: V
 /// Profile step and Settings' Profile screen (which read every field up
 /// front).
 #[tauri::command]
-fn read_profile_fields(app: tauri::AppHandle, root: String, ids: Vec<String>) -> Result<Value, String> {
-    run_bridge(
-        &app,
-        "readProfileFields",
-        Some(serde_json::json!({ "root": root, "ids": ids })),
-    )
+async fn read_profile_fields(
+    app: tauri::AppHandle,
+    root: String,
+    ids: Vec<String>,
+) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "readProfileFields",
+            Some(serde_json::json!({ "root": root, "ids": ids })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("read_profile_fields task panicked: {e}")))
 }
 
 #[tauri::command]
-fn write_profile_fields(app: tauri::AppHandle, root: String, values: Value) -> Result<Value, String> {
-    run_bridge(
-        &app,
-        "writeProfileFields",
-        Some(serde_json::json!({ "root": root, "values": values })),
-    )
+async fn write_profile_fields(
+    app: tauri::AppHandle,
+    root: String,
+    values: Value,
+) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "writeProfileFields",
+            Some(serde_json::json!({ "root": root, "values": values })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("write_profile_fields task panicked: {e}")))
 }
 
 #[tauri::command]
-fn load_local_state(app: tauri::AppHandle, root: String) -> Result<Value, String> {
-    run_bridge(&app, "loadState", Some(serde_json::json!({ "root": root })))
+async fn load_local_state(app: tauri::AppHandle, root: String) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(&app, "loadState", Some(serde_json::json!({ "root": root })))
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("load_local_state task panicked: {e}")))
 }
 
 #[tauri::command]
-fn run_validator(app: tauri::AppHandle, root: String) -> Result<Value, String> {
-    run_bridge(&app, "runValidator", Some(serde_json::json!({ "root": root })))
+async fn run_validator(app: tauri::AppHandle, root: String) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "runValidator",
+            Some(serde_json::json!({ "root": root })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("run_validator task panicked: {e}")))
 }
 
 #[tauri::command]
-fn read_supabase_config(app: tauri::AppHandle, root: String) -> Result<Value, String> {
-    run_bridge(&app, "readSupabaseConfig", Some(serde_json::json!({ "root": root })))
+async fn read_supabase_config(app: tauri::AppHandle, root: String) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "readSupabaseConfig",
+            Some(serde_json::json!({ "root": root })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("read_supabase_config task panicked: {e}")))
 }
 
 #[tauri::command]
-fn detect_harnesses(app: tauri::AppHandle) -> Result<Value, String> {
-    run_bridge(&app, "detectHarnesses", None)
+async fn detect_harnesses(app: tauri::AppHandle) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || run_bridge(&app, "detectHarnesses", None))
+        .await
+        .unwrap_or_else(|e| Err(format!("detect_harnesses task panicked: {e}")))
 }
 
 #[tauri::command]
-fn list_companies(app: tauri::AppHandle, root: String) -> Result<Value, String> {
-    run_bridge(&app, "listCompanies", Some(serde_json::json!({ "root": root })))
+async fn list_companies(app: tauri::AppHandle, root: String) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "listCompanies",
+            Some(serde_json::json!({ "root": root })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("list_companies task panicked: {e}")))
 }
 
 #[tauri::command]
-fn read_harness(app: tauri::AppHandle, root: String) -> Result<Value, String> {
-    run_bridge(&app, "readHarness", Some(serde_json::json!({ "root": root })))
+async fn read_harness(app: tauri::AppHandle, root: String) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "readHarness",
+            Some(serde_json::json!({ "root": root })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("read_harness task panicked: {e}")))
 }
 
 #[tauri::command]
-fn write_harness(app: tauri::AppHandle, root: String, harness: String) -> Result<Value, String> {
-    run_bridge(
-        &app,
-        "writeHarness",
-        Some(serde_json::json!({ "root": root, "harness": harness })),
-    )
+async fn write_harness(
+    app: tauri::AppHandle,
+    root: String,
+    harness: String,
+) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "writeHarness",
+            Some(serde_json::json!({ "root": root, "harness": harness })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("write_harness task panicked: {e}")))
 }
 
 #[tauri::command]
-fn read_env_override(app: tauri::AppHandle, root: String, key: String, legacy_keys: Option<Vec<String>>, fallback: Option<String>) -> Result<Value, String> {
-    run_bridge(
-        &app,
-        "readEnvOverride",
-        Some(serde_json::json!({ "root": root, "key": key, "legacyKeys": legacy_keys.unwrap_or_default(), "fallback": fallback.unwrap_or_default() })),
-    )
+async fn read_env_override(
+    app: tauri::AppHandle,
+    root: String,
+    key: String,
+    legacy_keys: Option<Vec<String>>,
+    fallback: Option<String>,
+) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "readEnvOverride",
+            Some(serde_json::json!({ "root": root, "key": key, "legacyKeys": legacy_keys.unwrap_or_default(), "fallback": fallback.unwrap_or_default() })),
+        )
+})
+    .await
+    .unwrap_or_else(|e| Err(format!("read_env_override task panicked: {e}")))
 }
 
 #[tauri::command]
-fn write_env_override(app: tauri::AppHandle, root: String, key: String, value: String) -> Result<Value, String> {
-    run_bridge(
-        &app,
-        "writeEnvOverride",
-        Some(serde_json::json!({ "root": root, "key": key, "value": value })),
-    )
+async fn write_env_override(
+    app: tauri::AppHandle,
+    root: String,
+    key: String,
+    value: String,
+) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "writeEnvOverride",
+            Some(serde_json::json!({ "root": root, "key": key, "value": value })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("write_env_override task panicked: {e}")))
 }
 
 #[tauri::command]
-fn read_discord_config(app: tauri::AppHandle, root: String) -> Result<Value, String> {
-    run_bridge(&app, "readDiscordConfig", Some(serde_json::json!({ "root": root })))
+async fn read_discord_config(app: tauri::AppHandle, root: String) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "readDiscordConfig",
+            Some(serde_json::json!({ "root": root })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("read_discord_config task panicked: {e}")))
 }
 
 #[tauri::command]
-fn write_discord_config(app: tauri::AppHandle, root: String, enabled: Option<bool>, routes: Value) -> Result<Value, String> {
-    run_bridge(
-        &app,
-        "writeDiscordConfig",
-        Some(serde_json::json!({ "root": root, "enabled": enabled, "routes": routes })),
-    )
+async fn write_discord_config(
+    app: tauri::AppHandle,
+    root: String,
+    enabled: Option<bool>,
+    routes: Value,
+) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "writeDiscordConfig",
+            Some(serde_json::json!({ "root": root, "enabled": enabled, "routes": routes })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("write_discord_config task panicked: {e}")))
 }
 
 #[tauri::command]
-fn list_resumes(app: tauri::AppHandle, root: String) -> Result<Value, String> {
-    run_bridge(&app, "listResumes", Some(serde_json::json!({ "root": root })))
+async fn list_resumes(app: tauri::AppHandle, root: String) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "listResumes",
+            Some(serde_json::json!({ "root": root })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("list_resumes task panicked: {e}")))
 }
 
 #[tauri::command]
-fn convert_resume(app: tauri::AppHandle, root: String, stem: String, description: Option<String>, force: Option<bool>) -> Result<Value, String> {
-    run_bridge(
-        &app,
-        "convertResume",
-        Some(serde_json::json!({ "root": root, "stem": stem, "description": description.unwrap_or_default(), "force": force.unwrap_or(false) })),
-    )
+async fn convert_resume(
+    app: tauri::AppHandle,
+    root: String,
+    stem: String,
+    description: Option<String>,
+    force: Option<bool>,
+) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "convertResume",
+            Some(serde_json::json!({ "root": root, "stem": stem, "description": description.unwrap_or_default(), "force": force.unwrap_or(false) })),
+        )
+})
+    .await
+    .unwrap_or_else(|e| Err(format!("convert_resume task panicked: {e}")))
 }
 
 #[tauri::command]
-fn set_resume_description(app: tauri::AppHandle, root: String, stem: String, description: Option<String>) -> Result<Value, String> {
-    run_bridge(
-        &app,
-        "setResumeDescription",
-        Some(serde_json::json!({ "root": root, "stem": stem, "description": description.unwrap_or_default() })),
-    )
+async fn set_resume_description(
+    app: tauri::AppHandle,
+    root: String,
+    stem: String,
+    description: Option<String>,
+) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "setResumeDescription",
+            Some(serde_json::json!({ "root": root, "stem": stem, "description": description.unwrap_or_default() })),
+        )
+})
+    .await
+    .unwrap_or_else(|e| Err(format!("set_resume_description task panicked: {e}")))
 }
 
 #[tauri::command]
-fn import_resume_file(app: tauri::AppHandle, root: String, source_path: String, stem: String) -> Result<Value, String> {
-    run_bridge(
-        &app,
-        "importResumeFile",
-        Some(serde_json::json!({ "root": root, "sourcePath": source_path, "stem": stem })),
-    )
+async fn import_resume_file(
+    app: tauri::AppHandle,
+    root: String,
+    source_path: String,
+    stem: String,
+) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "importResumeFile",
+            Some(serde_json::json!({ "root": root, "sourcePath": source_path, "stem": stem })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("import_resume_file task panicked: {e}")))
 }
 
 #[tauri::command]
-fn import_resume_bytes(app: tauri::AppHandle, root: String, stem: String, base64: String) -> Result<Value, String> {
-    run_bridge(
-        &app,
-        "importResumeBytes",
-        Some(serde_json::json!({ "root": root, "stem": stem, "base64": base64 })),
-    )
+async fn import_resume_bytes(
+    app: tauri::AppHandle,
+    root: String,
+    stem: String,
+    base64: String,
+) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "importResumeBytes",
+            Some(serde_json::json!({ "root": root, "stem": stem, "base64": base64 })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("import_resume_bytes task panicked: {e}")))
 }
 
 #[tauri::command]
-fn import_document_file(app: tauri::AppHandle, root: String, source_path: String, kind: String) -> Result<Value, String> {
-    run_bridge(
-        &app,
-        "importDocumentFile",
-        Some(serde_json::json!({ "root": root, "sourcePath": source_path, "kind": kind })),
-    )
+async fn import_document_file(
+    app: tauri::AppHandle,
+    root: String,
+    source_path: String,
+    kind: String,
+) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "importDocumentFile",
+            Some(serde_json::json!({ "root": root, "sourcePath": source_path, "kind": kind })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("import_document_file task panicked: {e}")))
 }
 
 #[tauri::command]
-fn get_document_status(app: tauri::AppHandle, root: String, kind: String) -> Result<Value, String> {
-    run_bridge(&app, "getDocumentStatus", Some(serde_json::json!({ "root": root, "kind": kind })))
+async fn get_document_status(
+    app: tauri::AppHandle,
+    root: String,
+    kind: String,
+) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "getDocumentStatus",
+            Some(serde_json::json!({ "root": root, "kind": kind })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("get_document_status task panicked: {e}")))
 }
 
 #[tauri::command]
-fn open_extension_folder(app: tauri::AppHandle, root: String) -> Result<Value, String> {
-    run_bridge(&app, "openExtensionFolder", Some(serde_json::json!({ "root": root })))
+async fn open_extension_folder(app: tauri::AppHandle, root: String) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "openExtensionFolder",
+            Some(serde_json::json!({ "root": root })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("open_extension_folder task panicked: {e}")))
 }
 
 #[tauri::command]
-fn get_master_resume(app: tauri::AppHandle, root: String) -> Result<Value, String> {
-    run_bridge(&app, "getMasterResume", Some(serde_json::json!({ "root": root })))
+async fn get_master_resume(app: tauri::AppHandle, root: String) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "getMasterResume",
+            Some(serde_json::json!({ "root": root })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("get_master_resume task panicked: {e}")))
 }
 
 #[tauri::command]
-fn set_master_resume(app: tauri::AppHandle, root: String, resume: Value) -> Result<Value, String> {
-    run_bridge(&app, "setMasterResume", Some(serde_json::json!({ "root": root, "resume": resume })))
+async fn set_master_resume(
+    app: tauri::AppHandle,
+    root: String,
+    resume: Value,
+) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "setMasterResume",
+            Some(serde_json::json!({ "root": root, "resume": resume })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("set_master_resume task panicked: {e}")))
 }
 
 #[tauri::command]
-fn read_resume_markdown(app: tauri::AppHandle, root: String, stem: String) -> Result<Value, String> {
-    run_bridge(&app, "readResumeMarkdown", Some(serde_json::json!({ "root": root, "stem": stem })))
+async fn read_resume_markdown(
+    app: tauri::AppHandle,
+    root: String,
+    stem: String,
+) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "readResumeMarkdown",
+            Some(serde_json::json!({ "root": root, "stem": stem })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("read_resume_markdown task panicked: {e}")))
 }
 
 #[tauri::command]
-fn read_fill_record(app: tauri::AppHandle, root: String, path: String) -> Result<Value, String> {
-    run_bridge(&app, "readFillRecord", Some(serde_json::json!({ "root": root, "path": path })))
+async fn read_fill_record(
+    app: tauri::AppHandle,
+    root: String,
+    path: String,
+) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "readFillRecord",
+            Some(serde_json::json!({ "root": root, "path": path })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("read_fill_record task panicked: {e}")))
 }
 
 #[tauri::command]
-fn import_master_resume_from_markdown(app: tauri::AppHandle, root: String, markdown: String) -> Result<Value, String> {
-    run_bridge(
-        &app,
-        "importMasterResumeFromMarkdown",
-        Some(serde_json::json!({ "root": root, "markdown": markdown })),
-    )
+async fn import_master_resume_from_markdown(
+    app: tauri::AppHandle,
+    root: String,
+    markdown: String,
+) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "importMasterResumeFromMarkdown",
+            Some(serde_json::json!({ "root": root, "markdown": markdown })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| {
+        Err(format!(
+            "import_master_resume_from_markdown task panicked: {e}"
+        ))
+    })
 }
 
 // async: this calls preview_resume.py, which makes a real Anthropic API
@@ -1005,7 +1360,12 @@ fn import_master_resume_from_markdown(app: tauri::AppHandle, root: String, markd
 // plain fn would freeze the whole window for the call's duration.
 #[tauri::command]
 async fn preview_tailored_resume(
-    app: tauri::AppHandle, root: String, title: String, company: String, jd_text: String, resume: Value,
+    app: tauri::AppHandle,
+    root: String,
+    title: String,
+    company: String,
+    jd_text: String,
+    resume: Value,
 ) -> Result<Value, String> {
     tauri::async_runtime::spawn_blocking(move || {
         run_bridge(
@@ -1025,9 +1385,17 @@ async fn preview_tailored_resume(
 // see the search_jobs comment above on why a plain fn would freeze the
 // whole window for its duration.
 #[tauri::command]
-async fn export_resume_pdf(app: tauri::AppHandle, root: String, resume: Value) -> Result<Value, String> {
+async fn export_resume_pdf(
+    app: tauri::AppHandle,
+    root: String,
+    resume: Value,
+) -> Result<Value, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        run_bridge(&app, "exportResumePdf", Some(serde_json::json!({ "root": root, "resume": resume })))
+        run_bridge(
+            &app,
+            "exportResumePdf",
+            Some(serde_json::json!({ "root": root, "resume": resume })),
+        )
     })
     .await
     .unwrap_or_else(|e| Err(format!("export task panicked: {e}")))
@@ -1057,7 +1425,12 @@ async fn export_resume_pdf(app: tauri::AppHandle, root: String, resume: Value) -
 // commands that do blocking I/O) fixes both: the main thread is free
 // immediately, and the two phases genuinely overlap now.
 #[tauri::command]
-async fn search_jobs(app: tauri::AppHandle, root: String, query: String, sources: Value) -> Result<Value, String> {
+async fn search_jobs(
+    app: tauri::AppHandle,
+    root: String,
+    query: String,
+    sources: Value,
+) -> Result<Value, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let args = serde_json::json!({ "root": root, "query": query, "sources": sources });
         // Daemon first: its whole point is an in-memory cache that only a
@@ -1075,64 +1448,148 @@ async fn search_jobs(app: tauri::AppHandle, root: String, query: String, sources
 }
 
 #[tauri::command]
-fn check_job_fit(app: tauri::AppHandle, root: String, job: Value) -> Result<Value, String> {
-    run_bridge(&app, "checkJobFit", Some(serde_json::json!({ "root": root, "job": job })))
+async fn check_job_fit(app: tauri::AppHandle, root: String, job: Value) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "checkJobFit",
+            Some(serde_json::json!({ "root": root, "job": job })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("check_job_fit task panicked: {e}")))
 }
 
 #[tauri::command]
-fn check_job_fit_batch(app: tauri::AppHandle, root: String, jobs: Value) -> Result<Value, String> {
-    run_bridge(&app, "checkJobFitBatch", Some(serde_json::json!({ "root": root, "jobs": jobs })))
+async fn check_job_fit_batch(
+    app: tauri::AppHandle,
+    root: String,
+    jobs: Value,
+) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "checkJobFitBatch",
+            Some(serde_json::json!({ "root": root, "jobs": jobs })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("check_job_fit_batch task panicked: {e}")))
 }
 
 #[tauri::command]
-fn fetch_job_description(app: tauri::AppHandle, root: String, job: Value) -> Result<Value, String> {
-    run_bridge(&app, "fetchJobDescription", Some(serde_json::json!({ "root": root, "job": job })))
+async fn fetch_job_description(
+    app: tauri::AppHandle,
+    root: String,
+    job: Value,
+) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "fetchJobDescription",
+            Some(serde_json::json!({ "root": root, "job": job })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("fetch_job_description task panicked: {e}")))
 }
 
 #[tauri::command]
-fn get_recommended_jobs(app: tauri::AppHandle, root: String, exclude_job_ids: Vec<String>) -> Result<Value, String> {
-    run_bridge(
-        &app,
-        "getRecommendedJobs",
-        Some(serde_json::json!({ "root": root, "excludeJobIds": exclude_job_ids })),
-    )
+async fn get_recommended_jobs(
+    app: tauri::AppHandle,
+    root: String,
+    exclude_job_ids: Vec<String>,
+) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "getRecommendedJobs",
+            Some(serde_json::json!({ "root": root, "excludeJobIds": exclude_job_ids })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("get_recommended_jobs task panicked: {e}")))
 }
 
 #[tauri::command]
-fn get_scheduler_status(app: tauri::AppHandle, root: String) -> Result<Value, String> {
-    run_bridge(&app, "getSchedulerStatus", Some(serde_json::json!({ "root": root })))
+async fn get_scheduler_status(app: tauri::AppHandle, root: String) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "getSchedulerStatus",
+            Some(serde_json::json!({ "root": root })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("get_scheduler_status task panicked: {e}")))
 }
 
 #[tauri::command]
-fn set_scheduler_installed(app: tauri::AppHandle, root: String, installed: bool) -> Result<Value, String> {
-    run_bridge(
-        &app,
-        "setSchedulerInstalled",
-        Some(serde_json::json!({ "root": root, "installed": installed })),
-    )
+async fn set_scheduler_installed(
+    app: tauri::AppHandle,
+    root: String,
+    installed: bool,
+) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "setSchedulerInstalled",
+            Some(serde_json::json!({ "root": root, "installed": installed })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("set_scheduler_installed task panicked: {e}")))
 }
 
 #[tauri::command]
-fn save_job_for_review(app: tauri::AppHandle, root: String, job: Value) -> Result<Value, String> {
-    run_bridge(&app, "saveJobForReview", Some(serde_json::json!({ "root": root, "job": job })))
+async fn save_job_for_review(
+    app: tauri::AppHandle,
+    root: String,
+    job: Value,
+) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "saveJobForReview",
+            Some(serde_json::json!({ "root": root, "job": job })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("save_job_for_review task panicked: {e}")))
 }
 
 #[tauri::command]
-fn mark_queue_entry_applied(app: tauri::AppHandle, root: String, entry: Value) -> Result<Value, String> {
-    run_bridge(
-        &app,
-        "markQueueEntryApplied",
-        Some(serde_json::json!({ "root": root, "entry": entry })),
-    )
+async fn mark_queue_entry_applied(
+    app: tauri::AppHandle,
+    root: String,
+    entry: Value,
+) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "markQueueEntryApplied",
+            Some(serde_json::json!({ "root": root, "entry": entry })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("mark_queue_entry_applied task panicked: {e}")))
 }
 
 #[tauri::command]
-fn dismiss_queue_entry(app: tauri::AppHandle, root: String, entry: Value) -> Result<Value, String> {
-    run_bridge(
-        &app,
-        "dismissQueueEntry",
-        Some(serde_json::json!({ "root": root, "entry": entry })),
-    )
+async fn dismiss_queue_entry(
+    app: tauri::AppHandle,
+    root: String,
+    entry: Value,
+) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "dismissQueueEntry",
+            Some(serde_json::json!({ "root": root, "entry": entry })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("dismiss_queue_entry task panicked: {e}")))
 }
 
 // Phase 16C, Part C: reopens a needs_review application pre-filled from its
@@ -1156,7 +1613,11 @@ fn dismiss_queue_entry(app: tauri::AppHandle, root: String, entry: Value) -> Res
 // Python side. Moving the blocking wait onto spawn_blocking fixes both
 // commands the same way search_jobs/export_resume_pdf already were.
 #[tauri::command]
-async fn reopen_application_filled(app: tauri::AppHandle, root: String, job_id: String) -> Result<Value, String> {
+async fn reopen_application_filled(
+    app: tauri::AppHandle,
+    root: String,
+    job_id: String,
+) -> Result<Value, String> {
     tauri::async_runtime::spawn_blocking(move || {
         run_bridge(
             &app,
@@ -1179,9 +1640,17 @@ async fn reopen_application_filled(app: tauri::AppHandle, root: String, job_id: 
 // this process, for as long as it takes. async for the same reason as
 // reopen_application_filled just above; see that comment.
 #[tauri::command]
-async fn trigger_single_job_apply(app: tauri::AppHandle, root: String, job: Value) -> Result<Value, String> {
+async fn trigger_single_job_apply(
+    app: tauri::AppHandle,
+    root: String,
+    job: Value,
+) -> Result<Value, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        run_bridge(&app, "triggerSingleJobApply", Some(serde_json::json!({ "root": root, "job": job })))
+        run_bridge(
+            &app,
+            "triggerSingleJobApply",
+            Some(serde_json::json!({ "root": root, "job": job })),
+        )
     })
     .await
     .unwrap_or_else(|e| Err(format!("apply task panicked: {e}")))
@@ -1194,9 +1663,18 @@ async fn trigger_single_job_apply(app: tauri::AppHandle, root: String, job: Valu
 // grace window elapses, not once the actual submit finishes. See that
 // command's comment for the full async reasoning.
 #[tauri::command]
-async fn approve_submit(app: tauri::AppHandle, root: String, entry: Value, workday: Option<Value>) -> Result<Value, String> {
+async fn approve_submit(
+    app: tauri::AppHandle,
+    root: String,
+    entry: Value,
+    workday: Option<Value>,
+) -> Result<Value, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        let job_id = entry.get("job_id").and_then(Value::as_str).unwrap_or("workday").to_string();
+        let job_id = entry
+            .get("job_id")
+            .and_then(Value::as_str)
+            .unwrap_or("workday")
+            .to_string();
         let host = workday_host_from_entry(&entry);
         let mut credential_file: Option<PathBuf> = None;
         let mut credential_error: Option<String> = None;
@@ -1206,15 +1684,23 @@ async fn approve_submit(app: tauri::AppHandle, root: String, entry: Value, workd
                 // file path only; never forward legacy raw fields to Node.
                 object.remove("verificationLink");
                 object.remove("verificationOtp");
-                if let (Some(host), Some(email)) = (host.as_deref(), object.get("accountEmail").and_then(Value::as_str)) {
+                if let (Some(host), Some(email)) = (
+                    host.as_deref(),
+                    object.get("accountEmail").and_then(Value::as_str),
+                ) {
                     match read_workday_keychain_password(host, email) {
-                        Ok(Some(password)) => match write_workday_credential_file(&root, &job_id, &password) {
-                            Ok(path) => {
-                                object.insert("credentialFile".to_string(), Value::String(path.to_string_lossy().into_owned()));
-                                credential_file = Some(path);
+                        Ok(Some(password)) => {
+                            match write_workday_credential_file(&root, &job_id, &password) {
+                                Ok(path) => {
+                                    object.insert(
+                                        "credentialFile".to_string(),
+                                        Value::String(path.to_string_lossy().into_owned()),
+                                    );
+                                    credential_file = Some(path);
+                                }
+                                Err(error) => credential_error = Some(error),
                             }
-                            Err(error) => credential_error = Some(error),
-                        },
+                        }
                         Ok(None) => {}
                         Err(error) => credential_error = Some(error),
                     }
@@ -1244,34 +1730,75 @@ async fn approve_submit(app: tauri::AppHandle, root: String, entry: Value, workd
 // read_fill_record: a small file read that returns well within a main-
 // thread tick, no spawn_blocking needed.
 #[tauri::command]
-fn read_screenshot(app: tauri::AppHandle, root: String, path: String) -> Result<Value, String> {
-    run_bridge(&app, "readScreenshot", Some(serde_json::json!({ "root": root, "path": path })))
+async fn read_screenshot(
+    app: tauri::AppHandle,
+    root: String,
+    path: String,
+) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "readScreenshot",
+            Some(serde_json::json!({ "root": root, "path": path })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("read_screenshot task panicked: {e}")))
 }
 
 #[tauri::command]
-fn read_workday_checkpoint(app: tauri::AppHandle, root: String, job_id: String) -> Result<Value, String> {
-    run_bridge(
-        &app,
-        "readWorkdayCheckpoint",
-        Some(serde_json::json!({ "root": root, "jobId": job_id })),
-    )
+async fn read_workday_checkpoint(
+    app: tauri::AppHandle,
+    root: String,
+    job_id: String,
+) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "readWorkdayCheckpoint",
+            Some(serde_json::json!({ "root": root, "jobId": job_id })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("read_workday_checkpoint task panicked: {e}")))
 }
 
 // Writes a one-time verification secret (consumed from a hosted verification
 // session) directly from Rust so the raw value never crosses the Node bridge
 // as JSON argv. The Workday runtime reads the resulting 0600 file.
 #[tauri::command]
-fn write_session_secret_file(_app: tauri::AppHandle, root: String, job_id: String, secret: Value) -> Result<Value, String> {
-    if job_id.is_empty() || !job_id.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | ':' | '-')) {
-        return Err(format!("writeSessionSecretFile: unexpected job id {job_id:?}"));
+fn write_session_secret_file(
+    _app: tauri::AppHandle,
+    root: String,
+    job_id: String,
+    secret: Value,
+) -> Result<Value, String> {
+    if job_id.is_empty()
+        || !job_id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | ':' | '-'))
+    {
+        return Err(format!(
+            "writeSessionSecretFile: unexpected job id {job_id:?}"
+        ));
     }
-    let link = secret.get("link").and_then(Value::as_str).filter(|v| !v.is_empty());
-    let otp = secret.get("otp").and_then(Value::as_str).filter(|v| !v.is_empty());
+    let link = secret
+        .get("link")
+        .and_then(Value::as_str)
+        .filter(|v| !v.is_empty());
+    let otp = secret
+        .get("otp")
+        .and_then(Value::as_str)
+        .filter(|v| !v.is_empty());
     if link.is_none() && otp.is_none() {
-        return Err("writeSessionSecretFile requires { secret: { link?, otp? } } with at least one value".to_string());
+        return Err(
+            "writeSessionSecretFile requires { secret: { link?, otp? } } with at least one value"
+                .to_string(),
+        );
     }
     let dir = PathBuf::from(root).join("logs").join("tmp");
-    std::fs::create_dir_all(&dir).map_err(|e| format!("could not create session secret directory: {e}"))?;
+    std::fs::create_dir_all(&dir)
+        .map_err(|e| format!("could not create session secret directory: {e}"))?;
     let path = dir.join(format!("session_secret_{job_id}.json"));
     let payload = serde_json::json!({ "link": link, "otp": otp }).to_string();
     #[cfg(unix)]
@@ -1279,14 +1806,19 @@ fn write_session_secret_file(_app: tauri::AppHandle, root: String, job_id: Strin
         use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
         let mut options = std::fs::OpenOptions::new();
         options.create(true).truncate(true).write(true).mode(0o600);
-        let mut file = options.open(&path).map_err(|e| format!("could not open session secret file: {e}"))?;
-        file.write_all(payload.as_bytes()).map_err(|e| format!("could not write session secret file: {e}"))?;
-        file.sync_all().map_err(|e| format!("could not flush session secret file: {e}"))?;
+        let mut file = options
+            .open(&path)
+            .map_err(|e| format!("could not open session secret file: {e}"))?;
+        file.write_all(payload.as_bytes())
+            .map_err(|e| format!("could not write session secret file: {e}"))?;
+        file.sync_all()
+            .map_err(|e| format!("could not flush session secret file: {e}"))?;
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).ok();
     }
     #[cfg(not(unix))]
     {
-        std::fs::write(&path, payload).map_err(|e| format!("could not write session secret file: {e}"))?;
+        std::fs::write(&path, payload)
+            .map_err(|e| format!("could not write session secret file: {e}"))?;
     }
     Ok(serde_json::json!({ "path": path }))
 }
@@ -1295,12 +1827,19 @@ fn workday_credential_account(host: &str, email: &str) -> Result<(String, String
     let host = host.trim().to_ascii_lowercase();
     if !host.ends_with(".myworkdayjobs.com")
         || host.len() <= ".myworkdayjobs.com".len()
-        || !host.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-'))
+        || !host
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-'))
     {
         return Err("Workday tenant must be a hostname ending in .myworkdayjobs.com".to_string());
     }
     let email = email.trim().to_ascii_lowercase();
-    if email.is_empty() || email.chars().any(|c| c.is_ascii_whitespace() || c == '\n' || c == '\r') || !email.contains('@') {
+    if email.is_empty()
+        || email
+            .chars()
+            .any(|c| c.is_ascii_whitespace() || c == '\n' || c == '\r')
+        || !email.contains('@')
+    {
         return Err("Workday account email is invalid".to_string());
     }
     Ok((host.clone(), email.clone(), format!("{host}|{email}")))
@@ -1314,7 +1853,11 @@ fn workday_keychain_entry(host: &str, email: &str) -> Result<keyring::Entry, Str
 
 fn workday_sidecar_key(host: &str, email: &str) -> Result<String, String> {
     let (host, email, _) = workday_credential_account(host, email)?;
-    let raw = format!("{}@{}", email.to_ascii_lowercase(), host.to_ascii_lowercase());
+    let raw = format!(
+        "{}@{}",
+        email.to_ascii_lowercase(),
+        host.to_ascii_lowercase()
+    );
     let digest = Sha256::digest(raw.as_bytes());
     Ok(format!("{:x}", digest)[..16].to_string())
 }
@@ -1325,7 +1868,9 @@ fn read_workday_keychain_password(host: &str, email: &str) -> Result<Option<Stri
         Ok(password) if !password.is_empty() => Ok(Some(password)),
         Ok(_) => Ok(None),
         Err(keyring::Error::NoEntry) => Ok(None),
-        Err(e) => Err(format!("could not read the Workday credential from the macOS Keychain: {e}")),
+        Err(e) => Err(format!(
+            "could not read the Workday credential from the macOS Keychain: {e}"
+        )),
     }
 }
 
@@ -1344,7 +1889,9 @@ fn save_workday_credential(host: String, email: String, password: String) -> Res
 #[tauri::command]
 fn workday_credential_status(host: String, email: String) -> Result<Value, String> {
     let (host, email, _) = workday_credential_account(&host, &email)?;
-    Ok(serde_json::json!({ "host": host, "email": email, "stored": read_workday_keychain_password(&host, &email)?.is_some() }))
+    Ok(
+        serde_json::json!({ "host": host, "email": email, "stored": read_workday_keychain_password(&host, &email)?.is_some() }),
+    )
 }
 
 // Explicit user action only: this is the migration path from an older
@@ -1364,8 +1911,12 @@ fn delete_workday_credential(host: String, email: String) -> Result<Value, Strin
     let (host, email, _) = workday_credential_account(&host, &email)?;
     let entry = workday_keychain_entry(&host, &email)?;
     match entry.delete_credential() {
-        Ok(()) | Err(keyring::Error::NoEntry) => Ok(serde_json::json!({ "host": host, "email": email, "stored": false })),
-        Err(e) => Err(format!("could not delete the Workday credential from the macOS Keychain: {e}")),
+        Ok(()) | Err(keyring::Error::NoEntry) => {
+            Ok(serde_json::json!({ "host": host, "email": email, "stored": false }))
+        }
+        Err(e) => Err(format!(
+            "could not delete the Workday credential from the macOS Keychain: {e}"
+        )),
     }
 }
 
@@ -1388,7 +1939,11 @@ fn import_workday_credential(root: String, host: String, email: String) -> Resul
             if path.is_dir() {
                 pending.push(path);
             } else if path.file_name().and_then(|name| name.to_str()) == Some(filename.as_str())
-                && path.parent().and_then(|parent| parent.file_name()).and_then(|name| name.to_str()) == Some(".secrets")
+                && path
+                    .parent()
+                    .and_then(|parent| parent.file_name())
+                    .and_then(|name| name.to_str())
+                    == Some(".secrets")
             {
                 sidecar = Some(path);
                 break;
@@ -1399,26 +1954,58 @@ fn import_workday_credential(root: String, host: String, email: String) -> Resul
         }
     }
     let path = sidecar.ok_or("no existing local Workday credential was found")?;
-    let raw = std::fs::read_to_string(&path).map_err(|e| format!("could not read the existing Workday credential: {e}"))?;
-    let secret: Value = serde_json::from_str(&raw).map_err(|_| "existing Workday credential is not valid JSON".to_string())?;
-    let password = secret.get("password").and_then(Value::as_str).filter(|value| !value.is_empty()).ok_or("existing Workday credential has no password")?;
-    workday_keychain_entry(&host, &email)?.set_password(password).map_err(|e| format!("could not import the Workday credential into the macOS Keychain: {e}"))?;
-    std::fs::remove_file(&path).map_err(|e| format!("credential imported, but the old local sidecar could not be removed: {e}"))?;
+    let raw = std::fs::read_to_string(&path)
+        .map_err(|e| format!("could not read the existing Workday credential: {e}"))?;
+    let secret: Value = serde_json::from_str(&raw)
+        .map_err(|_| "existing Workday credential is not valid JSON".to_string())?;
+    let password = secret
+        .get("password")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+        .ok_or("existing Workday credential has no password")?;
+    workday_keychain_entry(&host, &email)?
+        .set_password(password)
+        .map_err(|e| {
+            format!("could not import the Workday credential into the macOS Keychain: {e}")
+        })?;
+    std::fs::remove_file(&path).map_err(|e| {
+        format!("credential imported, but the old local sidecar could not be removed: {e}")
+    })?;
     Ok(serde_json::json!({ "host": host, "email": email, "stored": true }))
 }
 
 fn workday_host_from_entry(entry: &Value) -> Option<String> {
-    let target = entry.get("apply_url").and_then(Value::as_str).or_else(|| entry.get("url").and_then(Value::as_str))?;
-    let host = target.split("//").nth(1)?.split('/').next()?.split(':').next()?;
-    workday_credential_account(host, "placeholder@example.com").ok().map(|(host, _, _)| host)
+    let target = entry
+        .get("apply_url")
+        .and_then(Value::as_str)
+        .or_else(|| entry.get("url").and_then(Value::as_str))?;
+    let host = target
+        .split("//")
+        .nth(1)?
+        .split('/')
+        .next()?
+        .split(':')
+        .next()?;
+    workday_credential_account(host, "placeholder@example.com")
+        .ok()
+        .map(|(host, _, _)| host)
 }
 
-fn write_workday_credential_file(root: &str, job_id: &str, password: &str) -> Result<PathBuf, String> {
-    if job_id.is_empty() || !job_id.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | ':' | '-')) {
+fn write_workday_credential_file(
+    root: &str,
+    job_id: &str,
+    password: &str,
+) -> Result<PathBuf, String> {
+    if job_id.is_empty()
+        || !job_id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | ':' | '-'))
+    {
         return Err(format!("unexpected Workday job id {job_id:?}"));
     }
     let dir = PathBuf::from(root).join("logs").join("tmp");
-    std::fs::create_dir_all(&dir).map_err(|e| format!("could not create Workday credential directory: {e}"))?;
+    std::fs::create_dir_all(&dir)
+        .map_err(|e| format!("could not create Workday credential directory: {e}"))?;
     let path = dir.join(format!("workday_credential_{job_id}.json"));
     let payload = serde_json::json!({ "password": password }).to_string();
     #[cfg(unix)]
@@ -1426,40 +2013,77 @@ fn write_workday_credential_file(root: &str, job_id: &str, password: &str) -> Re
         use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
         let mut options = std::fs::OpenOptions::new();
         options.create(true).truncate(true).write(true).mode(0o600);
-        let mut file = options.open(&path).map_err(|e| format!("could not open Workday credential handoff: {e}"))?;
-        file.write_all(payload.as_bytes()).map_err(|e| format!("could not write Workday credential handoff: {e}"))?;
-        file.sync_all().map_err(|e| format!("could not flush Workday credential handoff: {e}"))?;
+        let mut file = options
+            .open(&path)
+            .map_err(|e| format!("could not open Workday credential handoff: {e}"))?;
+        file.write_all(payload.as_bytes())
+            .map_err(|e| format!("could not write Workday credential handoff: {e}"))?;
+        file.sync_all()
+            .map_err(|e| format!("could not flush Workday credential handoff: {e}"))?;
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).ok();
     }
     #[cfg(not(unix))]
     {
-        std::fs::write(&path, payload).map_err(|e| format!("could not write Workday credential handoff: {e}"))?;
+        std::fs::write(&path, payload)
+            .map_err(|e| format!("could not write Workday credential handoff: {e}"))?;
     }
     Ok(path)
 }
 
 #[tauri::command]
-fn list_resume_details(app: tauri::AppHandle, root: String) -> Result<Value, String> {
-    run_bridge(&app, "listResumeDetails", Some(serde_json::json!({ "root": root })))
+async fn list_resume_details(app: tauri::AppHandle, root: String) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "listResumeDetails",
+            Some(serde_json::json!({ "root": root })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("list_resume_details task panicked: {e}")))
 }
 
 #[tauri::command]
-fn open_resumes_folder(app: tauri::AppHandle, root: String) -> Result<Value, String> {
-    run_bridge(&app, "openResumesFolder", Some(serde_json::json!({ "root": root })))
+async fn open_resumes_folder(app: tauri::AppHandle, root: String) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "openResumesFolder",
+            Some(serde_json::json!({ "root": root })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("open_resumes_folder task panicked: {e}")))
 }
 
 #[tauri::command]
-fn read_onboarding_completed(app: tauri::AppHandle, root: String) -> Result<Value, String> {
-    run_bridge(&app, "readOnboardingCompleted", Some(serde_json::json!({ "root": root })))
+async fn read_onboarding_completed(app: tauri::AppHandle, root: String) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "readOnboardingCompleted",
+            Some(serde_json::json!({ "root": root })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("read_onboarding_completed task panicked: {e}")))
 }
 
 #[tauri::command]
-fn write_onboarding_completed(app: tauri::AppHandle, root: String, completed: bool) -> Result<Value, String> {
-    run_bridge(
-        &app,
-        "writeOnboardingCompleted",
-        Some(serde_json::json!({ "root": root, "completed": completed })),
-    )
+async fn write_onboarding_completed(
+    app: tauri::AppHandle,
+    root: String,
+    completed: bool,
+) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_bridge(
+            &app,
+            "writeOnboardingCompleted",
+            Some(serde_json::json!({ "root": root, "completed": completed })),
+        )
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("write_onboarding_completed task panicked: {e}")))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
