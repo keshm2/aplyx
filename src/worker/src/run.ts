@@ -363,15 +363,18 @@ async function buildScratchTargets(root: string, preferences: Record<string, str
  *  the workflow's own concurrency group) falls through to the next-oldest
  *  row instead of returning nothing.
  *
- *  Two independent gates, on purpose:
+ *  Three independent gates, on purpose:
  *   - mode='review_only' keeps an auto_apply row untouched (that path is
  *     not built yet), independent of the DB check constraint.
- *   - the subscriptions join makes server-side runs paid-only. This
+ *   - the subscriptions check makes server-side runs paid-only. This
  *     client runs as service_role and bypasses RLS, so migration 0043's
  *     WITH CHECK on hosted_runs INSERT is not enough on its own — the
  *     worker must re-verify the plan itself before spending an Anthropic
  *     call on the run. A row queued by a user who has since canceled is
- *     skipped, not run. */
+ *     skipped, not run.
+ *   - the integrity check (migration 0044): an account with an unresolved
+ *     client-integrity violation (a tampered local build) is not trusted
+ *     for a paid server-side run. */
 async function claimNextReviewOnlyRun(adminClient: SupabaseClient): Promise<HostedRunRow | null> {
   const { data: candidates, error } = await adminClient
     .from("hosted_runs")
@@ -384,22 +387,41 @@ async function claimNextReviewOnlyRun(adminClient: SupabaseClient): Promise<Host
   const rows = (candidates ?? []) as HostedRunRow[];
   if (rows.length === 0) return null;
 
+  const userIds = rows.map((r) => r.user_id);
+
   const { data: activeSubs, error: subError } = await adminClient
     .from("subscriptions")
     .select("user_id")
     .eq("status", "active")
-    .in("user_id", rows.map((r) => r.user_id));
+    .in("user_id", userIds);
   if (subError) throw subError;
   const paid = new Set((activeSubs ?? []).map((s) => (s as { user_id: string }).user_id));
 
+  // has_integrity_violation() equivalent (migration 0044), batched: a
+  // recent integrity_events row, or profiles.integrity_status = 'violation'.
+  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const [{ data: evRows }, { data: profRows }] = await Promise.all([
+    adminClient.from("integrity_events").select("user_id").in("user_id", userIds).gt("detected_at", cutoff),
+    adminClient.from("profiles").select("user_id").in("user_id", userIds).eq("integrity_status", "violation"),
+  ]);
+  const flagged = new Set([
+    ...((evRows ?? []) as Array<{ user_id: string }>).map((r) => r.user_id),
+    ...((profRows ?? []) as Array<{ user_id: string }>).map((r) => r.user_id),
+  ]);
+
   const now = new Date().toISOString();
   for (const candidate of rows) {
-    if (!paid.has(candidate.user_id)) {
-      // No active plan: cancel the row so it stops being re-scanned every
-      // tick, and move on. The user gets nothing charged and nothing run.
+    const reason = !paid.has(candidate.user_id)
+      ? "no active subscription"
+      : flagged.has(candidate.user_id)
+        ? "unresolved client integrity violation"
+        : null;
+    if (reason) {
+      // Cancel the row so it stops being re-scanned every tick. The user
+      // gets nothing charged and nothing run.
       await adminClient
         .from("hosted_runs")
-        .update({ status: "canceled", finished_at: now, error: "no active subscription" })
+        .update({ status: "canceled", finished_at: now, error: reason })
         .eq("id", candidate.id)
         .eq("status", "queued");
       continue;

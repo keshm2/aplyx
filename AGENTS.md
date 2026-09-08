@@ -257,7 +257,10 @@ today:
   Supabase table, which a client can't forge) and flags any re-created
   hosted-only agent def. Every violation is appended to
   `data/integrity_events.jsonl` and synced to the account's INSERT-only
-  `integrity_events` table on the next sign-in. Do not weaken these
+  `integrity_events` table on the next sign-in; the desktop app raises a
+  critical notification, and the hosted worker's claim query
+  (`src/worker/src/run.ts`) cancels — never runs — a `hosted_runs` row
+  whose owner has an unresolved violation. Do not weaken these
   checks; a change to `TRACKED`/`FORBIDDEN` in
   `src/scripts/validate/build_integrity_manifest.py` must be a deliberate,
   reviewed decision, and CI (`python-tests.yml`) fails on manifest drift.
