@@ -386,6 +386,31 @@ button {
   border-radius: var(--radius-sm);
 }
 
+/* Keyboard-only "skip to content": off-screen until focused, then a real
+ * visible chip at the top-left. First tab stop on every page. */
+.skip-link {
+  position: absolute;
+  left: var(--space-4);
+  top: -3rem;
+  z-index: 100;
+  padding: var(--space-2) var(--space-4);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  transition: top var(--duration-quick) var(--ease-out);
+}
+
+.skip-link:focus-visible {
+  top: var(--space-4);
+}
+
+main:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
 .wrap {
   max-width: 72rem;
   margin: 0 auto;
