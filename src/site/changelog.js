@@ -41,7 +41,13 @@
   // the file's own folder (docs/) on GitHub; resolve them to a real blob
   // URL instead of a dead link on this domain.
   function resolveHref(href) {
-    if (/^https?:\/\//.test(href) || href.charAt(0) === "#") return href;
+    if (/^https?:\/\//i.test(href)) return href;
+    if (href.charAt(0) === "#") return href;
+    // A relative path in the changelog; never a scheme. Anything with a
+    // colon before the first slash (javascript:, data:, vbscript:) is not
+    // a path we resolve — the changelog is repo-owned, so this is
+    // defense-in-depth, not a known hole.
+    if (/^[a-z][a-z0-9+.-]*:/i.test(href)) return "#";
     return DOCS_BLOB_BASE + href.replace(/^\.\//, "");
   }
 

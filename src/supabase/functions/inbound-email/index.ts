@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { badRequest, methodNotAllowed, ok, serverError, unauthorized } from "../_shared/http.ts";
+import { badRequest, methodNotAllowed, ok, serverError, serviceUnavailable, unauthorized } from "../_shared/http.ts";
+import { timingSafeEqual } from "../_shared/timingSafeEqual.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -60,10 +61,15 @@ async function forwardEmail(to: string, subject: string, text: string, aliasAddr
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return methodNotAllowed();
-  if (INBOUND_WEBHOOK_SECRET) {
-    const header = req.headers.get("x-aplyx-inbound-secret") ?? req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
-    if (header !== INBOUND_WEBHOOK_SECRET) return unauthorized();
+  // Fail closed: an unset secret means this webhook has no auth at all,
+  // and anyone who can reach it could inject forged inbound mail (fake
+  // OTPs/links) for any alias. Treat a missing secret as our
+  // misconfiguration (opaque 5xx), never as "auth disabled".
+  if (!INBOUND_WEBHOOK_SECRET) {
+    return serviceUnavailable("inbound-email:config", "INBOUND_WEBHOOK_SECRET unset");
   }
+  const header = req.headers.get("x-aplyx-inbound-secret") ?? req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
+  if (!header || !(await timingSafeEqual(header, INBOUND_WEBHOOK_SECRET))) return unauthorized();
 
   const payload = (await req.json().catch(() => null)) as InboundPayload | null;
   if (payload === null || typeof payload !== "object") return badRequest("invalid webhook body");
