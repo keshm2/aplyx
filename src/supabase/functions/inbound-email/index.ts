@@ -1,10 +1,16 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { badRequest, methodNotAllowed, ok, serverError, serviceUnavailable, unauthorized } from "../_shared/http.ts";
 import { timingSafeEqual } from "../_shared/timingSafeEqual.ts";
+import { verifySvix } from "../_shared/verifySvix.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
+// Resend's inbound endpoint signs with Svix headers; RESEND_INBOUND_SECRET
+// is the `whsec_...` value from the endpoint's settings. INBOUND_WEBHOOK_
+// SECRET is the older manual shared-secret path, kept as a fallback for a
+// caller that sets the header directly. At least one must be configured.
+const RESEND_INBOUND_SECRET = Deno.env.get("RESEND_INBOUND_SECRET") ?? "";
 const INBOUND_WEBHOOK_SECRET = Deno.env.get("INBOUND_WEBHOOK_SECRET") ?? "";
 const FORWARD_FROM = Deno.env.get("FORWARD_FROM") ?? "aplyx-mail@mail.aplyx.app";
 // Plain-forward addresses on the apex (support@aplyx.app etc.), distinct
@@ -94,17 +100,29 @@ async function forwardEmail(to: string, subject: string, text: string, aliasAddr
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return methodNotAllowed();
-  // Fail closed: an unset secret means this webhook has no auth at all,
-  // and anyone who can reach it could inject forged inbound mail (fake
-  // OTPs/links) for any alias. Treat a missing secret as our
-  // misconfiguration (opaque 5xx), never as "auth disabled".
-  if (!INBOUND_WEBHOOK_SECRET) {
-    return serviceUnavailable("inbound-email:config", "INBOUND_WEBHOOK_SECRET unset");
-  }
-  const header = req.headers.get("x-aplyx-inbound-secret") ?? req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
-  if (!header || !(await timingSafeEqual(header, INBOUND_WEBHOOK_SECRET))) return unauthorized();
 
-  const payload = (await req.json().catch(() => null)) as InboundPayload | null;
+  const rawBody = await req.text();
+
+  // Fail closed: with no auth secret configured, anyone who can reach
+  // this URL could inject forged inbound mail (fake OTPs/links) for any
+  // alias. Accept either a valid Resend/Svix signature or a matching
+  // shared-secret header; require at least one to be set up.
+  const haveSvix = Boolean(RESEND_INBOUND_SECRET);
+  const haveShared = Boolean(INBOUND_WEBHOOK_SECRET);
+  if (!haveSvix && !haveShared) {
+    return serviceUnavailable("inbound-email:config", "no inbound auth secret configured");
+  }
+  const svixOk = haveSvix && (await verifySvix(req, rawBody, RESEND_INBOUND_SECRET));
+  const sharedHeader = req.headers.get("x-aplyx-inbound-secret") ?? req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
+  const sharedOk = haveShared && Boolean(sharedHeader) && (await timingSafeEqual(sharedHeader, INBOUND_WEBHOOK_SECRET));
+  if (!svixOk && !sharedOk) return unauthorized();
+
+  let payload: InboundPayload | null;
+  try {
+    payload = JSON.parse(rawBody) as InboundPayload;
+  } catch {
+    payload = null;
+  }
   if (payload === null || typeof payload !== "object") return badRequest("invalid webhook body");
   if (payload.type && payload.type !== "email.received") {
     return ok({ ignored: true });
