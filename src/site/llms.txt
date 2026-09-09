@@ -68,6 +68,8 @@ text of every page in a single request, fetch **https://aplyx.app/llms-full.txt*
 - [Changelog](https://aplyx.app/changelog.html): release history.
 - [Privacy](https://aplyx.app/privacy.html): local vs. hosted, what is stored where,
   and what goes to your model provider.
+- [Terms of Service](https://aplyx.app/terms.html): rules for the software, extension,
+  hosted accounts, and paid plans; automated-submission authorization; refund policy.
 
 ## Optional
 

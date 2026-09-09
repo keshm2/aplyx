@@ -1,0 +1,658 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem("aplyx.theme");
+        if (stored === "light" || stored === "dark") {
+          document.documentElement.dataset.theme = stored;
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Terms of Service: aplyx</title>
+  <meta name="description" content="The rules for using aplyx: the local software, the browser extension, hosted accounts, and paid plans, in plain language and in full." />
+  <link rel="canonical" href="https://aplyx.app/terms.html" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="aplyx" />
+  <meta property="og:title" content="Terms of Service: aplyx" />
+  <meta property="og:description" content="The rules for using aplyx: the local software, the browser extension, hosted accounts, and paid plans, in plain language and in full." />
+  <meta property="og:url" content="https://aplyx.app/terms.html" />
+  <meta property="og:image" content="https://aplyx.app/assets/logo-mark.png" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Terms of Service: aplyx" />
+  <meta name="twitter:description" content="The rules for using aplyx: the local software, the browser extension, hosted accounts, and paid plans, in plain language and in full." />
+  <meta name="twitter:image" content="https://aplyx.app/assets/logo-mark.png" />
+  <link rel="icon" href="favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" href="assets/favicon-32.png" sizes="32x32" />
+  <link rel="icon" type="image/png" href="assets/favicon-16.png" sizes="16x16" />
+  <link rel="icon" type="image/png" href="assets/logo-mark.png" sizes="483x483" />
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <nav class="site-nav">
+    <div class="wrap">
+      <a class="logo-lockup" href="index.html">
+        <img src="assets/logo-mark.png" width="30" height="30" alt="" />
+        <span class="logo-wordmark">aplyx</span>
+      </a>
+      <div class="nav-actions">
+        <div class="nav-links" data-nav-links>
+        <a class="nav-link" href="features.html">Features</a>
+        <a class="nav-link" href="pricing.html">Pricing</a>
+        <a class="nav-link" href="install.html">Install</a>
+        <a class="nav-link" href="extension.html">Extension</a>
+        <a class="nav-link" href="https://github.com/keshm2/aplyx" target="_blank" rel="noopener">GitHub</a>
+        </div>
+        <a class="nav-link nav-link-account" href="account.html">Sign in</a>
+        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle dark mode">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="4" />
+            <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+          </svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
+          </svg>
+        </button>
+        <button class="nav-toggle" type="button" data-nav-toggle aria-label="Toggle menu" aria-expanded="false">
+          <span class="nav-toggle-bar"></span>
+          <span class="nav-toggle-bar"></span>
+          <span class="nav-toggle-bar"></span>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <header class="page-hero">
+    <div class="wrap">
+      <h1 data-reveal>Terms of Service</h1>
+      <p data-reveal>The rules for using aplyx: the free software, the extension, hosted accounts, and paid plans.</p>
+      <div class="privacy-view-toggle" data-reveal>
+        <span class="privacy-view-label is-active" data-view-label="plain">TL;DR</span>
+        <button type="button" class="apple-toggle" data-view-switch role="switch" aria-checked="false" aria-label="Show the fine print">
+          <span class="apple-toggle-knob"></span>
+        </button>
+        <span class="privacy-view-label" data-view-label="legal">Fine Print</span>
+      </div>
+    </div>
+  </header>
+
+  <main id="main" tabindex="-1">
+    <section class="content">
+      <div class="wrap">
+        <div class="os-panels">
+        <div class="prose os-panel is-active" data-view-panel="plain">
+          <p><em>Last updated September 8, 2026.</em></p>
+
+          <h2>The short version</h2>
+          <p>
+            These terms cover everything under the aplyx name: the free command-line tool and
+            desktop app, the browser extension, this website, a free hosted account, and the paid
+            hosted plans that aren't live yet. Using any of it means you accept these terms.
+          </p>
+
+          <h2>Who can use aplyx</h2>
+          <p>
+            You need to be at least 16 and old enough to enter a binding agreement where you live.
+            One account per person. Don't share your login.
+          </p>
+
+          <h2>What aplyx does, and what it doesn't</h2>
+          <p>
+            aplyx searches job boards, checks each posting against your profile with fixed rules,
+            tailors your resume per posting, and can fill out and submit applications for you.
+            Anything uncertain lands in a review queue for you to decide on. aplyx is a tool that
+            acts on your instructions. It does not find you a job, guarantee interviews or offers,
+            or promise that any given application was received, is error-free, or went out on time.
+          </p>
+
+          <h2>You're responsible for what goes out under your name</h2>
+          <p>
+            Every application aplyx submits carries your name to a real employer. You are
+            confirming that the profile, resume, and answers you give aplyx are accurate and
+            truthful, that you're allowed to apply to the roles you target, and that you authorize
+            aplyx to submit on your behalf. Don't use aplyx to lie about your qualifications, spam
+            employers, apply for someone else, or break the law.
+          </p>
+
+          <h2>Job boards and ATS platforms have their own rules</h2>
+          <p>
+            aplyx interacts with third-party sites (Greenhouse, Lever, Ashby, Workday, and others)
+            and, if you add them, your own login credentials for those sites. Automated access can
+            conflict with a platform's own terms, and a platform can rate-limit, flag, suspend, or
+            ban an account for it. You accept that risk. aplyx isn't responsible for a third-party
+            platform's decisions, downtime, or changes that break a feature.
+          </p>
+
+          <h2>Your coding agent</h2>
+          <p>
+            The local tool drives a coding agent you install and pay for yourself (opencode, Claude
+            Code, and others). That agent and its model provider have their own terms and their own
+            costs, which are between you and them.
+          </p>
+
+          <h2>Paying for a plan</h2>
+          <p>
+            Paid plans are monthly subscriptions that renew automatically until you cancel. Cancel
+            any time from your account. <strong>No refunds once a payment is made.</strong> If you
+            cancel before your next billing date, you keep full access to the tier you paid for
+            until the end of that paid period, then the account drops to the free tier. Prices can
+            change with notice before your next renewal. You're responsible for any taxes.
+          </p>
+
+          <h2>Free and open source</h2>
+          <p>
+            The local aplyx software is open source under the license in its
+            <a class="link" href="https://github.com/keshm2/aplyx" target="_blank" rel="noopener">public repository</a>.
+            That license governs the code itself. These terms govern the hosted service, this
+            website, the aplyx name and branding, and your use of all of it together.
+          </p>
+
+          <h2>The tool is provided as-is</h2>
+          <p>
+            aplyx is offered without warranties. It's early software that automates a
+            consequential, real-world task, and things can go wrong. To the extent the law allows,
+            aplyx isn't liable for indirect or consequential losses (a missed opportunity, a
+            damaged relationship with an employer, a flagged account), and total liability for
+            anything is capped at what you paid in the twelve months before the claim, or USD 100
+            if you paid nothing.
+          </p>
+
+          <h2>Ending it</h2>
+          <p>
+            You can stop using aplyx and delete your account any time. aplyx can suspend or close
+            an account that breaks these terms or creates legal or safety risk. Local software you've
+            already downloaded keeps working under its open-source license regardless.
+          </p>
+
+          <h2>Contact</h2>
+          <p>
+            Email <a class="link" href="mailto:support@aplyx.app">support@aplyx.app</a>, or open an
+            issue on <a class="link" href="https://github.com/keshm2/aplyx" target="_blank" rel="noopener">GitHub</a>.
+          </p>
+        </div>
+
+        <div class="prose os-panel" data-view-panel="legal">
+          <div class="legal-disclaimer">
+            This is the same agreement as the plain-language version above, written out formally
+            and numbered for reference. It was drafted by aplyx's maintainer, not by an attorney,
+            and has not had a legal review. aplyx is currently operated by an individual (a sole
+            proprietor, not yet a registered company); see <code>docs/legal.md</code> in the
+            repository for that context. Two items in Section 17 (the governing state and, if one
+            is formed, the operating entity) are set to the maintainer's current state of residence
+            and must be confirmed before any paid plan launches. Nothing here is a guarantee of
+            compliance with any specific law; if that matters for your situation, consult your own
+            counsel.
+          </div>
+
+          <h2>1. Agreement to these terms</h2>
+          <p>
+            <strong>1.1.</strong> These Terms of Service ("Terms") are a binding agreement between
+            you and the individual operator of the aplyx project ("aplyx", "we", "us", or "our"),
+            a sole proprietor as of the date at the top of this page. They govern your access to
+            and use of the Services defined in Section 3.
+          </p>
+          <p>
+            <strong>1.2.</strong> By downloading, installing, accessing, or using any part of the
+            Services, or by clicking to accept these Terms where that option is presented, you
+            agree to these Terms and to the <a class="link" href="privacy.html">Privacy Policy</a>,
+            which is incorporated by reference. If you do not agree, do not use the Services.
+          </p>
+          <p>
+            <strong>1.3.</strong> If you use the Services on behalf of another person or an
+            organization, you represent that you are authorized to bind that person or organization
+            to these Terms, and "you" refers to that person or organization.
+          </p>
+
+          <h2>2. Definitions</h2>
+          <p><strong>2.1.</strong> "Local Software" means the aplyx command-line tool and the aplyx desktop application that you install and run on your own device.</p>
+          <p><strong>2.2.</strong> "Extension" means the aplyx browser extension.</p>
+          <p><strong>2.3.</strong> "Site" means the website at aplyx.app and its subdomains.</p>
+          <p><strong>2.4.</strong> "Hosted Account" means an authenticated aplyx account whose profile and resume data are stored on our infrastructure, in either the free hosted tier or a paid plan.</p>
+          <p><strong>2.5.</strong> "Paid Plan" means a paid subscription tier to the Hosted Account service. No Paid Plan is available as of the date at the top of this page.</p>
+          <p><strong>2.6.</strong> "Services" means the Local Software, the Extension, the Site, and the Hosted Account service, collectively.</p>
+          <p><strong>2.7.</strong> "Your Content" means the profile information, answers, resume files, cover-letter inputs, job-search preferences, credentials, and other materials you provide to or through the Services.</p>
+          <p><strong>2.8.</strong> "Coding Agent" means the third-party AI coding assistant (for example opencode or Claude Code) that you install and configure, and which the Local Software drives to perform certain steps.</p>
+          <p><strong>2.9.</strong> "Third-Party Platform" means any job board, applicant tracking system, employer site, model provider, or other third-party service the Services interact with, including Greenhouse, Lever, Ashby, Workday, Discord, and Google Sheets.</p>
+
+          <h2>3. The Services</h2>
+          <p>
+            <strong>3.1. Local Software.</strong> The Local Software runs on your device. On your
+            instruction, it searches configured job boards, applies a deterministic fit gate to
+            each posting, tailors your resume per posting via your Coding Agent, and fills out and,
+            where your configuration allows, submits job applications. Postings or steps it cannot
+            complete confidently are placed in a review queue for your decision.
+          </p>
+          <p>
+            <strong>3.2. Extension.</strong> The Extension activates only on supported
+            application-form pages (Greenhouse, Lever, Ashby, Workday) and only after it detects a
+            fillable form. It offers to autofill fields from your profile and to run a fit check.
+            It never submits a form on your behalf.
+          </p>
+          <p>
+            <strong>3.3. Hosted Account.</strong> A Hosted Account stores your profile and resume
+            file(s) on our infrastructure so they are available across your devices. As of the date
+            at the top of this page, no job searching, tailoring, or application submission is
+            performed by our infrastructure; those steps still run on your device via your Coding
+            Agent. If a fully server-run mode is introduced, it will be described here and in the
+            Privacy Policy, with a separate consent step, before it applies to you.
+          </p>
+          <p>
+            <strong>3.4. Paid Plans.</strong> Paid Plans, when available, add server-side
+            capabilities (for example server-run application review, and later automated applying)
+            and per-day application caps that vary by tier. Section 9 governs billing for Paid
+            Plans.
+          </p>
+          <p>
+            <strong>3.5. Open-source components.</strong> The Local Software is made available as
+            open source under the license stated in its public repository. That license, and not
+            these Terms, governs your rights to copy, modify, and redistribute that source code.
+            These Terms govern your use of the Hosted Account service, the Site, the aplyx name and
+            marks, and the Services as an integrated offering. Where the open-source license and
+            these Terms conflict as to the source code itself, the open-source license controls for
+            the source code.
+          </p>
+          <p>
+            <strong>3.6. Changes to the Services.</strong> We may add, change, suspend, or
+            discontinue any part of the Services at any time. For a material reduction of a feature
+            you are actively paying for, Section 16.3 applies.
+          </p>
+          <p>
+            <strong>3.7. Beta and pre-release features.</strong> Features labeled beta, preview,
+            experimental, or similar are provided for evaluation, may change or be withdrawn, and
+            are excluded from any service commitment.
+          </p>
+
+          <h2>4. Eligibility and accounts</h2>
+          <p><strong>4.1.</strong> You must be at least 16 years old and have the legal capacity to enter a binding contract in your jurisdiction to use the Services. The Services are not directed to children under 16.</p>
+          <p><strong>4.2.</strong> A Hosted Account is for one individual. You may not share account credentials, let another person use your account, or maintain more than one account without our consent.</p>
+          <p><strong>4.3.</strong> You are responsible for keeping your credentials confidential and for all activity under your account. Notify us promptly at <a class="link" href="mailto:support@aplyx.app">support@aplyx.app</a> if you believe your account has been accessed without authorization.</p>
+          <p><strong>4.4.</strong> Account registration and authentication are handled through our authentication provider. You must provide accurate information and keep it current.</p>
+
+          <h2>5. Automated application submission</h2>
+          <p>
+            <strong>5.1. Authorization.</strong> By configuring the Services to submit applications
+            and by initiating a run, you authorize aplyx, acting as your agent and on your behalf,
+            to complete and submit job applications to the employers and postings your configuration
+            targets, using Your Content and, where you have provided them, your Third-Party Platform
+            credentials.
+          </p>
+          <p>
+            <strong>5.2. Scope of authorization.</strong> That authorization is limited to job
+            applications and directly related steps (creating an application account with an ATS
+            where required, responding to a verification prompt you supply, and recording the
+            outcome). It does not extend to any other action on a Third-Party Platform.
+          </p>
+          <p>
+            <strong>5.3. Your control.</strong> You control which boards, roles, levels, and
+            locations are targeted, the per-run and per-day caps (subject to a hard maximum of 25
+            applications per day), and whether submission is automatic or gated behind the review
+            queue. You may stop a run at any time. You are responsible for the configuration you
+            set.
+          </p>
+          <p>
+            <strong>5.4. No guarantee of outcome or delivery.</strong> aplyx does not guarantee
+            that any application was received by an employer, was submitted before a deadline, was
+            free of errors, targeted an appropriate role, or will lead to any response, interview,
+            or offer. Automated form filling can misinterpret a field, and Third-Party Platforms
+            can reject, drop, or fail to record a submission for reasons outside our control.
+          </p>
+          <p>
+            <strong>5.5. Your review obligation.</strong> You are responsible for reviewing the
+            review queue, your application history, and any outcomes, and for correcting or
+            following up on anything that went wrong. aplyx's review queue and logs are provided to
+            help you do this; they are not a substitute for your own oversight.
+          </p>
+
+          <h2>6. Your Content and your responsibilities</h2>
+          <p>
+            <strong>6.1. Accuracy and truthfulness.</strong> You represent and warrant that Your
+            Content, including every statement in your profile, resume, and application answers, is
+            accurate, current, and truthful, and that you have the right to submit it and to apply
+            to the roles you target.
+          </p>
+          <p>
+            <strong>6.2. Ownership.</strong> You retain all rights in Your Content. You are solely
+            responsible for it.
+          </p>
+          <p>
+            <strong>6.3. License to operate the Services.</strong> You grant aplyx a non-exclusive,
+            worldwide, royalty-free license to host, store, reproduce, transmit, display, and
+            process Your Content, and to create tailored derivatives of it (for example a
+            per-posting resume or cover letter), solely to provide and maintain the Services for
+            you and to submit applications on your behalf as described in Section 5. This license
+            ends when the relevant content is deleted, except for copies retained as required by
+            law or in routine backups pending deletion.
+          </p>
+          <p>
+            <strong>6.4. Credentials.</strong> If you provide Third-Party Platform credentials
+            (for example an ATS account login), you authorize aplyx to store them encrypted and to
+            use them to act on your behalf within the scope of Section 5.2. You represent that you
+            are permitted to provide those credentials for this purpose.
+          </p>
+          <p>
+            <strong>6.5. Prohibited content and conduct.</strong> You will not use the Services to:
+          </p>
+          <p>
+            <strong>6.5.1.</strong> misrepresent your identity, experience, education, work
+            authorization, or any other qualification, or submit an application for or as another
+            person;
+          </p>
+          <p><strong>6.5.2.</strong> submit applications you do not genuinely intend, in volume or manner that would constitute spam or abuse of an employer or a Third-Party Platform;</p>
+          <p><strong>6.5.3.</strong> violate any applicable law, any Third-Party Platform's terms, or any third party's rights;</p>
+          <p><strong>6.5.4.</strong> upload malware, attempt to gain unauthorized access to any system, probe or test the vulnerability of any system without authorization, or interfere with the integrity or performance of the Services;</p>
+          <p><strong>6.5.5.</strong> reverse engineer, decompile, or circumvent any technical limitation of the Hosted Account service (this does not restrict rights you have in the open-source Local Software under its license), or resell, sublicense, or provide the Hosted Account service to third parties;</p>
+          <p><strong>6.5.6.</strong> scrape, replicate, or build a competing dataset from the Site or the Hosted Account service, or use automated means to access them other than the Services themselves;</p>
+          <p><strong>6.5.7.</strong> use the Services in a way that exceeds a plan's stated limits, or share one account's paid capabilities with others.</p>
+          <p>
+            <strong>6.6. Enforcement.</strong> We may remove content or suspend access that we
+            reasonably believe violates this Section, with or without notice depending on severity.
+          </p>
+
+          <h2>7. Third-Party Platforms and services</h2>
+          <p>
+            <strong>7.1. Independent services.</strong> The Services interact with Third-Party
+            Platforms that we do not control. Your use of a Third-Party Platform is subject to that
+            platform's own terms and privacy policy, and is between you and that platform.
+          </p>
+          <p>
+            <strong>7.2. Automated access risk.</strong> Automated searching, form filling, or
+            submission can conflict with a Third-Party Platform's terms of use or technical
+            controls. A Third-Party Platform may rate-limit, challenge, flag, suspend, or terminate
+            an account, including your own account with that platform, in response. You acknowledge
+            and accept this risk. aplyx is not responsible for a Third-Party Platform's terms,
+            decisions, enforcement actions, downtime, data, or changes, or for any consequence to
+            your standing with a Third-Party Platform or an employer.
+          </p>
+          <p>
+            <strong>7.3. Coding Agent and model providers.</strong> You are responsible for
+            obtaining, configuring, and paying for your Coding Agent and its underlying model
+            provider. Their terms, usage limits, availability, and output quality are outside our
+            control. Resume and job-description text is sent to your model provider as an inherent
+            part of tailoring, as described in the Privacy Policy.
+          </p>
+          <p>
+            <strong>7.4. Payment processor.</strong> Paid Plan payments, when available, are
+            processed by a third-party payment processor (Stripe). Your payment is also subject to
+            the processor's terms. We do not receive or store full card numbers.
+          </p>
+          <p>
+            <strong>7.5. Opt-in integrations.</strong> Discord status updates and a Google Sheets
+            sync are optional, off by default, and send only the data described in the Privacy
+            Policy to a destination you configure.
+          </p>
+          <p>
+            <strong>7.6. No endorsement.</strong> References to any company, job board, or ATS on
+            the Site or in the Services identify compatibility only and do not imply any
+            partnership, sponsorship, or endorsement in either direction.
+          </p>
+
+          <h2>8. Acceptable use of the Site and infrastructure</h2>
+          <p><strong>8.1.</strong> You will not overload, disrupt, or attempt to gain unauthorized access to the Site or the Hosted Account infrastructure, or use it other than through the interfaces we provide.</p>
+          <p><strong>8.2.</strong> You will not use the Services to store or transmit content that is unlawful, infringing, or that you do not have the right to provide.</p>
+          <p><strong>8.3.</strong> We may set and enforce technical limits (rate limits, storage limits, per-day application caps) and may throttle or suspend activity that threatens the stability, security, or cost structure of the Services.</p>
+
+          <h2>9. Fees, billing, and refunds</h2>
+          <p>
+            <strong>9.1. Free tiers.</strong> The Local Software, the Extension, and the free
+            Hosted Account tier are provided at no charge. We may change what the free tier
+            includes; we will not begin charging you for something without your express agreement
+            to a Paid Plan.
+          </p>
+          <p>
+            <strong>9.2. Paid Plans.</strong> No Paid Plan is available as of the date at the top
+            of this page. When Paid Plans launch, this Section governs them and the pricing page
+            will state the then-current tiers and prices.
+          </p>
+          <p>
+            <strong>9.3. Subscription and auto-renewal.</strong> A Paid Plan is a subscription
+            billed in advance on a recurring monthly cycle. It renews automatically for successive
+            monthly periods at the then-current price until you cancel. By subscribing, you
+            authorize us and our payment processor to charge your payment method for each renewal.
+          </p>
+          <p>
+            <strong>9.4. Cancellation.</strong> You may cancel a Paid Plan at any time from your
+            account settings. Cancellation stops future renewals; it does not trigger a refund of
+            the current period.
+          </p>
+          <p>
+            <strong>9.5. Refund policy.</strong> All payments are final and non-refundable once
+            made, except where a refund is required by applicable law. If you cancel before your
+            next billing date, your paid tier access continues for the remainder of the paid
+            period you have already been charged for, and the account then reverts to the free
+            hosted tier. We do not provide prorated refunds, credits for unused time, or refunds
+            for partial billing periods, downgrades, or periods during which you did not use the
+            Services.
+          </p>
+          <p>
+            <strong>9.6. Price changes.</strong> We may change Paid Plan prices. A price change
+            takes effect at your next renewal after we give you notice by email or in the
+            application at least 14 days beforehand. If you do not agree to the new price, cancel
+            before that renewal.
+          </p>
+          <p>
+            <strong>9.7. Taxes.</strong> Stated prices exclude taxes. You are responsible for any
+            sales, use, VAT, GST, or similar taxes on your subscription, except taxes on our net
+            income. Where we are required to collect a tax, it will be added at checkout.
+          </p>
+          <p>
+            <strong>9.8. Failed payments.</strong> If a renewal charge fails, we may retry it and
+            may suspend Paid Plan capabilities until payment succeeds. An account with an unpaid
+            balance for more than 14 days may be downgraded to the free tier.
+          </p>
+          <p>
+            <strong>9.9. Chargebacks.</strong> If you dispute a charge with your bank instead of
+            contacting us first, we may suspend or terminate your account. Contact
+            <a class="link" href="mailto:support@aplyx.app">support@aplyx.app</a> and we will work
+            to resolve a billing problem.
+          </p>
+          <p>
+            <strong>9.10. Promotions.</strong> Trials, discounts, or promotional pricing apply only
+            on their stated terms, may be revoked for abuse, and convert to the standard price at
+            the end of the promotional period unless you cancel.
+          </p>
+
+          <h2>10. Intellectual property</h2>
+          <p>
+            <strong>10.1. Our rights.</strong> Except for the open-source Local Software under its
+            own license, and except for Your Content, all rights in the Services, including the
+            Hosted Account service, the Site, and their design, text, graphics, and compilation,
+            are owned by aplyx or its licensors and are protected by intellectual-property laws.
+          </p>
+          <p>
+            <strong>10.2. Limited license to you.</strong> Subject to these Terms, we grant you a
+            personal, non-exclusive, non-transferable, revocable license to access and use the
+            Hosted Account service and the Site for your own job search. All rights not expressly
+            granted are reserved.
+          </p>
+          <p>
+            <strong>10.3. Trademarks.</strong> "aplyx", the aplyx logo, and related marks are marks
+            of the aplyx operator. You may not use them without prior written permission, except to
+            refer accurately to the Services. Marks of third parties referenced in the Services
+            belong to their respective owners.
+          </p>
+          <p>
+            <strong>10.4. Feedback.</strong> If you send us suggestions or feedback, you grant us a
+            perpetual, irrevocable, royalty-free license to use it without restriction or
+            obligation to you.
+          </p>
+          <p>
+            <strong>10.5. Copyright complaints.</strong> If you believe content on the Site or in
+            the Hosted Account service infringes your copyright, contact
+            <a class="link" href="mailto:support@aplyx.app">support@aplyx.app</a> with the material
+            at issue, its location, your contact information, and a statement of your good-faith
+            belief and authority. We will respond to valid notices and may remove the material.
+          </p>
+
+          <h2>11. Privacy</h2>
+          <p>
+            <strong>11.1.</strong> Our handling of personal information is described in the
+            <a class="link" href="privacy.html">Privacy Policy</a>. By using the Services you
+            consent to that handling.
+          </p>
+
+          <h2>12. Disclaimers</h2>
+          <p>
+            <strong>12.1.</strong> THE SERVICES ARE PROVIDED "AS IS" AND "AS AVAILABLE", WITH ALL
+            FAULTS AND WITHOUT WARRANTY OF ANY KIND. TO THE FULLEST EXTENT PERMITTED BY LAW, APLYX
+            DISCLAIMS ALL WARRANTIES, EXPRESS, IMPLIED, OR STATUTORY, INCLUDING MERCHANTABILITY,
+            FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT.
+          </p>
+          <p>
+            <strong>12.2.</strong> APLYX DOES NOT WARRANT THAT THE SERVICES WILL BE UNINTERRUPTED,
+            TIMELY, SECURE, OR ERROR-FREE; THAT ANY APPLICATION WILL BE DELIVERED, RECEIVED,
+            RECORDED, OR CONSIDERED; THAT AUTOMATED FORM FILLING OR FIT EVALUATION WILL BE ACCURATE;
+            OR THAT USE OF THE SERVICES WILL RESULT IN ANY JOB, INTERVIEW, OR OFFER.
+          </p>
+          <p>
+            <strong>12.3.</strong> APLYX IS NOT RESPONSIBLE FOR THE ACTS, OMISSIONS, TERMS, OR
+            DECISIONS OF ANY THIRD-PARTY PLATFORM, EMPLOYER, CODING AGENT, MODEL PROVIDER, OR
+            PAYMENT PROCESSOR, OR FOR ANY CONSEQUENCE TO YOUR ACCOUNTS OR STANDING WITH THEM.
+          </p>
+          <p>
+            <strong>12.4.</strong> Some jurisdictions do not allow the exclusion of certain
+            warranties, so some of the above may not apply to you. In that case, such warranties
+            are limited to the minimum scope and duration required by law.
+          </p>
+
+          <h2>13. Limitation of liability</h2>
+          <p>
+            <strong>13.1.</strong> TO THE FULLEST EXTENT PERMITTED BY LAW, APLYX WILL NOT BE LIABLE
+            FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY, OR PUNITIVE DAMAGES, OR
+            FOR ANY LOSS OF PROFITS, REVENUE, DATA, GOODWILL, EMPLOYMENT OR BUSINESS OPPORTUNITY, OR
+            REPUTATION, ARISING OUT OF OR RELATING TO THE SERVICES OR THESE TERMS, WHETHER IN
+            CONTRACT, TORT, OR OTHERWISE, EVEN IF APLYX HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH
+            DAMAGES.
+          </p>
+          <p>
+            <strong>13.2.</strong> APLYX'S TOTAL AGGREGATE LIABILITY FOR ALL CLAIMS ARISING OUT OF
+            OR RELATING TO THE SERVICES OR THESE TERMS WILL NOT EXCEED THE GREATER OF (A) THE TOTAL
+            AMOUNT YOU PAID APLYX IN THE TWELVE MONTHS BEFORE THE EVENT GIVING RISE TO THE CLAIM, OR
+            (B) USD 100.
+          </p>
+          <p>
+            <strong>13.3.</strong> These limitations apply to the maximum extent permitted by law
+            and form an essential basis of the bargain between you and aplyx. Some jurisdictions do
+            not allow certain limitations, so parts of this Section may not apply to you; in that
+            case aplyx's liability is limited to the least amount the law permits.
+          </p>
+          <p>
+            <strong>13.4.</strong> Nothing in these Terms excludes or limits liability that cannot
+            be excluded or limited under applicable law, including liability for fraud, gross
+            negligence, or willful misconduct.
+          </p>
+
+          <h2>14. Indemnification</h2>
+          <p>
+            <strong>14.1.</strong> You will defend, indemnify, and hold harmless aplyx and its
+            operator from and against any third-party claim, demand, loss, liability, damage, cost,
+            or expense (including reasonable legal fees) arising out of or relating to: (a) Your
+            Content; (b) your use or misuse of the Services; (c) any application submitted using
+            your account or configuration; (d) your breach of these Terms or of any law or
+            third-party right, including a Third-Party Platform's terms; or (e) a
+            misrepresentation you made to or through the Services.
+          </p>
+          <p>
+            <strong>14.2.</strong> We will notify you of any claim subject to indemnification and
+            may participate in the defense with our own counsel at our expense. You will not settle
+            any claim in a way that imposes an obligation or admission on aplyx without our prior
+            written consent.
+          </p>
+
+          <h2>15. Term and termination</h2>
+          <p><strong>15.1.</strong> These Terms apply from your first use of the Services and continue until terminated.</p>
+          <p><strong>15.2. By you.</strong> You may stop using the Services at any time. You may delete a Hosted Account by request to <a class="link" href="mailto:support@aplyx.app">support@aplyx.app</a> until a self-serve deletion option exists.</p>
+          <p><strong>15.3. By us.</strong> We may suspend or terminate your access, with notice where practicable, if you materially breach these Terms, if your use creates legal, security, or cost risk, if a Third-Party Platform or law requires it, or if we discontinue the Hosted Account service. For a discontinuation not caused by your breach, we will provide reasonable prior notice and, for a prepaid period, a prorated refund of the unused portion.</p>
+          <p><strong>15.4. Effect.</strong> On termination, your right to use the Hosted Account service and the Site ends, active runs stop, and we may delete your Hosted Account data after a reasonable period, subject to the Privacy Policy and any legal retention requirement. Local Software already installed continues to function under its open-source license.</p>
+          <p><strong>15.5. Survival.</strong> Sections 6.1–6.5, 7, 9.5, 10, 12, 13, 14, 15.4–15.5, 17, and 18 survive termination.</p>
+
+          <h2>16. Changes</h2>
+          <p><strong>16.1.</strong> We may modify these Terms. If we make a material change, we will update the date at the top and give notice by email, in the application, or by a notice on the Site at least 14 days before the change takes effect, except where an immediate change is required for legal or security reasons.</p>
+          <p><strong>16.2.</strong> Your continued use of the Services after a change takes effect is your acceptance of the revised Terms. If you do not agree, stop using the Services and, if you have a Paid Plan, cancel before the change takes effect.</p>
+          <p><strong>16.3.</strong> If we materially and permanently reduce a capability that is central to a Paid Plan you are actively paying for, and you notify us within 30 days that the reduction is unacceptable to you, we will provide a prorated refund of the unused portion of your current billing period as your sole remedy.</p>
+
+          <h2>17. Governing law and disputes</h2>
+          <p>
+            <strong>17.1. Governing law.</strong> These Terms and any dispute arising out of or
+            relating to them or the Services are governed by the laws of the State of Washington,
+            United States, without regard to its conflict-of-laws rules, and, where applicable, by
+            the federal law of the United States. The United Nations Convention on Contracts for
+            the International Sale of Goods does not apply.
+          </p>
+          <p>
+            <strong>17.2. Informal resolution first.</strong> Before filing any claim, you agree to
+            contact <a class="link" href="mailto:support@aplyx.app">support@aplyx.app</a> and
+            attempt in good faith to resolve the dispute for at least 30 days.
+          </p>
+          <p>
+            <strong>17.3. Venue.</strong> Subject to Section 17.2, the state and federal courts
+            located in the State of Washington have exclusive jurisdiction over any dispute not
+            subject to small-claims court, and you and aplyx consent to personal jurisdiction and
+            venue there. Either party may bring an individual claim in small-claims court in a
+            proper venue.
+          </p>
+          <p>
+            <strong>17.4. Jury and class-action waiver.</strong> To the extent permitted by law,
+            you and aplyx each waive any right to a jury trial, and each agrees that claims may be
+            brought only in an individual capacity and not as a plaintiff or class member in any
+            class, collective, or representative proceeding. If this waiver is unenforceable for a
+            given claim, that claim must proceed in court under Section 17.3.
+          </p>
+          <p>
+            <strong>17.5. Time limit.</strong> Any claim arising out of or relating to the Services
+            or these Terms must be filed within one year after it arises, or it is permanently
+            barred, except where applicable law prohibits a shortened limitation period.
+          </p>
+          <p>
+            <strong>17.6. Mandatory local law.</strong> If you are a consumer resident in a
+            jurisdiction whose law gives you rights that cannot be waived by contract (including
+            certain rights under the laws of your home country, state, or the EU/UK), nothing in
+            this Section deprives you of those rights or of the protection of mandatory provisions
+            of the law of your place of residence.
+          </p>
+
+          <h2>18. General</h2>
+          <p><strong>18.1. Entire agreement.</strong> These Terms and the Privacy Policy are the entire agreement between you and aplyx about the Services and supersede any prior agreement on that subject. The open-source license governs the Local Software's source code as stated in Section 3.5.</p>
+          <p><strong>18.2. Severability.</strong> If any provision is held unenforceable, it will be modified to the minimum extent necessary to make it enforceable, or severed, and the rest of the Terms remain in effect.</p>
+          <p><strong>18.3. No waiver.</strong> Our failure to enforce a provision is not a waiver of it.</p>
+          <p><strong>18.4. Assignment.</strong> You may not assign these Terms without our consent. We may assign them to a successor in connection with a reorganization, or a transfer of the aplyx project or its assets, including to an entity later formed to operate it.</p>
+          <p><strong>18.5. Force majeure.</strong> Neither party is liable for a failure or delay caused by an event beyond its reasonable control, including outages of a Third-Party Platform, network, or infrastructure provider.</p>
+          <p><strong>18.6. Notices.</strong> We may give you notice by email to your account address, by a message in the application, or by a posting on the Site. You give us notice at <a class="link" href="mailto:support@aplyx.app">support@aplyx.app</a>.</p>
+          <p><strong>18.7. Relationship.</strong> You and aplyx are independent parties. Except for the limited agency authorization in Section 5.1, these Terms create no partnership, joint venture, employment, or general agency relationship.</p>
+          <p><strong>18.8. Export and sanctions.</strong> You represent that you are not located in, and will not use the Services from, a country or by a party subject to comprehensive U.S. sanctions or trade restrictions.</p>
+          <p><strong>18.9. Headings.</strong> Headings are for convenience only and do not affect interpretation.</p>
+
+          <h2>19. Contact</h2>
+          <p>
+            <strong>19.1.</strong> Questions about these Terms, billing, or your account:
+            <a class="link" href="mailto:support@aplyx.app">support@aplyx.app</a>, or open an issue
+            or discussion on our
+            <a class="link" href="https://github.com/keshm2/aplyx" target="_blank" rel="noopener">GitHub repository</a>.
+          </p>
+        </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <span>&copy; 2026 aplyx</span>
+      <div class="nav-actions">
+        <a href="privacy.html">Privacy</a>
+        <a href="terms.html" aria-current="page">Terms</a>
+        <a href="changelog.html">Changelog</a>
+        <a href="https://github.com/keshm2/aplyx" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="site.js"></script>
+  <script type="module" src="nav-auth.js"></script>
+</body>
+</html>
