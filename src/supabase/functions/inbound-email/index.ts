@@ -7,6 +7,16 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
 const INBOUND_WEBHOOK_SECRET = Deno.env.get("INBOUND_WEBHOOK_SECRET") ?? "";
 const FORWARD_FROM = Deno.env.get("FORWARD_FROM") ?? "aplyx-mail@mail.aplyx.app";
+// Plain-forward addresses on the apex (support@aplyx.app etc.), distinct
+// from the managed ATS aliases on mail.aplyx.app below. Mail here just
+// gets relayed to a human inbox; no DB, no OTP parsing, no alias lookup.
+const SUPPORT_FORWARD_TO = Deno.env.get("SUPPORT_FORWARD_TO") ?? "";
+const SUPPORT_LOCALPARTS = new Set(
+  (Deno.env.get("SUPPORT_LOCALPARTS") ?? "support,hello,privacy,security,abuse")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean),
+);
 
 interface InboundPayload {
   type?: string;
@@ -27,6 +37,29 @@ function extractFirstTo(value: string | string[] | undefined): string {
 
 function localPart(address: string): string {
   return address.split("@")[0]?.trim().toLowerCase() ?? "";
+}
+
+function domainPart(address: string): string {
+  return address.split("@")[1]?.trim().toLowerCase() ?? "";
+}
+
+/** Relay a plain support-mailbox message to a human inbox. reply_to is
+ *  the original sender so hitting reply in that inbox goes back to them
+ *  directly, not to Resend. */
+async function forwardToInbox(to: string, fromAddress: string, subject: string, text: string, aliasAddress: string): Promise<void> {
+  if (!RESEND_API_KEY || !to) return;
+  const resp = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: FORWARD_FROM,
+      to: [to],
+      reply_to: fromAddress || undefined,
+      subject: `[${aliasAddress}] ${subject || "(no subject)"}`,
+      text: `From: ${fromAddress || "unknown"}\nTo: ${aliasAddress}\n\n${text}`,
+    }),
+  });
+  if (!resp.ok) throw new Error(`Resend forward failed: HTTP ${resp.status}`);
 }
 
 function extractOtp(text: string): string | undefined {
@@ -84,6 +117,23 @@ Deno.serve(async (req) => {
   const subject = String(payload.data?.subject ?? "").trim();
   const bodyText = String(payload.data?.text ?? payload.data?.html ?? "").trim();
   const fromAddress = String(payload.data?.from ?? "").trim();
+
+  // Plain support mailbox: relay to a human and stop. Deliberately before
+  // the managed_aliases path so support@ can never collide with an ATS
+  // alias name, and so a support message never touches inbound_emails or
+  // the OTP parser. A recipient on the apex (support@aplyx.app), not the
+  // mail.aplyx.app subdomain the ATS aliases live on.
+  if (domainPart(toAddress) === "aplyx.app" && SUPPORT_LOCALPARTS.has(alias)) {
+    if (!SUPPORT_FORWARD_TO) {
+      return serviceUnavailable("inbound-email:support-config", "SUPPORT_FORWARD_TO unset");
+    }
+    try {
+      await forwardToInbox(SUPPORT_FORWARD_TO, fromAddress, subject, bodyText, toAddress);
+    } catch (error) {
+      return serverError("inbound-email:support-forward", error);
+    }
+    return ok({ forwarded: true });
+  }
   const parsedOtp = extractOtp(`${subject}\n${bodyText}`);
   const parsedLink = extractLink(`${subject}\n${bodyText}`);
 
