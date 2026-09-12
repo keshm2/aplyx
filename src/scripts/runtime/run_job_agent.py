@@ -509,6 +509,57 @@ def _count_skipped_unfit() -> int:
     return n
 
 
+# Substrings from confirmed provider-billing failures, lowercased for a
+# case-insensitive match against the harness's own transcript. This must
+# stay conservative: a false positive here relabels a real bug as a
+# shrug-and-retry "usage limit", which is worse than the noisy alerter
+# popup it replaces. Each entry's provenance (verified 2026-09-11):
+#   - opencode: seen verbatim in this repo's own logs/session_*.log
+#     (2026-09-09 onward, this machine's real failures).
+#   - claude: grepped out of the installed Claude Code binary itself
+#     (~/.local/share/claude/versions/2.1.267) — its own error-classifier
+#     literally maps a billing_error to "usage limit reached — check
+#     plan", and separately recognizes "credit balance too low". Deliberately
+#     NOT included: "rate limited" — Claude Code classifies that as its own
+#     rate_limit case, a transient/retryable condition, not a billing wall.
+#   - codex: not installed on this machine to grep; phrase is instead taken
+#     from OpenAI's own error copy as quoted across multiple
+#     github.com/openai/codex issues and the OpenAI developer community
+#     ("You've hit your usage limit ... try again at <time>").
+#   - copilot: not installed on this machine either; taken from
+#     github.com/github/copilot-cli issue reports, which quote the CLI's own
+#     `{"code":"quota_exceeded"}` response and its "Quota exceeded" stdout
+#     line. Codex/copilot are second-hand evidence (public bug reports, not
+#     a grep of the binary or this repo's own logs) — treat a codex/copilot
+#     "usage_limited" heartbeat as less certain than an opencode/claude one
+#     until a real local failure confirms it.
+# Deliberately excluded everywhere: generic "rate limit"/"429"/"overloaded"
+# text — those are transient capacity conditions, not a billing wall, and
+# lumping them in here would hide a genuinely recurring problem from the
+# consecutive-failure alert.
+_USAGE_LIMIT_MARKERS = (
+    "insufficient balance",       # opencode
+    "usage limit reached",        # claude
+    "credit balance too low",     # claude
+    "hit your usage limit",       # codex
+    "quota_exceeded",             # copilot (error code)
+    "quota exceeded",             # copilot (stdout line)
+)
+
+
+def _session_hit_usage_limit(session_log: str) -> bool:
+    """True if this run's transcript shows a provider billing/quota wall
+    rather than a real failure. Scanned once, after the harness exits (see
+    the write_heartbeat call site) — never during the run, so this can't
+    affect run behavior, only how the resulting heartbeat is labeled."""
+    try:
+        with open(session_log, "r", encoding="utf-8", errors="replace") as fh:
+            text = fh.read().lower()
+    except OSError:
+        return False
+    return any(marker in text for marker in _USAGE_LIMIT_MARKERS)
+
+
 def _run(logs_dir: str, run_log: str, run_start: datetime) -> int:
     # --- Config validation ---------------------------------------------------
     if py_run([os.path.join("src", "scripts", "validate", "validate_local_config.py"), PROJECT_ROOT]).returncode != 0:
@@ -760,9 +811,12 @@ def _run(logs_dir: str, run_log: str, run_start: datetime) -> int:
     d_failed = after["failed"] - before["failed"]
     d_skipped = after_skipped - before_skipped
 
-    py_run([os.path.join("src", "scripts", "runtime", "write_heartbeat.py"), "--exit-code", str(run_rc),
-            "--applied", str(d_applied), "--needs-review", str(d_review),
-            "--failed", str(d_failed), "--skipped-unfit", str(d_skipped)])
+    heartbeat_args = [os.path.join("src", "scripts", "runtime", "write_heartbeat.py"), "--exit-code", str(run_rc),
+                      "--applied", str(d_applied), "--needs-review", str(d_review),
+                      "--failed", str(d_failed), "--skipped-unfit", str(d_skipped)]
+    if run_rc != 0 and _session_hit_usage_limit(session_log):
+        heartbeat_args.append("--usage-limited")
+    py_run(heartbeat_args)
 
     # --- Registry storage cap ------------------------------------------------
     py_run([os.path.join("src", "scripts", "state", "job_state.py"), "prune-jd-text"])

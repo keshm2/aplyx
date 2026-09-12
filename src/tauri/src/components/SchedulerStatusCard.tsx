@@ -30,7 +30,10 @@ export function SchedulerStatusCard({ status }: { status: SchedulerStatus }) {
         <>
           <p className="scheduler-status-last-run">
             Last run <strong>{timeAgo(hb.last_run_completed_at)}</strong>
-            {hb.last_run_exit_code !== 0 && <span className="scheduler-status-warn">, exited with an error</span>}
+            {hb.last_run_exit_code !== 0 && !hb.usage_limited && (
+              <span className="scheduler-status-warn">, exited with an error</span>
+            )}
+            {hb.usage_limited && <span>, usage limit reached</span>}
           </p>
           <div className="scheduler-status-counts">
             <span>
@@ -43,10 +46,17 @@ export function SchedulerStatusCard({ status }: { status: SchedulerStatus }) {
               <strong>{hb.last_run_counts.failed}</strong> failed
             </span>
           </div>
-          {hb.consecutive_nonzero_exits >= 3 && (
-            <p className="scheduler-status-warn scheduler-status-alert">
-              {hb.consecutive_nonzero_exits} runs in a row have failed. Check logs/run_job_agent.log.
+          {hb.usage_limited ? (
+            <p className="field-help">
+              Your coding agent's usage limit is reached. aplyx will keep retrying every {status.interval_min} min and
+              pick back up automatically once it resets.
             </p>
+          ) : (
+            hb.consecutive_nonzero_exits >= 3 && (
+              <p className="scheduler-status-warn scheduler-status-alert">
+                {hb.consecutive_nonzero_exits} runs in a row have failed. Check logs/run_job_agent.log.
+              </p>
+            )
           )}
         </>
       ) : (

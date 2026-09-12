@@ -8,6 +8,14 @@ run counter, and a consecutive-nonzero-exit counter (the restart-loop
 signal). Informational only; never blocks or fails the run: any error
 prints a warning and exits 0.
 
+--usage-limited flags a failed run whose harness transcript matched a
+known provider billing/quota wall (see run_job_agent.py's
+_session_hit_usage_limit) rather than a real bug, so the dashboard can
+say "usage limit reached" instead of surfacing the raw provider error or
+counting it toward the scary consecutive-failure alert. There's no
+per-provider reset timestamp to show (that's not a queryable number
+across harnesses), so this is a plain flag, not a countdown.
+
 Usage:
   python3 src/scripts/runtime/write_heartbeat.py --exit-code 0 \
       --applied 2 --needs-review 1 --failed 0 --skipped-unfit 5
@@ -33,6 +41,8 @@ def main(argv=None) -> int:
     parser.add_argument("--needs-review", type=int, default=0)
     parser.add_argument("--failed", type=int, default=0)
     parser.add_argument("--skipped-unfit", type=int, default=0)
+    parser.add_argument("--usage-limited", action="store_true",
+                         help="this run's failure was a provider billing/quota wall, not a real error")
     parser.add_argument("--path", default=HEARTBEAT)
     args = parser.parse_args(argv)
 
@@ -45,7 +55,16 @@ def main(argv=None) -> int:
             except (OSError, json.JSONDecodeError):
                 previous = {}
         consecutive = int(previous.get("consecutive_nonzero_exits", 0))
-        consecutive = consecutive + 1 if args.exit_code != 0 else 0
+        if args.exit_code == 0:
+            consecutive = 0
+        elif not args.usage_limited:
+            # A real failure. A usage-limited one leaves this counter
+            # frozen instead: it's not evidence of a bug, so it shouldn't
+            # feed the "N runs in a row have failed, check logs" alert,
+            # but it shouldn't quietly reset it to 0 either (that would
+            # hide a genuine failure streak sitting right before a
+            # provider outage started).
+            consecutive = consecutive + 1
         heartbeat = {
             "last_run_completed_at": datetime.datetime.now(datetime.timezone.utc)
             .isoformat(timespec="seconds"),
@@ -58,6 +77,7 @@ def main(argv=None) -> int:
             },
             "run_counter": int(previous.get("run_counter", 0)) + 1,
             "consecutive_nonzero_exits": consecutive,
+            "usage_limited": bool(args.usage_limited),
         }
         directory = os.path.dirname(os.path.abspath(args.path)) or "."
         os.makedirs(directory, exist_ok=True)

@@ -216,6 +216,14 @@ export interface SchedulerHeartbeat {
   last_run_counts: { applied: number; needs_review: number; failed: number; skipped_unfit: number };
   run_counter: number;
   consecutive_nonzero_exits: number;
+  /** True when last_run_exit_code's failure was a provider billing/quota
+   *  wall (write_heartbeat.py --usage-limited), not a real bug. Optional:
+   *  absent on heartbeats written before this field existed and on any
+   *  successful run. No reset timestamp is included — that's not a
+   *  queryable number across harnesses (see docs/hosted-paid-tier-plan.md),
+   *  so the UI shows a plain "reached, will keep retrying" state instead
+   *  of a countdown it can't honestly compute. */
+  usage_limited?: boolean;
 }
 
 export interface SchedulerStatus {
