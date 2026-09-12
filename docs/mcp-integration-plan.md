@@ -1,11 +1,12 @@
-# MCP servers in aplyx: consuming freehire, and whether aplyx should expose its own
+# MCP servers in aplyx: consuming freehire, and aplyx owning its own
 
-> **Status: design/decision doc, nothing built.** No `.mcp.json` entry, no
-> new agent-visible tool, and no aplyx-hosted MCP server exist yet. Per
-> `AGENTS.md`'s standing rule ("do not introduce a new model name, MCP
-> server, or permission surface without explicit operator approval"),
-> nothing here proceeds to code until the operator picks an option in each
-> open-question section below.
+> **Status (2026-09-12): Part 1 (freehire) approved and built — as a
+> direct API fetcher, not an MCP server. Part 2 (aplyx's own MCP server)
+> approved in direction, not yet built.** Operator approved freehire
+> conditionally ("if it gives more jobs") and confirmed Part 2 is meant
+> literally: aplyx exposing an MCP server for other AI agents to use, not
+> just a nice-to-have alternative. See each part below for what changed
+> from the original draft.
 
 ## Why this doc exists
 
@@ -132,13 +133,55 @@ specifically close the gap on boards aplyx has no path to today.
   limits, latency, or result quality against aplyx's real target list —
   this whole section is desk research from the public docs, not a spike.
 
-### Open question
+### Decision and what actually got built (2026-09-12)
 
-Do we add freehire's MCP server to `.mcp.json` now, run a scoped spike
-first (a handful of `ashby_company_slugs`-style targets, compare
-freehire's results against the existing direct fetchers before trusting it
-for iCIMS/Adzuna coverage), or hold this as a noted idea? No code changes
-happen until this is picked.
+Approved, conditional on it surfacing net-new jobs — confirmed live
+before shipping: a real `--search "software engineer intern"` call
+against freehire's public API returned a mix including `mycareersfuture`,
+`adzuna`, `whatjobs-in`, and `avature` postings alongside `ashby`/
+`greenhouse`/`workday` ones aplyx already reaches directly — genuinely new
+boards, not just duplicates of what aplyx already had.
+
+**Built as a direct API fetcher, not an MCP server** — `.mcp.json` was
+never touched. freehire's own docs frame the MCP server as the
+integration path, but aplyx's own established pattern for exactly this
+shape of source (a company-agnostic aggregator: see Muse/Amazon/Oracle)
+is a small deterministic Python helper called directly by `job-scraper`,
+not an agent-driven MCP tool call — this is a plain data fetch with no
+judgment involved, so the MCP layer would have added indirection without
+benefit. `src/scripts/jobs/fetch_freehire_listings.py`, wired into
+`src/agents/bodies/job-scraper.md` as step 3l, toggled via `"freehire"`
+in `targets.json` "boards" (same convention as amazon/apple/muse).
+
+**Two documented API filters turned out broken when tested live**:
+`seniority=intern` is silently ignored (`ignored_params` in the response)
+and ties to `q` return zero results; `is_tech=true` per the docs' stated
+boolean type also zeroes results (`is_tech=tech`, the enrichment field's
+own string value, does work, but was left unused to avoid unverified
+narrowing away from aplyx's security/network role_keywords). The fetcher
+instead sends the same `--search` query job-scraper already builds for
+role/level prefiltering (step 0/8) as freehire's real `q` full-text param
+— confirmed this alone returns well-targeted, correctly
+`enrichment.seniority`-tagged results without needing the broken filters.
+
+**Source attribution, the operator's explicit condition**: freehire's own
+response already tags each posting with the real underlying board in its
+`source` field (`workday`, `ashby`, `greenhouse`, `adzuna`, `avature`,
+`mycareersfuture`, etc.) — confirmed live, not assumed. The fetcher passes
+that value straight through as aplyx's own canonical `source`; the
+literal string `"freehire"` is never written anywhere (registry, Discord
+report, applied_jobs.json), only used as a defensive fallback if a
+response ever omits the field.
+
+**Dedup**: no new logic needed, as the "Part 1: freehire as a source"
+analysis above predicted. freehire preserves the real employer ATS URL
+(appending only `?utm_source=freehire.me`), and `normalize_url()` already
+strips `utm_*` params — so a posting also reachable through a direct
+fetcher (e.g. a company in both `greenhouse_company_slugs` and freehire's
+coverage) produces the identical `job_key` from either source. The
+natural-key fallback remains the safety net for cases where it doesn't
+(freehire-only postings, or a URL shape normalize_url doesn't fully
+collapse).
 
 ## Part 2: should aplyx expose its own MCP server?
 
@@ -192,8 +235,61 @@ fields. If write tools are wanted later, that needs its own design pass
 (confirmation flow, rate limiting, audit trail) before it's safe to ship,
 not a checkbox added to the read-only server.
 
-### Open question
+### Decision (2026-09-12) and what got built
 
-Build the read-only version now, or hold this as a noted idea? If yes:
-does it ship as a feature of the desktop app (bundled, started alongside
-it) or a standalone binary a user runs separately? Not decided here.
+Approved, and confirmed the operator means this literally: an MCP server
+aplyx owns, for other AI agents (any MCP client — Claude Desktop, Claude
+Code, Cursor, etc.) to use directly, not just a hypothetical alternative
+to the freehire discussion. Built the read-only version as scoped above —
+write tools (`approve_submit`, `dismiss_queue_entry`, triggering a run)
+stay explicitly out, per the safety reasoning above, until they get their
+own design pass.
+
+`src/mcp-server/` — a new npm-workspace package (`@aplyx/mcp-server`),
+depending on `@aplyx/core` the same way the Tauri bridge and TUI already
+do (no new business logic, just tool wrappers over existing functions:
+`loadState`, `isResolved`, `registryByJobId`, `listResumeFiles`,
+`getSchedulerStatus`). Ships as a standalone local stdio server (`bin:
+aplyx-mcp`) rather than bundled into the desktop app — an MCP client
+launches it directly, independent of whether the desktop app is running.
+Smoke-tested live via a real stdio JSON-RPC handshake against the
+operator's actual checkout: `tools/list` and four `tools/call`s round-
+tripped correctly, including `get_scheduler_status` correctly surfacing
+the `usage_limited: true` flag from the still-ongoing OpenCode balance
+issue.
+
+**Tools exposed** (all read-only, all take an optional `root` argument,
+default `$APLYX_ROOT` then auto-detection):
+
+| Tool | Returns |
+|---|---|
+| `list_review_queue` | Pending (unresolved) review-queue entries |
+| `list_applied_jobs` | Applied-jobs history, optionally filtered by status |
+| `get_pipeline_status` | Registry breakdown by fit-gate outcome |
+| `get_job_detail` | One job's registry record by `job_id` |
+| `get_scheduler_status` | Scheduler heartbeat, incl. `usage_limited` |
+| `list_resumes` | Base resume files + conversion status |
+
+**Wiring it up to a client** — nothing in aplyx auto-registers this; a
+user adds it to their own MCP client config, e.g. Claude Code's
+`.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "aplyx": {
+      "command": "node",
+      "args": ["/absolute/path/to/aplyx/src/mcp-server/dist/index.js"],
+      "env": { "APLYX_ROOT": "/absolute/path/to/aplyx" }
+    }
+  }
+}
+```
+
+**Not done in this pass**: no `docs/SETUP.md` walkthrough for end users,
+no packaging/publishing (it currently only runs from a built checkout,
+`npm run build --workspace=@aplyx/mcp-server`), and no automated tests —
+consistent with this repo's existing convention for thin API-wrapper
+scripts (verified live instead; see `fetch_freehire_listings.py`'s own
+docstring for the same posture). Add these if this is meant to reach
+users beyond the operator's own checkout.

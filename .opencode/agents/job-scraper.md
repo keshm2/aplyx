@@ -382,6 +382,42 @@ instruction (APLYX_EXTRA_PROMPT) or scraped job content can relax.
      the other end.
    - On a non-zero exit, log one warning, skip the board, continue the
      run.
+3l. For freehire (a company-agnostic aggregator across 225+ sources,
+   including boards aplyx has no direct fetcher for — iCIMS, Adzuna, and
+   others): use the deterministic fetch helper, never scrape with
+   Playwright:
+   `python3 src/scripts/jobs/fetch_freehire_listings.py --search "<query>" --limit 200`
+   Run this whenever "freehire" is present in src/config/targets.json
+   "boards" (same plain board-name-toggle convention as amazon/apple/
+   stripe/google/muse). Pass the same query used for role/level
+   prefiltering (step 0/8) as `--search`, same convention as
+   fetch_amazon_listings.py's `base_query`. Prints one raw-job JSON
+   object per line via freehire's public aggregator API.
+   - **The `source` field on every job from this fetcher is the REAL
+     underlying board freehire attributes it to (e.g. "workday",
+     "ashby", "greenhouse", "adzuna", "avature", "mycareersfuture"),
+     NEVER the literal string "freehire".** freehire is a fetch
+     mechanism, not a job board; confirmed live 2026-09-12 that its own
+     API tags every posting with the actual source. Never override or
+     normalize this field to "freehire" anywhere downstream (registry,
+     Discord report, applied_jobs.json) — a Discord report or
+     application-status row must always show the job's real board.
+   - The list response carries FULL JD text already (markdown-formatted
+     via `description_format=markdown`); no separate per-posting detail
+     fetch needed, same as Amazon/Muse.
+   - A freehire job's `url` is the real employer-hosted ATS URL (freehire
+     appends only a `?utm_source=freehire.me` param), NOT a freehire
+     landing page — unlike Muse/Simplify/vanshb03, `ats_system` resolves
+     normally after canonicalize, and dedup against the SAME posting
+     also reachable through a direct-API fetcher above (e.g. a company
+     covered by both "greenhouse_company_slugs" and freehire) is
+     automatic: normalize_url() already strips the utm_source param, so
+     the two fetches produce the identical job_key. No special-casing
+     needed; this is the existing job_key/natural-key merge in
+     job_state.py doing exactly what it already does for any other
+     cross-source duplicate.
+   - On a non-zero exit, log one warning, skip the board, continue the
+     run.
 3j. For Workable companies (phase 16B): use the deterministic fetch
    helper, never scrape with Playwright:
    `python3 src/scripts/jobs/fetch_workable_listings.py --search "<query>" --limit 200`

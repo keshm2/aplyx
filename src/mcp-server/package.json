@@ -1,0 +1,31 @@
+{
+  "name": "@aplyx/mcp-server",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "Read-only local MCP server exposing an aplyx checkout's pipeline state (review queue, applied jobs, registry breakdown, scheduler status, resumes) to any MCP client. No mutating tools (approve_submit, dismiss_queue_entry, triggering a run) are exposed here; see docs/mcp-integration-plan.md for why.",
+  "bin": {
+    "aplyx-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@aplyx/core": "file:../core",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0"
+  }
+}

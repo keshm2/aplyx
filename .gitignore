@@ -120,6 +120,10 @@ system_architecture.md
 /src/core/node_modules/
 /src/core/dist/
 
+# Read-only local MCP server package build artifacts (src/mcp-server)
+/src/mcp-server/node_modules/
+/src/mcp-server/dist/
+
 # Phase 17: hosted worker package build artifacts (src/worker)
 /src/worker/node_modules/
 /src/worker/dist/

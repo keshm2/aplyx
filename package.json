@@ -8,7 +8,8 @@
     "src/tui",
     "src/tauri",
     "src/worker",
-    "src/extension"
+    "src/extension",
+    "src/mcp-server"
   ],
   "engines": {
     "node": ">=22"
